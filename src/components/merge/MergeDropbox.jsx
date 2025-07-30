@@ -1,0 +1,90 @@
+import React, { useRef, useState } from "react";
+
+export default function MergeDropbox({ files=[], onFilesChange }) {
+  const inputRef = useRef(null);
+  const [dragActive, setDragActive] = useState(false);
+
+
+  const handleFiles = (fileList) => {
+  console.log("check filelist", fileList)
+
+  const imageFiles = Array.from(fileList).filter((file) =>
+    file.type.startsWith("image/")
+  );
+
+  console.log("check imageFiles", imageFiles);
+
+  const wrappedFiles = imageFiles.map((file) => ({
+    id: `${file.name}-${Date.now()}-${Math.random()}`,
+    file,
+    description: "", 
+    video: "",
+  }));
+
+  console.log("check wrappedFiles", wrappedFiles);
+
+  if (wrappedFiles.length > 0) {
+    const updatedFiles = [...files, ...wrappedFiles];
+    console.log("check updatedFiles", updatedFiles);
+    onFilesChange?.(updatedFiles);
+  }
+};
+
+  const handleDrag = (e, isActive) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(isActive);
+  };
+
+  const handleDrop = (e) => {
+    handleDrag(e, false);
+    if (e.dataTransfer.files?.length > 0) {
+      handleFiles(e.dataTransfer.files);
+      e.dataTransfer.clearData();
+    }
+  };
+
+  const handleChange = (e) => {
+    if (e.target.files?.length > 0) {
+      handleFiles(e.target.files);
+      e.target.value = "";
+    }
+  };
+
+  const openFileDialog = () => inputRef.current?.click();
+
+  return (
+    <div
+      className={`relative border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors
+        ${
+          dragActive
+            ? "border-primary bg-muted"
+            : "border-foreground bg-transparent"
+        }
+        flex flex-col items-center justify-center text-center
+        min-h-[200px] min-w-[528px]
+      `}
+      onClick={openFileDialog}
+      onDragEnter={(e) => handleDrag(e, true)}
+      onDragOver={(e) => handleDrag(e, true)}
+      onDragLeave={(e) => handleDrag(e, false)}
+      onDrop={handleDrop}
+    >
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        ref={inputRef}
+        onChange={handleChange}
+        className="hidden"
+      />
+      <p className="text-muted-foreground select-none">
+        Drag & drop images here or click to browse
+      </p>
+
+      {dragActive && (
+        <div className="absolute inset-0 bg-foreground opacity-3 rounded-lg pointer-events-none" />
+      )}
+    </div>
+  );
+}
