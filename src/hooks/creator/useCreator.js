@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useStorylineChat } from "./useStorylineChat";
 import { useImageSequencer } from "./useImageSequencer";
+import { usePreviewSelector } from "./usePreviewSelector";
 import { saveTranscript } from "@/services/chat";
-import { uploadImages } from "@/services/images";
+import { generatePreviewVideos, uploadImages } from "@/services/images";
 import { toast } from "react-toastify";
 import { createSession, getSession } from "@/services/chat";
 import { convertGCPImages, convertTranscript } from "../utils/helper";
@@ -13,6 +14,7 @@ export function useCreator() {
 
   const storylineChat = useStorylineChat();
   const imageSequencer = useImageSequencer();
+  const previewSelector = usePreviewSelector();
   const [loading, setLoading] = useState(false);
 
   const uploadTranscript = async (messages) => {
@@ -24,7 +26,7 @@ export function useCreator() {
   };
 
   const handleNext = async () => {
-    if (step < 2) {
+    console.log("check step", step);
       if (step === 0) {
         const res = await uploadTranscript(storylineChat.messages);
 
@@ -38,15 +40,20 @@ export function useCreator() {
           toast.error("Failed to save transcript.");
         }
       } else if (step === 1) {
-
         setLoading(true);
 
         try {
-          const res = await uploadImages(imageSequencer.images);
+          const imageRes = await uploadImages(imageSequencer.images);
 
-          imageSequencer.setImages(res.images);
+          imageSequencer.setImages(imageRes.images);
 
-          if (res?.success) {
+          const previewRes = await generatePreviewVideos();
+
+          console.log("check preview videos", previewRes);
+
+          previewSelector.setPreviewVideos(previewRes.videoProviders);
+
+          if (previewRes?.success) {
             toast.success("Successfully uploaded images!");
             setDirection(1);
             setStep((prev) => prev + 1);
@@ -58,8 +65,10 @@ export function useCreator() {
         } finally {
           setLoading(false);
         }
+      } else if (step === 2) {
+        setDirection(1);
+        setStep((prev) => prev + 1);
       }
-    }
   };
 
   const handlePrev = () => {
@@ -119,6 +128,7 @@ export function useCreator() {
     handlePrev,
     storylineChat,
     imageSequencer,
+    previewSelector,
     loading,
   };
 }

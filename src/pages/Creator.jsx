@@ -6,6 +6,7 @@ import ImageSequencer from "@/components/creator/ImageSequencer";
 import { useCreator } from "@/hooks/creator/useCreator";
 import EditorView from "@/components/creator/EditorView";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
+import PreviewSelector from "@/components/creator/PreviewSelector";
 
 export default function Creator() {
   const {
@@ -16,6 +17,7 @@ export default function Creator() {
     handlePrev,
     storylineChat,
     imageSequencer,
+    previewSelector,
   } = useCreator();
 
   // Animation variants
@@ -45,7 +47,8 @@ export default function Creator() {
   const components = [
     <StorylineChat key="storyline" {...storylineChat} />,
     <ImageSequencer key="sequencer" {...imageSequencer} />,
-    <EditorView key="preview" {...imageSequencer} />,
+    <PreviewSelector {...previewSelector} handleNext={handleNext} />,
+    <EditorView key="editor" {...imageSequencer} provider={previewSelector.provider} />,
   ];
 
   return (
@@ -76,7 +79,7 @@ export default function Creator() {
         />
       )}
 
-      {step < components.length - 1 && (
+      {step < components.length - 2 && (
         <MergeFloatingActionButton
           className="absolute right-20 z-10"
           size={60}

@@ -37,6 +37,7 @@ const dummyVideos = [
 
 export default function EditorView({
   images,
+  provider,
   setImages,
   handleRemove,
   handleReorder,
@@ -77,7 +78,7 @@ export default function EditorView({
     try {
       setIsGenerating(true);
       console.log("check images before video generation", images);
-      const res = await generateVideos(images);
+      const res = await generateVideos(images, provider);
       console.log("res:", res);
       if (res?.success === true) {
         toast.success("Successfully generated videos!");
@@ -170,7 +171,7 @@ export default function EditorView({
                   onReorder={handleReorder}
                   onImageClick={handleImageClick}
                 />
-                {selectedImageId && (
+                {selectedImageId && images.some((img) => img.video !== "") && (
                   <Button
                     onClick={() => handleRegenerateScene(selectedImageId)}
                     className="absolute bottom-3 right-3 text-white"
@@ -209,7 +210,7 @@ export default function EditorView({
                   setSelectedImageId={setSelectedImageId}
                 />
                 <div className="flex-1">
-                  <MergeVideoTrimmer className="mt-4" />
+                  {/* <MergeVideoTrimmer className="mt-4" /> */}
                 </div>
 
                 {selectedImageId && (

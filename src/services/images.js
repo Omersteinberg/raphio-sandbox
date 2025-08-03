@@ -44,13 +44,33 @@ export const uploadImages = async (images) => {
   }
 };
 
-export const generateVideos = async (images) => {
+export const generatePreviewVideos = async () => {
+  try {
+    const sessionId = sessionStorage.getItem("sessionId");
+    const response = await axios.post(`${API_BASE}/generatePreviewVideos`, {
+      sessionId,
+    });
+
+    console.log("check response", response.data.result)
+
+    return {videoProviders: response.data.result, success: true };
+  } catch (error) {
+    console.error(
+      "Preview video generation failed:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+}
+
+export const generateVideos = async (images, provider = "kling") => {
   try {
     const sessionId = sessionStorage.getItem("sessionId");
     console.log("check images before video generation", images);
     const response = await axios.post(`${API_BASE}/generateVideos`, {
       images,
       sessionId,
+      provider,
     });
 
     return {result: response.data.result, success: true };

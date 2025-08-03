@@ -40,12 +40,12 @@ export default function MergeVideoDownload({ open, onClose, videoUrl }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose} modal={true}>
-      <DialogContent className="max-w-5xl" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Download Merged Video</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 ">
           <video
             ref={videoRef}
             controls
