@@ -1,34 +1,34 @@
 import React, { useRef, useState } from "react";
+import { toast } from "react-toastify";
 
-export default function MergeDropbox({ files=[], onFilesChange }) {
+export default function MergeDropbox({ files = [], onFilesChange }) {
   const inputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
-
   const handleFiles = (fileList) => {
-  console.log("check filelist", fileList)
+    const imageFiles = Array.from(fileList).filter((file) =>
+      file.type.startsWith("image/")
+    );
 
-  const imageFiles = Array.from(fileList).filter((file) =>
-    file.type.startsWith("image/")
-  );
+    const wrappedFiles = imageFiles.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random()}`,
+      file,
+      description: "",
+      video: "",
+    }));
 
-  console.log("check imageFiles", imageFiles);
+    // Limit total files to 5
+    const currentCount = files.length;
+    const availableSlots = Math.max(0, 10 - currentCount);
+    const filesToAdd = wrappedFiles.slice(0, availableSlots);
 
-  const wrappedFiles = imageFiles.map((file) => ({
-    id: `${file.name}-${Date.now()}-${Math.random()}`,
-    file,
-    description: "", 
-    video: "",
-  }));
-
-  console.log("check wrappedFiles", wrappedFiles);
-
-  if (wrappedFiles.length > 0) {
-    const updatedFiles = [...files, ...wrappedFiles];
-    console.log("check updatedFiles", updatedFiles);
-    onFilesChange?.(updatedFiles);
-  }
-};
+    if (filesToAdd.length > 0) {
+      const updatedFiles = [...files, ...filesToAdd];
+      onFilesChange?.(updatedFiles);
+    } else {
+      toast.error("You can only add up to 10 images.");
+    }
+  };
 
   const handleDrag = (e, isActive) => {
     e.preventDefault();
