@@ -7,6 +7,10 @@ import { useCreator } from "@/hooks/creator/useCreator";
 import EditorView from "@/components/creator/EditorView";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import PreviewSelector from "@/components/creator/PreviewSelector";
+import ScriptReview from "@/components/creator/ScriptReview";
+import VoiceSelector from "@/components/creator/VoiceSelector";
+import ProcessingView from "@/components/creator/ProcessingView";
+import ResultView from "@/components/creator/ResultView";
 
 export default function Creator() {
   const {
@@ -15,9 +19,18 @@ export default function Creator() {
     direction,
     handleNext,
     handlePrev,
+    handleRegenerate,
+    handleCreateAnother,
     storylineChat,
+    scriptReview,
     imageSequencer,
+    voiceSelector,
     previewSelector,
+    videoId,
+    progress,
+    finalVideoUrl,
+    processingError,
+    STEPS,
   } = useCreator();
 
   // Animation variants
@@ -43,13 +56,46 @@ export default function Creator() {
     opacity: { duration: 0.2 },
   };
 
-  // Component mapping
+  // Component mapping - 6-step flow
   const components = [
+    // Step 0: Chat
     <StorylineChat key="storyline" {...storylineChat} />,
-    <ImageSequencer key="sequencer" {...imageSequencer} />,
-    <PreviewSelector {...previewSelector} handleNext={handleNext} />,
-    <EditorView key="editor" {...imageSequencer} provider={previewSelector.provider} />,
+    // Step 1: Script Review
+    <ScriptReview
+      key="script"
+      {...scriptReview}
+      targetDuration={60}
+      onRegenerate={handleRegenerate}
+    />,
+    // Step 2: Image Upload
+    <ImageSequencer
+      key="sequencer"
+      {...imageSequencer}
+      sections={scriptReview.sections}
+    />,
+    // Step 3: Voice Selection
+    <VoiceSelector key="voice" {...voiceSelector} />,
+    // Step 4: Processing
+    <ProcessingView
+      key="processing"
+      progress={progress}
+      processingError={processingError}
+      onRetry={handleNext}
+      onCancel={handleCreateAnother}
+    />,
+    // Step 5: Result
+    <ResultView
+      key="result"
+      videoId={videoId}
+      finalVideoUrl={finalVideoUrl}
+      title={scriptReview.script?.title}
+      onCreateAnother={handleCreateAnother}
+    />,
   ];
+
+  // Steps that need scrolling (have lots of content)
+  const scrollableSteps = [STEPS.SCRIPT_REVIEW, STEPS.IMAGE_UPLOAD, STEPS.VOICE_SELECT];
+  const needsScroll = scrollableSteps.includes(step);
 
   return (
     <div className="min-h-screen bg-background-gradient flex justify-center items-center relative overflow-hidden">
@@ -62,13 +108,16 @@ export default function Creator() {
           animate="center"
           exit="exit"
           transition={transition}
-          className="absolute inset-0 flex justify-center items-center"
+          className={`absolute inset-0 flex justify-center ${
+            needsScroll ? "items-start overflow-y-auto" : "items-center"
+          }`}
         >
           {components[step]}
         </motion.div>
       </AnimatePresence>
 
-      {step > 0 && step < components.length - 1 && (
+      {/* Back button - show on steps 1-3 (Script, Image, Voice) */}
+      {step >= STEPS.SCRIPT_REVIEW && step <= STEPS.VOICE_SELECT && (
         <MergeFloatingActionButton
           className="absolute left-20 z-10"
           size={60}
@@ -79,7 +128,8 @@ export default function Creator() {
         />
       )}
 
-      {step < components.length - 2 && (
+      {/* Next button - show on steps 1-3 (Script, Image, Voice) */}
+      {step >= STEPS.SCRIPT_REVIEW && step <= STEPS.VOICE_SELECT && (
         <MergeFloatingActionButton
           className="absolute right-20 z-10"
           size={60}
@@ -93,12 +143,16 @@ export default function Creator() {
       {/* Loading overlay */}
       {loading && (
         <>
-          {step === 0 ? (
-            <MergeLoadingOverlay text="Please wait while we save your transcript..." />
-          ) : step === 1 ? (
-            <MergeLoadingOverlay text="Please wait while we upload your images, this may take a few minutes..." />
+          {step === STEPS.CHAT ? (
+            <MergeLoadingOverlay text="Generating your script..." />
+          ) : step === STEPS.SCRIPT_REVIEW ? (
+            <MergeLoadingOverlay text="Saving your script..." />
+          ) : step === STEPS.IMAGE_UPLOAD ? (
+            <MergeLoadingOverlay text="Uploading your images..." />
+          ) : step === STEPS.VOICE_SELECT ? (
+            <MergeLoadingOverlay text="Starting video generation..." />
           ) : (
-            <MergeLoadingOverlay/>
+            <MergeLoadingOverlay />
           )}
         </>
       )}
