@@ -19,7 +19,10 @@ export function useScriptReview() {
       orderIndex: afterIndex + 1,
       narrationText: "",
       visualDescription: "",
+      motionPrompt: "",
       duration: 5,
+      imageFile: null,
+      imagePreview: null,
     };
     setSections((prev) => {
       const updated = [...prev];
@@ -33,6 +36,11 @@ export function useScriptReview() {
 
   const removeSection = (index) => {
     if (sections.length <= 1) return;
+    // Revoke object URL to prevent memory leaks
+    const section = sections[index];
+    if (section.imagePreview) {
+      URL.revokeObjectURL(section.imagePreview);
+    }
     setSections((prev) => {
       const updated = prev.filter((_, idx) => idx !== index);
       return updated.map((section, idx) => ({
@@ -58,7 +66,35 @@ export function useScriptReview() {
     return sections.reduce((sum, section) => sum + (section.duration || 0), 0);
   };
 
+  const getImagesCount = () => {
+    return sections.filter((section) => section.imageFile || section.imagePreview).length;
+  };
+
+  const getAllImages = () => {
+    return sections
+      .filter((section) => section.imageFile)
+      .map((section) => ({
+        file: section.imageFile,
+        orderIndex: section.orderIndex,
+        motionPrompt: section.motionPrompt,
+      }));
+  };
+
+  const isComplete = () => {
+    return sections.every(
+      (section) =>
+        section.narrationText?.trim() &&
+        (section.imageFile || section.imagePreview)
+    );
+  };
+
   const reset = () => {
+    // Revoke all object URLs
+    sections.forEach((section) => {
+      if (section.imagePreview) {
+        URL.revokeObjectURL(section.imagePreview);
+      }
+    });
     setScript(null);
     setSections([]);
     setLoading(false);
@@ -79,6 +115,9 @@ export function useScriptReview() {
     removeSection,
     reorderSections,
     getTotalDuration,
+    getImagesCount,
+    getAllImages,
+    isComplete,
     reset,
   };
 }

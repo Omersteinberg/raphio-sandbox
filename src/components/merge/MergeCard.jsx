@@ -6,35 +6,35 @@ import {
   CardTitle,
 } from "../ui/card";
 
-const MergeCard = ({ 
-  title, 
-  description, 
+const MergeCard = ({
+  title,
+  description,
   icon,
   size = null,
   clickable = false,
   onClick,
   href,
-  className 
+  className
 }) => {
   const sizeStyle = {
     width: size
   };
 
-  const baseClasses = className;
-  const clickableClasses = clickable ? 
-    "cursor-pointer hover:shadow-[0_20px_50px_hsl(var(--primary)_/_0.1)] hover:border-primary hover:scale-[1.05] active:scale-[0.98] transition-all duration-200 ease-out hover:ease-in-out" : 
+  const baseClasses = `bg-white border-gray-200 ${className || ""}`;
+  const clickableClasses = clickable ?
+    "cursor-pointer hover:shadow-lg hover:border-purple-400 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-out" :
     "";
 
   const cardContent = (
     <Card className={`${baseClasses} ${clickableClasses}`} style={sizeStyle}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           {icon}
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="text-gray-600">{description}</CardDescription>
       </CardContent>
     </Card>
   );

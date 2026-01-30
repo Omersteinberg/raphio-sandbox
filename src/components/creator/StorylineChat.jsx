@@ -29,12 +29,12 @@ export default function StorylineChat({ messages, handleSendMessage, handleCardC
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       <AnimatePresence mode="wait">
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 text-center">
             <div className="flex flex-col items-center gap-10">
-              <h1 className="text-4xl text-primary">What's Your Story?</h1>
+              <h1 className="text-4xl font-bold text-gray-900">What's Your Story?</h1>
               <div className="flex flex-wrap justify-center gap-6">
                 {cardData.map((card, index) => (
                   <MergeCard
@@ -58,7 +58,7 @@ export default function StorylineChat({ messages, handleSendMessage, handleCardC
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="flex-1 overflow-y-auto p-4"
+              className="flex-1 overflow-y-auto p-4 flex justify-center"
             >
               <MergeChatbox messages={messages} isTyping={loading} />
             </motion.div>
@@ -69,9 +69,11 @@ export default function StorylineChat({ messages, handleSendMessage, handleCardC
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="p-4"
+              className="p-4 bg-white border-t border-gray-100"
             >
-              <MergeChatbar onSend={handleSendMessage} />
+              <div className="max-w-2xl mx-auto">
+                <MergeChatbar onSend={handleSendMessage} />
+              </div>
             </motion.div>
           </>
         )}

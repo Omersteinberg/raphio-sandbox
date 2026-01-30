@@ -2,12 +2,17 @@ import axios from "axios";
 
 const API_BASE = "http://localhost:3000/api";
 
+console.log("[VIDEOS SERVICE] API_BASE:", API_BASE);
+
 export async function createVideo(title = "") {
+  console.log("[VIDEOS SERVICE] createVideo called with title:", title);
   try {
     const response = await axios.post(`${API_BASE}/videos`, { title });
+    console.log("[VIDEOS SERVICE] createVideo response:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error creating video:", error);
+    console.error("[VIDEOS SERVICE] ERROR createVideo:", error);
+    console.error("[VIDEOS SERVICE] Error response:", error.response?.data);
     throw error;
   }
 }
@@ -48,22 +53,33 @@ export async function deleteVideo(videoId) {
 }
 
 export async function attachScript(videoId, scriptData, voiceId = "adam") {
+  console.log("[VIDEOS SERVICE] attachScript called");
+  console.log("[VIDEOS SERVICE] videoId:", videoId);
+  console.log("[VIDEOS SERVICE] scriptData:", scriptData);
+  console.log("[VIDEOS SERVICE] voiceId:", voiceId);
   try {
     const response = await axios.post(`${API_BASE}/videos/${videoId}/script`, {
       scriptData,
       voiceId,
     });
+    console.log("[VIDEOS SERVICE] attachScript response:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error attaching script:", error);
+    console.error("[VIDEOS SERVICE] ERROR attachScript:", error);
+    console.error("[VIDEOS SERVICE] Error response:", error.response?.data);
     throw error;
   }
 }
 
 export async function uploadVideoImages(videoId, images) {
+  console.log("[VIDEOS SERVICE] uploadVideoImages called");
+  console.log("[VIDEOS SERVICE] videoId:", videoId);
+  console.log("[VIDEOS SERVICE] images count:", images?.length);
+  console.log("[VIDEOS SERVICE] images:", images);
   try {
     const formData = new FormData();
-    images.forEach((image) => {
+    images.forEach((image, index) => {
+      console.log(`[VIDEOS SERVICE] Appending image ${index}:`, image?.name, image?.size);
       formData.append("images", image);
     });
 
@@ -74,21 +90,28 @@ export async function uploadVideoImages(videoId, images) {
         headers: { "Content-Type": "multipart/form-data" },
       }
     );
+    console.log("[VIDEOS SERVICE] uploadVideoImages response:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error uploading images:", error);
+    console.error("[VIDEOS SERVICE] ERROR uploadVideoImages:", error);
+    console.error("[VIDEOS SERVICE] Error response:", error.response?.data);
     throw error;
   }
 }
 
 export async function startGeneration(videoId, voiceId) {
+  console.log("[VIDEOS SERVICE] startGeneration called");
+  console.log("[VIDEOS SERVICE] videoId:", videoId);
+  console.log("[VIDEOS SERVICE] voiceId:", voiceId);
   try {
     const response = await axios.post(`${API_BASE}/videos/${videoId}/generate`, {
       voiceId,
     });
+    console.log("[VIDEOS SERVICE] startGeneration response:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error starting generation:", error);
+    console.error("[VIDEOS SERVICE] ERROR startGeneration:", error);
+    console.error("[VIDEOS SERVICE] Error response:", error.response?.data);
     throw error;
   }
 }

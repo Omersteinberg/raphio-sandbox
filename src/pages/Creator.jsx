@@ -1,14 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
-import StorylineChat from "@/components/creator/StorylineChat";
 import { CircleChevronRight, CircleChevronLeft } from "lucide-react";
 import MergeFloatingActionButton from "@/components/merge/MergeFloatingActionButton";
-import ImageSequencer from "@/components/creator/ImageSequencer";
 import { useCreator } from "@/hooks/creator/useCreator";
-import EditorView from "@/components/creator/EditorView";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
-import PreviewSelector from "@/components/creator/PreviewSelector";
-import ScriptReview from "@/components/creator/ScriptReview";
-import VoiceSelector from "@/components/creator/VoiceSelector";
+import ProgressBar from "@/components/creator/ProgressBar";
+import ChatWithImages from "@/components/creator/ChatWithImages";
+import SectionsWithVoice from "@/components/creator/SectionsWithVoice";
+import PreviewStep from "@/components/creator/PreviewStep";
 import ProcessingView from "@/components/creator/ProcessingView";
 import ResultView from "@/components/creator/ResultView";
 
@@ -23,9 +21,10 @@ export default function Creator() {
     handleCreateAnother,
     storylineChat,
     scriptReview,
-    imageSequencer,
+    imagePool,
     voiceSelector,
-    previewSelector,
+    selectedAI,
+    setSelectedAI,
     videoId,
     progress,
     finalVideoUrl,
@@ -56,26 +55,49 @@ export default function Creator() {
     opacity: { duration: 0.2 },
   };
 
-  // Component mapping - 6-step flow
+  // Component mapping - New combined step flow
   const components = [
-    // Step 0: Chat
-    <StorylineChat key="storyline" {...storylineChat} />,
-    // Step 1: Script Review
-    <ScriptReview
-      key="script"
-      {...scriptReview}
-      targetDuration={60}
-      onRegenerate={handleRegenerate}
+    // Step 0: Chat + Images
+    <ChatWithImages
+      key="chat-images"
+      messages={storylineChat.messages}
+      handleSendMessage={storylineChat.handleSendMessage}
+      handleCardClick={storylineChat.handleCardClick}
+      loading={storylineChat.loading}
+      images={imagePool.images}
+      addImages={imagePool.addImages}
+      removeImage={imagePool.removeImage}
+      clearImages={imagePool.clearImages}
     />,
-    // Step 2: Image Upload
-    <ImageSequencer
-      key="sequencer"
-      {...imageSequencer}
+    // Step 1: Sections + Voice
+    <SectionsWithVoice
+      key="sections-voice"
       sections={scriptReview.sections}
+      updateSection={scriptReview.updateSection}
+      addSection={scriptReview.addSection}
+      removeSection={scriptReview.removeSection}
+      getTotalDuration={scriptReview.getTotalDuration}
+      uploadedImages={imagePool.images}
+      voices={voiceSelector.voices}
+      filteredVoices={voiceSelector.filteredVoices}
+      selectedVoice={voiceSelector.selectedVoice}
+      setSelectedVoice={voiceSelector.setSelectedVoice}
+      voiceFilter={voiceSelector.filter}
+      setVoiceFilter={voiceSelector.setFilter}
+      voiceLoading={voiceSelector.loading}
     />,
-    // Step 3: Voice Selection
-    <VoiceSelector key="voice" {...voiceSelector} />,
-    // Step 4: Processing
+    // Step 2: Preview + AI Selection
+    <PreviewStep
+      key="preview"
+      sections={scriptReview.sections}
+      selectedVoice={voiceSelector.selectedVoice}
+      voices={voiceSelector.voices}
+      selectedAI={selectedAI}
+      setSelectedAI={setSelectedAI}
+      onGenerate={handleNext}
+      loading={loading}
+    />,
+    // Step 3: Processing
     <ProcessingView
       key="processing"
       progress={progress}
@@ -83,7 +105,7 @@ export default function Creator() {
       onRetry={handleNext}
       onCancel={handleCreateAnother}
     />,
-    // Step 5: Result
+    // Step 4: Result
     <ResultView
       key="result"
       videoId={videoId}
@@ -93,63 +115,81 @@ export default function Creator() {
     />,
   ];
 
-  // Steps that need scrolling (have lots of content)
-  const scrollableSteps = [STEPS.SCRIPT_REVIEW, STEPS.IMAGE_UPLOAD, STEPS.VOICE_SELECT];
-  const needsScroll = scrollableSteps.includes(step);
+  // Determine if we need nav buttons and what loading text to show
+  const showNavButtons = step >= STEPS.SECTIONS_VOICE && step <= STEPS.PREVIEW;
+  const isContentStep = step <= STEPS.PREVIEW;
 
   return (
-    <div className="min-h-screen bg-background-gradient flex justify-center items-center relative overflow-hidden">
-      <AnimatePresence initial={false} custom={direction}>
-        <motion.div
-          key={step}
-          custom={direction}
-          variants={slideVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={transition}
-          className={`absolute inset-0 flex justify-center ${
-            needsScroll ? "items-start overflow-y-auto" : "items-center"
-          }`}
-        >
-          {components[step]}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Back button - show on steps 1-3 (Script, Image, Voice) */}
-      {step >= STEPS.SCRIPT_REVIEW && step <= STEPS.VOICE_SELECT && (
-        <MergeFloatingActionButton
-          className="absolute left-20 z-10"
-          size={60}
-          padding={5}
-          icon={<CircleChevronLeft />}
-          onClick={handlePrev}
-          disabled={loading}
-        />
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Progress Bar - show for content steps */}
+      {isContentStep && (
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <ProgressBar currentStep={step} />
+        </div>
       )}
 
-      {/* Next button - show on steps 1-3 (Script, Image, Voice) */}
-      {step >= STEPS.SCRIPT_REVIEW && step <= STEPS.VOICE_SELECT && (
-        <MergeFloatingActionButton
-          className="absolute right-20 z-10"
-          size={60}
-          padding={5}
-          icon={<CircleChevronRight />}
-          onClick={handleNext}
-          disabled={loading}
-        />
-      )}
+      {/* Main Content */}
+      <div className="flex-1 relative overflow-hidden">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={transition}
+            className="absolute inset-0 flex"
+          >
+            <div className="w-full h-full bg-white">
+              {components[step]}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Navigation Buttons */}
+        {showNavButtons && (
+          <>
+            <MergeFloatingActionButton
+              className="absolute left-6 top-1/2 -translate-y-1/2 z-10"
+              size={50}
+              padding={5}
+              icon={<CircleChevronLeft />}
+              onClick={handlePrev}
+              disabled={loading}
+            />
+            {step !== STEPS.PREVIEW && (
+              <MergeFloatingActionButton
+                className="absolute right-6 top-1/2 -translate-y-1/2 z-10"
+                size={50}
+                padding={5}
+                icon={<CircleChevronRight />}
+                onClick={handleNext}
+                disabled={loading}
+              />
+            )}
+          </>
+        )}
+
+        {/* Next button for Chat step */}
+        {step === STEPS.CHAT_UPLOAD && storylineChat.messages.length > 0 && (
+          <MergeFloatingActionButton
+            className="absolute right-6 top-1/2 -translate-y-1/2 z-10"
+            size={50}
+            padding={5}
+            icon={<CircleChevronRight />}
+            onClick={handleNext}
+            disabled={loading || imagePool.images.length === 0}
+          />
+        )}
+      </div>
 
       {/* Loading overlay */}
       {loading && (
         <>
-          {step === STEPS.CHAT ? (
+          {step === STEPS.CHAT_UPLOAD ? (
             <MergeLoadingOverlay text="Generating your script..." />
-          ) : step === STEPS.SCRIPT_REVIEW ? (
-            <MergeLoadingOverlay text="Saving your script..." />
-          ) : step === STEPS.IMAGE_UPLOAD ? (
-            <MergeLoadingOverlay text="Uploading your images..." />
-          ) : step === STEPS.VOICE_SELECT ? (
+          ) : step === STEPS.PREVIEW ? (
             <MergeLoadingOverlay text="Starting video generation..." />
           ) : (
             <MergeLoadingOverlay />

@@ -69,27 +69,29 @@ export default function ProcessingView({
 
   if (processingError) {
     return (
-      <div className="w-full max-w-2xl mx-auto px-6 py-8 text-center">
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8">
-          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">
-            Something Went Wrong
-          </h2>
-          <p className="text-gray-400 mb-6">{processingError}</p>
-          <div className="flex gap-4 justify-center">
-            <Button
-              onClick={onRetry}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              Try Again
-            </Button>
-            <Button
-              onClick={onCancel}
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
-            >
-              Start Over
-            </Button>
+      <div className="w-full h-full flex items-center justify-center bg-gray-50 p-6">
+        <div className="w-full max-w-2xl mx-auto text-center">
+          <div className="bg-white border border-red-200 rounded-2xl p-8 shadow-sm">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Something Went Wrong
+            </h2>
+            <p className="text-gray-600 mb-6">{processingError}</p>
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={onRetry}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Try Again
+              </Button>
+              <Button
+                onClick={onCancel}
+                variant="outline"
+                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Start Over
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -97,151 +99,153 @@ export default function ProcessingView({
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-6 py-8">
-      <div className="text-center mb-12">
-        <h1 className="text-2xl font-bold text-white mb-2">
-          Creating Your Video
-        </h1>
-        <p className="text-gray-400">This usually takes a few minutes.</p>
-      </div>
+    <div className="w-full h-full flex items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="text-center mb-12">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Creating Your Video
+          </h1>
+          <p className="text-gray-600">This usually takes a few minutes.</p>
+        </div>
 
-      {/* Progress Circle */}
-      <div className="relative w-48 h-48 mx-auto mb-12">
-        <svg className="w-full h-full transform -rotate-90">
-          <circle
-            cx="96"
-            cy="96"
-            r="88"
-            className="fill-none stroke-white/10"
-            strokeWidth="8"
-          />
-          <motion.circle
-            cx="96"
-            cy="96"
-            r="88"
-            className="fill-none stroke-purple-500"
-            strokeWidth="8"
-            strokeLinecap="round"
-            initial={{ strokeDasharray: "0 553" }}
-            animate={{
-              strokeDasharray: `${(getOverallProgress() / 100) * 553} 553`,
-            }}
-            transition={{ duration: 0.5 }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <span className="text-4xl font-bold text-white">
-              {getOverallProgress()}%
-            </span>
-            <span className="block text-gray-400 text-sm">Complete</span>
+        {/* Progress Circle */}
+        <div className="relative w-48 h-48 mx-auto mb-12">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle
+              cx="96"
+              cy="96"
+              r="88"
+              className="fill-none stroke-gray-200"
+              strokeWidth="8"
+            />
+            <motion.circle
+              cx="96"
+              cy="96"
+              r="88"
+              className="fill-none stroke-purple-600"
+              strokeWidth="8"
+              strokeLinecap="round"
+              initial={{ strokeDasharray: "0 553" }}
+              animate={{
+                strokeDasharray: `${(getOverallProgress() / 100) * 553} 553`,
+              }}
+              transition={{ duration: 0.5 }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <span className="text-4xl font-bold text-gray-900">
+                {getOverallProgress()}%
+              </span>
+              <span className="block text-gray-600 text-sm">Complete</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stage Breakdown */}
-      <div className="space-y-4 mb-12">
-        {stages.map((stage, index) => {
-          const isActive = stage.status === "PROCESSING";
-          const isComplete = stage.status === "COMPLETED";
-          const isFailed = stage.status === "FAILED";
+        {/* Stage Breakdown */}
+        <div className="space-y-4 mb-12">
+          {stages.map((stage, index) => {
+            const isActive = stage.status === "PROCESSING";
+            const isComplete = stage.status === "COMPLETED";
+            const isFailed = stage.status === "FAILED";
 
-          return (
-            <motion.div
-              key={stage.key}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={`
-                flex items-center gap-4 p-4 rounded-xl border
-                ${
-                  isActive
-                    ? "bg-purple-500/10 border-purple-500/30"
-                    : isComplete
-                    ? "bg-green-500/10 border-green-500/30"
-                    : isFailed
-                    ? "bg-red-500/10 border-red-500/30"
-                    : "bg-white/5 border-white/10"
-                }
-              `}
-            >
-              {/* Icon */}
-              <div
+            return (
+              <motion.div
+                key={stage.key}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
                 className={`
-                w-10 h-10 rounded-full flex items-center justify-center
-                ${
-                  isActive
-                    ? "bg-purple-500/20 text-purple-400"
-                    : isComplete
-                    ? "bg-green-500/20 text-green-400"
-                    : isFailed
-                    ? "bg-red-500/20 text-red-400"
-                    : "bg-white/10 text-gray-400"
-                }
-              `}
-              >
-                {isActive ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : isComplete ? (
-                  <Check className="w-5 h-5" />
-                ) : isFailed ? (
-                  <AlertCircle className="w-5 h-5" />
-                ) : (
-                  stage.icon
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1">
-                <h3
-                  className={`font-medium ${
+                  flex items-center gap-4 p-4 rounded-xl border bg-white
+                  ${
                     isActive
-                      ? "text-purple-300"
+                      ? "border-purple-300 shadow-sm"
                       : isComplete
-                      ? "text-green-300"
+                      ? "border-green-300"
                       : isFailed
-                      ? "text-red-300"
-                      : "text-white"
-                  }`}
+                      ? "border-red-300"
+                      : "border-gray-200"
+                  }
+                `}
+              >
+                {/* Icon */}
+                <div
+                  className={`
+                  w-10 h-10 rounded-full flex items-center justify-center
+                  ${
+                    isActive
+                      ? "bg-purple-100 text-purple-600"
+                      : isComplete
+                      ? "bg-green-100 text-green-600"
+                      : isFailed
+                      ? "bg-red-100 text-red-600"
+                      : "bg-gray-100 text-gray-500"
+                  }
+                `}
                 >
-                  {stage.label}
-                </h3>
-                <p className="text-sm text-gray-400">{stage.description}</p>
-              </div>
+                  {isActive ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : isComplete ? (
+                    <Check className="w-5 h-5" />
+                  ) : isFailed ? (
+                    <AlertCircle className="w-5 h-5" />
+                  ) : (
+                    stage.icon
+                  )}
+                </div>
 
-              {/* Status */}
-              <div className="text-right">
-                {isActive && (
-                  <span className="text-purple-400 text-sm">In Progress</span>
-                )}
-                {isComplete && (
-                  <span className="text-green-400 text-sm">Done</span>
-                )}
-                {isFailed && (
-                  <span className="text-red-400 text-sm">Failed</span>
-                )}
-                {stage.status === "PENDING" && (
-                  <span className="text-gray-500 text-sm">Waiting</span>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+                {/* Info */}
+                <div className="flex-1">
+                  <h3
+                    className={`font-medium ${
+                      isActive
+                        ? "text-purple-700"
+                        : isComplete
+                        ? "text-green-700"
+                        : isFailed
+                        ? "text-red-700"
+                        : "text-gray-900"
+                    }`}
+                  >
+                    {stage.label}
+                  </h3>
+                  <p className="text-sm text-gray-600">{stage.description}</p>
+                </div>
 
-      {/* Fun Fact */}
-      <div className="bg-white/5 rounded-xl p-6 border border-white/10 text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Clock className="w-4 h-4 text-purple-400" />
-          <span className="text-purple-400 text-sm">While you wait...</span>
+                {/* Status */}
+                <div className="text-right">
+                  {isActive && (
+                    <span className="text-purple-600 text-sm font-medium">In Progress</span>
+                  )}
+                  {isComplete && (
+                    <span className="text-green-600 text-sm font-medium">Done</span>
+                  )}
+                  {isFailed && (
+                    <span className="text-red-600 text-sm font-medium">Failed</span>
+                  )}
+                  {stage.status === "PENDING" && (
+                    <span className="text-gray-500 text-sm">Waiting</span>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
-        <p className="text-gray-300">{randomFact}</p>
-      </div>
 
-      {/* Tip */}
-      <p className="text-center text-gray-500 text-sm mt-6">
-        You can safely close this page. Your video will continue processing.
-      </p>
+        {/* Fun Fact */}
+        <div className="bg-purple-50 rounded-xl p-6 border border-purple-100 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-purple-600" />
+            <span className="text-purple-700 text-sm font-medium">While you wait...</span>
+          </div>
+          <p className="text-gray-700">{randomFact}</p>
+        </div>
+
+        {/* Tip */}
+        <p className="text-center text-gray-500 text-sm mt-6">
+          You can safely close this page. Your video will continue processing.
+        </p>
+      </div>
     </div>
   );
 }

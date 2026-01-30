@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Clock,
@@ -8,6 +8,9 @@ import {
   Image,
   AlertCircle,
   RefreshCw,
+  Upload,
+  X,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,12 +22,36 @@ export default function ScriptReview({
   addSection,
   removeSection,
   getTotalDuration,
+  getImagesCount,
   targetDuration = 60,
   onRegenerate,
 }) {
   const [expandedSection, setExpandedSection] = useState(null);
+  const fileInputRefs = useRef({});
   const totalDuration = getTotalDuration();
   const durationDiff = totalDuration - targetDuration;
+
+  const handleImageUpload = (index, event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      updateSection(index, {
+        imageFile: file,
+        imagePreview: previewUrl
+      });
+    }
+  };
+
+  const handleRemoveImage = (index) => {
+    updateSection(index, {
+      imageFile: null,
+      imagePreview: null
+    });
+  };
+
+  const triggerFileInput = (index) => {
+    fileInputRefs.current[index]?.click();
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto scrollbar-hidden">
@@ -101,17 +128,85 @@ export default function ScriptReview({
                   </div>
                 </div>
 
-                {/* Visual Description / Image Hint */}
+                {/* Image Upload */}
                 <div>
                   <label className="text-sm text-gray-400 mb-2 flex items-center gap-2">
                     <Image className="w-4 h-4 text-purple-400" />
-                    Suggested Image
+                    Section Image
                   </label>
-                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                    <p className="text-purple-300 text-sm">
-                      {section.visualDescription || "No image suggestion"}
+                  <input
+                    type="file"
+                    ref={(el) => (fileInputRefs.current[index] = el)}
+                    onChange={(e) => handleImageUpload(index, e)}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  {section.imagePreview ? (
+                    <div className="relative group">
+                      <img
+                        src={section.imagePreview}
+                        alt={`Section ${index + 1}`}
+                        className="w-full h-40 object-cover rounded-lg border border-white/10"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => triggerFileInput(index)}
+                          className="text-white hover:bg-white/20"
+                        >
+                          <Upload className="w-4 h-4 mr-1" />
+                          Replace
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveImage(index)}
+                          className="text-red-400 hover:bg-red-400/20"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => triggerFileInput(index)}
+                      className="border-2 border-dashed border-white/20 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors"
+                    >
+                      <Upload className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+                      <p className="text-gray-400 text-sm">
+                        Click to upload image
+                      </p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        JPG, PNG, WebP (max 10MB)
+                      </p>
+                    </div>
+                  )}
+                  {section.visualDescription && (
+                    <p className="text-purple-300 text-xs mt-2 italic">
+                      Suggested: {section.visualDescription}
                     </p>
-                  </div>
+                  )}
+                </div>
+
+                {/* Motion Prompt */}
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 flex items-center gap-2">
+                    <Video className="w-4 h-4 text-blue-400" />
+                    Motion Prompt
+                  </label>
+                  <Textarea
+                    value={section.motionPrompt || ""}
+                    onChange={(e) =>
+                      updateSection(index, { motionPrompt: e.target.value })
+                    }
+                    placeholder="e.g., Slow pan from left to right, gentle zoom in, subtle movement..."
+                    className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 min-h-[60px] resize-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Describe how the AI should animate this image
+                  </p>
                 </div>
 
                 {/* Duration Slider */}
@@ -195,6 +290,12 @@ export default function ScriptReview({
                 <span className="text-white">{sections.length}</span>
               </div>
               <div className="flex justify-between items-center">
+                <span className="text-gray-400">Images</span>
+                <span className={`${getImagesCount?.() === sections.length ? "text-green-400" : "text-amber-400"}`}>
+                  {getImagesCount?.() || 0} / {sections.length}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-gray-400">Avg. Duration</span>
                 <span className="text-white">
                   {sections.length > 0
@@ -213,15 +314,15 @@ export default function ScriptReview({
               <ul className="text-xs text-gray-400 space-y-2">
                 <li className="flex items-start gap-2">
                   <span className="text-purple-400 mt-0.5">•</span>
-                  Keep each section focused on one point
+                  Upload an image for each section
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-400 mt-0.5">•</span>
-                  Match section length to image complexity
+                  Add motion prompts like "slow zoom in" or "pan left to right"
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-400 mt-0.5">•</span>
-                  Use conversational, natural language
+                  Keep narration natural and conversational
                 </li>
               </ul>
             </div>

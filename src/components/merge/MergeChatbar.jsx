@@ -31,21 +31,22 @@ export default function MergeChatbar({ onSend }) {
   }, [message]);
 
   return (
-    <div className="flex flex-col w-full border-none bg-foreground rounded-xl px-2 py-2">
+    <div className="flex flex-col w-full border border-gray-200 bg-white rounded-xl px-2 py-2 shadow-sm">
       <Textarea
-      ref={textareaRef}
+        ref={textareaRef}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyPress={handleKeyPress}
-        className="w-full !text-lg !shadow-none text-primary bg-transparent border-none placeholder:text-primary placeholder:text-lg focus:outline-none focus:ring-0 resize-none"
+        className="w-full !text-lg !shadow-none text-gray-900 bg-transparent border-none placeholder:text-gray-500 placeholder:text-lg focus:outline-none focus:ring-0 resize-none"
         placeholder="Tell me about your idea."
       />
       <div className="flex justify-end px-2 pb-2">
-        <Button 
+        <Button
           onClick={handleMessage}
           disabled={!message.trim()}
+          className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
         >
-          <Send className='text-primary'/>
+          <Send className='w-4 h-4'/>
         </Button>
       </div>
     </div>

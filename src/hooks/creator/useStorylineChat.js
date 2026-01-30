@@ -69,6 +69,12 @@ export function useStorylineChat() {
     handleSendMessage(cardDescription);
   };
 
+  const reset = () => {
+    setMessages([]);
+    setComplete(false);
+    setLoading(false);
+  };
+
   return {
     messages,
     loading,
@@ -77,5 +83,6 @@ export function useStorylineChat() {
     setMessages,
     handleSendMessage,
     handleCardClick,
+    reset,
   };
 }

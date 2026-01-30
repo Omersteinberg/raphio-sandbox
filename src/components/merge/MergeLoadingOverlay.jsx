@@ -17,15 +17,15 @@ export default function MergeLoadingOverlay({ text = "Loading..." }) {
   };
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-50 pointer-events-auto p-4">
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col justify-center items-center z-50 pointer-events-auto p-4">
       <motion.div
-        className="w-12 h-4 bg-white rounded-sm mb-6"
+        className="w-12 h-4 bg-purple-500 rounded-sm mb-6"
         variants={blockVariants}
         animate="animate"
       />
 
       <div
-        className="text-primary text-center text-2xl font-bold max-w-xs leading-relaxed"
+        className="text-white text-center text-xl font-semibold max-w-xs leading-relaxed"
       >
         {text}
       </div>

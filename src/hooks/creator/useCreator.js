@@ -4,6 +4,7 @@ import { useImageSequencer } from "./useImageSequencer";
 import { usePreviewSelector } from "./usePreviewSelector";
 import { useScriptReview } from "./useScriptReview";
 import { useVoiceSelector } from "./useVoiceSelector";
+import { useImagePool } from "./useImagePool";
 import { saveTranscript } from "@/services/chat";
 import { generatePreviewVideos, uploadImages } from "@/services/images";
 import { generateScript } from "@/services/scripts";
@@ -18,14 +19,13 @@ import { toast } from "react-toastify";
 import { createSession, getSession } from "@/services/chat";
 import { convertGCPImages, convertTranscript } from "../utils/helper";
 
-// Step indices
+// New combined step flow
 const STEPS = {
-  CHAT: 0,
-  SCRIPT_REVIEW: 1,
-  IMAGE_UPLOAD: 2,
-  VOICE_SELECT: 3,
-  PROCESSING: 4,
-  RESULT: 5,
+  CHAT_UPLOAD: 0,      // Chat + Image Upload side by side
+  SECTIONS_VOICE: 1,   // Sections + Voice Selection side by side
+  PREVIEW: 2,          // Preview + AI Provider selection
+  PROCESSING: 3,
+  RESULT: 4,
 };
 
 export function useCreator() {
@@ -37,7 +37,9 @@ export function useCreator() {
   const imageSequencer = useImageSequencer();
   const voiceSelector = useVoiceSelector();
   const previewSelector = usePreviewSelector();
+  const imagePool = useImagePool();
   const [loading, setLoading] = useState(false);
+  const [selectedAI, setSelectedAI] = useState("runway");
 
   // Video project state
   const [videoId, setVideoId] = useState(null);
@@ -63,14 +65,19 @@ export function useCreator() {
   };
 
   const handleNext = async () => {
-    console.log("check step", step);
+    console.log("[useCreator] handleNext - current step:", step);
 
-    if (step === STEPS.CHAT) {
-      // Step 0 → Step 1: Generate script from chat
+    if (step === STEPS.CHAT_UPLOAD) {
+      // Step 0 → Step 1: Generate script from chat, then go to Sections+Voice
+      if (imagePool.images.length === 0) {
+        toast.error("Please upload at least one image.");
+        return;
+      }
+
       setLoading(true);
       try {
         const res = await uploadTranscript(storylineChat.messages);
-        console.log("transcript res:", res);
+        console.log("[useCreator] transcript res:", res);
 
         // Generate script from the chat prompt
         const prompt = getPromptFromChat();
@@ -81,68 +88,94 @@ export function useCreator() {
           scriptReview.setSections(scriptRes.data.sections || []);
           toast.success("Script generated successfully!");
           setDirection(1);
-          setStep(STEPS.SCRIPT_REVIEW);
+          setStep(STEPS.SECTIONS_VOICE);
         } else {
           toast.error("Failed to generate script.");
         }
       } catch (error) {
-        console.error("Error generating script:", error);
+        console.error("[useCreator] Error generating script:", error);
         toast.error("Failed to generate script.");
       } finally {
         setLoading(false);
       }
-    } else if (step === STEPS.SCRIPT_REVIEW) {
-      // Step 1 → Step 2: Proceed to image upload
-      setDirection(1);
-      setStep(STEPS.IMAGE_UPLOAD);
-    } else if (step === STEPS.IMAGE_UPLOAD) {
-      // Step 2 → Step 3: Proceed to voice selection
-      if (imageSequencer.images.length === 0) {
-        toast.error("Please upload at least one image.");
+    } else if (step === STEPS.SECTIONS_VOICE) {
+      // Step 1 → Step 2: Go to Preview
+      console.log("[useCreator] Checking sections and voice...");
+
+      const imagesCount = scriptReview.getImagesCount();
+      const sectionsCount = scriptReview.sections.length;
+      console.log("[useCreator] Images:", imagesCount, "Sections:", sectionsCount);
+
+      if (imagesCount < sectionsCount) {
+        toast.error(`Please assign images to all sections (${imagesCount}/${sectionsCount})`);
         return;
       }
-      setDirection(1);
-      setStep(STEPS.VOICE_SELECT);
-    } else if (step === STEPS.VOICE_SELECT) {
-      // Step 3 → Step 4: Start video generation
+
       if (!voiceSelector.selectedVoice) {
         toast.error("Please select a voice.");
         return;
       }
+
+      setDirection(1);
+      setStep(STEPS.PREVIEW);
+    } else if (step === STEPS.PREVIEW) {
+      // Step 2 → Step 3: Start video generation
+      console.log("[useCreator] Starting video generation from Preview...");
+
+      // Get images from sections
+      const sectionImages = scriptReview.getAllImages();
+      console.log("[useCreator] Section images:", sectionImages);
+
+      if (sectionImages.length === 0) {
+        toast.error("Please assign images to each section.");
+        return;
+      }
+
       setLoading(true);
       try {
         // Create video project
+        console.log("[useCreator] Creating video project...");
         const createRes = await createVideo(scriptReview.script?.title || "Untitled");
+        console.log("[useCreator] Create video response:", createRes);
+
         if (!createRes?.success) {
           throw new Error("Failed to create video project");
         }
         const newVideoId = createRes.data.id;
+        console.log("[useCreator] Video ID:", newVideoId);
         setVideoId(newVideoId);
 
         // Attach script with selected voice
+        console.log("[useCreator] Attaching script...");
         const scriptData = {
           title: scriptReview.script?.title || "Untitled",
           sections: scriptReview.sections,
         };
-        await attachScript(newVideoId, scriptData, voiceSelector.selectedVoice);
+        const attachRes = await attachScript(newVideoId, scriptData, voiceSelector.selectedVoice);
+        console.log("[useCreator] Attach script response:", attachRes);
 
-        // Upload images
-        await uploadVideoImages(newVideoId, imageSequencer.images);
+        // Upload images from sections
+        console.log("[useCreator] Uploading images...");
+        const imageFiles = sectionImages.map(img => img.file);
+        const uploadRes = await uploadVideoImages(newVideoId, imageFiles);
+        console.log("[useCreator] Upload images response:", uploadRes);
 
         // Start generation
-        await startGeneration(newVideoId, voiceSelector.selectedVoice);
+        console.log("[useCreator] Starting generation...");
+        const genRes = await startGeneration(newVideoId, voiceSelector.selectedVoice);
+        console.log("[useCreator] Start generation response:", genRes);
 
         toast.success("Video generation started!");
         setDirection(1);
         setStep(STEPS.PROCESSING);
       } catch (error) {
-        console.error("Error starting generation:", error);
-        toast.error("Failed to start video generation.");
+        console.error("[useCreator] ERROR starting generation:", error);
+        toast.error("Failed to start video generation: " + (error.response?.data?.error || error.message));
       } finally {
         setLoading(false);
       }
     } else if (step === STEPS.PROCESSING) {
-      // Step 4 → Step 5: Proceed to result
+      // Step 3 → Step 4: Proceed to result
       setDirection(1);
       setStep(STEPS.RESULT);
     }
@@ -152,7 +185,7 @@ export function useCreator() {
     if (step > 0) {
       setDirection(-1);
       setStep((prev) => prev - 1);
-      if (step === STEPS.SCRIPT_REVIEW) {
+      if (step === STEPS.SECTIONS_VOICE) {
         storylineChat.setComplete(false);
       }
     }
@@ -236,7 +269,7 @@ export function useCreator() {
     scriptReview.reset();
     storylineChat.setComplete(false);
     setDirection(-1);
-    setStep(STEPS.CHAT);
+    setStep(STEPS.CHAT_UPLOAD);
   };
 
   const handleCreateAnother = () => {
@@ -244,13 +277,15 @@ export function useCreator() {
     storylineChat.reset?.();
     scriptReview.reset();
     imageSequencer.setImages([]);
+    imagePool.reset();
     voiceSelector.setSelectedVoice(null);
+    setSelectedAI("runway");
     setVideoId(null);
     setProgress(null);
     setFinalVideoUrl(null);
     setProcessingError(null);
     setDirection(-1);
-    setStep(STEPS.CHAT);
+    setStep(STEPS.CHAT_UPLOAD);
   };
 
   return {
@@ -265,8 +300,11 @@ export function useCreator() {
     storylineChat,
     scriptReview,
     imageSequencer,
+    imagePool,
     voiceSelector,
     previewSelector,
+    selectedAI,
+    setSelectedAI,
     loading,
     // Video state
     videoId,
