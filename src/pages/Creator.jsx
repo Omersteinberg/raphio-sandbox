@@ -1,36 +1,83 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { CircleChevronRight, CircleChevronLeft } from "lucide-react";
+import { CircleChevronLeft } from "lucide-react";
 import MergeFloatingActionButton from "@/components/merge/MergeFloatingActionButton";
-import { useCreator } from "@/hooks/creator/useCreator";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
-import ProgressBar from "@/components/creator/ProgressBar";
-import ChatWithImages from "@/components/creator/ChatWithImages";
-import SectionsWithVoice from "@/components/creator/SectionsWithVoice";
-import PreviewStep from "@/components/creator/PreviewStep";
-import ProcessingView from "@/components/creator/ProcessingView";
-import ResultView from "@/components/creator/ResultView";
+import { useSession } from "@/hooks/session/useSession";
+
+// Step components
+import PromptStep from "@/components/session/PromptStep";
+import ImagesStep from "@/components/session/ImagesStep";
+import ScriptStep from "@/components/session/ScriptStep";
+import FramesStep from "@/components/session/FramesStep";
+import GeneratingStep from "@/components/session/GeneratingStep";
+import ResultStep from "@/components/session/ResultStep";
+
+// Step names for progress bar
+const STEP_NAMES = [
+  "Prompt",
+  "Images",
+  "Analysis",
+  "Script",
+  "Frames",
+  "Generating",
+  "Complete",
+];
 
 export default function Creator() {
+  const session = useSession();
+
   const {
     step,
-    loading,
     direction,
-    handleNext,
+    loading,
     handlePrev,
-    handleRegenerate,
-    handleCreateAnother,
-    storylineChat,
-    scriptReview,
-    imagePool,
-    voiceSelector,
-    selectedAI,
-    setSelectedAI,
-    videoId,
-    progress,
+
+    // Prompt step
+    userPrompt,
+    setUserPrompt,
+    style,
+    setStyle,
+    targetDuration,
+    setTargetDuration,
+    startSession,
+
+    // Images step
+    images,
+    addImages,
+    removeImage,
+    uploadImages,
+    analyzeImages,
+    imageAnalysis,
+
+    // Script step
+    scriptData,
+    setScriptData,
+    editRequest,
+    setEditRequest,
+    generateScript,
+    editScriptWithAI,
+    approveScript,
+
+    // Frames step
+    openingFrame,
+    setOpeningFrame,
+    closingFrame,
+    setClosingFrame,
+    videoModel,
+    setVideoModel,
+    voiceId,
+    setVoiceId,
+    configureFrames,
+    startGeneration,
+
+    // Result step
     finalVideoUrl,
-    processingError,
-    STEPS,
-  } = useCreator();
+    enterEditingMode,
+    reset,
+
+    // Navigation
+    handleNext,
+  } = session;
 
   // Animation variants
   const slideVariants = {
@@ -55,82 +102,154 @@ export default function Creator() {
     opacity: { duration: 0.2 },
   };
 
-  // Component mapping - New combined step flow
-  const components = [
-    // Step 0: Chat + Images
-    <ChatWithImages
-      key="chat-images"
-      messages={storylineChat.messages}
-      handleSendMessage={storylineChat.handleSendMessage}
-      handleCardClick={storylineChat.handleCardClick}
-      loading={storylineChat.loading}
-      images={imagePool.images}
-      addImages={imagePool.addImages}
-      removeImage={imagePool.removeImage}
-      clearImages={imagePool.clearImages}
-    />,
-    // Step 1: Sections + Voice
-    <SectionsWithVoice
-      key="sections-voice"
-      sections={scriptReview.sections}
-      updateSection={scriptReview.updateSection}
-      addSection={scriptReview.addSection}
-      removeSection={scriptReview.removeSection}
-      getTotalDuration={scriptReview.getTotalDuration}
-      uploadedImages={imagePool.images}
-      voices={voiceSelector.voices}
-      filteredVoices={voiceSelector.filteredVoices}
-      selectedVoice={voiceSelector.selectedVoice}
-      setSelectedVoice={voiceSelector.setSelectedVoice}
-      voiceFilter={voiceSelector.filter}
-      setVoiceFilter={voiceSelector.setFilter}
-      voiceLoading={voiceSelector.loading}
-    />,
-    // Step 2: Preview + AI Selection
-    <PreviewStep
-      key="preview"
-      sections={scriptReview.sections}
-      selectedVoice={voiceSelector.selectedVoice}
-      voices={voiceSelector.voices}
-      selectedAI={selectedAI}
-      setSelectedAI={setSelectedAI}
-      onGenerate={handleNext}
-      loading={loading}
-    />,
-    // Step 3: Processing
-    <ProcessingView
-      key="processing"
-      progress={progress}
-      processingError={processingError}
-      onRetry={handleNext}
-      onCancel={handleCreateAnother}
-    />,
-    // Step 4: Result
-    <ResultView
-      key="result"
-      videoId={videoId}
-      finalVideoUrl={finalVideoUrl}
-      title={scriptReview.script?.title}
-      onCreateAnother={handleCreateAnother}
-    />,
-  ];
+  // Render current step component
+  const renderStep = () => {
+    switch (step) {
+      case 0:
+        return (
+          <PromptStep
+            userPrompt={userPrompt}
+            setUserPrompt={setUserPrompt}
+            style={style}
+            setStyle={setStyle}
+            targetDuration={targetDuration}
+            setTargetDuration={setTargetDuration}
+            images={images}
+            addImages={addImages}
+            removeImage={removeImage}
+            onStart={startSession}
+            loading={loading}
+          />
+        );
 
-  // Determine if we need nav buttons and what loading text to show
-  const showNavButtons = step >= STEPS.SECTIONS_VOICE && step <= STEPS.PREVIEW;
-  const isContentStep = step <= STEPS.PREVIEW;
+      case 1:
+      case 2:
+        return (
+          <ImagesStep
+            images={images}
+            addImages={addImages}
+            removeImage={removeImage}
+            uploadImages={uploadImages}
+            analyzeImages={analyzeImages}
+            imageAnalysis={imageAnalysis}
+            session={session.session}
+            loading={loading}
+            onNext={() => generateScript()}
+          />
+        );
+
+      case 3:
+      case 4:
+        return (
+          <ScriptStep
+            scriptData={scriptData}
+            setScriptData={setScriptData}
+            editRequest={editRequest}
+            setEditRequest={setEditRequest}
+            generateScript={generateScript}
+            editScriptWithAI={editScriptWithAI}
+            approveScript={approveScript}
+            session={session.session}
+            loading={loading}
+            onNext={handleNext}
+          />
+        );
+
+      case 5:
+        return (
+          <GeneratingStep
+            session={session.session}
+            scriptData={scriptData}
+          />
+        );
+
+      case 6:
+      case 7:
+        return (
+          <ResultStep
+            finalVideoUrl={finalVideoUrl}
+            scriptData={scriptData}
+            session={session.session}
+            enterEditingMode={enterEditingMode}
+            reset={reset}
+          />
+        );
+
+      default:
+        return (
+          <FramesStep
+            openingFrame={openingFrame}
+            setOpeningFrame={setOpeningFrame}
+            closingFrame={closingFrame}
+            setClosingFrame={setClosingFrame}
+            videoModel={videoModel}
+            setVideoModel={setVideoModel}
+            voiceId={voiceId}
+            setVoiceId={setVoiceId}
+            configureFrames={configureFrames}
+            startGeneration={startGeneration}
+            loading={loading}
+          />
+        );
+    }
+  };
+
+  // Show progress bar for content steps
+  const showProgressBar = step > 0 && step < 6;
+  const showBackButton = step > 0 && step < 5;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Progress Bar - show for content steps */}
-      {isContentStep && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <ProgressBar currentStep={step} />
+      {/* Progress Bar */}
+      {showProgressBar && (
+        <div className="bg-white border-b border-gray-200 shadow-sm px-6 py-3">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              {STEP_NAMES.slice(0, 5).map((name, index) => (
+                <div
+                  key={name}
+                  className={`flex items-center ${
+                    index < STEP_NAMES.length - 1 ? "flex-1" : ""
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      step > index
+                        ? "bg-purple-600 text-white"
+                        : step === index
+                        ? "bg-purple-100 text-purple-600 border-2 border-purple-600"
+                        : "bg-gray-200 text-gray-500"
+                    }`}
+                  >
+                    {index + 1}
+                  </div>
+                  {index < STEP_NAMES.length - 2 && (
+                    <div
+                      className={`flex-1 h-1 mx-2 ${
+                        step > index ? "bg-purple-600" : "bg-gray-200"
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between text-xs text-gray-500">
+              {STEP_NAMES.slice(0, 5).map((name, index) => (
+                <span
+                  key={name}
+                  className={step === index ? "text-purple-600 font-medium" : ""}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Main Content */}
       <div className="flex-1 relative overflow-hidden">
-        <AnimatePresence initial={false} custom={direction}>
+        <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={step}
             custom={direction}
@@ -141,60 +260,38 @@ export default function Creator() {
             transition={transition}
             className="absolute inset-0 flex"
           >
-            <div className="w-full h-full bg-white">
-              {components[step]}
-            </div>
+            <div className="w-full h-full bg-white">{renderStep()}</div>
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation Buttons */}
-        {showNavButtons && (
-          <>
-            <MergeFloatingActionButton
-              className="absolute left-6 top-1/2 -translate-y-1/2 z-10"
-              size={50}
-              padding={5}
-              icon={<CircleChevronLeft />}
-              onClick={handlePrev}
-              disabled={loading}
-            />
-            {step !== STEPS.PREVIEW && (
-              <MergeFloatingActionButton
-                className="absolute right-6 top-1/2 -translate-y-1/2 z-10"
-                size={50}
-                padding={5}
-                icon={<CircleChevronRight />}
-                onClick={handleNext}
-                disabled={loading}
-              />
-            )}
-          </>
-        )}
-
-        {/* Next button for Chat step */}
-        {step === STEPS.CHAT_UPLOAD && storylineChat.messages.length > 0 && (
+        {/* Back Button */}
+        {showBackButton && (
           <MergeFloatingActionButton
-            className="absolute right-6 top-1/2 -translate-y-1/2 z-10"
+            className="absolute left-6 top-1/2 -translate-y-1/2 z-10"
             size={50}
             padding={5}
-            icon={<CircleChevronRight />}
-            onClick={handleNext}
-            disabled={loading || imagePool.images.length === 0}
+            icon={<CircleChevronLeft />}
+            onClick={handlePrev}
+            disabled={loading}
           />
         )}
       </div>
 
       {/* Loading overlay */}
-      {loading && (
-        <>
-          {step === STEPS.CHAT_UPLOAD ? (
-            <MergeLoadingOverlay text="Generating your script..." />
-          ) : step === STEPS.PREVIEW ? (
-            <MergeLoadingOverlay text="Starting video generation..." />
-          ) : (
-            <MergeLoadingOverlay />
-          )}
-        </>
+      {loading && step !== 5 && (
+        <MergeLoadingOverlay
+          text={
+            step === 0
+              ? "Creating session..."
+              : step === 1
+              ? "Uploading images..."
+              : step === 2
+              ? "Analyzing images..."
+              : step === 3
+              ? "Generating script..."
+              : "Processing..."
+          }
+        />
       )}
     </div>
   );
