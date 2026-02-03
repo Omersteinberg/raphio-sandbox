@@ -6,7 +6,6 @@ import { useSession } from "@/hooks/session/useSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
-import ImagesStep from "@/components/session/ImagesStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FramesStep from "@/components/session/FramesStep";
 import GeneratingStep from "@/components/session/GeneratingStep";
@@ -16,11 +15,9 @@ import EditingStep from "@/components/session/EditingStep";
 // Step names for progress bar
 const STEP_NAMES = [
   "Prompt",
-  "Images",
-  "Analysis",
   "Script",
-  "Frames",
-  "Generating",
+  "Generate",
+  "Processing",
   "Complete",
 ];
 
@@ -42,13 +39,10 @@ export default function Creator() {
     setTargetDuration,
     startSession,
 
-    // Images step
+    // Images (from prompt)
     images,
     addImages,
     removeImage,
-    uploadImages,
-    analyzeImages,
-    imageAnalysis,
 
     // Script step
     scriptData,
@@ -133,22 +127,6 @@ export default function Creator() {
         );
 
       case 1:
-      case 2:
-        return (
-          <ImagesStep
-            images={images}
-            addImages={addImages}
-            removeImage={removeImage}
-            uploadImages={uploadImages}
-            analyzeImages={analyzeImages}
-            imageAnalysis={imageAnalysis}
-            session={session.session}
-            loading={loading}
-            onNext={() => generateScript()}
-          />
-        );
-
-      case 3:
         return (
           <ScriptStep
             scriptData={scriptData}
@@ -162,10 +140,14 @@ export default function Creator() {
             loading={loading}
             images={images}
             onNext={handleNext}
+            openingFrame={openingFrame}
+            setOpeningFrame={setOpeningFrame}
+            closingFrame={closingFrame}
+            setClosingFrame={setClosingFrame}
           />
         );
 
-      case 4:
+      case 2:
         return (
           <FramesStep
             openingFrame={openingFrame}
@@ -181,7 +163,7 @@ export default function Creator() {
           />
         );
 
-      case 5:
+      case 3:
         return (
           <GeneratingStep
             session={session.session}
@@ -189,7 +171,7 @@ export default function Creator() {
           />
         );
 
-      case 6:
+      case 4:
         return (
           <ResultStep
             finalVideoUrl={finalVideoUrl}
@@ -200,7 +182,7 @@ export default function Creator() {
           />
         );
 
-      case 7:
+      case 5:
         return (
           <EditingStep
             session={session.session}
@@ -210,7 +192,7 @@ export default function Creator() {
             reorderClips={reorderClips}
             reassembleVideo={reassembleVideo}
             deleteClip={deleteClip}
-            goToResult={() => goToStep(6)}
+            goToResult={() => goToStep(4)}
             loading={loading}
           />
         );
@@ -221,8 +203,9 @@ export default function Creator() {
   };
 
   // Show progress bar for content steps
-  const showProgressBar = step > 0 && step < 6;
-  const showBackButton = step > 0 && step < 5;
+  const showProgressBar = step > 0 && step < 3;
+  const showBackButton = step > 0 && step < 3;
+  const progressSteps = STEP_NAMES.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -231,11 +214,11 @@ export default function Creator() {
         <div className="bg-white border-b border-gray-200 shadow-sm px-6 py-3">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-2">
-              {STEP_NAMES.slice(0, 5).map((name, index) => (
+              {progressSteps.map((name, index) => (
                 <div
                   key={name}
                   className={`flex items-center ${
-                    index < STEP_NAMES.length - 1 ? "flex-1" : ""
+                    index < progressSteps.length - 1 ? "flex-1" : ""
                   }`}
                 >
                   <div
@@ -249,7 +232,7 @@ export default function Creator() {
                   >
                     {index + 1}
                   </div>
-                  {index < STEP_NAMES.length - 2 && (
+                  {index < progressSteps.length - 1 && (
                     <div
                       className={`flex-1 h-1 mx-2 ${
                         step > index ? "bg-purple-600" : "bg-gray-200"
@@ -260,7 +243,7 @@ export default function Creator() {
               ))}
             </div>
             <div className="flex justify-between text-xs text-gray-500">
-              {STEP_NAMES.slice(0, 5).map((name, index) => (
+              {progressSteps.map((name, index) => (
                 <span
                   key={name}
                   className={step === index ? "text-purple-600 font-medium" : ""}
@@ -304,17 +287,15 @@ export default function Creator() {
       </div>
 
       {/* Loading overlay */}
-      {loading && step !== 5 && (
+      {loading && step !== 3 && (
         <MergeLoadingOverlay
           text={
             step === 0
               ? "Creating session..."
               : step === 1
-              ? "Uploading images..."
-              : step === 2
-              ? "Analyzing images..."
-              : step === 3
               ? "Generating script..."
+              : step === 2
+              ? "Saving generation settings..."
               : "Processing..."
           }
         />

@@ -1,8 +1,6 @@
 import { motion } from "framer-motion";
-import { Film, Play, Square, Mic, ArrowRight } from "lucide-react";
+import { Film, Mic, ArrowRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import VoiceSelector from "./VoiceSelector";
 
 const VIDEO_MODELS = [
@@ -14,9 +12,7 @@ const VIDEO_MODELS = [
 
 export default function FramesStep({
   openingFrame,
-  setOpeningFrame,
   closingFrame,
-  setClosingFrame,
   videoModel,
   setVideoModel,
   voiceId,
@@ -24,26 +20,18 @@ export default function FramesStep({
   configureFrames,
   startGeneration,
 }) {
-  const handleOpeningChange = (field, value) => {
-    setOpeningFrame({ ...openingFrame, [field]: value });
-  };
-
-  const handleClosingChange = (field, value) => {
-    setClosingFrame({ ...closingFrame, [field]: value });
-  };
-
   const handleStartGeneration = async () => {
     console.log("[FramesStep] handleStartGeneration called");
     console.log("[FramesStep] openingFrame:", openingFrame);
     console.log("[FramesStep] closingFrame:", closingFrame);
     console.log("[FramesStep] videoModel:", videoModel);
     console.log("[FramesStep] voiceId:", voiceId);
-    
+
     try {
       console.log("[FramesStep] Calling configureFrames...");
       await configureFrames();
       console.log("[FramesStep] configureFrames completed");
-      
+
       console.log("[FramesStep] Calling startGeneration...");
       await startGeneration();
       console.log("[FramesStep] startGeneration completed");
@@ -52,116 +40,63 @@ export default function FramesStep({
     }
   };
 
+  // Count enabled frames for summary
+  const framesSummary = [];
+  if (openingFrame?.enabled) framesSummary.push("Opening");
+  if (closingFrame?.enabled) framesSummary.push("Closing");
+
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
-      {/* Left Side - Frame Configuration */}
+      {/* Left Side - Summary & Start */}
       <div className="flex-1 flex flex-col p-6 border-r border-gray-100 overflow-y-auto">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Configure Frames</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Ready to Generate</h2>
           <p className="text-sm text-gray-600">
-            Add opening and closing frames to your video
+            Review your settings and start video generation
           </p>
         </div>
 
-        {/* Opening Frame */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Play className="w-5 h-5 text-green-600" />
+        {/* Summary Cards */}
+        <div className="space-y-4 mb-6">
+          {/* Frames Summary */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Frames</h3>
+            {framesSummary.length > 0 ? (
+              <p className="text-sm text-gray-600">
+                {framesSummary.join(" & ")} frame{framesSummary.length > 1 ? "s" : ""} will be generated
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No opening/closing frames configured</p>
+            )}
+            {openingFrame?.enabled && openingFrame?.useUpload && openingFrame?.uploadedImage && (
+              <div className="mt-2 flex items-center gap-2">
+                <img src={openingFrame.uploadedImage} alt="Opening" className="w-12 h-12 object-cover rounded" />
+                <span className="text-xs text-gray-500">Custom opening image</span>
               </div>
-              <div>
-                <h3 className="font-medium text-gray-900">Opening Frame</h3>
-                <p className="text-xs text-gray-500">Title card at the start</p>
+            )}
+            {closingFrame?.enabled && closingFrame?.useUpload && closingFrame?.uploadedImage && (
+              <div className="mt-2 flex items-center gap-2">
+                <img src={closingFrame.uploadedImage} alt="Closing" className="w-12 h-12 object-cover rounded" />
+                <span className="text-xs text-gray-500">Custom closing image</span>
               </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={openingFrame.enabled}
-                onChange={(e) => handleOpeningChange("enabled", e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
+            )}
           </div>
 
-          {openingFrame.enabled && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="space-y-3"
-            >
-              <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Custom Prompt (optional)
-                </label>
-                <Textarea
-                  value={openingFrame.customPrompt}
-                  onChange={(e) => handleOpeningChange("customPrompt", e.target.value)}
-                  placeholder="Describe your opening frame or leave empty for auto-generation..."
-                  className="text-sm"
-                  rows={2}
-                />
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Closing Frame */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Square className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">Closing Frame</h3>
-                <p className="text-xs text-gray-500">End card with CTA</p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={closingFrame.enabled}
-                onChange={(e) => handleClosingChange("enabled", e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
+          {/* Model Summary */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Video AI Model</h3>
+            <p className="text-sm text-gray-600">
+              {VIDEO_MODELS.find(m => m.id === videoModel)?.name || videoModel} - {VIDEO_MODELS.find(m => m.id === videoModel)?.description}
+            </p>
           </div>
 
-          {closingFrame.enabled && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="space-y-3"
-            >
-              <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Call to Action
-                </label>
-                <Input
-                  value={closingFrame.callToAction}
-                  onChange={(e) => handleClosingChange("callToAction", e.target.value)}
-                  placeholder="e.g., Visit our website, Follow us, Subscribe..."
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Custom Prompt (optional)
-                </label>
-                <Textarea
-                  value={closingFrame.customPrompt}
-                  onChange={(e) => handleClosingChange("customPrompt", e.target.value)}
-                  placeholder="Describe your closing frame or leave empty for auto-generation..."
-                  className="text-sm"
-                  rows={2}
-                />
-              </div>
-            </motion.div>
-          )}
+          {/* Voice Summary */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Narration Voice</h3>
+            <p className="text-sm text-gray-600">
+              {voiceId || "Default voice"}
+            </p>
+          </div>
         </div>
 
         {/* Start Generation Button */}
@@ -170,11 +105,25 @@ export default function FramesStep({
           className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg"
         >
           <span className="flex items-center gap-2">
-            <Film className="w-5 h-5" />
+            <Zap className="w-5 h-5" />
             Start Video Generation
             <ArrowRight className="w-5 h-5" />
           </span>
         </Button>
+
+        {/* Info Box */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800">
+            <strong>What happens next:</strong>
+          </p>
+          <ul className="text-xs text-blue-700 mt-2 space-y-1">
+            {openingFrame?.enabled && <li>• Opening frame generated with DALL-E 3</li>}
+            <li>• Each section converted to video clips</li>
+            <li>• Narration generated with AI voice</li>
+            {closingFrame?.enabled && <li>• Closing frame generated with DALL-E 3</li>}
+            <li>• Final video assembled automatically</li>
+          </ul>
+        </div>
       </div>
 
       {/* Right Side - Model & Voice Selection */}
@@ -215,19 +164,6 @@ export default function FramesStep({
           <p className="text-xs text-gray-500 mt-2">
             Click the play button to preview any voice before selecting
           </p>
-        </div>
-
-        {/* Info Box */}
-        <div className="mt-auto p-4 bg-purple-100 rounded-lg border border-purple-200">
-          <p className="text-sm text-purple-800">
-            <strong>What happens next:</strong>
-          </p>
-          <ul className="text-xs text-purple-700 mt-2 space-y-1">
-            <li>• Opening/closing frames generated with DALL-E 3</li>
-            <li>• Each section converted to video clips</li>
-            <li>• Narration generated with AI voice</li>
-            <li>• Final video assembled automatically</li>
-          </ul>
         </div>
       </div>
     </div>

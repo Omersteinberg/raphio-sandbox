@@ -196,62 +196,6 @@ export default function GeneratingStep({ session, scriptData }) {
           })}
         </div>
 
-        {/* Clip Progress Grid */}
-        {currentStage === "CLIPS" && sections.length > 0 && (
-          <div className="mt-6">
-            <p className="text-sm text-gray-600 mb-3 text-center">Individual Clip Status</p>
-            <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
-              {sections.filter(s => s.sectionType === "CONTENT").map((section, idx) => {
-                const isCompleted = section.status === "COMPLETED";
-                const isGenerating = section.status === "GENERATING";
-                const isFailed = section.status === "FAILED";
-
-                return (
-                  <motion.div
-                    key={section.id || idx}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: idx * 0.03 }}
-                    className={`relative aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${
-                      isCompleted
-                        ? "bg-green-100 text-green-700 border border-green-200"
-                        : isGenerating
-                        ? "bg-purple-100 text-purple-700 border border-purple-300"
-                        : isFailed
-                        ? "bg-red-100 text-red-700 border border-red-200"
-                        : "bg-gray-100 text-gray-500 border border-gray-200"
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <Check className="w-4 h-4" />
-                    ) : isGenerating ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      >
-                        <Loader2 className="w-4 h-4" />
-                      </motion.div>
-                    ) : isFailed ? (
-                      "!"
-                    ) : (
-                      idx + 1
-                    )}
-                    {section.imageUrl && isCompleted && (
-                      <div className="absolute inset-0 rounded-lg overflow-hidden opacity-30">
-                        <img
-                          src={section.imageUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Processing Note */}
         <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">
           <p className="text-sm text-blue-800">

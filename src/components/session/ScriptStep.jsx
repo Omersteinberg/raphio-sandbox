@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Upload } from "lucide-react";
+import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,38 @@ export default function ScriptStep({
   loading,
   onNext,
   images = [],
+  openingFrame,
+  setOpeningFrame,
+  closingFrame,
+  setClosingFrame,
 }) {
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
+  const [frameUploadTarget, setFrameUploadTarget] = useState(null); // 'opening' or 'closing'
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED";
+
+  // Initialize frame configs from scriptData when available
+  useEffect(() => {
+    if (scriptData?.openingFrame && !openingFrame.customPrompt) {
+      setOpeningFrame(prev => ({
+        ...prev,
+        enabled: true,
+        customPrompt: scriptData.openingFrame.prompt || "",
+        textOverlay: scriptData.openingFrame.textOverlay || scriptData.title || "",
+      }));
+    }
+    if (scriptData?.closingFrame && !closingFrame.customPrompt) {
+      setClosingFrame(prev => ({
+        ...prev,
+        enabled: true,
+        customPrompt: scriptData.closingFrame.prompt || "",
+        textOverlay: scriptData.closingFrame.textOverlay || "",
+        callToAction: scriptData.closingFrame.callToAction || prev.callToAction || "",
+      }));
+    }
+  }, [scriptData]);
 
   // Get session images (either from prop or session.images)
   const sessionImages = images.length > 0 ? images : (session?.images || []);
@@ -256,7 +282,7 @@ export default function ScriptStep({
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             >
               <span className="flex items-center gap-2">
-                Continue to Frame Configuration
+                Continue to Generation Settings
                 <ArrowRight className="w-4 h-4" />
               </span>
             </Button>
@@ -279,7 +305,7 @@ export default function ScriptStep({
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
             <Check className="w-12 h-12 mb-3 text-green-500" />
             <p className="text-sm text-center">
-              Script approved! Proceed to configure frames.
+              Script approved! Proceed to generation settings.
             </p>
           </div>
         ) : (

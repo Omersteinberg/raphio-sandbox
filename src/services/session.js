@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:3000/api/wizard";
+const API_BASE = "http://localhost:3000/api/video";
 
 /**
  * Create a new session

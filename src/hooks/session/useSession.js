@@ -15,17 +15,17 @@ const STAGES = {
 };
 
 // Map backend stages to frontend step numbers
-// After prompt is entered, we move to step 1 (ImagesStep) to upload images
+// Image upload/analysis are handled during startSession and do not have dedicated pages
 const STAGE_TO_STEP = {
   PROMPT_ENTERED: 1,
   IMAGES_UPLOADED: 1,
-  IMAGES_ANALYZED: 2,
-  SCRIPT_GENERATED: 3,
-  SCRIPT_APPROVED: 4,
-  FRAMES_CONFIGURED: 4,
-  GENERATING: 5,
-  COMPLETED: 6,
-  EDITING: 7,
+  IMAGES_ANALYZED: 1,
+  SCRIPT_GENERATED: 1,
+  SCRIPT_APPROVED: 2,
+  FRAMES_CONFIGURED: 2,
+  GENERATING: 3,
+  COMPLETED: 4,
+  EDITING: 5,
 };
 
 // Video models
@@ -71,14 +71,20 @@ export function useSession() {
   // Frame configuration
   const [openingFrame, setOpeningFrame] = useState({
     enabled: false,
+    useUpload: false,
     customPrompt: "",
-    uploadedImageUrl: null,
+    textOverlay: "",
+    uploadedImage: null, // base64 data URL for preview
+    uploadedFile: null,  // actual File object for upload
   });
   const [closingFrame, setClosingFrame] = useState({
     enabled: false,
+    useUpload: false,
     customPrompt: "",
+    textOverlay: "",
     callToAction: "",
-    uploadedImageUrl: null,
+    uploadedImage: null, // base64 data URL for preview
+    uploadedFile: null,  // actual File object for upload
   });
 
   // Generation state
@@ -120,7 +126,7 @@ export function useSession() {
   useEffect(() => {
     let pollInterval;
 
-    if (sessionId && step === 5) {
+    if (sessionId && step === 3) {
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
@@ -208,7 +214,7 @@ export function useSession() {
       setScriptData(sessionAfterScript.scriptData);
 
       setDirection(1);
-      setStep(3); // Go directly to ScriptStep
+      setStep(1); // Go directly to ScriptStep
       toast.success("Script generated! Review and approve your script.");
     } catch (err) {
       console.error("[useSession] Failed to start session:", err);
@@ -381,7 +387,7 @@ export function useSession() {
   const configureFrames = useCallback(async () => {
     console.log("[useSession] configureFrames called");
     console.log("[useSession] sessionId:", sessionId);
-    
+
     if (!sessionId) {
       console.log("[useSession] No sessionId, aborting configureFrames");
       return;
@@ -389,18 +395,45 @@ export function useSession() {
 
     setLoading(true);
     try {
+      // Upload frame images if user chose to upload
+      let openingImageUrl = null;
+      let closingImageUrl = null;
+
+      if (openingFrame.enabled && openingFrame.useUpload && openingFrame.uploadedFile) {
+        console.log("[useSession] Uploading opening frame image...");
+        const formData = new FormData();
+        formData.append("images", openingFrame.uploadedFile);
+        // Upload as session image and get URL
+        const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          openingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+        }
+      }
+
+      if (closingFrame.enabled && closingFrame.useUpload && closingFrame.uploadedFile) {
+        console.log("[useSession] Uploading closing frame image...");
+        const uploadResult = await sessionService.uploadImages(sessionId, [closingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          closingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+        }
+      }
+
       const frameConfig = {
         opening: openingFrame.enabled ? {
-          customPrompt: openingFrame.customPrompt || null,
-          uploadedImageUrl: openingFrame.uploadedImageUrl || null,
+          useUpload: openingFrame.useUpload,
+          customPrompt: openingFrame.useUpload ? null : (openingFrame.customPrompt || null),
+          textOverlay: openingFrame.textOverlay || null,
+          uploadedImageUrl: openingImageUrl,
         } : null,
         closing: closingFrame.enabled ? {
-          customPrompt: closingFrame.customPrompt || null,
+          useUpload: closingFrame.useUpload,
+          customPrompt: closingFrame.useUpload ? null : (closingFrame.customPrompt || null),
+          textOverlay: closingFrame.textOverlay || null,
           callToAction: closingFrame.callToAction || null,
-          uploadedImageUrl: closingFrame.uploadedImageUrl || null,
+          uploadedImageUrl: closingImageUrl,
         } : null,
       };
-      
+
       console.log("[useSession] Frame config:", frameConfig);
 
       const updatedSession = await sessionService.configureFrames(sessionId, frameConfig);
@@ -432,11 +465,11 @@ export function useSession() {
       return;
     }
 
-    // Immediately transition to GeneratingStep (step 5) so user sees
+    // Immediately transition to GeneratingStep (step 3) so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
-    console.log("[useSession] Transitioning to GeneratingStep (step 5) immediately");
+    console.log("[useSession] Transitioning to GeneratingStep (step 3) immediately");
     setDirection(1);
-    setStep(5);
+    setStep(3);
 
     try {
       console.log("[useSession] Calling sessionService.startGeneration...");
@@ -457,7 +490,7 @@ export function useSession() {
       toast.error("Failed to start generation");
       // Go back to frames step if generation failed to start
       setDirection(-1);
-      setStep(4);
+      setStep(2);
     }
   }, [sessionId, videoModel, voiceId]);
 
@@ -606,8 +639,8 @@ export function useSession() {
     setImageAnalysis(null);
     setScriptData(null);
     setEditRequest("");
-    setOpeningFrame({ enabled: false, customPrompt: "", uploadedImageUrl: null });
-    setClosingFrame({ enabled: false, customPrompt: "", callToAction: "", uploadedImageUrl: null });
+    setOpeningFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", uploadedImage: null, uploadedFile: null });
+    setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", callToAction: "", uploadedImage: null, uploadedFile: null });
     setGenerationProgress(null);
     setFinalVideoUrl(null);
     setError(null);
