@@ -1,37 +1,70 @@
 import { motion } from "framer-motion";
-import { Film, Mic, Layers, Check, Loader2 } from "lucide-react";
+import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
 
 export default function GeneratingStep({ session, scriptData }) {
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
 
+  // Get progress data from backend (if available)
+  const progressData = session?.video?.progressData || {};
+  const currentStage = progressData.stage || "TTS";
+  const currentClip = progressData.currentClip || 0;
+  const totalClips = progressData.totalClips || totalSections;
+  const completedTTS = progressData.completedTTS || 0;
+  const totalTTS = progressData.totalTTS || 0;
+
+  // Determine stage statuses based on progressData
+  const ttsStatus = (() => {
+    if (completedTTS >= totalTTS && totalTTS > 0) return "completed";
+    if (currentStage === "TTS") return "processing";
+    if (currentStage === "CLIPS" || currentStage === "ASSEMBLY") return "completed";
+    return "processing";
+  })();
+
+  const clipsStatus = (() => {
+    if (completedSections >= totalClips && totalClips > 0) return "completed";
+    if (currentStage === "CLIPS") return "processing";
+    if (currentStage === "ASSEMBLY") return "completed";
+    return "pending";
+  })();
+
+  const assemblyStatus = (() => {
+    if (session?.video?.finalVideoUrl) return "completed";
+    if (currentStage === "ASSEMBLY") return "processing";
+    return "pending";
+  })();
+
   const stages = [
     {
       id: "tts",
       name: "Generating Narration",
-      description: "Converting script to speech with AI voice",
+      description: totalTTS > 0
+        ? `${completedTTS}/${totalTTS} sections narrated`
+        : "Converting script to speech with AI voice",
       icon: Mic,
-      status: session?.video?.narrationUrl ? "completed" : "processing",
+      status: ttsStatus,
     },
     {
       id: "clips",
       name: "Creating Video Clips",
-      description: `${completedSections}/${totalSections} sections complete`,
+      description: currentStage === "CLIPS" && currentClip > 0
+        ? `Generating clip ${currentClip} of ${totalClips}`
+        : `${completedSections}/${totalClips} clips complete`,
       icon: Film,
-      status: completedSections === totalSections && totalSections > 0 ? "completed" : "processing",
+      status: clipsStatus,
     },
     {
       id: "assembly",
       name: "Assembling Final Video",
       description: "Combining clips and audio",
       icon: Layers,
-      status: session?.video?.finalVideoUrl ? "completed" : "pending",
+      status: assemblyStatus,
     },
   ];
 
-  // Calculate overall progress
-  const progress = Math.round(
+  // Calculate overall progress (use backend progress if available)
+  const progress = progressData.percentage || Math.round(
     ((completedSections / Math.max(totalSections, 1)) * 70) +
     (session?.video?.narrationUrl ? 15 : 0) +
     (session?.video?.finalVideoUrl ? 15 : 0)
@@ -162,6 +195,62 @@ export default function GeneratingStep({ session, scriptData }) {
             );
           })}
         </div>
+
+        {/* Clip Progress Grid */}
+        {currentStage === "CLIPS" && sections.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm text-gray-600 mb-3 text-center">Individual Clip Status</p>
+            <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+              {sections.filter(s => s.sectionType === "CONTENT").map((section, idx) => {
+                const isCompleted = section.status === "COMPLETED";
+                const isGenerating = section.status === "GENERATING";
+                const isFailed = section.status === "FAILED";
+
+                return (
+                  <motion.div
+                    key={section.id || idx}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className={`relative aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${
+                      isCompleted
+                        ? "bg-green-100 text-green-700 border border-green-200"
+                        : isGenerating
+                        ? "bg-purple-100 text-purple-700 border border-purple-300"
+                        : isFailed
+                        ? "bg-red-100 text-red-700 border border-red-200"
+                        : "bg-gray-100 text-gray-500 border border-gray-200"
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <Check className="w-4 h-4" />
+                    ) : isGenerating ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Loader2 className="w-4 h-4" />
+                      </motion.div>
+                    ) : isFailed ? (
+                      "!"
+                    ) : (
+                      idx + 1
+                    )}
+                    {section.imageUrl && isCompleted && (
+                      <div className="absolute inset-0 rounded-lg overflow-hidden opacity-30">
+                        <img
+                          src={section.imageUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Processing Note */}
         <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">

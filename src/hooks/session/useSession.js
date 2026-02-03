@@ -432,7 +432,12 @@ export function useSession() {
       return;
     }
 
-    setLoading(true);
+    // Immediately transition to GeneratingStep (step 5) so user sees
+    // the detailed progress UI instead of generic "Processing..." overlay
+    console.log("[useSession] Transitioning to GeneratingStep (step 5) immediately");
+    setDirection(1);
+    setStep(5);
+
     try {
       console.log("[useSession] Calling sessionService.startGeneration...");
       const updatedSession = await sessionService.startGeneration(sessionId, {
@@ -450,9 +455,9 @@ export function useSession() {
         status: err.response?.status,
       });
       toast.error("Failed to start generation");
-    } finally {
-      setLoading(false);
-      console.log("[useSession] startGeneration completed");
+      // Go back to frames step if generation failed to start
+      setDirection(-1);
+      setStep(4);
     }
   }, [sessionId, videoModel, voiceId]);
 
@@ -487,6 +492,23 @@ export function useSession() {
     }
   }, [sessionId]);
 
+  // Regenerate narration for a single clip
+  const regenerateNarration = useCallback(async (clipId, options = {}) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      await sessionService.regenerateNarration(sessionId, clipId, options);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Narration regenerated!");
+    } catch (err) {
+      toast.error("Failed to regenerate narration");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
   // Reorder clips
   const reorderClips = useCallback(async (newOrder) => {
     if (!sessionId) return;
@@ -514,6 +536,23 @@ export function useSession() {
       toast.success("Video reassembled!");
     } catch (err) {
       toast.error("Failed to reassemble video");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Delete clip
+  const deleteClip = useCallback(async (clipId) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      await sessionService.deleteClip(sessionId, clipId);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Clip deleted!");
+    } catch (err) {
+      toast.error("Failed to delete clip");
     } finally {
       setLoading(false);
     }
@@ -629,8 +668,10 @@ export function useSession() {
     startGeneration,
     updateClip,
     regenerateClip,
+    regenerateNarration,
     reorderClips,
     reassembleVideo,
+    deleteClip,
     enterEditingMode,
 
     // Navigation

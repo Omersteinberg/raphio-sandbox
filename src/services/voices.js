@@ -1,76 +1,95 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = "http://localhost:3000/api/voices";
 
-// Voice list - matches backend constants
-// Until a /api/voices endpoint is added, we use this local list
-const VOICE_LIST = [
-  { key: "rachel", name: "Rachel", gender: "female", description: "Warm and conversational female voice" },
-  { key: "drew", name: "Drew", gender: "male", description: "Professional male voice" },
-  { key: "clyde", name: "Clyde", gender: "male", description: "Friendly male voice" },
-  { key: "paul", name: "Paul", gender: "male", description: "Clear and articulate male voice" },
-  { key: "domi", name: "Domi", gender: "female", description: "Energetic female voice" },
-  { key: "dave", name: "Dave", gender: "male", description: "Natural male voice" },
-  { key: "fin", name: "Fin", gender: "male", description: "Young male voice" },
-  { key: "sarah", name: "Sarah", gender: "female", description: "Professional female voice" },
-  { key: "antoni", name: "Antoni", gender: "male", description: "Smooth male voice" },
-  { key: "thomas", name: "Thomas", gender: "male", description: "Deep male voice" },
-  { key: "charlie", name: "Charlie", gender: "male", description: "Casual male voice" },
-  { key: "george", name: "George", gender: "male", description: "British male voice" },
-  { key: "emily", name: "Emily", gender: "female", description: "Youthful female voice" },
-  { key: "elli", name: "Elli", gender: "female", description: "Expressive female voice" },
-  { key: "callum", name: "Callum", gender: "male", description: "Scottish male voice" },
-  { key: "patrick", name: "Patrick", gender: "male", description: "Irish male voice" },
-  { key: "harry", name: "Harry", gender: "male", description: "British male voice" },
-  { key: "liam", name: "Liam", gender: "male", description: "American male voice" },
-  { key: "dorothy", name: "Dorothy", gender: "female", description: "Mature female voice" },
-  { key: "josh", name: "Josh", gender: "male", description: "Casual male voice" },
-  { key: "arnold", name: "Arnold", gender: "male", description: "Strong male voice" },
-  { key: "charlotte", name: "Charlotte", gender: "female", description: "Elegant female voice" },
-  { key: "matilda", name: "Matilda", gender: "female", description: "Warm female voice" },
-  { key: "matthew", name: "Matthew", gender: "male", description: "Friendly male voice" },
-  { key: "james", name: "James", gender: "male", description: "Professional male voice" },
-  { key: "joseph", name: "Joseph", gender: "male", description: "Calm male voice" },
-  { key: "jeremy", name: "Jeremy", gender: "male", description: "Energetic male voice" },
-  { key: "michael", name: "Michael", gender: "male", description: "Authoritative male voice" },
-  { key: "ethan", name: "Ethan", gender: "male", description: "Youthful male voice" },
-  { key: "gigi", name: "Gigi", gender: "female", description: "Playful female voice" },
-  { key: "freya", name: "Freya", gender: "female", description: "Nordic female voice" },
-  { key: "brian", name: "Brian", gender: "male", description: "Narrator male voice" },
-  { key: "grace", name: "Grace", gender: "female", description: "Gentle female voice" },
-  { key: "daniel", name: "Daniel", gender: "male", description: "British male voice" },
-  { key: "lily", name: "Lily", gender: "female", description: "Sweet female voice" },
-  { key: "serena", name: "Serena", gender: "female", description: "Calm female voice" },
-  { key: "adam", name: "Adam", gender: "male", description: "Deep conversational male voice (default)" },
-  { key: "nicole", name: "Nicole", gender: "female", description: "American female voice" },
-  { key: "bill", name: "Bill", gender: "male", description: "Mature male voice" },
-  { key: "jessie", name: "Jessie", gender: "female", description: "Upbeat female voice" },
-  { key: "sam", name: "Sam", gender: "male", description: "Casual male voice" },
-  { key: "glinda", name: "Glinda", gender: "female", description: "Whimsical female voice" },
-  { key: "giovanni", name: "Giovanni", gender: "male", description: "Italian male voice" },
-  { key: "mimi", name: "Mimi", gender: "female", description: "Sweet female voice" },
-];
+// Cache for voices list
+let voicesCache = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+/**
+ * Get all available voices with metadata
+ */
 export async function getVoices() {
+  // Check cache
+  if (voicesCache && Date.now() - cacheTimestamp < CACHE_TTL) {
+    return voicesCache;
+  }
+
   try {
-    // Try to fetch from API first
-    const response = await axios.get(`${API_BASE}/voices`);
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    const response = await axios.get(API_BASE);
+    if (response.data.success) {
+      voicesCache = response.data.data;
+      cacheTimestamp = Date.now();
+      return voicesCache;
     }
-    // Fallback to local list
-    return VOICE_LIST;
+    throw new Error(response.data.error || "Failed to fetch voices");
   } catch (error) {
-    // If API not available, use local list
-    console.log("Using local voice list");
-    return VOICE_LIST;
+    console.error("[voicesService] Error fetching voices:", error.message);
+    // Return fallback voices if API fails
+    return getFallbackVoices();
   }
 }
 
-export function isValidVoice(voiceId) {
-  return VOICE_LIST.some((v) => v.key === voiceId);
+/**
+ * Get voice preview URL for a specific voice
+ */
+export async function getVoicePreview(voiceKey) {
+  try {
+    const response = await axios.get(`${API_BASE}/${voiceKey}/preview`);
+    if (response.data.success) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error || "Failed to fetch preview");
+  } catch (error) {
+    console.error("[voicesService] Error fetching voice preview:", error.message);
+    return null;
+  }
 }
 
-export function getVoiceById(voiceId) {
-  return VOICE_LIST.find((v) => v.key === voiceId);
+/**
+ * Get preview URLs for all voices (batch request)
+ */
+export async function getBatchPreviews() {
+  try {
+    const response = await axios.get(`${API_BASE}/batch/previews`);
+    if (response.data.success) {
+      return response.data.data;
+    }
+    return {};
+  } catch (error) {
+    console.error("[voicesService] Error fetching batch previews:", error.message);
+    return {};
+  }
+}
+
+/**
+ * Fallback voices list if API is unavailable
+ */
+function getFallbackVoices() {
+  return [
+    { key: "adam", name: "Adam", description: "American male, deep narrator", gender: "male", accent: "American", category: "Narrator" },
+    { key: "rachel", name: "Rachel", description: "American female, calm and warm", gender: "female", accent: "American", category: "Calm" },
+    { key: "drew", name: "Drew", description: "American male, well-rounded and confident", gender: "male", accent: "American", category: "General" },
+    { key: "sarah", name: "Sarah", description: "American female, soft and news-like", gender: "female", accent: "American", category: "News" },
+    { key: "charlie", name: "Charlie", description: "Australian male, casual and natural", gender: "male", accent: "Australian", category: "Conversational" },
+    { key: "emily", name: "Emily", description: "American female, calm narrator", gender: "female", accent: "American", category: "Narrator" },
+    { key: "james", name: "James", description: "Australian male, calm narrator", gender: "male", accent: "Australian", category: "Narrator" },
+    { key: "charlotte", name: "Charlotte", description: "Swedish female, seductive character", gender: "female", accent: "Swedish", category: "Character" },
+    { key: "brian", name: "Brian", description: "American male, deep narrator", gender: "male", accent: "American", category: "Narrator" },
+    { key: "george", name: "George", description: "British male, warm narrator", gender: "male", accent: "British", category: "Narrator" },
+    { key: "lily", name: "Lily", description: "British female, warm narrator", gender: "female", accent: "British", category: "Narrator" },
+    { key: "daniel", name: "Daniel", description: "British male, deep news presenter", gender: "male", accent: "British", category: "News" },
+    { key: "matilda", name: "Matilda", description: "American female, warm narrator", gender: "female", accent: "American", category: "Narrator" },
+    { key: "matthew", name: "Matthew", description: "British male, audiobook narrator", gender: "male", accent: "British", category: "Audiobook" },
+    { key: "bill", name: "Bill", description: "American male, documentary narrator", gender: "male", accent: "American", category: "Narrator" },
+  ];
+}
+
+/**
+ * Clear the voice cache
+ */
+export function clearVoicesCache() {
+  voicesCache = null;
+  cacheTimestamp = 0;
 }

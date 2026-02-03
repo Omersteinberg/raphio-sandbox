@@ -3,6 +3,7 @@ import { Film, Play, Square, Mic, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import VoiceSelector from "./VoiceSelector";
 
 const VIDEO_MODELS = [
   { id: "KLING", name: "Kling", description: "Best for cinematic motion" },
@@ -22,7 +23,6 @@ export default function FramesStep({
   setVoiceId,
   configureFrames,
   startGeneration,
-  loading,
 }) {
   const handleOpeningChange = (field, value) => {
     setOpeningFrame({ ...openingFrame, [field]: value });
@@ -167,25 +167,13 @@ export default function FramesStep({
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
-          disabled={loading}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg"
         >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-              />
-              Starting Generation...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Film className="w-5 h-5" />
-              Start Video Generation
-              <ArrowRight className="w-5 h-5" />
-            </span>
-          )}
+          <span className="flex items-center gap-2">
+            <Film className="w-5 h-5" />
+            Start Video Generation
+            <ArrowRight className="w-5 h-5" />
+          </span>
         </Button>
       </div>
 
@@ -223,22 +211,9 @@ export default function FramesStep({
             <Mic className="w-4 h-4" />
             Narration Voice
           </h3>
-          <select
-            value={voiceId}
-            onChange={(e) => setVoiceId(e.target.value)}
-            className="w-full p-3 rounded-lg border border-gray-200 bg-white text-gray-900"
-          >
-            <option value="adam">Adam (Male)</option>
-            <option value="rachel">Rachel (Female)</option>
-            <option value="drew">Drew (Male)</option>
-            <option value="sarah">Sarah (Female)</option>
-            <option value="charlie">Charlie (Male)</option>
-            <option value="emily">Emily (Female)</option>
-            <option value="james">James (Male)</option>
-            <option value="charlotte">Charlotte (Female)</option>
-          </select>
+          <VoiceSelector value={voiceId} onChange={setVoiceId} />
           <p className="text-xs text-gray-500 mt-2">
-            The selected voice will be used for all narration
+            Click the play button to preview any voice before selecting
           </p>
         </div>
 

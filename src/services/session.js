@@ -191,10 +191,32 @@ export async function updateClip(sessionId, clipId, updates) {
 /**
  * Regenerate a single clip
  */
-export async function regenerateClip(sessionId, clipId, { prompt, model } = {}) {
+export async function regenerateClip(sessionId, clipId, { prompt, model, style } = {}) {
   const response = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
     prompt,
     model,
+    style,
+  });
+  return response.data;
+}
+
+/**
+ * Regenerate narration for a single clip
+ */
+export async function regenerateNarration(sessionId, clipId, { narrationText, voiceId } = {}) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate-narration`, {
+    narrationText,
+    voiceId,
+  });
+  return response.data;
+}
+
+/**
+ * Update a clip's image
+ */
+export async function updateClipImage(sessionId, clipId, imageUrl) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/clips/${clipId}/image`, {
+    imageUrl,
   });
   return response.data;
 }

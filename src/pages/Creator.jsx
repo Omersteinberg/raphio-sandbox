@@ -11,6 +11,7 @@ import ScriptStep from "@/components/session/ScriptStep";
 import FramesStep from "@/components/session/FramesStep";
 import GeneratingStep from "@/components/session/GeneratingStep";
 import ResultStep from "@/components/session/ResultStep";
+import EditingStep from "@/components/session/EditingStep";
 
 // Step names for progress bar
 const STEP_NAMES = [
@@ -75,8 +76,17 @@ export default function Creator() {
     enterEditingMode,
     reset,
 
+    // Editing step
+    updateClip,
+    regenerateClip,
+    regenerateNarration,
+    reorderClips,
+    reassembleVideo,
+    deleteClip,
+
     // Navigation
     handleNext,
+    goToStep,
   } = session;
 
   // Animation variants
@@ -139,7 +149,6 @@ export default function Creator() {
         );
 
       case 3:
-      case 4:
         return (
           <ScriptStep
             scriptData={scriptData}
@@ -151,31 +160,12 @@ export default function Creator() {
             approveScript={approveScript}
             session={session.session}
             loading={loading}
+            images={images}
             onNext={handleNext}
           />
         );
 
-      case 5:
-        return (
-          <GeneratingStep
-            session={session.session}
-            scriptData={scriptData}
-          />
-        );
-
-      case 6:
-      case 7:
-        return (
-          <ResultStep
-            finalVideoUrl={finalVideoUrl}
-            scriptData={scriptData}
-            session={session.session}
-            enterEditingMode={enterEditingMode}
-            reset={reset}
-          />
-        );
-
-      default:
+      case 4:
         return (
           <FramesStep
             openingFrame={openingFrame}
@@ -188,9 +178,45 @@ export default function Creator() {
             setVoiceId={setVoiceId}
             configureFrames={configureFrames}
             startGeneration={startGeneration}
+          />
+        );
+
+      case 5:
+        return (
+          <GeneratingStep
+            session={session.session}
+            scriptData={scriptData}
+          />
+        );
+
+      case 6:
+        return (
+          <ResultStep
+            finalVideoUrl={finalVideoUrl}
+            scriptData={scriptData}
+            session={session.session}
+            enterEditingMode={enterEditingMode}
+            reset={reset}
+          />
+        );
+
+      case 7:
+        return (
+          <EditingStep
+            session={session.session}
+            updateClip={updateClip}
+            regenerateClip={regenerateClip}
+            regenerateNarration={regenerateNarration}
+            reorderClips={reorderClips}
+            reassembleVideo={reassembleVideo}
+            deleteClip={deleteClip}
+            goToResult={() => goToStep(6)}
             loading={loading}
           />
         );
+
+      default:
+        return null;
     }
   };
 
