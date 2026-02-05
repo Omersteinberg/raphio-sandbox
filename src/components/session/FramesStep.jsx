@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import VoiceSelector from "./VoiceSelector";
 
 const VIDEO_MODELS = [
-  { id: "KLING", name: "Kling", description: "Best for cinematic motion" },
-  { id: "HUNYUAN", name: "Hunyuan", description: "Good for realistic content" },
-  { id: "WAN", name: "Wan", description: "Fast for social media" },
-  { id: "LUMA", name: "Luma", description: "Dramatic effects" },
+  { id: "KLING", name: "Kling", description: "Most realistic people and actions" },
+  { id: "HUNYUAN", name: "Hunyuan", description: "Best for movie-like physics" },
+  { id: "WAN", name: "Wan", description: "Best for clear text and logos" },
+  { id: "HAILUO", name: "Hailuo", description: "Fastest for high-energy action" },
 ];
 
 export default function FramesStep({

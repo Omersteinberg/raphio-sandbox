@@ -33,7 +33,7 @@ const VIDEO_MODELS = [
   { id: "KLING", name: "Kling", description: "Best for cinematic motion" },
   { id: "HUNYUAN", name: "Hunyuan", description: "Good for realistic content" },
   { id: "WAN", name: "Wan", description: "Fast for social media" },
-  { id: "LUMA", name: "Luma", description: "Dramatic effects" },
+  { id: "HAILUO", name: "Hailuo", description: "Dramatic effects" },
 ];
 
 // Style options
@@ -206,9 +206,53 @@ export function useSession() {
       setSession(sessionAfterAnalysis);
       setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
 
-      // Step 4: Generate script
+      // Step 4: Generate script with frame options
       console.log("[useSession] Generating script...");
-      const sessionAfterScript = await sessionService.generateScript(newSession.id);
+
+      // Build frame options for initial script generation
+      const frameOptions = {};
+
+      if (openingFrame.enabled) {
+        if (openingFrame.useUpload && openingFrame.uploadedFile) {
+          const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
+          if (uploadResult.images?.length > 0) {
+            frameOptions.opening = "user_image";
+            frameOptions.openingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          }
+        } else if (openingFrame.customPrompt) {
+          frameOptions.opening = "ai_generate";
+          frameOptions.openingPrompt = openingFrame.customPrompt;
+        }
+        if (openingFrame.textOverlay) {
+          frameOptions.openingNarration = openingFrame.textOverlay;
+        }
+      } else {
+        frameOptions.opening = "none";
+      }
+
+      if (closingFrame.enabled) {
+        if (closingFrame.useUpload && closingFrame.uploadedFile) {
+          const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
+          if (uploadResult.images?.length > 0) {
+            frameOptions.closing = "user_image";
+            frameOptions.closingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          }
+        } else if (closingFrame.customPrompt) {
+          frameOptions.closing = "ai_generate";
+          frameOptions.closingPrompt = closingFrame.customPrompt;
+        }
+        if (closingFrame.textOverlay) {
+          frameOptions.closingNarration = closingFrame.textOverlay;
+        }
+        if (closingFrame.callToAction) {
+          frameOptions.closingCallToAction = closingFrame.callToAction;
+        }
+      } else {
+        frameOptions.closing = "none";
+      }
+
+      console.log("[useSession] Frame options:", frameOptions);
+      const sessionAfterScript = await sessionService.generateScript(newSession.id, frameOptions);
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
@@ -294,13 +338,68 @@ export function useSession() {
     }
   }, [sessionId]);
 
+  // Build frame options for script generation
+  const buildFrameOptions = useCallback(async () => {
+    const frameOptions = {};
+
+    // Opening frame
+    if (openingFrame.enabled) {
+      if (openingFrame.useUpload && openingFrame.uploadedFile) {
+        // Upload the image first to get URL
+        if (sessionId) {
+          const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
+          if (uploadResult.images?.length > 0) {
+            frameOptions.opening = "user_image";
+            frameOptions.openingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          }
+        }
+      } else if (openingFrame.customPrompt) {
+        frameOptions.opening = "ai_generate";
+        frameOptions.openingPrompt = openingFrame.customPrompt;
+      }
+      if (openingFrame.textOverlay) {
+        frameOptions.openingNarration = openingFrame.textOverlay;
+      }
+    } else {
+      frameOptions.opening = "none";
+    }
+
+    // Closing frame
+    if (closingFrame.enabled) {
+      if (closingFrame.useUpload && closingFrame.uploadedFile) {
+        // Upload the image first to get URL
+        if (sessionId) {
+          const uploadResult = await sessionService.uploadImages(sessionId, [closingFrame.uploadedFile]);
+          if (uploadResult.images?.length > 0) {
+            frameOptions.closing = "user_image";
+            frameOptions.closingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          }
+        }
+      } else if (closingFrame.customPrompt) {
+        frameOptions.closing = "ai_generate";
+        frameOptions.closingPrompt = closingFrame.customPrompt;
+      }
+      if (closingFrame.textOverlay) {
+        frameOptions.closingNarration = closingFrame.textOverlay;
+      }
+      if (closingFrame.callToAction) {
+        frameOptions.closingCallToAction = closingFrame.callToAction;
+      }
+    } else {
+      frameOptions.closing = "none";
+    }
+
+    return frameOptions;
+  }, [sessionId, openingFrame, closingFrame]);
+
   // Generate script
   const generateScript = useCallback(async () => {
     if (!sessionId) return;
 
     setLoading(true);
     try {
-      const updatedSession = await sessionService.generateScript(sessionId);
+      const frameOptions = await buildFrameOptions();
+      const updatedSession = await sessionService.generateScript(sessionId, frameOptions);
       setSession(updatedSession);
       setScriptData(updatedSession.scriptData);
       toast.success("Script generated!");
@@ -309,7 +408,7 @@ export function useSession() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, buildFrameOptions]);
 
   // Update script directly
   const updateScript = useCallback(async (newScriptData) => {

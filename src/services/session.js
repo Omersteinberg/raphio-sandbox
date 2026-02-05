@@ -82,9 +82,20 @@ export async function analyzeImages(sessionId) {
 
 /**
  * Generate script from prompt and image analysis
+ * @param {string} sessionId
+ * @param {Object} frameOptions - Optional frame configuration
+ * @param {string} frameOptions.opening - 'none' | 'ai_generate' | 'user_image'
+ * @param {string} frameOptions.openingPrompt - AI prompt for opening frame
+ * @param {string} frameOptions.openingImageUrl - User image URL for opening
+ * @param {string} frameOptions.openingNarration - Custom narration for opening
+ * @param {string} frameOptions.closing - 'none' | 'ai_generate' | 'user_image'
+ * @param {string} frameOptions.closingPrompt - AI prompt for closing frame
+ * @param {string} frameOptions.closingImageUrl - User image URL for closing
+ * @param {string} frameOptions.closingNarration - Custom narration for closing
  */
-export async function generateScript(sessionId) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`);
+export async function generateScript(sessionId, frameOptions = null) {
+  const payload = frameOptions ? { frameOptions } : {};
+  const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload);
   return response.data;
 }
 
@@ -261,5 +272,145 @@ export async function addClip(sessionId, clipData) {
  */
 export async function deleteSession(sessionId) {
   const response = await axios.delete(`${API_BASE}/${sessionId}`);
+  return response.data;
+}
+
+// ============================================
+// Timeline API Functions
+// ============================================
+
+/**
+ * Get or create timeline for a session
+ */
+export async function getTimeline(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/timeline`);
+  return response.data;
+}
+
+/**
+ * Update a timeline item (trim, speed, position, volume)
+ */
+export async function updateTimelineItem(sessionId, itemId, updates) {
+  const response = await axios.put(
+    `${API_BASE}/${sessionId}/timeline/items/${itemId}`,
+    updates
+  );
+  return response.data;
+}
+
+/**
+ * Add a new timeline item
+ */
+export async function addTimelineItem(sessionId, itemData) {
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/timeline/items`,
+    itemData
+  );
+  return response.data;
+}
+
+/**
+ * Remove a timeline item
+ */
+export async function removeTimelineItem(sessionId, itemId) {
+  const response = await axios.delete(
+    `${API_BASE}/${sessionId}/timeline/items/${itemId}`
+  );
+  return response.data;
+}
+
+/**
+ * Split a timeline item at a specific time
+ */
+export async function splitTimelineItem(sessionId, itemId, splitTime) {
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/timeline/items/${itemId}/split`,
+    { splitTime }
+  );
+  return response.data;
+}
+
+/**
+ * Update playhead position
+ */
+export async function updatePlayhead(sessionId, position) {
+  const response = await axios.put(
+    `${API_BASE}/${sessionId}/timeline/playhead`,
+    { position }
+  );
+  return response.data;
+}
+
+/**
+ * Update zoom level
+ */
+export async function updateZoom(sessionId, zoomLevel) {
+  const response = await axios.put(
+    `${API_BASE}/${sessionId}/timeline/zoom`,
+    { zoomLevel }
+  );
+  return response.data;
+}
+
+/**
+ * Upload custom audio file
+ */
+export async function uploadAudio(sessionId, file) {
+  const formData = new FormData();
+  formData.append("audio", file);
+
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/audio/upload`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data;
+}
+
+/**
+ * Generate TTS audio
+ */
+export async function generateTTS(sessionId, { text, voiceId, name }) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/audio/tts`, {
+    text,
+    voiceId,
+    name,
+  });
+  return response.data;
+}
+
+/**
+ * Get audio waveform data
+ */
+export async function getAudioWaveform(sessionId, audioId) {
+  const response = await axios.get(
+    `${API_BASE}/${sessionId}/audio/${audioId}/waveform`
+  );
+  return response.data;
+}
+
+/**
+ * Delete audio asset
+ */
+export async function deleteAudioAsset(sessionId, audioId) {
+  const response = await axios.delete(
+    `${API_BASE}/${sessionId}/audio/${audioId}`
+  );
+  return response.data;
+}
+
+/**
+ * Export timeline to final video
+ */
+export async function exportTimeline(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/timeline/export`);
+  return response.data;
+}
+
+/**
+ * Get export manifest (for debugging)
+ */
+export async function getExportManifest(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/timeline/manifest`);
   return response.data;
 }

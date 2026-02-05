@@ -14,12 +14,15 @@ import {
   Save,
   ArrowLeft,
   Loader2,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ClipEditModal from "./ClipEditModal";
+import { TimelineEditor } from "@/components/timeline";
 
 export default function EditingStep({
   session,
+  sessionId,
   updateClip,
   regenerateClip,
   regenerateNarration,
@@ -32,6 +35,7 @@ export default function EditingStep({
   const [editingClip, setEditingClip] = useState(null);
   const [playingClip, setPlayingClip] = useState(null);
   const [reassembling, setReassembling] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   const sections = session?.video?.sections || [];
   const sortedSections = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
@@ -74,6 +78,23 @@ export default function EditingStep({
     }
   };
 
+  // Handle timeline export complete
+  const handleTimelineExportComplete = (video) => {
+    setShowTimeline(false);
+    goToResult();
+  };
+
+  // Show timeline editor
+  if (showTimeline) {
+    return (
+      <TimelineEditor
+        sessionId={sessionId}
+        onBack={() => setShowTimeline(false)}
+        onExportComplete={handleTimelineExportComplete}
+      />
+    );
+  }
+
   // Play clip preview
   const handlePlayClip = (clipId) => {
     if (playingClip === clipId) {
@@ -101,23 +122,33 @@ export default function EditingStep({
             <p className="text-sm text-gray-500">{sections.length} clips in your video</p>
           </div>
         </div>
-        <Button
-          onClick={handleReassemble}
-          disabled={reassembling || loading}
-          className="bg-purple-600 hover:bg-purple-700 text-white"
-        >
-          {reassembling ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Reassembling...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Save className="w-4 h-4" />
-              Reassemble Video
-            </span>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowTimeline(true)}
+            variant="outline"
+            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            Timeline Editor
+          </Button>
+          <Button
+            onClick={handleReassemble}
+            disabled={reassembling || loading}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            {reassembling ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reassembling...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Reassemble Video
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Clips Timeline */}

@@ -186,6 +186,7 @@ export default function Creator() {
         return (
           <EditingStep
             session={session.session}
+            sessionId={session.sessionId}
             updateClip={updateClip}
             regenerateClip={regenerateClip}
             regenerateNarration={regenerateNarration}
