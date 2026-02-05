@@ -91,6 +91,14 @@ export default function EditingStep({
         sessionId={sessionId}
         onBack={() => setShowTimeline(false)}
         onExportComplete={handleTimelineExportComplete}
+        onUpdateSection={async (sectionId, updates) => {
+          await updateClip(sectionId, updates);
+        }}
+        onRegenerateNarration={async (sectionId, text, voiceId) => {
+          if (regenerateNarration) {
+            await regenerateNarration(sectionId, { narrationText: text, voiceId });
+          }
+        }}
       />
     );
   }

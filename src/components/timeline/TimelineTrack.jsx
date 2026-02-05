@@ -12,10 +12,13 @@ export default function TimelineTrack({
   onSelectItem,
   onItemDragStart,
   onItemEdit,
+  onNarrationEdit,
   getSection,
   getAudioAsset,
   onDrop,
   onDragOver,
+  overlappingItems = new Set(),
+  dragPreview = null,
 }) {
   const Icon = trackType === "VIDEO" ? Film : Music;
   const trackColor = trackType === "VIDEO" ? "bg-purple-900/30" : "bg-blue-900/30";
@@ -48,21 +51,28 @@ export default function TimelineTrack({
         </div>
 
         {/* Items */}
-        {items.map((item) => (
-          <TimelineItem
-            key={item.id}
-            item={item}
-            trackType={trackType}
-            height={height - 8}
-            pixelsPerSecond={pixelsPerSecond}
-            isSelected={selectedItem === item.id}
-            onSelect={() => onSelectItem(item.id)}
-            onDragStart={onItemDragStart}
-            onEdit={() => onItemEdit(item)}
-            section={item.sectionId ? getSection(item.sectionId) : null}
-            audioAsset={item.audioAssetId ? getAudioAsset(item.audioAssetId) : null}
-          />
-        ))}
+        {items.map((item) => {
+          const section = item.sectionId ? getSection(item.sectionId) : null;
+          const isNarration = trackType === "AUDIO" && section && !item.audioAssetId;
+
+          return (
+            <TimelineItem
+              key={item.id}
+              item={item}
+              trackType={trackType}
+              height={height - 8}
+              pixelsPerSecond={pixelsPerSecond}
+              isSelected={selectedItem === item.id}
+              onSelect={() => onSelectItem(item.id)}
+              onDragStart={onItemDragStart}
+              onEdit={() => isNarration && onNarrationEdit ? onNarrationEdit(item, section) : onItemEdit(item)}
+              section={section}
+              audioAsset={item.audioAssetId ? getAudioAsset(item.audioAssetId) : null}
+              isOverlapping={overlappingItems.has(item.id)}
+              dragPreviewOffset={dragPreview?.itemId === item.id ? dragPreview.previewStartTime - item.startTime : 0}
+            />
+          );
+        })}
 
         {/* Empty state */}
         {items.length === 0 && (

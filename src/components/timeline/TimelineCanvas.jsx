@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
@@ -15,6 +15,7 @@ export default function TimelineCanvas({
   onSeek,
   onUpdateItem,
   onItemEdit,
+  onNarrationEdit,
   getSection,
   getAudioAsset,
   onAssetDrop,
@@ -26,9 +27,51 @@ export default function TimelineCanvas({
   const [dragItem, setDragItem] = useState(null);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartValue, setDragStartValue] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0); // Current drag offset in pixels
 
   const timelineWidth = Math.max(duration * pixelsPerSecond + 200, 800);
   const trackHeight = 60;
+
+  // Detect overlapping items
+  const detectOverlaps = useCallback((items) => {
+    const overlaps = new Set();
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        const aStart = a.startTime;
+        const aEnd = a.startTime + a.duration;
+        const bStart = b.startTime;
+        const bEnd = b.startTime + b.duration;
+
+        // Check if they overlap
+        if (aStart < bEnd && aEnd > bStart) {
+          overlaps.add(a.id);
+          overlaps.add(b.id);
+        }
+      }
+    }
+    return overlaps;
+  }, []);
+
+  // Calculate overlaps for video and audio tracks
+  const videoOverlaps = useMemo(() => detectOverlaps(videoItems), [videoItems, detectOverlaps]);
+  const audioOverlaps = useMemo(() => detectOverlaps(audioItems), [audioItems, detectOverlaps]);
+
+  // Calculate drag preview position for the dragged item
+  const getDragPreview = useCallback(() => {
+    if (!isDragging || !dragItem || dragType !== "move") return null;
+
+    const deltaTime = dragOffset / pixelsPerSecond;
+    const newStartTime = Math.max(0, dragStartValue + deltaTime);
+
+    return {
+      itemId: dragItem.id,
+      previewStartTime: newStartTime,
+    };
+  }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond]);
+
+  const dragPreview = getDragPreview();
 
   // Handle scroll
   const handleScroll = (e) => {
@@ -65,21 +108,9 @@ export default function TimelineCanvas({
       if (!isDragging || !dragItem) return;
 
       const deltaX = e.clientX - dragStartX;
-      const deltaTime = deltaX / pixelsPerSecond;
-
-      if (dragType === "move") {
-        const newStartTime = Math.max(0, dragStartValue + deltaTime);
-        // Optimistic update - just update local state
-        // Will sync to server on drag end
-      } else if (dragType === "trim-start") {
-        const newTrimStart = Math.max(0, dragStartValue + deltaTime);
-        // Optimistic update
-      } else if (dragType === "trim-end") {
-        const newDuration = Math.max(0.5, dragStartValue + deltaTime);
-        // Optimistic update
-      }
+      setDragOffset(deltaX); // Update drag offset for visual feedback
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond]
+    [isDragging, dragItem, dragStartX]
   );
 
   // Handle drag end
@@ -111,6 +142,7 @@ export default function TimelineCanvas({
       setIsDragging(false);
       setDragType(null);
       setDragItem(null);
+      setDragOffset(0);
     },
     [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem]
   );
@@ -185,10 +217,13 @@ export default function TimelineCanvas({
             onSelectItem={onSelectItem}
             onItemDragStart={handleItemDragStart}
             onItemEdit={onItemEdit}
+            onNarrationEdit={onNarrationEdit}
             getSection={getSection}
             getAudioAsset={getAudioAsset}
             onDrop={(e) => handleDrop(e, "VIDEO", 0)}
             onDragOver={handleDragOver}
+            overlappingItems={videoOverlaps}
+            dragPreview={dragPreview}
           />
 
           {/* Audio Track */}
@@ -203,10 +238,13 @@ export default function TimelineCanvas({
             onSelectItem={onSelectItem}
             onItemDragStart={handleItemDragStart}
             onItemEdit={onItemEdit}
+            onNarrationEdit={onNarrationEdit}
             getSection={getSection}
             getAudioAsset={getAudioAsset}
             onDrop={(e) => handleDrop(e, "AUDIO", 0)}
             onDragOver={handleDragOver}
+            overlappingItems={audioOverlaps}
+            dragPreview={dragPreview}
           />
 
           {/* Playhead */}

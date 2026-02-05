@@ -13,11 +13,16 @@ export default function TimelineItem({
   onEdit,
   section,
   audioAsset,
+  isOverlapping = false,
+  dragPreviewOffset = 0,
 }) {
   const itemRef = useRef(null);
 
-  const left = item.startTime * pixelsPerSecond;
+  // Apply drag preview offset to the position
+  const baseLeft = item.startTime * pixelsPerSecond;
+  const left = baseLeft + (dragPreviewOffset * pixelsPerSecond);
   const width = item.duration * pixelsPerSecond;
+  const isDragging = dragPreviewOffset !== 0;
 
   // Get display info
   let label = "";
@@ -36,21 +41,34 @@ export default function TimelineItem({
     }
   }
 
-  // Colors based on track type
-  const bgColor = trackType === "VIDEO"
-    ? isSelected ? "bg-purple-600" : "bg-purple-700"
-    : isSelected ? "bg-blue-600" : "bg-blue-700";
+  // Colors based on track type and overlap state
+  const getBackgroundColor = () => {
+    if (isOverlapping) {
+      // Red/orange colors for overlapping items
+      return trackType === "VIDEO"
+        ? isSelected ? "bg-red-500" : "bg-red-600"
+        : isSelected ? "bg-orange-500" : "bg-orange-600";
+    }
+    // Normal colors
+    return trackType === "VIDEO"
+      ? isSelected ? "bg-purple-600" : "bg-purple-700"
+      : isSelected ? "bg-blue-600" : "bg-blue-700";
+  };
 
-  const borderColor = isSelected ? "border-white" : "border-transparent";
+  const bgColor = getBackgroundColor();
+  const borderColor = isSelected ? "border-white" : isOverlapping ? "border-red-300" : "border-transparent";
 
   return (
     <motion.div
       ref={itemRef}
-      className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group`}
+      className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "shadow-xl z-50" : ""}`}
       style={{
         left,
         width: Math.max(width, 20),
         height,
+        opacity: isDragging ? 0.9 : 1,
+        transform: isDragging ? "scale(1.02)" : undefined,
+        transition: isDragging ? "none" : "left 0.1s ease-out",
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -60,8 +78,7 @@ export default function TimelineItem({
         e.stopPropagation();
         onEdit();
       }}
-      whileHover={{ scale: 1.01 }}
-      layout
+      whileHover={{ scale: isDragging ? 1.02 : 1.01 }}
     >
       {/* Thumbnail for video items */}
       {trackType === "VIDEO" && thumbnail && (

@@ -18,12 +18,14 @@ import VideoPreview from "./VideoPreview";
 import AudioUploadModal from "./modals/AudioUploadModal";
 import TTSModal from "./modals/TTSModal";
 import ItemEditModal from "./modals/ItemEditModal";
+import NarrationEditModal from "./modals/NarrationEditModal";
 
-export default function TimelineEditor({ sessionId, onBack, onExportComplete }) {
+export default function TimelineEditor({ sessionId, onBack, onExportComplete, onUpdateSection, onRegenerateNarration }) {
   const timeline = useTimeline(sessionId);
   const [showAudioUpload, setShowAudioUpload] = useState(false);
   const [showTTSModal, setShowTTSModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [editingNarration, setEditingNarration] = useState(null); // { item, section }
   const [exporting, setExporting] = useState(false);
 
   const containerRef = useRef(null);
@@ -102,6 +104,25 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete }) 
     if (editingItem) {
       await timeline.updateItem(editingItem.id, updates);
       setEditingItem(null);
+    }
+  };
+
+  // Handle narration edit click
+  const handleNarrationEdit = (item, section) => {
+    setEditingNarration({ item, section });
+  };
+
+  // Handle narration save
+  const handleNarrationSave = async (updates) => {
+    if (editingNarration && onUpdateSection) {
+      await onUpdateSection(editingNarration.section.id, updates);
+    }
+  };
+
+  // Handle narration regeneration
+  const handleRegenerateNarration = async (sectionId, text, voiceId) => {
+    if (onRegenerateNarration) {
+      await onRegenerateNarration(sectionId, text, voiceId);
     }
   };
 
@@ -190,8 +211,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete }) 
 
         {/* Center - Preview and Timeline */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Video Preview */}
-          <div className="h-64 bg-black flex items-center justify-center border-b border-gray-700">
+          {/* Video Preview - Larger section */}
+          <div className="flex-1 min-h-[400px] bg-black flex items-center justify-center border-b border-gray-700">
             <VideoPreview
               items={timeline.videoItems}
               audioItems={timeline.audioItems}
@@ -222,8 +243,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete }) 
             onDelete={() => timeline.selectedItem && timeline.removeItem(timeline.selectedItem)}
           />
 
-          {/* Timeline Canvas */}
-          <div className="flex-1 overflow-hidden">
+          {/* Timeline Canvas - Lower on page */}
+          <div className="h-48 flex-shrink-0 overflow-hidden">
             <TimelineCanvas
               videoItems={timeline.videoItems}
               audioItems={timeline.audioItems}
@@ -235,6 +256,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete }) 
               onSeek={timeline.seek}
               onUpdateItem={timeline.updateItem}
               onItemEdit={handleItemEdit}
+              onNarrationEdit={handleNarrationEdit}
               getSection={timeline.getSection}
               getAudioAsset={timeline.getAudioAsset}
               onAssetDrop={handleAssetDrop}
@@ -267,6 +289,15 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete }) 
           audioAsset={editingItem.audioAssetId ? timeline.getAudioAsset(editingItem.audioAssetId) : null}
           onClose={() => setEditingItem(null)}
           onSave={handleItemUpdate}
+        />
+      )}
+
+      {editingNarration && (
+        <NarrationEditModal
+          section={editingNarration.section}
+          onClose={() => setEditingNarration(null)}
+          onSave={handleNarrationSave}
+          onRegenerateNarration={handleRegenerateNarration}
         />
       )}
 
