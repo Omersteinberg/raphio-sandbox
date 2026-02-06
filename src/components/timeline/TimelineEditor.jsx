@@ -122,13 +122,32 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const handleNarrationSave = async (updates) => {
     if (editingNarration && onUpdateSection) {
       await onUpdateSection(editingNarration.section.id, updates);
+      // Reload timeline to pick up updated section data
+      await timeline.loadTimeline();
     }
   };
 
   // Handle narration regeneration
   const handleRegenerateNarration = async (sectionId, text, voiceId) => {
+    console.log("[TimelineEditor] handleRegenerateNarration called");
+    console.log("[TimelineEditor] sectionId:", sectionId);
+    console.log("[TimelineEditor] text:", text);
+    console.log("[TimelineEditor] voiceId:", voiceId);
+    console.log("[TimelineEditor] onRegenerateNarration exists:", !!onRegenerateNarration);
+
     if (onRegenerateNarration) {
-      await onRegenerateNarration(sectionId, text, voiceId);
+      try {
+        console.log("[TimelineEditor] Calling onRegenerateNarration prop...");
+        await onRegenerateNarration(sectionId, text, voiceId);
+        console.log("[TimelineEditor] onRegenerateNarration prop completed");
+        console.log("[TimelineEditor] Reloading timeline...");
+        await timeline.loadTimeline();
+        console.log("[TimelineEditor] Timeline reloaded");
+      } catch (err) {
+        console.error("[TimelineEditor] handleRegenerateNarration failed:", err);
+      }
+    } else {
+      console.warn("[TimelineEditor] onRegenerateNarration prop is not provided!");
     }
   };
 

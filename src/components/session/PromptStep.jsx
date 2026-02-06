@@ -115,7 +115,10 @@ export default function PromptStep({
     onStart();
   };
 
-  const canStart = userPrompt?.trim() && images?.length > 0;
+  // Require custom prompt for AI-generated frames
+  const openingNeedsPrompt = openingFrame?.enabled && !openingFrame?.useUpload && !openingFrame?.customPrompt?.trim();
+  const closingNeedsPrompt = closingFrame?.enabled && !closingFrame?.useUpload && !closingFrame?.customPrompt?.trim();
+  const canStart = userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -360,14 +363,17 @@ export default function PromptStep({
                           {/* AI Generate Option */}
                           {!openingFrame.useUpload && (
                             <div>
-                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
+                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt <span className="text-red-500">*</span></label>
                               <Textarea
                                 value={openingFrame.customPrompt || ""}
                                 onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
-                                className="text-sm"
+                                className={`text-sm ${openingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
                                 rows={2}
                               />
+                              {openingNeedsPrompt && (
+                                <p className="text-xs text-red-500 mt-1">Please enter an AI prompt to generate the opening frame image</p>
+                              )}
                             </div>
                           )}
 
@@ -483,14 +489,17 @@ export default function PromptStep({
                           {/* AI Generate Option */}
                           {!closingFrame.useUpload && (
                             <div>
-                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
+                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt <span className="text-red-500">*</span></label>
                               <Textarea
                                 value={closingFrame.customPrompt || ""}
                                 onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Elegant thank you card with soft lighting..."
-                                className="text-sm"
+                                className={`text-sm ${closingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
                                 rows={2}
                               />
+                              {closingNeedsPrompt && (
+                                <p className="text-xs text-red-500 mt-1">Please enter an AI prompt to generate the closing frame image</p>
+                              )}
                             </div>
                           )}
 

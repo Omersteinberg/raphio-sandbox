@@ -239,11 +239,12 @@ export async function updateClip(sessionId, clipId, updates) {
 /**
  * Regenerate a single clip
  */
-export async function regenerateClip(sessionId, clipId, { prompt, model, style } = {}) {
+export async function regenerateClip(sessionId, clipId, { prompt, model, style, imageUrl } = {}) {
   const response = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
     prompt,
     model,
     style,
+    imageUrl,
   });
   return response.data;
 }

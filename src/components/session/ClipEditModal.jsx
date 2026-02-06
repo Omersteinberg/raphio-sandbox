@@ -26,6 +26,11 @@ export default function ClipEditModal({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // If narration text changed, regenerate TTS audio along with saving
+      const narrationChanged = narrationText !== (clip.narrationText || "");
+      if (narrationChanged && onRegenerateNarration) {
+        await onRegenerateNarration({ narrationText });
+      }
       await onSave({
         narrationText,
         visualDescription,
@@ -38,7 +43,7 @@ export default function ClipEditModal({
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
-      await onRegenerate({ prompt: aiPrompt });
+      await onRegenerate({ prompt: aiPrompt, imageUrl: clip.imageUrl });
     } finally {
       setRegenerating(false);
     }

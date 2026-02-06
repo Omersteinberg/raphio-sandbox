@@ -171,6 +171,8 @@ export default function Creator() {
           <GeneratingStep
             session={session.session}
             scriptData={scriptData}
+            openingFrame={openingFrame}
+            closingFrame={closingFrame}
           />
         );
 

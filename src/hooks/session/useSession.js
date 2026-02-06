@@ -234,15 +234,14 @@ export function useSession() {
             };
             console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
           }
-        } else if (!openingFrame.useUpload) {
-          // AI Generate mode — generate an image so the script can analyze it
-          const prompt = openingFrame.customPrompt || `Professional opening frame for a ${style} video about: ${userPrompt.substring(0, 200)}`;
+        } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
+          // AI Generate mode — generate an image using the user's custom prompt
           console.log("[useSession] Generating AI opening frame image...");
           try {
             const frameResult = await sessionService.generateFrameImage(
               newSession.id,
               "opening",
-              prompt,
+              openingFrame.customPrompt,
               openingFrame.description || ""
             );
             if (frameResult?.imageUrl) {
@@ -250,18 +249,17 @@ export function useSession() {
               frameOptions.openingImageUrl = frameResult.imageUrl;
               newGeneratedFrameImages.opening = {
                 imageUrl: frameResult.imageUrl,
-                prompt,
+                prompt: openingFrame.customPrompt,
               };
               console.log("[useSession] Opening frame image generated:", frameResult.imageUrl);
             } else {
-              // Fallback: let script generator handle it
               frameOptions.opening = "ai_generate";
-              frameOptions.openingPrompt = prompt;
+              frameOptions.openingPrompt = openingFrame.customPrompt;
             }
           } catch (err) {
             console.warn("[useSession] Failed to pre-generate opening frame image, falling back:", err);
             frameOptions.opening = "ai_generate";
-            frameOptions.openingPrompt = prompt;
+            frameOptions.openingPrompt = openingFrame.customPrompt;
           }
         }
         if (openingFrame.textOverlay) {
@@ -288,15 +286,14 @@ export function useSession() {
             };
             console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
           }
-        } else if (!closingFrame.useUpload) {
-          // AI Generate mode — generate an image so the script can analyze it
-          const prompt = closingFrame.customPrompt || `Professional closing frame for a ${style} video about: ${userPrompt.substring(0, 200)}`;
+        } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
+          // AI Generate mode — generate an image using the user's custom prompt
           console.log("[useSession] Generating AI closing frame image...");
           try {
             const frameResult = await sessionService.generateFrameImage(
               newSession.id,
               "closing",
-              prompt,
+              closingFrame.customPrompt,
               closingFrame.description || ""
             );
             if (frameResult?.imageUrl) {
@@ -304,18 +301,17 @@ export function useSession() {
               frameOptions.closingImageUrl = frameResult.imageUrl;
               newGeneratedFrameImages.closing = {
                 imageUrl: frameResult.imageUrl,
-                prompt,
+                prompt: closingFrame.customPrompt,
               };
               console.log("[useSession] Closing frame image generated:", frameResult.imageUrl);
             } else {
-              // Fallback: let script generator handle it
               frameOptions.closing = "ai_generate";
-              frameOptions.closingPrompt = prompt;
+              frameOptions.closingPrompt = closingFrame.customPrompt;
             }
           } catch (err) {
             console.warn("[useSession] Failed to pre-generate closing frame image, falling back:", err);
             frameOptions.closing = "ai_generate";
-            frameOptions.closingPrompt = prompt;
+            frameOptions.closingPrompt = closingFrame.customPrompt;
           }
         }
         if (closingFrame.textOverlay) {
@@ -357,7 +353,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, targetDuration, voiceId, images]);
+  }, [userPrompt, style, targetDuration, voiceId, images, openingFrame, closingFrame, videoModel]);
 
   // Add images to pool
   const addImages = useCallback((files) => {
@@ -443,8 +439,8 @@ export function useSession() {
             };
           }
         }
-      } else if (openingFrame.customPrompt) {
-        // Generate AI frame image FIRST so the script generator can analyze it
+      } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
+        // AI Generate mode — generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -495,8 +491,8 @@ export function useSession() {
             };
           }
         }
-      } else if (closingFrame.customPrompt) {
-        // Generate AI frame image FIRST so the script generator can analyze it
+      } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
+        // AI Generate mode — generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -541,7 +537,7 @@ export function useSession() {
     }));
 
     return frameOptions;
-  }, [sessionId, openingFrame, closingFrame]);
+  }, [sessionId, openingFrame, closingFrame, style, userPrompt]);
 
   // Generate script
   const generateScript = useCallback(async () => {
@@ -787,15 +783,32 @@ export function useSession() {
 
   // Regenerate narration for a single clip
   const regenerateNarration = useCallback(async (clipId, options = {}) => {
-    if (!sessionId) return;
+    console.log("[useSession] regenerateNarration called");
+    console.log("[useSession] sessionId:", sessionId);
+    console.log("[useSession] clipId:", clipId);
+    console.log("[useSession] options:", options);
+
+    if (!sessionId) {
+      console.warn("[useSession] No sessionId, aborting regenerateNarration");
+      return;
+    }
 
     setLoading(true);
     try {
-      await sessionService.regenerateNarration(sessionId, clipId, options);
+      console.log("[useSession] Calling sessionService.regenerateNarration...");
+      const result = await sessionService.regenerateNarration(sessionId, clipId, options);
+      console.log("[useSession] sessionService.regenerateNarration result:", result);
       const updatedSession = await sessionService.getSession(sessionId);
+      console.log("[useSession] Updated session after regeneration:", updatedSession);
       setSession(updatedSession);
       toast.success("Narration regenerated!");
     } catch (err) {
+      console.error("[useSession] regenerateNarration failed:", err);
+      console.error("[useSession] Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
       toast.error("Failed to regenerate narration");
     } finally {
       setLoading(false);

@@ -37,6 +37,7 @@ export default function EditingStep({
   const [playingClip, setPlayingClip] = useState(null);
   const [reassembling, setReassembling] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const sections = session?.video?.sections || [];
   const sortedSections = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
@@ -53,12 +54,14 @@ export default function EditingStep({
   // Handle clip regeneration
   const handleRegenerate = async (clipId, options = {}) => {
     await regenerateClip(clipId, options);
+    setHasChanges(true);
   };
 
   // Handle narration regeneration
   const handleRegenerateNarration = async (clipId, options = {}) => {
     if (regenerateNarration) {
       await regenerateNarration(clipId, options);
+      setHasChanges(true);
     }
   };
 
@@ -74,9 +77,24 @@ export default function EditingStep({
     setReassembling(true);
     try {
       await reassembleVideo({ regenerateAudio: false });
+      setHasChanges(false);
     } finally {
       setReassembling(false);
     }
+  };
+
+  // Handle back to video - reassemble if there were changes
+  const handleBackToVideo = async () => {
+    if (hasChanges) {
+      setReassembling(true);
+      try {
+        await reassembleVideo({ regenerateAudio: false });
+        setHasChanges(false);
+      } finally {
+        setReassembling(false);
+      }
+    }
+    goToResult();
   };
 
   // Handle timeline export complete
@@ -100,8 +118,17 @@ export default function EditingStep({
           await updateClip(sectionId, updates);
         }}
         onRegenerateNarration={async (sectionId, text, voiceId) => {
+          console.log("[EditingStep] onRegenerateNarration called from TimelineEditor");
+          console.log("[EditingStep] sectionId:", sectionId);
+          console.log("[EditingStep] text:", text);
+          console.log("[EditingStep] voiceId:", voiceId);
+          console.log("[EditingStep] regenerateNarration exists:", !!regenerateNarration);
           if (regenerateNarration) {
+            console.log("[EditingStep] Calling regenerateNarration(useSession)...");
             await regenerateNarration(sectionId, { narrationText: text, voiceId });
+            console.log("[EditingStep] regenerateNarration(useSession) completed");
+          } else {
+            console.warn("[EditingStep] regenerateNarration prop is not available!");
           }
         }}
       />
@@ -124,11 +151,21 @@ export default function EditingStep({
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={goToResult}
+            onClick={handleBackToVideo}
+            disabled={reassembling}
             className="flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Video
+            {reassembling ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reassembling...
+              </>
+            ) : (
+              <>
+                <ArrowLeft className="w-4 h-4" />
+                Back to Video
+              </>
+            )}
           </Button>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Edit Clips</h2>
@@ -345,6 +382,7 @@ export default function EditingStep({
             onClose={() => setEditingClip(null)}
             onSave={async (updates) => {
               await updateClip(editingClip.id, updates);
+              setHasChanges(true);
               setEditingClip(null);
             }}
             onRegenerate={async (options) => {

@@ -1,30 +1,34 @@
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
 
-export default function GeneratingStep({ session, scriptData }) {
+export default function GeneratingStep({ session, scriptData, openingFrame, closingFrame }) {
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
 
+  // Count extra clips for opening/closing frames
+  const extraFrames = (openingFrame?.enabled ? 1 : 0) + (closingFrame?.enabled ? 1 : 0);
+
   // Get progress data from backend (if available)
   const progressData = session?.video?.progressData || {};
-  const currentStage = progressData.stage || "TTS";
+  const currentStage = progressData.stage || "CLIPS";
   const currentClip = progressData.currentClip || 0;
-  const totalClips = progressData.totalClips || totalSections;
+  const totalClips = progressData.totalClips || (totalSections + extraFrames);
   const completedTTS = progressData.completedTTS || 0;
   const totalTTS = progressData.totalTTS || 0;
 
   // Determine stage statuses based on progressData
-  const ttsStatus = (() => {
-    if (completedTTS >= totalTTS && totalTTS > 0) return "completed";
-    if (currentStage === "TTS") return "processing";
-    if (currentStage === "CLIPS" || currentStage === "ASSEMBLY") return "completed";
-    return "processing";
-  })();
-
+  // Order: Clips → TTS → Assembly
   const clipsStatus = (() => {
     if (completedSections >= totalClips && totalClips > 0) return "completed";
     if (currentStage === "CLIPS") return "processing";
+    if (currentStage === "TTS" || currentStage === "ASSEMBLY") return "completed";
+    return "processing";
+  })();
+
+  const ttsStatus = (() => {
+    if (completedTTS >= totalTTS && totalTTS > 0) return "completed";
+    if (currentStage === "TTS") return "processing";
     if (currentStage === "ASSEMBLY") return "completed";
     return "pending";
   })();
@@ -37,15 +41,6 @@ export default function GeneratingStep({ session, scriptData }) {
 
   const stages = [
     {
-      id: "tts",
-      name: "Generating Narration",
-      description: totalTTS > 0
-        ? `${completedTTS}/${totalTTS} sections narrated`
-        : "Converting script to speech with AI voice",
-      icon: Mic,
-      status: ttsStatus,
-    },
-    {
       id: "clips",
       name: "Creating Video Clips",
       description: currentStage === "CLIPS" && currentClip > 0
@@ -53,6 +48,15 @@ export default function GeneratingStep({ session, scriptData }) {
         : `${completedSections}/${totalClips} clips complete`,
       icon: Film,
       status: clipsStatus,
+    },
+    {
+      id: "tts",
+      name: "Generating Narration",
+      description: totalTTS > 0
+        ? `${completedTTS}/${totalTTS} sections narrated`
+        : "Converting script to speech with AI voice",
+      icon: Mic,
+      status: ttsStatus,
     },
     {
       id: "assembly",
