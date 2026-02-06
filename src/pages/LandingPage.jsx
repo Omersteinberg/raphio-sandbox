@@ -25,15 +25,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background-gradient font-montserrat">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background-gradient/80 backdrop-blur-sm border-b border-white/10">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-8 h-8 text-purple-400" />
-            <span className="text-xl font-semibold text-white">Merge</span>
+            <Sparkles className="w-8 h-8 text-primary" />
+            <span className="text-xl font-semibold text-foreground">Merge</span>
           </div>
           <Button
             onClick={handleGetStarted}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6"
+            className="bg-secondary hover:bg-secondary/90 text-white px-6"
           >
             Create Video
           </Button>
@@ -47,10 +47,10 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-5xl md:text-6xl font-bold text-white mb-6"
+            className="text-5xl md:text-6xl font-bold text-foreground mb-6"
           >
             Create AI Videos in{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+            <span className="text-primary">
               Minutes
             </span>
           </motion.h1>
@@ -58,7 +58,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
+            className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto"
           >
             No sign-up required. Just describe your idea, upload images, and let
             AI generate your video with professional narration.
@@ -71,7 +71,7 @@ export default function LandingPage() {
             <Button
               onClick={handleGetStarted}
               size="lg"
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-6 text-lg rounded-full"
+              className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-full"
             >
               Create Your Video Now
               <ArrowRight className="ml-2 w-5 h-5" />
@@ -83,7 +83,7 @@ export default function LandingPage() {
       {/* How It Works */}
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-white text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
             How It Works
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -116,16 +116,16 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="relative bg-white/5 rounded-2xl p-8 border border-white/10 hover:border-purple-500/50 transition-colors"
+                className="relative bg-card rounded-2xl p-8 border border-border hover:border-primary/50 transition-colors shadow-sm"
               >
-                <div className="absolute -top-4 -left-4 w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                <div className="absolute -top-4 -left-4 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
                   {item.step}
                 </div>
-                <div className="text-purple-400 mb-4">{item.icon}</div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <div className="text-primary mb-4">{item.icon}</div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
                   {item.title}
                 </h3>
-                <p className="text-gray-400">{item.description}</p>
+                <p className="text-muted-foreground">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -133,9 +133,9 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 bg-black/20">
+      <section className="py-20 px-6 bg-muted/50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-white text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
             Powerful Features
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -179,15 +179,15 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.05 }}
                 viewport={{ once: true }}
-                className="bg-white/5 rounded-xl p-6 border border-white/10"
+                className="bg-card rounded-xl p-6 border border-border shadow-sm"
               >
-                <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center text-purple-400 mb-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
                   {feature.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-gray-400 text-sm">{feature.description}</p>
+                <p className="text-muted-foreground text-sm">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -197,10 +197,10 @@ export default function LandingPage() {
       {/* Use Cases */}
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-white text-center mb-4">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-4">
             Who Is This For?
           </h2>
-          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
             Whether you're a creator, marketer, or educator, our AI video
             generator helps you produce professional content quickly.
           </p>
@@ -235,13 +235,13 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 className="text-center p-6"
               >
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-2xl flex items-center justify-center text-purple-400 mx-auto mb-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
                   {useCase.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   {useCase.title}
                 </h3>
-                <p className="text-gray-400 text-sm">{useCase.description}</p>
+                <p className="text-muted-foreground text-sm">{useCase.description}</p>
               </motion.div>
             ))}
           </div>
@@ -256,18 +256,18 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 rounded-3xl p-12 border border-purple-500/30"
+            className="bg-primary/5 rounded-3xl p-12 border border-primary/20"
           >
-            <h2 className="text-3xl font-bold text-white mb-4">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
               Ready to Create Your First Video?
             </h2>
-            <p className="text-gray-300 mb-8">
+            <p className="text-muted-foreground mb-8">
               No credit card required. No sign-up needed. Start creating now.
             </p>
             <Button
               onClick={handleGetStarted}
               size="lg"
-              className="bg-white text-purple-900 hover:bg-gray-100 px-8 py-6 text-lg rounded-full font-semibold"
+              className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-full font-semibold"
             >
               Get Started - It's Free
               <ArrowRight className="ml-2 w-5 h-5" />
@@ -277,13 +277,13 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/10">
+      <footer className="py-8 px-6 border-t border-border">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-purple-400" />
-            <span className="text-white font-semibold">Merge</span>
+            <Sparkles className="w-6 h-6 text-primary" />
+            <span className="text-foreground font-semibold">Merge</span>
           </div>
-          <p className="text-gray-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             AI-powered video generation platform
           </p>
         </div>

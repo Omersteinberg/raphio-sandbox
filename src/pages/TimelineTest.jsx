@@ -41,14 +41,14 @@ export default function TimelineTest() {
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
               placeholder="Enter session ID (e.g., cm...)"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <button
             onClick={handleStart}
             disabled={!sessionId.trim()}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
           >
             Open Timeline Editor
           </button>

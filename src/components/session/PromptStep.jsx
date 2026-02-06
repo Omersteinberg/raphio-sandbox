@@ -90,8 +90,8 @@ export default function PromptStep({
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-              <Sparkles className="w-8 h-8 text-purple-600" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+              <Sparkles className="w-8 h-8 text-primary" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Create Your Video
@@ -156,9 +156,9 @@ export default function PromptStep({
               }}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors mb-4"
+              className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors mb-4"
             >
-              <Upload className="w-8 h-8 text-purple-500 mx-auto mb-2" />
+              <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
               <p className="text-gray-700 font-medium">
                 Drop images here or click to upload
               </p>
@@ -219,7 +219,7 @@ export default function PromptStep({
                   }}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
                     style === option.id
-                      ? "border-purple-500 bg-purple-50"
+                      ? "border-primary bg-primary/5"
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
@@ -249,7 +249,7 @@ export default function PromptStep({
                   }}
                   className={`flex-1 py-3 px-4 rounded-xl border-2 text-center transition-all ${
                     targetDuration === option.value
-                      ? "border-purple-500 bg-purple-50"
+                      ? "border-primary bg-primary/5"
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
@@ -264,7 +264,7 @@ export default function PromptStep({
           <Button
             onClick={handleStart}
             disabled={!canStart || loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center gap-2">

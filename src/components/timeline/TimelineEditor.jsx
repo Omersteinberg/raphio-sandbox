@@ -107,11 +107,6 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     }
   };
 
-  // Handle narration edit click
-  const handleNarrationEdit = (item, section) => {
-    setEditingNarration({ item, section });
-  };
-
   // Handle narration save
   const handleNarrationSave = async (updates) => {
     if (editingNarration && onUpdateSection) {
@@ -203,6 +198,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             sections={timeline.sections}
             audioAssets={timeline.audioAssets}
             onDeleteAudio={timeline.deleteAudio}
+            onNarrationEdit={(section) => setEditingNarration({ item: null, section })}
             onDragStart={(asset, type) => {
               // Store drag data
             }}
@@ -256,7 +252,6 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               onSeek={timeline.seek}
               onUpdateItem={timeline.updateItem}
               onItemEdit={handleItemEdit}
-              onNarrationEdit={handleNarrationEdit}
               getSection={timeline.getSection}
               getAudioAsset={timeline.getAudioAsset}
               onAssetDrop={handleAssetDrop}

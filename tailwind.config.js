@@ -40,6 +40,9 @@ export default {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			info: 'hsl(var(--info))',
+  			success: 'hsl(var(--success))',
+  			warning: 'hsl(var(--warning))',
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -49,7 +52,8 @@ export default {
   			}
   		},
   		backgroundImage: {
-  			'background-gradient': 'linear-gradient(to bottom,rgb(41, 22, 55),rgb(21, 19, 39), #121212)'
+  			'background-gradient': 'linear-gradient(to bottom, #EEF2FF, #F9FAFB)',
+  			'cta-gradient': 'linear-gradient(135deg, #0D9668, #10B981)'
   		},
   		fontFamily: {
   			montserrat: [
@@ -61,6 +65,15 @@ export default {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		keyframes: {
+  			thinking: {
+  				'0%, 100%': { backgroundPosition: '0% 50%' },
+  				'50%': { backgroundPosition: '100% 50%' }
+  			}
+  		},
+  		animation: {
+  			thinking: 'thinking 3s ease-in-out infinite'
   		}
   	}
   },

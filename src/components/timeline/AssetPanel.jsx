@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Trash2,
   Play,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +15,7 @@ export default function AssetPanel({
   sections,
   audioAssets,
   onDeleteAudio,
+  onNarrationEdit,
 }) {
   const [videoExpanded, setVideoExpanded] = useState(true);
   const [audioExpanded, setAudioExpanded] = useState(true);
@@ -157,7 +159,7 @@ export default function AssetPanel({
                 .map((section) => (
                   <div
                     key={`narration-${section.id}`}
-                    className="bg-blue-900/30 rounded p-2 cursor-grab hover:bg-blue-900/50 transition-colors"
+                    className="bg-blue-900/30 rounded p-2 cursor-grab hover:bg-blue-900/50 transition-colors group"
                     draggable
                     onDragStart={(e) => handleNarrationDragStart(e, section)}
                   >
@@ -176,6 +178,17 @@ export default function AssetPanel({
                           {section.narrationText?.substring(0, 30)}...
                         </p>
                       </div>
+                      {onNarrationEdit && (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-400 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNarrationEdit(section);
+                          }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

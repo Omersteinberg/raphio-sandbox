@@ -209,7 +209,7 @@ export default function Creator() {
   const progressSteps = STEP_NAMES.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Progress Bar */}
       {showProgressBar && (
         <div className="bg-white border-b border-gray-200 shadow-sm px-6 py-3">
@@ -225,9 +225,9 @@ export default function Creator() {
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                       step > index
-                        ? "bg-purple-600 text-white"
+                        ? "bg-primary text-white"
                         : step === index
-                        ? "bg-purple-100 text-purple-600 border-2 border-purple-600"
+                        ? "bg-primary/10 text-primary border-2 border-primary"
                         : "bg-gray-200 text-gray-500"
                     }`}
                   >
@@ -236,7 +236,7 @@ export default function Creator() {
                   {index < progressSteps.length - 1 && (
                     <div
                       className={`flex-1 h-1 mx-2 ${
-                        step > index ? "bg-purple-600" : "bg-gray-200"
+                        step > index ? "bg-primary" : "bg-gray-200"
                       }`}
                     />
                   )}
@@ -247,7 +247,7 @@ export default function Creator() {
               {progressSteps.map((name, index) => (
                 <span
                   key={name}
-                  className={step === index ? "text-purple-600 font-medium" : ""}
+                  className={step === index ? "text-primary font-medium" : ""}
                 >
                   {name}
                 </span>

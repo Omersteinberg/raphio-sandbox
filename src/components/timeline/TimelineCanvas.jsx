@@ -15,7 +15,6 @@ export default function TimelineCanvas({
   onSeek,
   onUpdateItem,
   onItemEdit,
-  onNarrationEdit,
   getSection,
   getAudioAsset,
   onAssetDrop,
@@ -217,7 +216,6 @@ export default function TimelineCanvas({
             onSelectItem={onSelectItem}
             onItemDragStart={handleItemDragStart}
             onItemEdit={onItemEdit}
-            onNarrationEdit={onNarrationEdit}
             getSection={getSection}
             getAudioAsset={getAudioAsset}
             onDrop={(e) => handleDrop(e, "VIDEO", 0)}
@@ -238,7 +236,6 @@ export default function TimelineCanvas({
             onSelectItem={onSelectItem}
             onItemDragStart={handleItemDragStart}
             onItemEdit={onItemEdit}
-            onNarrationEdit={onNarrationEdit}
             getSection={getSection}
             getAudioAsset={getAudioAsset}
             onDrop={(e) => handleDrop(e, "AUDIO", 0)}

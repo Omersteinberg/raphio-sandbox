@@ -12,7 +12,6 @@ export default function TimelineTrack({
   onSelectItem,
   onItemDragStart,
   onItemEdit,
-  onNarrationEdit,
   getSection,
   getAudioAsset,
   onDrop,
@@ -53,7 +52,6 @@ export default function TimelineTrack({
         {/* Items */}
         {items.map((item) => {
           const section = item.sectionId ? getSection(item.sectionId) : null;
-          const isNarration = trackType === "AUDIO" && section && !item.audioAssetId;
 
           return (
             <TimelineItem
@@ -65,7 +63,7 @@ export default function TimelineTrack({
               isSelected={selectedItem === item.id}
               onSelect={() => onSelectItem(item.id)}
               onDragStart={onItemDragStart}
-              onEdit={() => isNarration && onNarrationEdit ? onNarrationEdit(item, section) : onItemEdit(item)}
+              onEdit={() => onItemEdit(item)}
               section={section}
               audioAsset={item.audioAssetId ? getAudioAsset(item.audioAssetId) : null}
               isOverlapping={overlappingItems.has(item.id)}
