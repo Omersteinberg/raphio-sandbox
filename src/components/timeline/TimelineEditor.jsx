@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
+import * as sessionService from "@/services/session";
 import TimelineCanvas from "./TimelineCanvas";
 import TimelineControls from "./TimelineControls";
 import AssetPanel from "./AssetPanel";
@@ -30,13 +31,23 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   const containerRef = useRef(null);
 
-  // Handle export
+  // Handle export - download video and save as completed
   const handleExport = async () => {
     setExporting(true);
     try {
       const video = await timeline.exportTimeline();
-      if (video && onExportComplete) {
-        onExportComplete(video);
+      if (video) {
+        // Mark session as completed in the DB
+        try {
+          await sessionService.completeSession(sessionId);
+        } catch (err) {
+          console.error("Failed to mark session as completed:", err);
+        }
+
+        // Notify parent that export is complete (navigates back to result page)
+        if (onExportComplete) {
+          onExportComplete(video);
+        }
       }
     } finally {
       setExporting(false);

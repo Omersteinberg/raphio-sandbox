@@ -1,8 +1,10 @@
 import { useRef } from "react";
-import { motion } from "framer-motion";
-import { Sparkles, Clock, Palette, Upload, X, Image as ImageIcon, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Clock, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
 const STYLE_OPTIONS = [
   { id: "cinematic", name: "Cinematic", icon: "🎬", description: "Epic, dramatic, emotional" },
@@ -30,8 +32,43 @@ export default function PromptStep({
   removeImage,
   onStart,
   loading,
+  openingFrame,
+  setOpeningFrame,
+  closingFrame,
+  setClosingFrame,
 }) {
   const fileInputRef = useRef(null);
+  const openingFileRef = useRef(null);
+  const closingFileRef = useRef(null);
+  const [frameConfigExpanded, setFrameConfigExpanded] = useState(false);
+
+  // Handle file upload for frames
+  const handleFrameFileChange = (e, frameType) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
+        setter((prev) => ({
+          ...prev,
+          uploadedImage: event.target.result,
+          uploadedFile: file,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
+
+  // Remove uploaded frame image
+  const removeFrameImage = (frameType) => {
+    const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
+    setter((prev) => ({
+      ...prev,
+      uploadedImage: null,
+      uploadedFile: null,
+    }));
+  };
 
   console.log("[PromptStep] Rendering with:", {
     userPrompt: userPrompt?.substring(0, 50),
@@ -229,6 +266,298 @@ export default function PromptStep({
                 </motion.button>
               ))}
             </div>
+          </div>
+
+          {/* Opening & Closing Frames */}
+          <div className="mb-6">
+            <button
+              onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
+              className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Film className="w-5 h-5 text-primary" />
+                <span className="font-medium text-gray-900">Opening & Closing Frames</span>
+                <span className="text-sm text-gray-500">(Optional)</span>
+              </div>
+              {frameConfigExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {frameConfigExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-4 border border-t-0 border-gray-200 rounded-b-lg space-y-6 bg-white">
+                    <p className="text-sm text-gray-600">
+                      Configure opening and closing frames for your video. These are analyzed by AI along with your prompt to create a cohesive story.
+                    </p>
+
+                    {/* Opening Frame */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={openingFrame?.enabled}
+                            onChange={(e) => setOpeningFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
+                            className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                          />
+                          <span className="font-medium text-gray-900">Opening Frame</span>
+                        </label>
+                        {openingFrame?.enabled && (
+                          <span className="text-xs text-gray-500">Intro screen before your video</span>
+                        )}
+                      </div>
+
+                      {openingFrame?.enabled && (
+                        <div className="pl-6 space-y-3">
+                          {/* Explanation / Context */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">What's happening in this frame? How should AI use it?</label>
+                            <Textarea
+                              value={openingFrame.description || ""}
+                              onChange={(e) => setOpeningFrame((prev) => ({ ...prev, description: e.target.value }))}
+                              placeholder="e.g., This is our brand logo intro — use it as the first thing viewers see to establish brand identity before the main content begins..."
+                              className="text-sm"
+                              rows={2}
+                            />
+                          </div>
+
+                          {/* Toggle between AI and Upload */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
+                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                                !openingFrame.useUpload
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Wand2 className="w-4 h-4" />
+                              <span className="text-sm">AI Generate</span>
+                            </button>
+                            <button
+                              onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
+                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                                openingFrame.useUpload
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Upload className="w-4 h-4" />
+                              <span className="text-sm">Upload Image</span>
+                            </button>
+                          </div>
+
+                          {/* AI Generate Option */}
+                          {!openingFrame.useUpload && (
+                            <div>
+                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
+                              <Textarea
+                                value={openingFrame.customPrompt || ""}
+                                onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
+                                placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
+                                className="text-sm"
+                                rows={2}
+                              />
+                            </div>
+                          )}
+
+                          {/* Upload Option */}
+                          {openingFrame.useUpload && (
+                            <div>
+                              <input
+                                ref={openingFileRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleFrameFileChange(e, "opening")}
+                              />
+                              {openingFrame.uploadedImage ? (
+                                <div className="relative inline-block">
+                                  <img
+                                    src={openingFrame.uploadedImage}
+                                    alt="Opening frame"
+                                    className="w-32 h-20 object-cover rounded-lg border border-gray-200"
+                                  />
+                                  <button
+                                    onClick={() => removeFrameImage("opening")}
+                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => openingFileRef.current?.click()}
+                                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm">Click to upload image</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Narration Text */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
+                            <Input
+                              value={openingFrame.textOverlay || ""}
+                              onChange={(e) => setOpeningFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
+                              placeholder="e.g., Welcome to our story..."
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <hr className="border-gray-200" />
+
+                    {/* Closing Frame */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={closingFrame?.enabled}
+                            onChange={(e) => setClosingFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
+                            className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                          />
+                          <span className="font-medium text-gray-900">Closing Frame</span>
+                        </label>
+                        {closingFrame?.enabled && (
+                          <span className="text-xs text-gray-500">Outro screen after your video</span>
+                        )}
+                      </div>
+
+                      {closingFrame?.enabled && (
+                        <div className="pl-6 space-y-3">
+                          {/* Explanation / Context */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">What's happening in this frame? How should AI use it?</label>
+                            <Textarea
+                              value={closingFrame.description || ""}
+                              onChange={(e) => setClosingFrame((prev) => ({ ...prev, description: e.target.value }))}
+                              placeholder="e.g., This is our call-to-action ending — show our website URL and social media handles so viewers know where to find us..."
+                              className="text-sm"
+                              rows={2}
+                            />
+                          </div>
+
+                          {/* Toggle between AI and Upload */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
+                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                                !closingFrame.useUpload
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Wand2 className="w-4 h-4" />
+                              <span className="text-sm">AI Generate</span>
+                            </button>
+                            <button
+                              onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
+                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                                closingFrame.useUpload
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Upload className="w-4 h-4" />
+                              <span className="text-sm">Upload Image</span>
+                            </button>
+                          </div>
+
+                          {/* AI Generate Option */}
+                          {!closingFrame.useUpload && (
+                            <div>
+                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
+                              <Textarea
+                                value={closingFrame.customPrompt || ""}
+                                onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
+                                placeholder="e.g., Elegant thank you card with soft lighting..."
+                                className="text-sm"
+                                rows={2}
+                              />
+                            </div>
+                          )}
+
+                          {/* Upload Option */}
+                          {closingFrame.useUpload && (
+                            <div>
+                              <input
+                                ref={closingFileRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleFrameFileChange(e, "closing")}
+                              />
+                              {closingFrame.uploadedImage ? (
+                                <div className="relative inline-block">
+                                  <img
+                                    src={closingFrame.uploadedImage}
+                                    alt="Closing frame"
+                                    className="w-32 h-20 object-cover rounded-lg border border-gray-200"
+                                  />
+                                  <button
+                                    onClick={() => removeFrameImage("closing")}
+                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => closingFileRef.current?.click()}
+                                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm">Click to upload image</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Narration Text */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
+                            <Input
+                              value={closingFrame.textOverlay || ""}
+                              onChange={(e) => setClosingFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
+                              placeholder="e.g., Thanks for watching!"
+                              className="text-sm"
+                            />
+                          </div>
+
+                          {/* Call to Action */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Call to Action (optional)</label>
+                            <Input
+                              value={closingFrame.callToAction || ""}
+                              onChange={(e) => setClosingFrame((prev) => ({ ...prev, callToAction: e.target.value }))}
+                              placeholder="e.g., Visit our website at example.com"
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Duration Selection */}

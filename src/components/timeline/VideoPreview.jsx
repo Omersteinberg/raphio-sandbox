@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Film } from "lucide-react";
 
 export default function VideoPreview({
@@ -16,6 +16,8 @@ export default function VideoPreview({
   const [currentVideoUrl, setCurrentVideoUrl] = useState(null);
   const [currentAudioUrl, setCurrentAudioUrl] = useState(null);
   const [currentThumbnail, setCurrentThumbnail] = useState(null);
+  const lastAudioUrlRef = useRef(null);
+  const lastVideoUrlRef = useRef(null);
 
   // Find the video item at current playhead position
   useEffect(() => {
@@ -27,16 +29,22 @@ export default function VideoPreview({
     if (videoItem && videoItem.sectionId) {
       const section = getSection(videoItem.sectionId);
       if (section) {
-        setCurrentVideoUrl(section.generatedClipUrl);
-        setCurrentThumbnail(section.imageUrl);
+        const newVideoUrl = section.generatedClipUrl;
 
-        // Calculate position within the clip
+        // Only update video source if it actually changed
+        if (newVideoUrl !== lastVideoUrlRef.current) {
+          lastVideoUrlRef.current = newVideoUrl;
+          setCurrentVideoUrl(newVideoUrl);
+          setCurrentThumbnail(section.imageUrl);
+        }
+
+        // Sync video position
         if (videoRef.current && section.generatedClipUrl) {
           const relativeTime =
             playheadPosition - videoItem.startTime + (videoItem.trimStart || 0);
           const adjustedTime = relativeTime * (videoItem.speed || 1);
 
-          if (Math.abs(videoRef.current.currentTime - adjustedTime) > 0.1) {
+          if (Math.abs(videoRef.current.currentTime - adjustedTime) > 0.3) {
             videoRef.current.currentTime = adjustedTime;
           }
 
@@ -48,7 +56,10 @@ export default function VideoPreview({
         }
       }
     } else {
-      setCurrentVideoUrl(null);
+      if (lastVideoUrlRef.current !== null) {
+        lastVideoUrlRef.current = null;
+        setCurrentVideoUrl(null);
+      }
     }
   }, [items, playheadPosition, isPlaying, getSection]);
 
@@ -70,20 +81,37 @@ export default function VideoPreview({
         url = section?.narrationUrl;
       }
 
-      if (url !== currentAudioUrl) {
+      // Only update audio source if URL actually changed
+      if (url !== lastAudioUrlRef.current) {
+        lastAudioUrlRef.current = url;
         setCurrentAudioUrl(url);
-      }
 
-      if (audioRef.current && url) {
+        // When source changes, wait for the element to load then seek
+        if (audioRef.current && url) {
+          const handleLoaded = () => {
+            const relativeTime =
+              playheadPosition - audioItem.startTime + (audioItem.trimStart || 0);
+            const adjustedTime = relativeTime * (audioItem.speed || 1);
+            audioRef.current.currentTime = adjustedTime;
+            audioRef.current.volume = audioItem.volume ?? 1;
+            if (isPlaying) {
+              audioRef.current.play().catch(() => {});
+            }
+            audioRef.current.removeEventListener("loadeddata", handleLoaded);
+          };
+          audioRef.current.addEventListener("loadeddata", handleLoaded);
+        }
+      } else if (audioRef.current && url) {
+        // Same source, just sync position
         const relativeTime =
           playheadPosition - audioItem.startTime + (audioItem.trimStart || 0);
         const adjustedTime = relativeTime * (audioItem.speed || 1);
 
-        if (Math.abs(audioRef.current.currentTime - adjustedTime) > 0.1) {
+        if (Math.abs(audioRef.current.currentTime - adjustedTime) > 0.3) {
           audioRef.current.currentTime = adjustedTime;
         }
 
-        audioRef.current.volume = audioItem.volume || 1;
+        audioRef.current.volume = audioItem.volume ?? 1;
 
         if (isPlaying && audioRef.current.paused) {
           audioRef.current.play().catch(() => {});
@@ -92,14 +120,18 @@ export default function VideoPreview({
         }
       }
     } else {
+      // No audio item at this position - stop audio
       if (audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
       }
-      setCurrentAudioUrl(null);
+      if (lastAudioUrlRef.current !== null) {
+        lastAudioUrlRef.current = null;
+        setCurrentAudioUrl(null);
+      }
     }
-  }, [audioItems, playheadPosition, isPlaying, getSection, getAudioAsset, currentAudioUrl]);
+  }, [audioItems, playheadPosition, isPlaying, getSection, getAudioAsset]);
 
-  // Pause media when playback stops
+  // Pause all media when playback stops
   useEffect(() => {
     if (!isPlaying) {
       if (videoRef.current && !videoRef.current.paused) {
@@ -110,6 +142,16 @@ export default function VideoPreview({
       }
     }
   }, [isPlaying]);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+    };
+  }, []);
 
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black">

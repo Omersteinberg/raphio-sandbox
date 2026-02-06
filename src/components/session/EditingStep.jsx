@@ -30,6 +30,7 @@ export default function EditingStep({
   reassembleVideo,
   deleteClip,
   goToResult,
+  refreshSession,
   loading,
 }) {
   const [editingClip, setEditingClip] = useState(null);
@@ -79,8 +80,12 @@ export default function EditingStep({
   };
 
   // Handle timeline export complete
-  const handleTimelineExportComplete = (video) => {
+  const handleTimelineExportComplete = async (video) => {
     setShowTimeline(false);
+    // Refresh session so finalVideoUrl is up to date on the result page
+    if (refreshSession) {
+      await refreshSession();
+    }
     goToResult();
   };
 

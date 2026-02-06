@@ -81,6 +81,35 @@ export async function analyzeImages(sessionId) {
 }
 
 /**
+ * Generate a frame image (opening or closing) using DALL-E
+ * @param {string} sessionId
+ * @param {string} frameType - 'opening' or 'closing'
+ * @param {string} prompt - The prompt for DALL-E image generation
+ * @param {string} description - Context description for the frame
+ */
+export async function generateFrameImage(sessionId, frameType, prompt, description = "") {
+  const url = `${API_BASE}/${sessionId}/generate-frame-image`;
+  const payload = { frameType, prompt, description };
+
+  console.log("[sessionService] POST", url);
+  console.log("[sessionService] generateFrameImage payload:", payload);
+
+  try {
+    const response = await axios.post(url, payload);
+    console.log("[sessionService] generateFrameImage response status:", response.status);
+    console.log("[sessionService] generateFrameImage response data:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("[sessionService] generateFrameImage failed:", error.message);
+    if (error.response) {
+      console.error("[sessionService] Response status:", error.response.status);
+      console.error("[sessionService] Response data:", error.response.data);
+    }
+    throw error;
+  }
+}
+
+/**
  * Generate script from prompt and image analysis
  * @param {string} sessionId
  * @param {Object} frameOptions - Optional frame configuration
@@ -188,6 +217,14 @@ export async function startGeneration(sessionId, { videoModel, voiceId } = {}) {
  */
 export async function enterEditingMode(sessionId) {
   const response = await axios.post(`${API_BASE}/${sessionId}/edit`);
+  return response.data;
+}
+
+/**
+ * Mark session as completed
+ */
+export async function completeSession(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/complete`);
   return response.data;
 }
 

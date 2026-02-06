@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Upload, ChevronDown, ChevronUp, Film, Wand2 } from "lucide-react";
+import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Film, Upload, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -18,71 +18,28 @@ export default function ScriptStep({
   onNext,
   images = [],
   openingFrame,
-  setOpeningFrame,
   closingFrame,
-  setClosingFrame,
+  generatedFrameImages,
 }) {
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
-  const [frameUploadTarget, setFrameUploadTarget] = useState(null); // 'opening' or 'closing'
-  const [frameConfigExpanded, setFrameConfigExpanded] = useState(false);
-  const openingFileRef = useRef(null);
-  const closingFileRef = useRef(null);
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED";
 
-  // Handle file upload for frames
-  const handleFrameFileChange = (e, frameType) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
-        setter((prev) => ({
-          ...prev,
-          uploadedImage: event.target.result,
-          uploadedFile: file,
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-    e.target.value = "";
-  };
+  // Separate opening/closing sections from content sections
+  const allSections = scriptData?.sections || [];
+  const openingSection = allSections.find((s) => s.sectionType === "OPENING");
+  const closingSection = allSections.find((s) => s.sectionType === "CLOSING");
+  const contentSections = allSections.filter((s) => s.sectionType !== "OPENING" && s.sectionType !== "CLOSING");
+  
+  // Get the real indices in the original array for editing
+  const getOriginalIndex = (section) => allSections.indexOf(section);
 
-  // Remove uploaded frame image
-  const removeFrameImage = (frameType) => {
-    const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
-    setter((prev) => ({
-      ...prev,
-      uploadedImage: null,
-      uploadedFile: null,
-    }));
-  };
-
-  // Initialize frame configs from scriptData when available
-  useEffect(() => {
-    if (scriptData?.openingFrame && !openingFrame.customPrompt) {
-      setOpeningFrame(prev => ({
-        ...prev,
-        enabled: true,
-        customPrompt: scriptData.openingFrame.prompt || "",
-        textOverlay: scriptData.openingFrame.textOverlay || scriptData.title || "",
-      }));
-    }
-    if (scriptData?.closingFrame && !closingFrame.customPrompt) {
-      setClosingFrame(prev => ({
-        ...prev,
-        enabled: true,
-        customPrompt: scriptData.closingFrame.prompt || "",
-        textOverlay: scriptData.closingFrame.textOverlay || "",
-        callToAction: scriptData.closingFrame.callToAction || prev.callToAction || "",
-      }));
-    }
-  }, [scriptData]);
-
-  // Get session images (either from prop or session.images)
-  const sessionImages = images.length > 0 ? images : (session?.images || []);
+  // Get session images - prioritize server-side images (with imageUrl) over local previews
+  // Server images maintain the correct order that imageIndex references
+  const serverImages = session?.images || [];
+  const sessionImages = serverImages.length > 0 ? serverImages : images;
 
   const handleSectionEdit = (index, field, value) => {
     const newSections = [...(scriptData.sections || [])];
@@ -90,13 +47,19 @@ export default function ScriptStep({
     setScriptData({ ...scriptData, sections: newSections });
   };
 
-  const totalDuration = scriptData?.sections?.reduce(
+  const totalDuration = allSections.reduce(
     (sum, s) => sum + (s.suggestedDuration || 5),
     0
   ) || 0;
 
-  // Get the image for a section based on imageIndex
+  // Get the image for a section - use imageId for precise matching, fall back to imageIndex
   const getSectionImage = (section) => {
+    // First try matching by imageId (most reliable)
+    if (section.imageId) {
+      const img = sessionImages.find((i) => i.id === section.imageId);
+      if (img) return img.imageUrl || img.preview || null;
+    }
+    // Fall back to imageIndex
     if (section.imageIndex !== null && section.imageIndex !== undefined) {
       const img = sessionImages[section.imageIndex];
       return img?.imageUrl || img?.preview || null;
@@ -129,7 +92,7 @@ export default function ScriptStep({
               {scriptData?.title || "Video Script"}
             </h2>
             <p className="text-sm text-gray-600">
-              {isGenerated ? `${scriptData.sections?.length || 0} sections • ${totalDuration}s estimated` : "Generate a script from your prompt"}
+              {isGenerated ? `${allSections.length} sections • ${totalDuration}s estimated` : "Generate a script from your prompt"}
             </p>
           </div>
           {isGenerated && !isApproved && (
@@ -179,16 +142,137 @@ export default function ScriptStep({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4">
-            {scriptData.sections?.map((section, index) => {
+            {/* Opening Frame - shown above content sections */}
+            {openingFrame?.enabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`bg-white rounded-lg border p-4 ${
+                  editingSection === "opening" ? "border-green-500" : "border-green-300"
+                }`}
+              >
+                <div className="flex gap-4">
+                  {/* Frame Image */}
+                  <div className="flex-shrink-0">
+                    {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage) ? (
+                      <div className="relative">
+                        <img
+                          src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage}
+                          alt="Opening frame"
+                          className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                        {generatedFrameImages?.opening?.imageUrl && !openingFrame.uploadedImage && (
+                          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+                            <Sparkles className="w-3 h-3" /> AI
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg bg-green-50 flex flex-col items-center justify-center text-green-400">
+                        <Film className="w-6 h-6 mb-1" />
+                        <span className="text-xs">Frame</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">OPENING</span>
+                        {openingFrame.useUpload ? (
+                          <span className="text-xs text-gray-500 flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
+                        ) : openingFrame.customPrompt ? (
+                          <span className="text-xs text-gray-500 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
+                        ) : null}
+                        {openingSection && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {openingSection.suggestedDuration || 5}s
+                          </span>
+                        )}
+                      </div>
+                      {!isApproved && openingSection && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingSection(editingSection === "opening" ? null : "opening")}
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {editingSection === "opening" && openingSection ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Narration</label>
+                          <Textarea
+                            value={openingSection.narrationText || ""}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "narrationText", e.target.value)}
+                            className="text-sm"
+                            rows={3}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
+                          <Textarea
+                            value={openingSection.visualDescription || ""}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "visualDescription", e.target.value)}
+                            className="text-sm"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Duration (seconds)</label>
+                          <Input
+                            type="number"
+                            value={openingSection.suggestedDuration || 5}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "suggestedDuration", parseInt(e.target.value) || 5)}
+                            className="w-24 text-sm"
+                            min={1}
+                            max={30}
+                          />
+                        </div>
+                      </div>
+                    ) : openingSection ? (
+                      <>
+                        <p className="text-gray-900 mb-2">{openingSection.narrationText}</p>
+                        {openingSection.visualDescription && (
+                          <p className="text-sm text-gray-500 italic">
+                            Visual: {openingSection.visualDescription}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {openingFrame.description && (
+                          <p className="text-sm text-gray-700 mb-1"><span className="font-medium">Context:</span> {openingFrame.description}</p>
+                        )}
+                        {openingFrame.textOverlay && (
+                          <p className="text-sm text-gray-600"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
+                        )}
+                        {!openingFrame.description && !openingFrame.textOverlay && (
+                          <p className="text-sm text-gray-400 italic">Opening frame enabled — script will include narration & visual direction</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Content Sections */}
+            {contentSections.map((section, contentIndex) => {
+              const originalIndex = getOriginalIndex(section);
               const sectionImage = getSectionImage(section);
               return (
                 <motion.div
-                  key={index}
+                  key={originalIndex}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: contentIndex * 0.05 }}
                   className={`bg-white rounded-lg border p-4 ${
-                    editingSection === index ? "border-purple-500" : "border-gray-200"
+                    editingSection === originalIndex ? "border-purple-500" : "border-gray-200"
                   }`}
                 >
                   <div className="flex gap-4">
@@ -198,12 +282,12 @@ export default function ScriptStep({
                         <div className="relative group">
                           <img
                             src={sectionImage}
-                            alt={`Section ${index + 1}`}
+                            alt={`Section ${contentIndex + 1}`}
                             className="w-24 h-24 object-cover rounded-lg border border-gray-200"
                           />
                           {!isApproved && (
                             <button
-                              onClick={() => openImageModal(index)}
+                              onClick={() => openImageModal(originalIndex)}
                               className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center"
                             >
                               <span className="text-white text-xs font-medium">Change</span>
@@ -213,19 +297,15 @@ export default function ScriptStep({
                             #{section.imageIndex + 1}
                           </span>
                         </div>
-                      ) : section.sectionType === "CONTENT" ? (
+                      ) : (
                         <button
-                          onClick={() => !isApproved && openImageModal(index)}
+                          onClick={() => !isApproved && openImageModal(originalIndex)}
                           disabled={isApproved}
                           className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Image className="w-6 h-6 mb-1" />
                           <span className="text-xs">Add Image</span>
                         </button>
-                      ) : (
-                        <div className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                          <Image className="w-8 h-8" />
-                        </div>
                       )}
                     </div>
 
@@ -233,11 +313,7 @@ export default function ScriptStep({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            section.sectionType === "OPENING" ? "bg-green-100 text-green-800" :
-                            section.sectionType === "CLOSING" ? "bg-orange-100 text-orange-800" :
-                            "bg-purple-100 text-purple-800"
-                          }`}>
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
                             {section.sectionType || "CONTENT"}
                           </span>
                           <span className="text-sm text-gray-500 flex items-center gap-1">
@@ -249,20 +325,20 @@ export default function ScriptStep({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setEditingSection(editingSection === index ? null : index)}
+                            onClick={() => setEditingSection(editingSection === originalIndex ? null : originalIndex)}
                           >
                             <Edit3 className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
 
-                      {editingSection === index ? (
+                      {editingSection === originalIndex ? (
                         <div className="space-y-3">
                           <div>
                             <label className="text-xs text-gray-500 mb-1 block">Narration</label>
                             <Textarea
                               value={section.narrationText || ""}
-                              onChange={(e) => handleSectionEdit(index, "narrationText", e.target.value)}
+                              onChange={(e) => handleSectionEdit(originalIndex, "narrationText", e.target.value)}
                               className="text-sm"
                               rows={3}
                             />
@@ -271,7 +347,7 @@ export default function ScriptStep({
                             <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
                             <Textarea
                               value={section.visualDescription || ""}
-                              onChange={(e) => handleSectionEdit(index, "visualDescription", e.target.value)}
+                              onChange={(e) => handleSectionEdit(originalIndex, "visualDescription", e.target.value)}
                               className="text-sm"
                               rows={2}
                             />
@@ -281,7 +357,7 @@ export default function ScriptStep({
                             <Input
                               type="number"
                               value={section.suggestedDuration || 5}
-                              onChange={(e) => handleSectionEdit(index, "suggestedDuration", parseInt(e.target.value) || 5)}
+                              onChange={(e) => handleSectionEdit(originalIndex, "suggestedDuration", parseInt(e.target.value) || 5)}
                               className="w-24 text-sm"
                               min={1}
                               max={30}
@@ -304,259 +380,129 @@ export default function ScriptStep({
               );
             })}
 
-            {/* Frame Configuration Section - Show after script is generated but before approval */}
-            {!isApproved && (
-              <div className="mt-6">
-                <button
-                  onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <Film className="w-5 h-5 text-purple-600" />
-                    <span className="font-medium text-gray-900">Opening & Closing Frames</span>
-                    <span className="text-sm text-gray-500">(Optional)</span>
+            {/* Frame Configuration Section removed - now in PromptStep */}
+
+            {/* Closing Frame - shown below content sections */}
+            {closingFrame?.enabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: (contentSections.length) * 0.05 }}
+                className={`bg-white rounded-lg border p-4 ${
+                  editingSection === "closing" ? "border-orange-500" : "border-orange-300"
+                }`}
+              >
+                <div className="flex gap-4">
+                  {/* Frame Image */}
+                  <div className="flex-shrink-0">
+                    {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage) ? (
+                      <div className="relative">
+                        <img
+                          src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage}
+                          alt="Closing frame"
+                          className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                        {generatedFrameImages?.closing?.imageUrl && !closingFrame.uploadedImage && (
+                          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+                            <Sparkles className="w-3 h-3" /> AI
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg bg-orange-50 flex flex-col items-center justify-center text-orange-400">
+                        <Film className="w-6 h-6 mb-1" />
+                        <span className="text-xs">Frame</span>
+                      </div>
+                    )}
                   </div>
-                  {frameConfigExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-500" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-500" />
-                  )}
-                </button>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">CLOSING</span>
+                        {closingFrame.useUpload ? (
+                          <span className="text-xs text-gray-500 flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
+                        ) : closingFrame.customPrompt ? (
+                          <span className="text-xs text-gray-500 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
+                        ) : null}
+                        {closingSection && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {closingSection.suggestedDuration || 5}s
+                          </span>
+                        )}
+                      </div>
+                      {!isApproved && closingSection && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingSection(editingSection === "closing" ? null : "closing")}
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
 
-                <AnimatePresence>
-                  {frameConfigExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-4 border border-t-0 border-gray-200 rounded-b-lg space-y-6 bg-white">
-                        {/* Opening Frame */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={openingFrame.enabled}
-                                onChange={(e) => setOpeningFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                              />
-                              <span className="font-medium text-gray-900">Opening Frame</span>
-                            </label>
-                            {openingFrame.enabled && (
-                              <span className="text-xs text-gray-500">Intro screen before your video</span>
-                            )}
-                          </div>
-
-                          {openingFrame.enabled && (
-                            <div className="pl-6 space-y-3">
-                              {/* Toggle between AI and Upload */}
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                                    !openingFrame.useUpload
-                                      ? "border-purple-500 bg-purple-50 text-purple-700"
-                                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  <Wand2 className="w-4 h-4" />
-                                  <span className="text-sm">AI Generate</span>
-                                </button>
-                                <button
-                                  onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                                    openingFrame.useUpload
-                                      ? "border-purple-500 bg-purple-50 text-purple-700"
-                                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  <Upload className="w-4 h-4" />
-                                  <span className="text-sm">Upload Image</span>
-                                </button>
-                              </div>
-
-                              {/* AI Generate Option */}
-                              {!openingFrame.useUpload && (
-                                <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
-                                  <Textarea
-                                    value={openingFrame.customPrompt}
-                                    onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
-                                    placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
-                                    className="text-sm"
-                                    rows={2}
-                                  />
-                                </div>
-                              )}
-
-                              {/* Upload Option */}
-                              {openingFrame.useUpload && (
-                                <div>
-                                  <input
-                                    ref={openingFileRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => handleFrameFileChange(e, "opening")}
-                                  />
-                                  {openingFrame.uploadedImage ? (
-                                    <div className="relative inline-block">
-                                      <img
-                                        src={openingFrame.uploadedImage}
-                                        alt="Opening frame"
-                                        className="w-32 h-20 object-cover rounded-lg border border-gray-200"
-                                      />
-                                      <button
-                                        onClick={() => removeFrameImage("opening")}
-                                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => openingFileRef.current?.click()}
-                                      className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                      <Upload className="w-4 h-4" />
-                                      <span className="text-sm">Click to upload image</span>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Narration Text */}
-                              <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
-                                <Input
-                                  value={openingFrame.textOverlay}
-                                  onChange={(e) => setOpeningFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
-                                  placeholder="e.g., Welcome to our story..."
-                                  className="text-sm"
-                                />
-                              </div>
-                            </div>
-                          )}
+                    {editingSection === "closing" && closingSection ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Narration</label>
+                          <Textarea
+                            value={closingSection.narrationText || ""}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "narrationText", e.target.value)}
+                            className="text-sm"
+                            rows={3}
+                          />
                         </div>
-
-                        <hr className="border-gray-200" />
-
-                        {/* Closing Frame */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={closingFrame.enabled}
-                                onChange={(e) => setClosingFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                              />
-                              <span className="font-medium text-gray-900">Closing Frame</span>
-                            </label>
-                            {closingFrame.enabled && (
-                              <span className="text-xs text-gray-500">Outro screen after your video</span>
-                            )}
-                          </div>
-
-                          {closingFrame.enabled && (
-                            <div className="pl-6 space-y-3">
-                              {/* Toggle between AI and Upload */}
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                                    !closingFrame.useUpload
-                                      ? "border-purple-500 bg-purple-50 text-purple-700"
-                                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  <Wand2 className="w-4 h-4" />
-                                  <span className="text-sm">AI Generate</span>
-                                </button>
-                                <button
-                                  onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                                    closingFrame.useUpload
-                                      ? "border-purple-500 bg-purple-50 text-purple-700"
-                                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  <Upload className="w-4 h-4" />
-                                  <span className="text-sm">Upload Image</span>
-                                </button>
-                              </div>
-
-                              {/* AI Generate Option */}
-                              {!closingFrame.useUpload && (
-                                <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt</label>
-                                  <Textarea
-                                    value={closingFrame.customPrompt}
-                                    onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
-                                    placeholder="e.g., Elegant thank you card with soft lighting..."
-                                    className="text-sm"
-                                    rows={2}
-                                  />
-                                </div>
-                              )}
-
-                              {/* Upload Option */}
-                              {closingFrame.useUpload && (
-                                <div>
-                                  <input
-                                    ref={closingFileRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => handleFrameFileChange(e, "closing")}
-                                  />
-                                  {closingFrame.uploadedImage ? (
-                                    <div className="relative inline-block">
-                                      <img
-                                        src={closingFrame.uploadedImage}
-                                        alt="Closing frame"
-                                        className="w-32 h-20 object-cover rounded-lg border border-gray-200"
-                                      />
-                                      <button
-                                        onClick={() => removeFrameImage("closing")}
-                                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => closingFileRef.current?.click()}
-                                      className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                      <Upload className="w-4 h-4" />
-                                      <span className="text-sm">Click to upload image</span>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Narration Text */}
-                              <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
-                                <Input
-                                  value={closingFrame.textOverlay}
-                                  onChange={(e) => setClosingFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
-                                  placeholder="e.g., Thanks for watching!"
-                                  className="text-sm"
-                                />
-                              </div>
-                            </div>
-                          )}
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
+                          <Textarea
+                            value={closingSection.visualDescription || ""}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "visualDescription", e.target.value)}
+                            className="text-sm"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Duration (seconds)</label>
+                          <Input
+                            type="number"
+                            value={closingSection.suggestedDuration || 5}
+                            onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "suggestedDuration", parseInt(e.target.value) || 5)}
+                            className="w-24 text-sm"
+                            min={1}
+                            max={30}
+                          />
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                    ) : closingSection ? (
+                      <>
+                        <p className="text-gray-900 mb-2">{closingSection.narrationText}</p>
+                        {closingSection.visualDescription && (
+                          <p className="text-sm text-gray-500 italic">
+                            Visual: {closingSection.visualDescription}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {closingFrame.description && (
+                          <p className="text-sm text-gray-700 mb-1"><span className="font-medium">Context:</span> {closingFrame.description}</p>
+                        )}
+                        {closingFrame.textOverlay && (
+                          <p className="text-sm text-gray-600 mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
+                        )}
+                        {closingFrame.callToAction && (
+                          <p className="text-sm text-gray-600"><span className="font-medium">CTA:</span> {closingFrame.callToAction}</p>
+                        )}
+                        {!closingFrame.description && !closingFrame.textOverlay && (
+                          <p className="text-sm text-gray-400 italic">Closing frame enabled — script will include narration & visual direction</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
             )}
           </div>
         )}

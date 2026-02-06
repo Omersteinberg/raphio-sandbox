@@ -1,6 +1,4 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { CircleChevronLeft } from "lucide-react";
-import MergeFloatingActionButton from "@/components/merge/MergeFloatingActionButton";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useSession } from "@/hooks/session/useSession";
 
@@ -58,6 +56,7 @@ export default function Creator() {
     setOpeningFrame,
     closingFrame,
     setClosingFrame,
+    generatedFrameImages,
     videoModel,
     setVideoModel,
     voiceId,
@@ -77,6 +76,7 @@ export default function Creator() {
     reorderClips,
     reassembleVideo,
     deleteClip,
+    refreshSession,
 
     // Navigation
     handleNext,
@@ -123,6 +123,10 @@ export default function Creator() {
             removeImage={removeImage}
             onStart={startSession}
             loading={loading}
+            openingFrame={openingFrame}
+            setOpeningFrame={setOpeningFrame}
+            closingFrame={closingFrame}
+            setClosingFrame={setClosingFrame}
           />
         );
 
@@ -141,9 +145,8 @@ export default function Creator() {
             images={images}
             onNext={handleNext}
             openingFrame={openingFrame}
-            setOpeningFrame={setOpeningFrame}
             closingFrame={closingFrame}
-            setClosingFrame={setClosingFrame}
+            generatedFrameImages={generatedFrameImages}
           />
         );
 
@@ -194,6 +197,7 @@ export default function Creator() {
             reassembleVideo={reassembleVideo}
             deleteClip={deleteClip}
             goToResult={() => goToStep(4)}
+            refreshSession={refreshSession}
             loading={loading}
           />
         );
@@ -205,7 +209,6 @@ export default function Creator() {
 
   // Show progress bar for content steps
   const showProgressBar = step > 0 && step < 3;
-  const showBackButton = step > 0 && step < 3;
   const progressSteps = STEP_NAMES.slice(0, 3);
 
   return (
@@ -274,17 +277,7 @@ export default function Creator() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Back Button */}
-        {showBackButton && (
-          <MergeFloatingActionButton
-            className="absolute left-6 top-1/2 -translate-y-1/2 z-10"
-            size={50}
-            padding={5}
-            icon={<CircleChevronLeft />}
-            onClick={handlePrev}
-            disabled={loading}
-          />
-        )}
+
       </div>
 
       {/* Loading overlay */}
