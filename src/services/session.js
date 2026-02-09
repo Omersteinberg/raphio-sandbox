@@ -5,12 +5,12 @@ const API_BASE = "http://localhost:3000/api/video";
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, targetDuration, voiceId }) {
+export async function startSession({ userPrompt, style, imageDuration, voiceId }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
     style,
-    targetDuration,
+    imageDuration,
     voiceId,
   };
   
@@ -89,7 +89,7 @@ export async function analyzeImages(sessionId) {
  */
 export async function generateFrameImage(sessionId, frameType, prompt, description = "") {
   const url = `${API_BASE}/${sessionId}/generate-frame-image`;
-  const payload = { frameType, prompt, description };
+  const payload = { type: frameType, prompt, description };
 
   console.log("[sessionService] POST", url);
   console.log("[sessionService] generateFrameImage payload:", payload);

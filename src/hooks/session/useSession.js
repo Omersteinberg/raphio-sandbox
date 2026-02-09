@@ -56,7 +56,7 @@ export function useSession() {
   // Form state
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState("cinematic");
-  const [targetDuration, setTargetDuration] = useState(60);
+  const imageDuration = 10; // seconds per image
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
 
@@ -83,7 +83,6 @@ export function useSession() {
     useUpload: false,
     customPrompt: "",
     textOverlay: "",
-    callToAction: "",
     description: "",     // explanation of what's happening and how AI should use it
     uploadedImage: null, // base64 data URL for preview
     uploadedFile: null,  // actual File object for upload
@@ -162,9 +161,11 @@ export function useSession() {
     console.log("[useSession] Current state:", {
       userPrompt: userPrompt?.substring(0, 50),
       style,
-      targetDuration,
+      imageDuration,
       voiceId,
       imagesCount: images?.length || 0,
+      openingFrame: { enabled: openingFrame.enabled, useUpload: openingFrame.useUpload, customPrompt: openingFrame.customPrompt, description: openingFrame.description },
+      closingFrame: { enabled: closingFrame.enabled, useUpload: closingFrame.useUpload, customPrompt: closingFrame.customPrompt, description: closingFrame.description },
     });
 
     if (!userPrompt.trim()) {
@@ -188,7 +189,7 @@ export function useSession() {
       const payload = {
         userPrompt,
         style,
-        targetDuration,
+        imageDuration,
         voiceId,
       };
       console.log("[useSession] Request payload:", payload);
@@ -236,7 +237,8 @@ export function useSession() {
           }
         } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
           // AI Generate mode — generate an image using the user's custom prompt
-          console.log("[useSession] Generating AI opening frame image...");
+          console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
+          console.log("[useSession] Opening frame description:", openingFrame.description);
           try {
             const frameResult = await sessionService.generateFrameImage(
               newSession.id,
@@ -317,9 +319,6 @@ export function useSession() {
         if (closingFrame.textOverlay) {
           frameOptions.closingNarration = closingFrame.textOverlay;
         }
-        if (closingFrame.callToAction) {
-          frameOptions.closingCallToAction = closingFrame.callToAction;
-        }
         if (closingFrame.description) {
           frameOptions.closingDescription = closingFrame.description;
         }
@@ -353,7 +352,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, targetDuration, voiceId, images, openingFrame, closingFrame, videoModel]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel]);
 
   // Add images to pool
   const addImages = useCallback((files) => {
@@ -373,6 +372,16 @@ export function useSession() {
         URL.revokeObjectURL(removed.preview);
       }
       return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  // Reorder images (move image from one index to another)
+  const reorderImages = useCallback((fromIndex, toIndex) => {
+    setImages((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
     });
   }, []);
 
@@ -519,9 +528,6 @@ export function useSession() {
       }
       if (closingFrame.textOverlay) {
         frameOptions.closingNarration = closingFrame.textOverlay;
-      }
-      if (closingFrame.callToAction) {
-        frameOptions.closingCallToAction = closingFrame.callToAction;
       }
       if (closingFrame.description) {
         frameOptions.closingDescription = closingFrame.description;
@@ -684,7 +690,6 @@ export function useSession() {
           useUpload: closingFrame.useUpload,
           customPrompt: closingFrame.useUpload ? null : (closingFrame.customPrompt || null),
           textOverlay: closingFrame.textOverlay || null,
-          callToAction: closingFrame.callToAction || null,
           description: closingFrame.description || null,
           uploadedImageUrl: closingImageUrl,
         } : null,
@@ -876,6 +881,18 @@ export function useSession() {
     }
   }, [sessionId]);
 
+  // Mark session as completed (used when returning from editing to result)
+  const completeSession = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const updatedSession = await sessionService.completeSession(sessionId);
+      setSession(updatedSession);
+    } catch (err) {
+      console.error("Failed to complete session:", err);
+    }
+  }, [sessionId]);
+
   // Refresh session data from the server
   const refreshSession = useCallback(async () => {
     if (!sessionId) return;
@@ -929,7 +946,7 @@ export function useSession() {
     setScriptData(null);
     setEditRequest("");
     setOpeningFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
-    setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", callToAction: "", description: "", uploadedImage: null, uploadedFile: null });
+    setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setGeneratedFrameImages({ opening: null, closing: null });
     setGenerationProgress(null);
     setFinalVideoUrl(null);
@@ -950,8 +967,7 @@ export function useSession() {
     setUserPrompt,
     style,
     setStyle,
-    targetDuration,
-    setTargetDuration,
+    imageDuration,
     voiceId,
     setVoiceId,
     videoModel,
@@ -961,6 +977,7 @@ export function useSession() {
     images,
     addImages,
     removeImage,
+    reorderImages,
     imageAnalysis,
 
     // Script
@@ -997,6 +1014,7 @@ export function useSession() {
     reassembleVideo,
     deleteClip,
     enterEditingMode,
+    completeSession,
     refreshSession,
 
     // Navigation

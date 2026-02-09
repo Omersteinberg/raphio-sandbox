@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import {
   Film,
@@ -42,12 +42,28 @@ export default function EditingStep({
   const sections = session?.video?.sections || [];
   const sortedSections = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
 
-  // Handle drag reorder
-  const handleReorder = async (newOrder) => {
-    const orderMap = newOrder.map((section, index) => ({
+  // Local order state for visual drag feedback (only saves on drop)
+  const [localOrder, setLocalOrder] = useState(null);
+  const displaySections = localOrder || sortedSections;
+
+  // Clear local order when session data updates from backend
+  useEffect(() => {
+    setLocalOrder(null);
+  }, [sections]);
+
+  // Update visual order during drag (no API call)
+  const handleReorder = (newOrder) => {
+    setLocalOrder(newOrder);
+  };
+
+  // Save reorder to backend on drag end
+  const handleDragEnd = async () => {
+    if (!localOrder) return;
+    const orderMap = localOrder.map((section, index) => ({
       sectionId: section.id,
       orderIndex: index,
     }));
+    setLocalOrder(null);
     await reorderClips(orderMap);
   };
 
@@ -83,16 +99,14 @@ export default function EditingStep({
     }
   };
 
-  // Handle back to video - reassemble if there were changes
+  // Handle back to video - always reassemble to set backend back to COMPLETED
   const handleBackToVideo = async () => {
-    if (hasChanges) {
-      setReassembling(true);
-      try {
-        await reassembleVideo({ regenerateAudio: false });
-        setHasChanges(false);
-      } finally {
-        setReassembling(false);
-      }
+    setReassembling(true);
+    try {
+      await reassembleVideo({ regenerateAudio: false });
+      setHasChanges(false);
+    } finally {
+      setReassembling(false);
     }
     goToResult();
   };
@@ -210,14 +224,15 @@ export default function EditingStep({
 
           <Reorder.Group
             axis="y"
-            values={sortedSections}
+            values={displaySections}
             onReorder={handleReorder}
             className="space-y-3"
           >
-            {sortedSections.map((section, index) => (
+            {displaySections.map((section, index) => (
               <Reorder.Item
                 key={section.id}
                 value={section}
+                onDragEnd={handleDragEnd}
                 className="cursor-grab active:cursor-grabbing"
               >
                 <motion.div
@@ -346,18 +361,16 @@ export default function EditingStep({
                       >
                         <RefreshCw className={`w-4 h-4 ${section.status === "GENERATING" ? "animate-spin" : ""}`} />
                       </Button>
-                      {section.sectionType === "CONTENT" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(section.id)}
-                          disabled={loading}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete clip"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(section.id)}
+                        disabled={loading}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Delete clip"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </motion.div>

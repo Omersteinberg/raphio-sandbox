@@ -492,9 +492,6 @@ export default function ScriptStep({
                         {closingFrame.textOverlay && (
                           <p className="text-sm text-gray-600 mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
                         )}
-                        {closingFrame.callToAction && (
-                          <p className="text-sm text-gray-600"><span className="font-medium">CTA:</span> {closingFrame.callToAction}</p>
-                        )}
                         {!closingFrame.description && !closingFrame.textOverlay && (
                           <p className="text-sm text-gray-400 italic">Closing frame enabled — script will include narration & visual direction</p>
                         )}

@@ -33,14 +33,13 @@ export default function Creator() {
     setUserPrompt,
     style,
     setStyle,
-    targetDuration,
-    setTargetDuration,
     startSession,
 
     // Images (from prompt)
     images,
     addImages,
     removeImage,
+    reorderImages,
 
     // Script step
     scriptData,
@@ -116,11 +115,10 @@ export default function Creator() {
             setUserPrompt={setUserPrompt}
             style={style}
             setStyle={setStyle}
-            targetDuration={targetDuration}
-            setTargetDuration={setTargetDuration}
             images={images}
             addImages={addImages}
             removeImage={removeImage}
+            reorderImages={reorderImages}
             onStart={startSession}
             loading={loading}
             openingFrame={openingFrame}

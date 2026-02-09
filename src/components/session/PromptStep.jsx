@@ -1,7 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Clock, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,23 +12,15 @@ const STYLE_OPTIONS = [
   { id: "dramatic", name: "Dramatic", icon: "🎭", description: "Intense, suspenseful" },
 ];
 
-const DURATION_OPTIONS = [
-  { value: 30, label: "30s", description: "Short & snappy" },
-  { value: 60, label: "1 min", description: "Standard" },
-  { value: 120, label: "2 min", description: "Extended" },
-  { value: 180, label: "3 min", description: "Long form" },
-];
-
 export default function PromptStep({
   userPrompt,
   setUserPrompt,
   style,
   setStyle,
-  targetDuration,
-  setTargetDuration,
   images,
   addImages,
   removeImage,
+  reorderImages,
   onStart,
   loading,
   openingFrame,
@@ -41,6 +32,8 @@ export default function PromptStep({
   const openingFileRef = useRef(null);
   const closingFileRef = useRef(null);
   const [frameConfigExpanded, setFrameConfigExpanded] = useState(false);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   // Handle file upload for frames
   const handleFrameFileChange = (e, frameType) => {
@@ -73,7 +66,6 @@ export default function PromptStep({
   console.log("[PromptStep] Rendering with:", {
     userPrompt: userPrompt?.substring(0, 50),
     style,
-    targetDuration,
     imagesCount: images?.length || 0,
     loading,
   });
@@ -109,8 +101,9 @@ export default function PromptStep({
     console.log("[PromptStep] Current state:", {
       userPrompt,
       style,
-      targetDuration,
       imagesCount: images?.length || 0,
+      openingFrame: { enabled: openingFrame?.enabled, useUpload: openingFrame?.useUpload, customPrompt: openingFrame?.customPrompt },
+      closingFrame: { enabled: closingFrame?.enabled, useUpload: closingFrame?.useUpload, customPrompt: closingFrame?.customPrompt },
     });
     onStart();
   };
@@ -207,25 +200,52 @@ export default function PromptStep({
               </p>
             </div>
 
-            {/* Image Grid */}
+            {/* Image Grid (drag to reorder) */}
             {images?.length > 0 && (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                 {images.map((img, index) => (
                   <motion.div
-                    key={index}
+                    key={img.preview}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="relative group aspect-square"
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(index);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDragOverIndex(index);
+                    }}
+                    onDragLeave={() => setDragOverIndex(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null && dragIndex !== index) {
+                        reorderImages(dragIndex, index);
+                      }
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    }}
+                    className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all ${
+                      dragIndex === index ? "opacity-40 scale-95" : ""
+                    } ${dragOverIndex === index && dragIndex !== index ? "ring-2 ring-primary ring-offset-2 scale-105" : ""}`}
                   >
                     <img
                       src={img.preview}
                       alt={`Upload ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover rounded-lg pointer-events-none"
                     />
+                    <div className="absolute top-1 left-1 w-6 h-6 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log("[PromptStep] Removing image at index:", index);
                         removeImage(index);
                       }}
                       className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
@@ -550,16 +570,6 @@ export default function PromptStep({
                             />
                           </div>
 
-                          {/* Call to Action */}
-                          <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Call to Action (optional)</label>
-                            <Input
-                              value={closingFrame.callToAction || ""}
-                              onChange={(e) => setClosingFrame((prev) => ({ ...prev, callToAction: e.target.value }))}
-                              placeholder="e.g., Visit our website at example.com"
-                              className="text-sm"
-                            />
-                          </div>
                         </div>
                       )}
                     </div>
@@ -567,35 +577,6 @@ export default function PromptStep({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-
-          {/* Duration Selection */}
-          <div className="mb-8">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              <Clock className="w-4 h-4 inline mr-1" />
-              Target Duration
-            </label>
-            <div className="flex gap-3">
-              {DURATION_OPTIONS.map((option) => (
-                <motion.button
-                  key={option.value}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    console.log("[PromptStep] Duration selected:", option.value);
-                    setTargetDuration(option.value);
-                  }}
-                  className={`flex-1 py-3 px-4 rounded-xl border-2 text-center transition-all ${
-                    targetDuration === option.value
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <span className="font-semibold text-gray-900 block">{option.label}</span>
-                  <span className="text-xs text-gray-500">{option.description}</span>
-                </motion.button>
-              ))}
-            </div>
           </div>
 
           {/* Start Button */}
