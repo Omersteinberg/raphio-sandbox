@@ -155,8 +155,8 @@ export default function ResultStep({
         </div>
 
         {/* Tips */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
+        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <p className="text-sm text-purple-800">
             <strong>Tip:</strong> Click "Edit Clips" to regenerate individual sections,
             reorder clips, or make other adjustments to your video.
           </p>

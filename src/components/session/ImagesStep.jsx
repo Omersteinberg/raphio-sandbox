@@ -259,7 +259,7 @@ export default function ImagesStep({
                     <h4 className="font-medium text-gray-900 mb-2">Moods</h4>
                     <div className="flex flex-wrap gap-2">
                       {imageAnalysis.aggregated.moods.map((mood, i) => (
-                        <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                        <span key={i} className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">
                           {mood}
                         </span>
                       ))}

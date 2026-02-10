@@ -7,7 +7,7 @@ const VIDEO_MODELS = [
   { id: "KLING", name: "Kling", description: "Most realistic people and actions" },
   { id: "HUNYUAN", name: "Hunyuan", description: "Best for movie-like physics" },
   { id: "WAN", name: "Wan", description: "Best for clear text and logos" },
-  { id: "HAILUO", name: "Hailuo", description: "Fastest for high-energy action" },
+  { id: "VEO", name: "Veo 3.1", description: "Fastest for high-energy action" },
 ];
 
 export default function FramesStep({
@@ -102,7 +102,7 @@ export default function FramesStep({
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg"
+          className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg"
         >
           <span className="flex items-center gap-2">
             <Zap className="w-5 h-5" />
@@ -112,11 +112,11 @@ export default function FramesStep({
         </Button>
 
         {/* Info Box */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
+        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <p className="text-sm text-purple-800">
             <strong>What happens next:</strong>
           </p>
-          <ul className="text-xs text-blue-700 mt-2 space-y-1">
+          <ul className="text-xs text-purple-700 mt-2 space-y-1">
             {openingFrame?.enabled && <li>• Opening frame generated with DALL-E 3</li>}
             <li>• Each section converted to video clips</li>
             <li>• Narration generated with AI voice</li>

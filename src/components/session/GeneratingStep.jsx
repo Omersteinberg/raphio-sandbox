@@ -201,8 +201,8 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
         </div>
 
         {/* Processing Note */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200 text-center">
-          <p className="text-sm text-blue-800">
+        <div className="mt-8 p-4 bg-purple-50 rounded-lg border border-purple-200 text-center">
+          <p className="text-sm text-purple-800">
             This may take several minutes depending on your video length.
             <br />
             You can leave this page open - we'll notify you when it's ready.

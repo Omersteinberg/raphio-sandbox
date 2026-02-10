@@ -33,7 +33,7 @@ const VIDEO_MODELS = [
   { id: "KLING", name: "Kling", description: "Best for cinematic motion" },
   { id: "HUNYUAN", name: "Hunyuan", description: "Good for realistic content" },
   { id: "WAN", name: "Wan", description: "Fast for social media" },
-  { id: "HAILUO", name: "Hailuo", description: "Dramatic effects" },
+  { id: "VEO", name: "Veo 3.1", description: "Dramatic effects" },
 ];
 
 // Style options
@@ -97,6 +97,9 @@ export function useSession() {
   // Generation state
   const [generationProgress, setGenerationProgress] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
+
+  // Script generation progress (0-100)
+  const [scriptProgress, setScriptProgress] = useState(0);
 
   // Sync step with session stage
   useEffect(() => {
@@ -182,10 +185,12 @@ export function useSession() {
 
     setLoading(true);
     setError(null);
+    setScriptProgress(0);
 
     try {
       // Step 1: Create the session
       console.log("[useSession] Calling sessionService.startSession...");
+      setScriptProgress(5);
       const payload = {
         userPrompt,
         style,
@@ -195,25 +200,30 @@ export function useSession() {
       console.log("[useSession] Request payload:", payload);
 
       const newSession = await sessionService.startSession(payload);
-      
+
       console.log("[useSession] Session created successfully:", newSession);
+      setScriptProgress(15);
 
       setSessionId(newSession.id);
       setSession(newSession);
 
       // Step 2: Upload the images that were already selected
       console.log("[useSession] Uploading images to session...");
+      setScriptProgress(20);
       const files = images.map((img) => img.file);
       const sessionAfterUpload = await sessionService.uploadImages(newSession.id, files);
       console.log("[useSession] Images uploaded:", sessionAfterUpload);
       setSession(sessionAfterUpload);
+      setScriptProgress(35);
 
       // Step 3: Start image analysis
       console.log("[useSession] Starting image analysis...");
+      setScriptProgress(40);
       const sessionAfterAnalysis = await sessionService.analyzeImages(newSession.id);
       console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
       setSession(sessionAfterAnalysis);
       setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
+      setScriptProgress(55);
 
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
       // This way the AI can analyze the generated frame images too
@@ -327,14 +337,17 @@ export function useSession() {
       }
 
       setGeneratedFrameImages(newGeneratedFrameImages);
+      setScriptProgress(70);
 
       // Step 5: Generate script - AI now has access to the generated frame images for analysis
       console.log("[useSession] Generating script...");
       console.log("[useSession] Frame options:", frameOptions);
+      setScriptProgress(75);
       const sessionAfterScript = await sessionService.generateScript(newSession.id, frameOptions);
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
+      setScriptProgress(100);
 
       setDirection(1);
       setStep(1); // Go directly to ScriptStep
@@ -996,6 +1009,7 @@ export function useSession() {
     // Generation
     generationProgress,
     finalVideoUrl,
+    scriptProgress,
 
     // Actions
     startSession,

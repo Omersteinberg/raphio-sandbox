@@ -67,6 +67,7 @@ export default function Creator() {
     finalVideoUrl,
     enterEditingMode,
     reset,
+    scriptProgress,
 
     // Editing step
     updateClip,
@@ -292,6 +293,7 @@ export default function Creator() {
               ? "Saving generation settings..."
               : "Processing..."
           }
+          progress={step === 0 ? scriptProgress : null}
         />
       )}
     </div>
