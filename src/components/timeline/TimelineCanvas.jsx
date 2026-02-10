@@ -4,6 +4,8 @@ import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
 
+const SNAP_THRESHOLD_PX = 8; // Snap within 8 pixels
+
 export default function TimelineCanvas({
   videoItems,
   audioItems,
@@ -27,9 +29,109 @@ export default function TimelineCanvas({
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartValue, setDragStartValue] = useState(0);
   const [dragOffset, setDragOffset] = useState(0); // Current drag offset in pixels
+  const [snapIndicator, setSnapIndicator] = useState(null); // { time: number } for visual snap line
 
   const timelineWidth = Math.max(duration * pixelsPerSecond + 200, 800);
   const trackHeight = 60;
+
+  // Get all snap points for the track the dragged item belongs to
+  const getSnapPoints = useCallback(
+    (draggedItem) => {
+      const trackItems =
+        draggedItem.trackType === "VIDEO" ? videoItems : audioItems;
+      const points = new Set();
+
+      // Add edges of other clips on the same track
+      trackItems.forEach((item) => {
+        if (item.id === draggedItem.id) return;
+        points.add(item.startTime);
+        points.add(item.startTime + item.duration);
+      });
+
+      // Add playhead position
+      points.add(playheadPosition);
+
+      // Add grid points (every 0.5s)
+      for (let t = 0; t <= duration; t += 0.5) {
+        points.add(t);
+      }
+
+      // Add timeline start
+      points.add(0);
+
+      return [...points];
+    },
+    [videoItems, audioItems, playheadPosition, duration]
+  );
+
+  // Find the nearest snap target for a given time value
+  const findSnapTarget = useCallback(
+    (time, draggedItem) => {
+      const snapPoints = getSnapPoints(draggedItem);
+      const thresholdTime = SNAP_THRESHOLD_PX / pixelsPerSecond;
+
+      let closest = null;
+      let closestDist = Infinity;
+
+      for (const point of snapPoints) {
+        const dist = Math.abs(time - point);
+        if (dist < closestDist && dist <= thresholdTime) {
+          closest = point;
+          closestDist = dist;
+        }
+      }
+
+      return closest;
+    },
+    [getSnapPoints, pixelsPerSecond]
+  );
+
+  // Find nearest non-overlapping position for an item
+  const findNonOverlappingPosition = useCallback(
+    (itemId, startTime, itemDuration, trackType) => {
+      const trackItems =
+        trackType === "VIDEO" ? videoItems : audioItems;
+      const others = trackItems.filter((it) => it.id !== itemId);
+
+      const wouldOverlap = (st) => {
+        const end = st + itemDuration;
+        return others.some(
+          (o) => st < o.startTime + o.duration && end > o.startTime
+        );
+      };
+
+      if (!wouldOverlap(startTime)) return startTime;
+
+      // Try snapping to the end of the overlapping item, or the start minus duration
+      let bestPos = startTime;
+      let bestDist = Infinity;
+
+      for (const other of others) {
+        // Place right after this item
+        const afterPos = other.startTime + other.duration;
+        if (!wouldOverlap(afterPos)) {
+          const dist = Math.abs(afterPos - startTime);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPos = afterPos;
+          }
+        }
+
+        // Place right before this item
+        const beforePos = other.startTime - itemDuration;
+        if (beforePos >= 0 && !wouldOverlap(beforePos)) {
+          const dist = Math.abs(beforePos - startTime);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPos = beforePos;
+          }
+        }
+      }
+
+      return Math.max(0, bestPos);
+    },
+    [videoItems, audioItems]
+  );
 
   // Detect overlapping items
   const detectOverlaps = useCallback((items) => {
@@ -57,20 +159,72 @@ export default function TimelineCanvas({
   const videoOverlaps = useMemo(() => detectOverlaps(videoItems), [videoItems, detectOverlaps]);
   const audioOverlaps = useMemo(() => detectOverlaps(audioItems), [audioItems, detectOverlaps]);
 
-  // Calculate drag preview position for the dragged item
+  // Calculate drag preview position for the dragged item (with snapping)
   const getDragPreview = useCallback(() => {
     if (!isDragging || !dragItem || dragType !== "move") return null;
 
     const deltaTime = dragOffset / pixelsPerSecond;
-    const newStartTime = Math.max(0, dragStartValue + deltaTime);
+    let newStartTime = Math.max(0, dragStartValue + deltaTime);
+
+    // Try snapping the start edge
+    const snapStart = findSnapTarget(newStartTime, dragItem);
+    // Try snapping the end edge
+    const endTime = newStartTime + dragItem.duration;
+    const snapEnd = findSnapTarget(endTime, dragItem);
+
+    // Pick whichever snap is closer
+    if (snapStart !== null && snapEnd !== null) {
+      const distStart = Math.abs(newStartTime - snapStart);
+      const distEnd = Math.abs(endTime - snapEnd);
+      if (distStart <= distEnd) {
+        newStartTime = snapStart;
+      } else {
+        newStartTime = snapEnd - dragItem.duration;
+      }
+    } else if (snapStart !== null) {
+      newStartTime = snapStart;
+    } else if (snapEnd !== null) {
+      newStartTime = snapEnd - dragItem.duration;
+    }
+
+    newStartTime = Math.max(0, newStartTime);
 
     return {
       itemId: dragItem.id,
       previewStartTime: newStartTime,
     };
-  }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond]);
+  }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond, findSnapTarget]);
 
   const dragPreview = getDragPreview();
+
+  // Update snap indicator whenever drag preview changes
+  useEffect(() => {
+    if (!dragPreview || !dragItem) {
+      setSnapIndicator(null);
+      return;
+    }
+
+    const deltaTime = dragOffset / pixelsPerSecond;
+    const rawStartTime = Math.max(0, dragStartValue + deltaTime);
+
+    // Check if we actually snapped (preview differs from raw position)
+    const snappedStart = dragPreview.previewStartTime;
+    const threshold = SNAP_THRESHOLD_PX / pixelsPerSecond;
+
+    if (Math.abs(snappedStart - rawStartTime) > 0.001) {
+      // We snapped the start edge
+      const endSnap = snappedStart + dragItem.duration;
+      const rawEnd = rawStartTime + dragItem.duration;
+      // Show the snap line at whichever edge snapped
+      if (Math.abs(snappedStart - rawStartTime) <= Math.abs(endSnap - rawEnd)) {
+        setSnapIndicator({ time: snappedStart });
+      } else {
+        setSnapIndicator({ time: endSnap });
+      }
+    } else {
+      setSnapIndicator(null);
+    }
+  }, [dragPreview, dragItem, dragOffset, dragStartValue, pixelsPerSecond]);
 
   // Handle scroll
   const handleScroll = (e) => {
@@ -112,7 +266,7 @@ export default function TimelineCanvas({
     [isDragging, dragItem, dragStartX]
   );
 
-  // Handle drag end
+  // Handle drag end (with snapping + overlap prevention)
   const handleDragEnd = useCallback(
     async (e) => {
       if (!isDragging || !dragItem) return;
@@ -123,15 +277,70 @@ export default function TimelineCanvas({
       let updates = {};
 
       if (dragType === "move") {
-        updates.startTime = Math.max(0, dragStartValue + deltaTime);
+        let newStartTime = Math.max(0, dragStartValue + deltaTime);
+
+        // Apply snapping
+        const snapStart = findSnapTarget(newStartTime, dragItem);
+        const endTime = newStartTime + dragItem.duration;
+        const snapEnd = findSnapTarget(endTime, dragItem);
+
+        if (snapStart !== null && snapEnd !== null) {
+          const distStart = Math.abs(newStartTime - snapStart);
+          const distEnd = Math.abs(endTime - snapEnd);
+          newStartTime = distStart <= distEnd ? snapStart : snapEnd - dragItem.duration;
+        } else if (snapStart !== null) {
+          newStartTime = snapStart;
+        } else if (snapEnd !== null) {
+          newStartTime = snapEnd - dragItem.duration;
+        }
+
+        newStartTime = Math.max(0, newStartTime);
+
+        // Prevent overlap
+        newStartTime = findNonOverlappingPosition(
+          dragItem.id,
+          newStartTime,
+          dragItem.duration,
+          dragItem.trackType
+        );
+
+        updates.startTime = newStartTime;
       } else if (dragType === "trim-start") {
         const newTrimStart = Math.max(0, dragStartValue + deltaTime);
+        let newDuration = Math.max(0.5, dragItem.duration - deltaTime);
+        let newStartTime = dragItem.startTime + deltaTime;
+
+        // Prevent overlap after trimming
+        newStartTime = findNonOverlappingPosition(
+          dragItem.id,
+          newStartTime,
+          newDuration,
+          dragItem.trackType
+        );
+
         updates.trimStart = newTrimStart;
-        // Adjust duration to compensate
-        updates.duration = dragItem.duration - deltaTime;
-        updates.startTime = dragItem.startTime + deltaTime;
+        updates.duration = newDuration;
+        updates.startTime = newStartTime;
       } else if (dragType === "trim-end") {
-        updates.duration = Math.max(0.5, dragStartValue + deltaTime);
+        let newDuration = Math.max(0.5, dragStartValue + deltaTime);
+
+        // Prevent overlap: check if extending the end would overlap
+        const trackItems =
+          dragItem.trackType === "VIDEO" ? videoItems : audioItems;
+        const others = trackItems.filter((it) => it.id !== dragItem.id);
+        const newEnd = dragItem.startTime + newDuration;
+        for (const other of others) {
+          if (
+            dragItem.startTime < other.startTime + other.duration &&
+            newEnd > other.startTime
+          ) {
+            // Clamp duration so it doesn't overlap
+            newDuration = Math.max(0.5, other.startTime - dragItem.startTime);
+            break;
+          }
+        }
+
+        updates.duration = newDuration;
       }
 
       if (Object.keys(updates).length > 0) {
@@ -142,8 +351,9 @@ export default function TimelineCanvas({
       setDragType(null);
       setDragItem(null);
       setDragOffset(0);
+      setSnapIndicator(null);
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem]
+    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, audioItems]
   );
 
   // Add mouse event listeners for dragging
@@ -159,7 +369,7 @@ export default function TimelineCanvas({
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
-  // Handle drop from asset panel
+  // Handle drop from asset panel (with overlap prevention)
   const handleDrop = (e, trackType, trackIndex) => {
     e.preventDefault();
     const data = e.dataTransfer.getData("application/json");
@@ -169,7 +379,17 @@ export default function TimelineCanvas({
       const asset = JSON.parse(data);
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left + scrollLeft;
-      const startTime = Math.max(0, x / pixelsPerSecond);
+      let startTime = Math.max(0, x / pixelsPerSecond);
+
+      // Estimate duration for overlap check (use asset duration or default)
+      const assetDuration = asset.duration || 3;
+      startTime = findNonOverlappingPosition(
+        null, // no existing item id
+        startTime,
+        assetDuration,
+        trackType
+      );
+
       onAssetDrop(asset, trackType, startTime);
     } catch (err) {
       console.error("Failed to parse drop data:", err);
@@ -183,6 +403,7 @@ export default function TimelineCanvas({
   return (
     <div
       ref={containerRef}
+      data-timeline-container
       className="w-full h-full overflow-auto bg-gray-900"
       onScroll={handleScroll}
     >
@@ -244,11 +465,24 @@ export default function TimelineCanvas({
             dragPreview={dragPreview}
           />
 
+          {/* Snap indicator line */}
+          {snapIndicator && (
+            <div
+              className="absolute top-0 w-px bg-yellow-400 pointer-events-none z-30"
+              style={{
+                left: snapIndicator.time * pixelsPerSecond + 80, // +80 for track label width
+                height: trackHeight * 2,
+                boxShadow: "0 0 4px rgba(250, 204, 21, 0.8)",
+              }}
+            />
+          )}
+
           {/* Playhead */}
           <TimelinePlayhead
             position={playheadPosition}
             pixelsPerSecond={pixelsPerSecond}
             height={trackHeight * 2 + 40}
+            onSeek={onSeek}
           />
         </div>
       </div>

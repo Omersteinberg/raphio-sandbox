@@ -4,8 +4,6 @@ import {
   Square,
   ZoomIn,
   ZoomOut,
-  Maximize2,
-  Scissors,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,9 +26,7 @@ export default function TimelineControls({
   onSeek,
   onZoomIn,
   onZoomOut,
-  onResetZoom,
   selectedItem,
-  onSplit,
   onDelete,
 }) {
   return (
@@ -69,17 +65,6 @@ export default function TimelineControls({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onSplit}
-          disabled={!selectedItem}
-          className="text-gray-300 hover:text-white hover:bg-gray-700 disabled:opacity-50"
-          title="Split at playhead (S)"
-        >
-          <Scissors className="w-4 h-4 mr-1" />
-          Split
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
           onClick={onDelete}
           disabled={!selectedItem}
           className="text-red-400 hover:text-red-300 hover:bg-gray-700 disabled:opacity-50"
@@ -114,16 +99,6 @@ export default function TimelineControls({
           title="Zoom in (+)"
         >
           <ZoomIn className="w-4 h-4" />
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onResetZoom}
-          className="text-gray-300 hover:text-white hover:bg-gray-700"
-          title="Reset zoom (0)"
-        >
-          <Maximize2 className="w-4 h-4" />
         </Button>
       </div>
     </div>

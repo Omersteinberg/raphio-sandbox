@@ -263,9 +263,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             onSeek={timeline.seek}
             onZoomIn={timeline.zoomIn}
             onZoomOut={timeline.zoomOut}
-            onResetZoom={timeline.resetZoom}
             selectedItem={timeline.selectedItem}
-            onSplit={() => timeline.selectedItem && timeline.splitItem(timeline.selectedItem)}
             onDelete={() => timeline.selectedItem && timeline.removeItem(timeline.selectedItem)}
           />
 
