@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = "https://api.susi.com.au/api";
 
 console.log("[VIDEOS SERVICE] API_BASE:", API_BASE);
 

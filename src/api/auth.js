@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://api.susi.com.au/api';
 
 // Store token in localStorage
 export const setToken = (token) => localStorage.setItem('token', token);
@@ -11,6 +11,16 @@ export const authHeader = () => ({
   ...(getToken() && { Authorization: `Bearer ${getToken()}` }),
 });
 
+// Safe JSON parse helper
+async function parseJSON(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(res.ok ? 'Invalid server response' : `Server error (${res.status})`);
+  }
+}
+
 // Register user
 export async function register(username, email, password) {
   const res = await fetch(`${API_URL}/auth/register`, {
@@ -18,10 +28,10 @@ export async function register(username, email, password) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, email, password }),
   });
-  
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
-  
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+
   setToken(data.token);
   return data.user;
 }
@@ -33,10 +43,10 @@ export async function login(username, password) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
-  
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
-  
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+
   setToken(data.token);
   return data.user;
 }
@@ -51,8 +61,8 @@ export async function getMe() {
     removeToken();
     throw new Error('Session expired');
   }
-  
-  const data = await res.json();
+
+  const data = await parseJSON(res);
   return data.user;
 }
 
@@ -64,8 +74,8 @@ export async function updateProfile({ username, email }) {
     body: JSON.stringify({ username, email }),
   });
   
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
   return data.user;
 }
 
@@ -76,9 +86,9 @@ export async function changePassword(currentPassword, newPassword) {
     headers: authHeader(),
     body: JSON.stringify({ currentPassword, newPassword }),
   });
-  
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
   return data;
 }
 

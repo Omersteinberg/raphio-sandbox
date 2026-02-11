@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:3000/api/video";
+const API_BASE = "https://api.susi.com.au/api/video";
 
 /**
  * Create a new session
