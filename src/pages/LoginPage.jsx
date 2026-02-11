@@ -85,14 +85,7 @@ function LoginPage() {
             </Button>
           </div>
           
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-medium text-primary hover:text-primary/80">
-                Sign up
-              </Link>
-            </p>
-          </div>
+          {/* Sign up link hidden for now */}
         </form>
       </Card>
     </div>
