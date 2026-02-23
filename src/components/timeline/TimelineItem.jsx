@@ -15,14 +15,16 @@ export default function TimelineItem({
   audioAsset,
   isOverlapping = false,
   dragPreviewOffset = 0,
+  dragPreviewDuration = null,
 }) {
   const itemRef = useRef(null);
 
   // Apply drag preview offset to the position
   const baseLeft = item.startTime * pixelsPerSecond;
   const left = baseLeft + (dragPreviewOffset * pixelsPerSecond);
-  const width = item.duration * pixelsPerSecond;
-  const isDragging = dragPreviewOffset !== 0;
+  const effectiveDuration = dragPreviewDuration != null ? dragPreviewDuration : item.duration;
+  const width = effectiveDuration * pixelsPerSecond;
+  const isDragging = dragPreviewOffset !== 0 || dragPreviewDuration != null;
 
   // Get display info
   let label = "";
@@ -44,19 +46,17 @@ export default function TimelineItem({
   // Colors based on track type and overlap state
   const getBackgroundColor = () => {
     if (isOverlapping) {
-      // Red/orange colors for overlapping items
       return trackType === "VIDEO"
-        ? isSelected ? "bg-red-500" : "bg-red-600"
-        : isSelected ? "bg-orange-500" : "bg-orange-600";
+        ? isSelected ? "bg-red-400" : "bg-red-500"
+        : isSelected ? "bg-orange-400" : "bg-orange-500";
     }
-    // Normal colors
     return trackType === "VIDEO"
-      ? isSelected ? "bg-purple-600" : "bg-purple-700"
-      : isSelected ? "bg-blue-600" : "bg-blue-700";
+      ? isSelected ? "bg-primary" : "bg-primary/80"
+      : isSelected ? "bg-blue-500" : "bg-blue-400";
   };
 
   const bgColor = getBackgroundColor();
-  const borderColor = isSelected ? "border-white" : isOverlapping ? "border-red-300" : "border-transparent";
+  const borderColor = isSelected ? "border-primary-foreground" : isOverlapping ? "border-red-300" : "border-transparent";
 
   return (
     <motion.div

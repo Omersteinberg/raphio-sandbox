@@ -161,38 +161,60 @@ export default function TimelineCanvas({
 
   // Calculate drag preview position for the dragged item (with snapping)
   const getDragPreview = useCallback(() => {
-    if (!isDragging || !dragItem || dragType !== "move") return null;
+    if (!isDragging || !dragItem) return null;
 
     const deltaTime = dragOffset / pixelsPerSecond;
-    let newStartTime = Math.max(0, dragStartValue + deltaTime);
 
-    // Try snapping the start edge
-    const snapStart = findSnapTarget(newStartTime, dragItem);
-    // Try snapping the end edge
-    const endTime = newStartTime + dragItem.duration;
-    const snapEnd = findSnapTarget(endTime, dragItem);
+    if (dragType === "move") {
+      let newStartTime = Math.max(0, dragStartValue + deltaTime);
 
-    // Pick whichever snap is closer
-    if (snapStart !== null && snapEnd !== null) {
-      const distStart = Math.abs(newStartTime - snapStart);
-      const distEnd = Math.abs(endTime - snapEnd);
-      if (distStart <= distEnd) {
+      // Try snapping the start edge
+      const snapStart = findSnapTarget(newStartTime, dragItem);
+      // Try snapping the end edge
+      const endTime = newStartTime + dragItem.duration;
+      const snapEnd = findSnapTarget(endTime, dragItem);
+
+      // Pick whichever snap is closer
+      if (snapStart !== null && snapEnd !== null) {
+        const distStart = Math.abs(newStartTime - snapStart);
+        const distEnd = Math.abs(endTime - snapEnd);
+        if (distStart <= distEnd) {
+          newStartTime = snapStart;
+        } else {
+          newStartTime = snapEnd - dragItem.duration;
+        }
+      } else if (snapStart !== null) {
         newStartTime = snapStart;
-      } else {
+      } else if (snapEnd !== null) {
         newStartTime = snapEnd - dragItem.duration;
       }
-    } else if (snapStart !== null) {
-      newStartTime = snapStart;
-    } else if (snapEnd !== null) {
-      newStartTime = snapEnd - dragItem.duration;
+
+      newStartTime = Math.max(0, newStartTime);
+
+      return {
+        itemId: dragItem.id,
+        previewStartTime: newStartTime,
+        previewDuration: dragItem.duration,
+      };
+    } else if (dragType === "trim-end") {
+      const newDuration = Math.max(0.5, dragStartValue + deltaTime);
+      return {
+        itemId: dragItem.id,
+        previewStartTime: dragItem.startTime,
+        previewDuration: newDuration,
+      };
+    } else if (dragType === "trim-start") {
+      const deltaSeconds = dragOffset / pixelsPerSecond;
+      const newStartTime = Math.max(0, dragItem.startTime + deltaSeconds);
+      const newDuration = Math.max(0.5, dragItem.duration - deltaSeconds);
+      return {
+        itemId: dragItem.id,
+        previewStartTime: newStartTime,
+        previewDuration: newDuration,
+      };
     }
 
-    newStartTime = Math.max(0, newStartTime);
-
-    return {
-      itemId: dragItem.id,
-      previewStartTime: newStartTime,
-    };
+    return null;
   }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond, findSnapTarget]);
 
   const dragPreview = getDragPreview();
@@ -234,7 +256,7 @@ export default function TimelineCanvas({
   // Handle ruler click to seek
   const handleRulerClick = (e) => {
     const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left + scrollLeft;
+    const x = e.clientX - rect.left + scrollLeft - 80; // subtract 80px track label width
     const time = x / pixelsPerSecond;
     onSeek(Math.max(0, Math.min(duration, time)));
   };
@@ -318,9 +340,14 @@ export default function TimelineCanvas({
           dragItem.trackType
         );
 
+        // Calculate new speed: source duration stays the same, timeline duration changed
+        const sourceDuration = dragItem.duration * (dragItem.speed || 1);
+        const newSpeed = Math.max(0.25, Math.min(4, sourceDuration / newDuration));
+
         updates.trimStart = newTrimStart;
         updates.duration = newDuration;
         updates.startTime = newStartTime;
+        updates.speed = newSpeed;
       } else if (dragType === "trim-end") {
         let newDuration = Math.max(0.5, dragStartValue + deltaTime);
 
@@ -340,18 +367,24 @@ export default function TimelineCanvas({
           }
         }
 
+        // Calculate new speed: source duration stays the same, timeline duration changed
+        const sourceDuration = dragItem.duration * (dragItem.speed || 1);
+        const newSpeed = Math.max(0.25, Math.min(4, sourceDuration / newDuration));
+
         updates.duration = newDuration;
+        updates.speed = newSpeed;
       }
 
-      if (Object.keys(updates).length > 0) {
-        await onUpdateItem(dragItem.id, updates);
-      }
-
+      // Clear drag state immediately so mouse movements stop being tracked
       setIsDragging(false);
       setDragType(null);
       setDragItem(null);
       setDragOffset(0);
       setSnapIndicator(null);
+
+      if (Object.keys(updates).length > 0) {
+        await onUpdateItem(dragItem.id, updates);
+      }
     },
     [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, audioItems]
   );
@@ -404,7 +437,7 @@ export default function TimelineCanvas({
     <div
       ref={containerRef}
       data-timeline-container
-      className="w-full h-full overflow-auto bg-gray-900"
+      className="w-full h-full overflow-auto bg-muted"
       onScroll={handleScroll}
     >
       <div
@@ -413,7 +446,7 @@ export default function TimelineCanvas({
       >
         {/* Ruler */}
         <div
-          className="sticky top-0 z-20 bg-gray-800 border-b border-gray-700"
+          className="sticky top-0 z-20 bg-white border-b border-border"
           onClick={handleRulerClick}
         >
           <TimelineRuler
@@ -468,11 +501,11 @@ export default function TimelineCanvas({
           {/* Snap indicator line */}
           {snapIndicator && (
             <div
-              className="absolute top-0 w-px bg-yellow-400 pointer-events-none z-30"
+              className="absolute top-0 w-px bg-accent pointer-events-none z-30"
               style={{
                 left: snapIndicator.time * pixelsPerSecond + 80, // +80 for track label width
                 height: trackHeight * 2,
-                boxShadow: "0 0 4px rgba(250, 204, 21, 0.8)",
+                boxShadow: "0 0 4px hsl(var(--accent) / 0.6)",
               }}
             />
           )}

@@ -1,4 +1,4 @@
-const API_URL = 'https://api.susi.com.au/api';
+const API_URL = 'http://localhost:3000/api';
 
 // Store token in localStorage
 export const setToken = (token) => localStorage.setItem('token', token);

@@ -87,7 +87,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             trackType: "AUDIO",
             trackIndex: 0,
             startTime,
-            duration: section.clipDuration || 5,
+            duration: section.narrationDuration || section.clipDuration || 5,
             sectionId: section.id,
           });
         }
@@ -153,31 +153,31 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   if (timeline.loading && !timeline.timeline) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-900">
+      <div className="w-full h-full flex items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-400">Loading timeline...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading timeline...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-900 text-white" ref={containerRef}>
+    <div className="w-full h-full flex flex-col bg-background text-foreground" ref={containerRef}>
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             onClick={onBack}
-            className="text-gray-300 hover:text-white hover:bg-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
           <div>
-            <h2 className="text-lg font-semibold">Timeline Editor</h2>
-            <p className="text-xs text-gray-400">
+            <h2 className="text-lg font-semibold text-foreground">Timeline Editor</h2>
+            <p className="text-xs text-muted-foreground">
               {timeline.duration.toFixed(1)}s total duration
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           <Button
             variant="ghost"
             onClick={() => setShowAudioUpload(true)}
-            className="text-gray-300 hover:text-white hover:bg-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Upload className="w-4 h-4 mr-2" />
             Upload Audio
@@ -195,7 +195,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           <Button
             variant="ghost"
             onClick={() => setShowTTSModal(true)}
-            className="text-gray-300 hover:text-white hover:bg-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Music className="w-4 h-4 mr-2" />
             Generate TTS
@@ -203,7 +203,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           <Button
             onClick={handleExport}
             disabled={exporting || timeline.loading}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
           >
             {exporting ? (
               <>
@@ -223,7 +223,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Assets */}
-        <div className="w-64 bg-gray-800 border-r border-gray-700 overflow-y-auto">
+        <div className="w-64 bg-white border-r border-border overflow-y-auto">
           <AssetPanel
             sections={timeline.sections}
             audioAssets={timeline.audioAssets}
@@ -238,7 +238,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         {/* Center - Preview and Timeline */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Video Preview - Larger section */}
-          <div className="flex-1 min-h-[400px] bg-black flex items-center justify-center border-b border-gray-700">
+          <div className="flex-1 min-h-[400px] bg-gray-900 flex items-center justify-center border-b border-border">
             <VideoPreview
               items={timeline.videoItems}
               audioItems={timeline.audioItems}
@@ -326,8 +326,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
       {/* Saving indicator */}
       {timeline.saving && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
-          <Loader2 className="w-4 h-4 animate-spin" />
+        <div className="fixed bottom-4 right-4 bg-white text-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg border border-border">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
           Saving...
         </div>
       )}

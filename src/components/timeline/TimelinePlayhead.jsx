@@ -49,14 +49,14 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
       }}
     >
       {/* Playhead line */}
-      <div className="w-0.5 h-full bg-red-500" />
+      <div className="w-0.5 h-full bg-primary" />
 
       {/* Playhead handle */}
       <div
         className="absolute -top-0 -left-2 w-4 h-4 pointer-events-auto cursor-ew-resize"
         style={{
           clipPath: "polygon(50% 100%, 0 0, 100% 0)",
-          background: "#ef4444",
+          background: "hsl(var(--primary))",
         }}
         onMouseDown={handleMouseDown}
       />

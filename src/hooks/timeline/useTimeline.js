@@ -88,6 +88,11 @@ export function useTimeline(sessionId) {
     async (itemId, updates) => {
       if (!sessionId) return;
 
+      // Optimistically apply updates to local state immediately
+      setItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
+      );
+
       setSaving(true);
       try {
         const updated = await sessionService.updateTimelineItem(
@@ -101,11 +106,13 @@ export function useTimeline(sessionId) {
       } catch (err) {
         console.error("Failed to update item:", err);
         toast.error("Failed to update item");
+        // Revert optimistic update by reloading
+        await loadTimeline();
       } finally {
         setSaving(false);
       }
     },
-    [sessionId]
+    [sessionId, loadTimeline]
   );
 
   // Add item to timeline

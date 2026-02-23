@@ -68,15 +68,15 @@ export default function AssetPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b border-gray-700">
-        <h3 className="text-sm font-semibold text-white">Assets</h3>
+      <div className="p-3 border-b border-border">
+        <h3 className="text-sm font-semibold text-foreground">Assets</h3>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {/* Video Clips Section */}
-        <div className="border-b border-gray-700">
+        <div className="border-b border-border">
           <button
-            className="w-full px-3 py-2 flex items-center gap-2 text-gray-300 hover:bg-gray-700/50"
+            className="w-full px-3 py-2 flex items-center gap-2 text-foreground hover:bg-muted"
             onClick={() => setVideoExpanded(!videoExpanded)}
           >
             {videoExpanded ? (
@@ -84,9 +84,9 @@ export default function AssetPanel({
             ) : (
               <ChevronRight className="w-4 h-4" />
             )}
-            <Film className="w-4 h-4 text-purple-400" />
+            <Film className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Video Clips</span>
-            <span className="text-xs text-gray-500 ml-auto">
+            <span className="text-xs text-muted-foreground ml-auto">
               {sections.filter((s) => s.generatedClipUrl).length}
             </span>
           </button>
@@ -98,7 +98,7 @@ export default function AssetPanel({
                 .map((section, i) => (
                   <div
                     key={section.id}
-                    className="bg-purple-900/30 rounded p-2 cursor-grab hover:bg-purple-900/50 transition-colors"
+                    className="bg-primary/10 rounded p-2 cursor-grab hover:bg-primary/20 transition-colors border border-primary/20"
                     draggable
                     onDragStart={(e) => handleVideoDragStart(e, section)}
                   >
@@ -111,12 +111,12 @@ export default function AssetPanel({
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-white truncate">
+                        <p className="text-xs text-foreground truncate">
                           {section.narrationText?.substring(0, 40) ||
                             `Clip ${section.orderIndex + 1}`}
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {section.clipDuration || 5}s
+                        <p className="text-xs text-muted-foreground">
+                          {Number(section.clipDuration || 5).toFixed(1)}s
                         </p>
                       </div>
                     </div>
@@ -124,7 +124,7 @@ export default function AssetPanel({
                 ))}
 
               {sections.filter((s) => s.generatedClipUrl).length === 0 && (
-                <p className="text-xs text-gray-500 px-2 py-4 text-center">
+                <p className="text-xs text-muted-foreground px-2 py-4 text-center">
                   No video clips available
                 </p>
               )}
@@ -135,7 +135,7 @@ export default function AssetPanel({
         {/* Audio Assets Section */}
         <div>
           <button
-            className="w-full px-3 py-2 flex items-center gap-2 text-gray-300 hover:bg-gray-700/50"
+            className="w-full px-3 py-2 flex items-center gap-2 text-foreground hover:bg-muted"
             onClick={() => setAudioExpanded(!audioExpanded)}
           >
             {audioExpanded ? (
@@ -143,9 +143,9 @@ export default function AssetPanel({
             ) : (
               <ChevronRight className="w-4 h-4" />
             )}
-            <Music className="w-4 h-4 text-blue-400" />
+            <Music className="w-4 h-4 text-blue-500" />
             <span className="text-sm font-medium">Audio</span>
-            <span className="text-xs text-gray-500 ml-auto">
+            <span className="text-xs text-muted-foreground ml-auto">
               {audioAssets.length +
                 sections.filter((s) => s.narrationUrl).length}
             </span>
@@ -159,28 +159,28 @@ export default function AssetPanel({
                 .map((section) => (
                   <div
                     key={`narration-${section.id}`}
-                    className="bg-blue-900/30 rounded p-2 cursor-grab hover:bg-blue-900/50 transition-colors group"
+                    className="bg-blue-50 rounded p-2 cursor-grab hover:bg-blue-100 transition-colors group border border-blue-200"
                     draggable
                     onDragStart={(e) => handleNarrationDragStart(e, section)}
                   >
                     <div className="flex items-center gap-2">
                       <button
-                        className="w-6 h-6 flex items-center justify-center rounded bg-blue-600 hover:bg-blue-500"
+                        className="w-6 h-6 flex items-center justify-center rounded bg-blue-500 hover:bg-blue-400"
                         onClick={() => handlePlayAudio(section.narrationUrl)}
                       >
                         <Play className="w-3 h-3 text-white" />
                       </button>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-white truncate">
+                        <p className="text-xs text-foreground truncate">
                           Narration {section.orderIndex + 1}
                         </p>
-                        <p className="text-xs text-gray-400 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {section.narrationText?.substring(0, 30)}...
                         </p>
                       </div>
                       {onNarrationEdit && (
                         <button
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-400 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-blue-500 transition-opacity"
                           onClick={(e) => {
                             e.stopPropagation();
                             onNarrationEdit(section);
@@ -197,26 +197,26 @@ export default function AssetPanel({
               {audioAssets.map((asset) => (
                 <div
                   key={asset.id}
-                  className="bg-green-900/30 rounded p-2 cursor-grab hover:bg-green-900/50 transition-colors group"
+                  className="bg-green-50 rounded p-2 cursor-grab hover:bg-green-100 transition-colors group border border-green-200"
                   draggable
                   onDragStart={(e) => handleAudioDragStart(e, asset)}
                 >
                   <div className="flex items-center gap-2">
                     <button
-                      className="w-6 h-6 flex items-center justify-center rounded bg-green-600 hover:bg-green-500"
+                      className="w-6 h-6 flex items-center justify-center rounded bg-green-500 hover:bg-green-400"
                       onClick={() => handlePlayAudio(asset.url)}
                     >
                       <Play className="w-3 h-3 text-white" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-white truncate">{asset.name}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-foreground truncate">{asset.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {asset.duration.toFixed(1)}s
                         {asset.sourceType === "TTS" && " (TTS)"}
                       </p>
                     </div>
                     <button
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteAudio(asset.id);
@@ -230,7 +230,7 @@ export default function AssetPanel({
 
               {audioAssets.length === 0 &&
                 sections.filter((s) => s.narrationUrl).length === 0 && (
-                  <p className="text-xs text-gray-500 px-2 py-4 text-center">
+                  <p className="text-xs text-muted-foreground px-2 py-4 text-center">
                     No audio available
                   </p>
                 )}

@@ -20,8 +20,8 @@ export default function TimelineTrack({
   dragPreview = null,
 }) {
   const Icon = trackType === "VIDEO" ? Film : Music;
-  const trackColor = trackType === "VIDEO" ? "bg-purple-900/30" : "bg-blue-900/30";
-  const borderColor = trackType === "VIDEO" ? "border-purple-800" : "border-blue-800";
+  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : "bg-blue-50";
+  const borderColor = trackType === "VIDEO" ? "border-primary/20" : "border-blue-200";
 
   return (
     <div
@@ -31,9 +31,9 @@ export default function TimelineTrack({
       onDragOver={onDragOver}
     >
       {/* Track Label */}
-      <div className="w-20 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex items-center justify-center gap-1">
-        <Icon className="w-4 h-4 text-gray-400" />
-        <span className="text-xs text-gray-400">{label}</span>
+      <div className="w-20 flex-shrink-0 bg-white border-r border-border flex items-center justify-center gap-1">
+        <Icon className="w-4 h-4 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
 
       {/* Track Content */}
@@ -43,7 +43,7 @@ export default function TimelineTrack({
           {Array.from({ length: Math.ceil(1000 / pixelsPerSecond) }).map((_, i) => (
             <div
               key={i}
-              className="absolute top-0 h-full w-px bg-gray-700/30"
+              className="absolute top-0 h-full w-px bg-gray-200"
               style={{ left: i * pixelsPerSecond }}
             />
           ))}
@@ -68,13 +68,14 @@ export default function TimelineTrack({
               audioAsset={item.audioAssetId ? getAudioAsset(item.audioAssetId) : null}
               isOverlapping={overlappingItems.has(item.id)}
               dragPreviewOffset={dragPreview?.itemId === item.id ? dragPreview.previewStartTime - item.startTime : 0}
+              dragPreviewDuration={dragPreview?.itemId === item.id ? dragPreview.previewDuration : null}
             />
           );
         })}
 
         {/* Empty state */}
         {items.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm pointer-events-none">
             Drag {trackType.toLowerCase()} assets here
           </div>
         )}
