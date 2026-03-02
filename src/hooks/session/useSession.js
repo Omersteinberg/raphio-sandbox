@@ -359,6 +359,12 @@ export function useSession() {
         response: err.response?.data,
         status: err.response?.status,
       });
+      // Reset session state so stage sync doesn't advance the step
+      setSession(null);
+      setSessionId(null);
+      setScriptProgress(0);
+      setDirection(-1);
+      setStep(0);
       setError(err.message);
       toast.error(err.response?.data?.error || "Failed to start session");
     } finally {
