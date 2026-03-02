@@ -38,7 +38,7 @@ export default function ResultStep({
   };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+    <div className="w-full h-full overflow-y-auto flex flex-col items-center justify-start p-8 pb-16">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -84,7 +84,7 @@ export default function ResultStep({
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <Button
             onClick={handleDownload}
             disabled={!finalVideoUrl}
@@ -92,16 +92,6 @@ export default function ResultStep({
           >
             <Download className="w-4 h-4" />
             Download
-          </Button>
-
-          <Button
-            onClick={handleShare}
-            disabled={!finalVideoUrl}
-            variant="outline"
-            className="border-purple-300 text-purple-700 hover:bg-purple-50 flex items-center justify-center gap-2"
-          >
-            <Share2 className="w-4 h-4" />
-            Share
           </Button>
 
           <Button
