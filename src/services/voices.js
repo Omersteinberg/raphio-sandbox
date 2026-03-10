@@ -1,6 +1,7 @@
 import axios from "axios";
+import { API_BASE as BASE } from "../config.js";
 
-const API_BASE = "http://localhost:3000/api/voices";
+const API_BASE = `${BASE}/voices`;
 
 // Cache for voices list
 let voicesCache = null;

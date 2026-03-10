@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:3000/api';
+import { API_BASE } from '../config.js';
+
+const API_URL = API_BASE;
 
 // Store token in localStorage
 export const setToken = (token) => localStorage.setItem('token', token);

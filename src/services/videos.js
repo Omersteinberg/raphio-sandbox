@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_BASE = "https://api.susi.com.au/api";
+import { API_BASE } from "../config.js";
 
 console.log("[VIDEOS SERVICE] API_BASE:", API_BASE);
 

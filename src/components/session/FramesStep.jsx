@@ -1,5 +1,6 @@
-import { motion } from "framer-motion";
-import { Film, Mic, ArrowRight, Zap } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Film, Mic, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceSelector from "./VoiceSelector";
 
@@ -20,89 +21,154 @@ export default function FramesStep({
   configureFrames,
   startGeneration,
 }) {
+  const [expandedSection, setExpandedSection] = useState(null);
+
+  const toggleSection = (section) => {
+    setExpandedSection((prev) => (prev === section ? null : section));
+  };
+
   const handleStartGeneration = async () => {
-    console.log("[FramesStep] handleStartGeneration called");
-    console.log("[FramesStep] openingFrame:", openingFrame);
-    console.log("[FramesStep] closingFrame:", closingFrame);
-    console.log("[FramesStep] videoModel:", videoModel);
-    console.log("[FramesStep] voiceId:", voiceId);
-
     try {
-      console.log("[FramesStep] Calling configureFrames...");
       await configureFrames();
-      console.log("[FramesStep] configureFrames completed");
-
-      console.log("[FramesStep] Calling startGeneration...");
       await startGeneration();
-      console.log("[FramesStep] startGeneration completed");
     } catch (err) {
       console.error("[FramesStep] Error in handleStartGeneration:", err);
     }
   };
 
-  // Count enabled frames for summary
-  const framesSummary = [];
-  if (openingFrame?.enabled) framesSummary.push("Opening");
-  if (closingFrame?.enabled) framesSummary.push("Closing");
+  const selectedModel = VIDEO_MODELS.find((m) => m.id === videoModel);
 
   return (
-    <div className="w-full h-full flex flex-col lg:flex-row">
-      {/* Left Side - Summary & Start */}
-      <div className="flex-1 flex flex-col p-6 border-r border-gray-100 overflow-y-auto">
-        <div className="mb-6">
+    <div className="w-full h-full flex flex-col items-center overflow-y-auto">
+      <div className="w-full max-w-2xl px-6 py-8 space-y-4">
+        {/* Header */}
+        <div className="mb-2">
           <h2 className="text-xl font-semibold text-gray-900">Ready to Generate</h2>
           <p className="text-sm text-gray-600">
-            Review your settings and start video generation
+            Confirm your settings and start video generation
           </p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="space-y-4 mb-6">
-          {/* Frames Summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Frames</h3>
-            {framesSummary.length > 0 ? (
-              <p className="text-sm text-gray-600">
-                {framesSummary.join(" & ")} frame{framesSummary.length > 1 ? "s" : ""} will be generated
-              </p>
-            ) : (
-              <p className="text-sm text-gray-500">No opening/closing frames configured</p>
-            )}
-            {openingFrame?.enabled && openingFrame?.useUpload && openingFrame?.uploadedImage && (
-              <div className="mt-2 flex items-center gap-2">
-                <img src={openingFrame.uploadedImage} alt="Opening" className="w-12 h-12 object-cover rounded" />
-                <span className="text-xs text-gray-500">Custom opening image</span>
+        {/* Video Model Accordion */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => toggleSection("model")}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Film className="w-4 h-4 text-purple-600" />
               </div>
-            )}
-            {closingFrame?.enabled && closingFrame?.useUpload && closingFrame?.uploadedImage && (
-              <div className="mt-2 flex items-center gap-2">
-                <img src={closingFrame.uploadedImage} alt="Closing" className="w-12 h-12 object-cover rounded" />
-                <span className="text-xs text-gray-500">Custom closing image</span>
+              <div className="text-left">
+                <p className="font-medium text-gray-900">Video AI Model</p>
+                <p className="text-sm text-gray-500">
+                  {selectedModel?.name || "Select a model"}{" "}
+                  {selectedModel && (
+                    <span className="text-gray-400">- {selectedModel.description}</span>
+                  )}
+                </p>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedModel && (
+                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                </div>
+              )}
+              <motion.div
+                animate={{ rotate: expandedSection === "model" ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              </motion.div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expandedSection === "model" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-4 space-y-2">
+                  {VIDEO_MODELS.map((model) => (
+                    <motion.button
+                      key={model.id}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => setVideoModel(model.id)}
+                      className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                        videoModel === model.id
+                          ? "border-purple-500 bg-purple-50"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="font-medium text-gray-900 block">{model.name}</span>
+                      <span className="text-xs text-gray-500">{model.description}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
+        </div>
 
-          {/* Model Summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Video AI Model</h3>
-            <p className="text-sm text-gray-600">
-              {VIDEO_MODELS.find(m => m.id === videoModel)?.name || videoModel} - {VIDEO_MODELS.find(m => m.id === videoModel)?.description}
-            </p>
-          </div>
+        {/* Narration Voice Accordion */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => toggleSection("voice")}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Mic className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-gray-900">Narration Voice</p>
+                <p className="text-sm text-gray-500">
+                  {voiceId || "Default voice"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {voiceId && (
+                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                </div>
+              )}
+              <motion.div
+                animate={{ rotate: expandedSection === "voice" ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              </motion.div>
+            </div>
+          </button>
 
-          {/* Voice Summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Narration Voice</h3>
-            <p className="text-sm text-gray-600">
-              {voiceId || "Default voice"}
-            </p>
-          </div>
+          <AnimatePresence initial={false}>
+            {expandedSection === "voice" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-4">
+                  <VoiceSelector value={voiceId} onChange={setVoiceId} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
-          className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg"
+          className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg mt-6"
         >
           <span className="flex items-center gap-2">
             <Zap className="w-5 h-5" />
@@ -112,58 +178,17 @@ export default function FramesStep({
         </Button>
 
         {/* Info Box */}
-        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
           <p className="text-sm text-purple-800">
             <strong>What happens next:</strong>
           </p>
           <ul className="text-xs text-purple-700 mt-2 space-y-1">
-            {openingFrame?.enabled && <li>• Opening frame generated with DALL-E 3</li>}
-            <li>• Each section converted to video clips</li>
-            <li>• Narration generated with AI voice</li>
-            {closingFrame?.enabled && <li>• Closing frame generated with DALL-E 3</li>}
-            <li>• Final video assembled automatically</li>
+            {openingFrame?.enabled && <li>- Opening frame generated with DALL-E 3</li>}
+            <li>- Each section converted to video clips</li>
+            <li>- Narration generated with AI voice</li>
+            {closingFrame?.enabled && <li>- Closing frame generated with DALL-E 3</li>}
+            <li>- Final video assembled automatically</li>
           </ul>
-        </div>
-      </div>
-
-      {/* Right Side - Model & Voice Selection */}
-      <div className="w-full lg:w-96 flex flex-col bg-gray-50 p-6 overflow-y-auto">
-        {/* Video Model Selection */}
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Film className="w-4 h-4" />
-            Video AI Model
-          </h3>
-          <div className="space-y-2">
-            {VIDEO_MODELS.map((model) => (
-              <motion.button
-                key={model.id}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => setVideoModel(model.id)}
-                className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                  videoModel === model.id
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span className="font-medium text-gray-900 block">{model.name}</span>
-                <span className="text-xs text-gray-500">{model.description}</span>
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Voice Selection */}
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Mic className="w-4 h-4" />
-            Narration Voice
-          </h3>
-          <VoiceSelector value={voiceId} onChange={setVoiceId} />
-          <p className="text-xs text-gray-500 mt-2">
-            Click the play button to preview any voice before selecting
-          </p>
         </div>
       </div>
     </div>
