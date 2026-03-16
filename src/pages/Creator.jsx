@@ -1,6 +1,9 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useSession } from "@/hooks/session/useSession";
+import { useAuth } from "@/hooks/useAuth.jsx";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -20,7 +23,16 @@ const STEP_NAMES = [
 ];
 
 export default function Creator() {
+  const { credits } = useAuth();
+  const navigate = useNavigate();
   const session = useSession();
+
+  // Redirect to buy credits if user has 0 credits
+  useEffect(() => {
+    if (credits !== null && credits < 10) {
+      navigate('/buy-credits');
+    }
+  }, [credits, navigate]);
 
   const {
     step,
@@ -213,7 +225,7 @@ export default function Creator() {
   const progressSteps = STEP_NAMES.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col">
       {/* Progress Bar */}
       {showProgressBar && (
         <div className="bg-white border-b border-gray-200 shadow-sm px-6 py-3">

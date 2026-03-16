@@ -6,7 +6,8 @@ import VideoDetailPage from "./pages/VideoDetailPage";
 import TimelineTest from "./pages/TimelineTest";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import ProtectedRoute from "./components/ProtectedRoute";
+import BuyCreditsPage from "./pages/BuyCreditsPage";
+import AppLayout from "./components/AppLayout";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
 
@@ -15,33 +16,18 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Public routes (no header) */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route 
-            path="/create" 
-            element={
-              <ProtectedRoute>
-                <Creator />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/video/:id" 
-            element={
-              <ProtectedRoute>
-                <VideoDetailPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/timeline-test" 
-            element={
-              <ProtectedRoute>
-                <TimelineTest />
-              </ProtectedRoute>
-            } 
-          />
+
+          {/* Protected routes with persistent header */}
+          <Route element={<AppLayout />}>
+            <Route path="/create" element={<Creator />} />
+            <Route path="/buy-credits" element={<BuyCreditsPage />} />
+            <Route path="/video/:id" element={<VideoDetailPage />} />
+            <Route path="/timeline-test" element={<TimelineTest />} />
+          </Route>
         </Routes>
         <ToastContainer theme="dark" />
       </Router>

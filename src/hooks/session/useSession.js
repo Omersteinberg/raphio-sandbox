@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 
@@ -45,6 +46,8 @@ const STYLE_OPTIONS = [
 ];
 
 export function useSession() {
+  const navigate = useNavigate();
+
   // Session state
   const [sessionId, setSessionId] = useState(null);
   const [session, setSession] = useState(null);
@@ -366,12 +369,17 @@ export function useSession() {
       setDirection(-1);
       setStep(0);
       setError(err.message);
-      toast.error(err.response?.data?.error || "Failed to start session");
+      if (err.response?.status === 402) {
+        toast.error("Insufficient credits");
+        navigate('/buy-credits');
+      } else {
+        toast.error(err.response?.data?.error || "Failed to start session");
+      }
     } finally {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, navigate]);
 
   // Add images to pool
   const addImages = useCallback((files) => {

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from "./api.js";
 import { API_BASE as BASE } from "../config.js";
 
 const API_BASE = `${BASE}/video`;

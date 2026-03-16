@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from "./api.js";
 import { API_BASE } from "../config.js";
 
 console.log("[VIDEOS SERVICE] API_BASE:", API_BASE);
