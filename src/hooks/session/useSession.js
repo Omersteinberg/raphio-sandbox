@@ -767,8 +767,15 @@ export function useSession() {
         response: err.response?.data,
         status: err.response?.status,
       });
+      // Network errors (timeout/CORS) likely mean generation is still running
+      // in the background - stay on step 3 and let polling pick up the result
+      if (err.code === "ERR_NETWORK" || !err.response) {
+        console.log("[useSession] Network error - generation likely running in background, continuing to poll...");
+        toast.info("Generation in progress... please wait");
+        return;
+      }
+      // Only go back for actual server errors (4xx/5xx with a response)
       toast.error("Failed to start generation");
-      // Go back to frames step if generation failed to start
       setDirection(-1);
       setStep(2);
     }

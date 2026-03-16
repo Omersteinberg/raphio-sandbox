@@ -38,7 +38,7 @@ export default function PromptStep({
   // Handle file upload for frames
   const handleFrameFileChange = (e, frameType) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
+    if (file && (file.type === "image/jpeg" || file.type === "image/png")) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
@@ -84,7 +84,7 @@ export default function PromptStep({
     e.preventDefault();
     console.log("[PromptStep] Files dropped");
     const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/")
+      f.type === "image/jpeg" || f.type === "image/png"
     );
     console.log("[PromptStep] Valid image files:", files.length);
     if (files.length > 0) {
@@ -178,7 +178,7 @@ export default function PromptStep({
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept="image/*"
+              accept="image/jpeg,image/png"
               multiple
               className="hidden"
             />
@@ -196,7 +196,7 @@ export default function PromptStep({
                 Drop images here or click to upload
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                These images will be used to create your video scenes
+                Supports JPEG and PNG only
               </p>
             </div>
 
@@ -403,7 +403,7 @@ export default function PromptStep({
                               <input
                                 ref={openingFileRef}
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/png"
                                 className="hidden"
                                 onChange={(e) => handleFrameFileChange(e, "opening")}
                               />
@@ -529,7 +529,7 @@ export default function PromptStep({
                               <input
                                 ref={closingFileRef}
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/png"
                                 className="hidden"
                                 onChange={(e) => handleFrameFileChange(e, "closing")}
                               />

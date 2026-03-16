@@ -29,7 +29,7 @@ export default function ImagesStep({
   const handleDrop = (e) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/")
+      f.type === "image/jpeg" || f.type === "image/png"
     );
     if (files.length > 0) {
       addImages(files);
@@ -67,7 +67,7 @@ export default function ImagesStep({
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="image/*"
+          accept="image/jpeg,image/png"
           multiple
           className="hidden"
           disabled={isUploaded}
@@ -85,7 +85,7 @@ export default function ImagesStep({
               Drop images here or click to upload
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              Upload all images you want to use in your video
+              Supports JPEG and PNG only
             </p>
           </div>
         )}

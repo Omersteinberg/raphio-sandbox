@@ -7,7 +7,7 @@ export default function MergeDropbox({ files = [], onFilesChange }) {
 
   const handleFiles = (fileList) => {
     const imageFiles = Array.from(fileList).filter((file) =>
-      file.type.startsWith("image/")
+      file.type === "image/jpeg" || file.type === "image/png"
     );
 
     const wrappedFiles = imageFiles.map((file) => ({
@@ -73,13 +73,13 @@ export default function MergeDropbox({ files = [], onFilesChange }) {
       <input
         type="file"
         multiple
-        accept="image/*"
+        accept="image/jpeg,image/png"
         ref={inputRef}
         onChange={handleChange}
         className="hidden"
       />
       <p className="text-muted-foreground select-none">
-        Drag & drop images here or click to browse
+        Drag & drop images here or click to browse (JPEG/PNG only)
       </p>
 
       {dragActive && (
