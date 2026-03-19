@@ -191,9 +191,9 @@ export async function configureFrames(sessionId, { opening, closing }) {
 /**
  * Start video generation
  */
-export async function startGeneration(sessionId, { videoModel, voiceId } = {}) {
+export async function startGeneration(sessionId, { videoModel, voiceId, backgroundMusic } = {}) {
   const url = `${API_BASE}/${sessionId}/generate`;
-  const payload = { videoModel, voiceId };
+  const payload = { videoModel, voiceId, backgroundMusic };
   
   console.log("[sessionService] POST", url);
   console.log("[sessionService] startGeneration payload:", payload);

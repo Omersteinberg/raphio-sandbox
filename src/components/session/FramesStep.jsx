@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Mic, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
+import { Film, Mic, Music, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceSelector from "./VoiceSelector";
 
@@ -18,6 +18,8 @@ export default function FramesStep({
   setVideoModel,
   voiceId,
   setVoiceId,
+  backgroundMusic,
+  setBackgroundMusic,
   configureFrames,
   startGeneration,
 }) {
@@ -165,6 +167,37 @@ export default function FramesStep({
           </AnimatePresence>
         </div>
 
+        {/* Background Music Toggle */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setBackgroundMusic(!backgroundMusic)}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Music className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-gray-900">Background Music</p>
+                <p className="text-sm text-gray-500">
+                  {backgroundMusic ? "AI-generated instrumental music" : "No background music"}
+                </p>
+              </div>
+            </div>
+            <div
+              className={`w-11 h-6 rounded-full transition-colors ${
+                backgroundMusic ? "bg-purple-500" : "bg-gray-300"
+              } relative`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${
+                  backgroundMusic ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </div>
+          </button>
+        </div>
+
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
@@ -186,6 +219,7 @@ export default function FramesStep({
             {openingFrame?.enabled && <li>- Opening frame generated with DALL-E 3</li>}
             <li>- Each section converted to video clips</li>
             <li>- Narration generated with AI voice</li>
+            {backgroundMusic && <li>- Background music generated with AI</li>}
             {closingFrame?.enabled && <li>- Closing frame generated with DALL-E 3</li>}
             <li>- Final video assembled automatically</li>
           </ul>

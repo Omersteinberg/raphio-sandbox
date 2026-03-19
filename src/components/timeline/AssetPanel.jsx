@@ -213,6 +213,7 @@ export default function AssetPanel({
                       <p className="text-xs text-muted-foreground">
                         {asset.duration.toFixed(1)}s
                         {asset.sourceType === "TTS" && " (TTS)"}
+                        {asset.sourceType === "AI_MUSIC" && " (Music)"}
                       </p>
                     </div>
                     <button

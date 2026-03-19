@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
 
@@ -67,12 +68,22 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
     },
   ];
 
+  // Simulated progress: +1% every 5 seconds so bar doesn't sit at 0
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSimulatedProgress((prev) => Math.min(prev + 1, 40));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Calculate overall progress (use backend progress if available)
-  const progress = progressData.percentage || Math.round(
+  const realProgress = progressData.percentage || Math.round(
     ((completedSections / Math.max(totalSections, 1)) * 70) +
     (session?.video?.narrationUrl ? 15 : 0) +
     (session?.video?.finalVideoUrl ? 15 : 0)
   );
+  const progress = Math.max(simulatedProgress, realProgress);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-8">

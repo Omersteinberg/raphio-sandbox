@@ -57,14 +57,22 @@ export default function VideoDetailPage() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (video?.finalVideoUrl) {
-      const link = document.createElement("a");
-      link.href = video.finalVideoUrl;
-      link.download = `${video.title || "video"}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const response = await fetch(video.finalVideoUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${video.title || "video"}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch {
+        window.open(video.finalVideoUrl, "_blank");
+      }
     }
   };
 

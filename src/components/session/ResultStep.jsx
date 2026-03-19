@@ -9,14 +9,22 @@ export default function ResultStep({
   enterEditingMode,
   reset,
 }) {
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (finalVideoUrl) {
-      const link = document.createElement("a");
-      link.href = finalVideoUrl;
-      link.download = `${scriptData?.title || "video"}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const response = await fetch(finalVideoUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${scriptData?.title || "video"}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch {
+        window.open(finalVideoUrl, "_blank");
+      }
     }
   };
 

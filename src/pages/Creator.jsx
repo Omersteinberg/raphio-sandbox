@@ -72,6 +72,8 @@ export default function Creator() {
     setVideoModel,
     voiceId,
     setVoiceId,
+    backgroundMusic,
+    setBackgroundMusic,
     configureFrames,
     startGeneration,
 
@@ -172,6 +174,8 @@ export default function Creator() {
             setVideoModel={setVideoModel}
             voiceId={voiceId}
             setVoiceId={setVoiceId}
+            backgroundMusic={backgroundMusic}
+            setBackgroundMusic={setBackgroundMusic}
             configureFrames={configureFrames}
             startGeneration={startGeneration}
           />

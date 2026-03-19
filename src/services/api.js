@@ -1,8 +1,10 @@
 import axios from "axios";
 import { getToken } from "../api/auth.js";
 
-// Attach auth token to every request
-axios.interceptors.request.use((config) => {
+// Create a dedicated instance so the interceptor can't be tree-shaken
+const api = axios.create();
+
+api.interceptors.request.use((config) => {
   const token = getToken();
   console.log("[api interceptor] request to:", config.url, "| token exists:", !!token);
   if (token) {
@@ -11,4 +13,4 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-export default axios;
+export default api;

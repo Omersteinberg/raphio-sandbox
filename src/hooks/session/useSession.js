@@ -62,6 +62,7 @@ export function useSession() {
   const imageDuration = 10; // seconds per image
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
+  const [backgroundMusic, setBackgroundMusic] = useState(true);
 
   // Images state
   const [images, setImages] = useState([]);
@@ -764,6 +765,7 @@ export function useSession() {
       const updatedSession = await sessionService.startGeneration(sessionId, {
         videoModel,
         voiceId,
+        backgroundMusic,
       });
       console.log("[useSession] startGeneration response:", updatedSession);
       setSession(updatedSession);
@@ -787,7 +789,7 @@ export function useSession() {
       setDirection(-1);
       setStep(2);
     }
-  }, [sessionId, videoModel, voiceId]);
+  }, [sessionId, videoModel, voiceId, backgroundMusic]);
 
   // Update section/clip
   const updateClip = useCallback(async (clipId, updates) => {
@@ -975,6 +977,7 @@ export function useSession() {
     setTargetDuration(60);
     setVoiceId("adam");
     setVideoModel("KLING");
+    setBackgroundMusic(true);
     setImages([]);
     setImageAnalysis(null);
     setScriptData(null);
@@ -1006,6 +1009,8 @@ export function useSession() {
     setVoiceId,
     videoModel,
     setVideoModel,
+    backgroundMusic,
+    setBackgroundMusic,
 
     // Images
     images,
