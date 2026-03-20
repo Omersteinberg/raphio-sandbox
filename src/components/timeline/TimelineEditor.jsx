@@ -55,7 +55,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   };
 
   // Handle drag asset to timeline
-  const handleAssetDrop = async (asset, trackType, startTime) => {
+  const handleAssetDrop = async (asset, trackType, startTime, trackIndex = 0) => {
     if (trackType === "VIDEO" && asset.sectionId) {
       const section = timeline.getSection(asset.sectionId);
       if (section) {
@@ -73,7 +73,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         if (audioAsset) {
           await timeline.addItem({
             trackType: "AUDIO",
-            trackIndex: 0,
+            trackIndex,
             startTime,
             duration: audioAsset.duration,
             audioAssetId: audioAsset.id,
@@ -85,7 +85,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         if (section && section.narrationUrl) {
           await timeline.addItem({
             trackType: "AUDIO",
-            trackIndex: 0,
+            trackIndex,
             startTime,
             duration: section.narrationDuration || section.clipDuration || 5,
             sectionId: section.id,
@@ -268,7 +268,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           />
 
           {/* Timeline Canvas - Lower on page */}
-          <div className="h-48 flex-shrink-0 overflow-hidden">
+          <div className="h-64 flex-shrink-0 overflow-hidden">
             <TimelineCanvas
               videoItems={timeline.videoItems}
               audioItems={timeline.audioItems}

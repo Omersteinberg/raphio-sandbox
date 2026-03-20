@@ -7,6 +7,7 @@ import TimelineTest from "./pages/TimelineTest";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
+import MyVideosPage from "./pages/MyVideosPage";
 import AppLayout from "./components/AppLayout";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
@@ -25,6 +26,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/create" element={<Creator />} />
             <Route path="/buy-credits" element={<BuyCreditsPage />} />
+            <Route path="/videos" element={<MyVideosPage />} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
             <Route path="/timeline-test" element={<TimelineTest />} />
           </Route>

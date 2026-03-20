@@ -33,12 +33,21 @@ export default function TimelineCanvas({
 
   const timelineWidth = Math.max(duration * pixelsPerSecond + 200, 800);
   const trackHeight = 60;
+  const totalTracks = 3;
+
+  // Split audio items into narration (trackIndex 0) and music (trackIndex 1)
+  const narrationItems = audioItems.filter((i) => i.trackIndex !== 1);
+  const musicItems = audioItems.filter((i) => i.trackIndex === 1);
 
   // Get all snap points for the track the dragged item belongs to
   const getSnapPoints = useCallback(
     (draggedItem) => {
       const trackItems =
-        draggedItem.trackType === "VIDEO" ? videoItems : audioItems;
+        draggedItem.trackType === "VIDEO"
+          ? videoItems
+          : draggedItem.trackIndex === 1
+          ? musicItems
+          : narrationItems;
       const points = new Set();
 
       // Add edges of other clips on the same track
@@ -61,7 +70,7 @@ export default function TimelineCanvas({
 
       return [...points];
     },
-    [videoItems, audioItems, playheadPosition, duration]
+    [videoItems, narrationItems, musicItems, playheadPosition, duration]
   );
 
   // Find the nearest snap target for a given time value
@@ -88,9 +97,13 @@ export default function TimelineCanvas({
 
   // Find nearest non-overlapping position for an item
   const findNonOverlappingPosition = useCallback(
-    (itemId, startTime, itemDuration, trackType) => {
+    (itemId, startTime, itemDuration, trackType, trackIdx = 0) => {
       const trackItems =
-        trackType === "VIDEO" ? videoItems : audioItems;
+        trackType === "VIDEO"
+          ? videoItems
+          : trackIdx === 1
+          ? musicItems
+          : narrationItems;
       const others = trackItems.filter((it) => it.id !== itemId);
 
       const wouldOverlap = (st) => {
@@ -130,7 +143,7 @@ export default function TimelineCanvas({
 
       return Math.max(0, bestPos);
     },
-    [videoItems, audioItems]
+    [videoItems, narrationItems, musicItems]
   );
 
   // Detect overlapping items
@@ -155,9 +168,10 @@ export default function TimelineCanvas({
     return overlaps;
   }, []);
 
-  // Calculate overlaps for video and audio tracks
+  // Calculate overlaps for video, audio, and music tracks
   const videoOverlaps = useMemo(() => detectOverlaps(videoItems), [videoItems, detectOverlaps]);
-  const audioOverlaps = useMemo(() => detectOverlaps(audioItems), [audioItems, detectOverlaps]);
+  const audioOverlaps = useMemo(() => detectOverlaps(narrationItems), [narrationItems, detectOverlaps]);
+  const musicOverlaps = useMemo(() => detectOverlaps(musicItems), [musicItems, detectOverlaps]);
 
   // Calculate drag preview position for the dragged item (with snapping)
   const getDragPreview = useCallback(() => {
@@ -323,7 +337,8 @@ export default function TimelineCanvas({
           dragItem.id,
           newStartTime,
           dragItem.duration,
-          dragItem.trackType
+          dragItem.trackType,
+          dragItem.trackIndex
         );
 
         updates.startTime = newStartTime;
@@ -337,7 +352,8 @@ export default function TimelineCanvas({
           dragItem.id,
           newStartTime,
           newDuration,
-          dragItem.trackType
+          dragItem.trackType,
+          dragItem.trackIndex
         );
 
         // Calculate new speed: source duration stays the same, timeline duration changed
@@ -353,7 +369,11 @@ export default function TimelineCanvas({
 
         // Prevent overlap: check if extending the end would overlap
         const trackItems =
-          dragItem.trackType === "VIDEO" ? videoItems : audioItems;
+          dragItem.trackType === "VIDEO"
+            ? videoItems
+            : dragItem.trackIndex === 1
+            ? musicItems
+            : narrationItems;
         const others = trackItems.filter((it) => it.id !== dragItem.id);
         const newEnd = dragItem.startTime + newDuration;
         for (const other of others) {
@@ -386,7 +406,7 @@ export default function TimelineCanvas({
         await onUpdateItem(dragItem.id, updates);
       }
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, audioItems]
+    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, narrationItems, musicItems]
   );
 
   // Add mouse event listeners for dragging
@@ -420,10 +440,11 @@ export default function TimelineCanvas({
         null, // no existing item id
         startTime,
         assetDuration,
-        trackType
+        trackType,
+        trackIndex
       );
 
-      onAssetDrop(asset, trackType, startTime);
+      onAssetDrop(asset, trackType, startTime, trackIndex);
     } catch (err) {
       console.error("Failed to parse drop data:", err);
     }
@@ -478,12 +499,12 @@ export default function TimelineCanvas({
             dragPreview={dragPreview}
           />
 
-          {/* Audio Track */}
+          {/* Audio Track (Narration) */}
           <TimelineTrack
             label="Audio"
             trackType="AUDIO"
             trackIndex={0}
-            items={audioItems}
+            items={narrationItems}
             height={trackHeight}
             pixelsPerSecond={pixelsPerSecond}
             selectedItem={selectedItem}
@@ -498,13 +519,33 @@ export default function TimelineCanvas({
             dragPreview={dragPreview}
           />
 
+          {/* Music Track */}
+          <TimelineTrack
+            label="Music"
+            trackType="AUDIO"
+            trackIndex={1}
+            items={musicItems}
+            height={trackHeight}
+            pixelsPerSecond={pixelsPerSecond}
+            selectedItem={selectedItem}
+            onSelectItem={onSelectItem}
+            onItemDragStart={handleItemDragStart}
+            onItemEdit={onItemEdit}
+            getSection={getSection}
+            getAudioAsset={getAudioAsset}
+            onDrop={(e) => handleDrop(e, "AUDIO", 1)}
+            onDragOver={handleDragOver}
+            overlappingItems={musicOverlaps}
+            dragPreview={dragPreview}
+          />
+
           {/* Snap indicator line */}
           {snapIndicator && (
             <div
               className="absolute top-0 w-px bg-accent pointer-events-none z-30"
               style={{
                 left: snapIndicator.time * pixelsPerSecond + 80, // +80 for track label width
-                height: trackHeight * 2,
+                height: trackHeight * totalTracks,
                 boxShadow: "0 0 4px hsl(var(--accent) / 0.6)",
               }}
             />
@@ -514,7 +555,7 @@ export default function TimelineCanvas({
           <TimelinePlayhead
             position={playheadPosition}
             pixelsPerSecond={pixelsPerSecond}
-            height={trackHeight * 2 + 40}
+            height={trackHeight * totalTracks + 40}
             onSeek={onSeek}
           />
         </div>

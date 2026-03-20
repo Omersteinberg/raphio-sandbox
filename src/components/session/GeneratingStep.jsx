@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
 
@@ -70,6 +70,17 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
 
   // Simulated progress: +1% every 5 seconds so bar doesn't sit at 0
   const [simulatedProgress, setSimulatedProgress] = useState(0);
+
+  // Native browser beforeunload warning (for tab close / URL change)
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setSimulatedProgress((prev) => Math.min(prev + 1, 40));
@@ -212,11 +223,11 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
         </div>
 
         {/* Processing Note */}
-        <div className="mt-8 p-4 bg-purple-50 rounded-lg border border-purple-200 text-center">
-          <p className="text-sm text-purple-800">
+        <div className="mt-8 p-4 bg-amber-50 rounded-lg border border-amber-200 text-center">
+          <p className="text-sm text-amber-800">
             This may take several minutes depending on your video length.
             <br />
-            You can leave this page open - we'll notify you when it's ready.
+            <strong>Do not close or reload this page.</strong> Credits will not be refunded if you leave.
           </p>
         </div>
       </motion.div>

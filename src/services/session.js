@@ -45,12 +45,14 @@ export async function getSession(sessionId) {
 
 /**
  * List sessions
+ * @returns {{ data: Array, total: number }}
  */
-export async function listSessions({ stage, limit, offset } = {}) {
+export async function listSessions({ stage, status, limit, offset } = {}) {
   const params = new URLSearchParams();
   if (stage) params.append("stage", stage);
+  if (status) params.append("status", status);
   if (limit) params.append("limit", limit.toString());
-  if (offset) params.append("offset", offset.toString());
+  if (offset != null) params.append("offset", offset.toString());
 
   const response = await axios.get(`${API_BASE}?${params.toString()}`);
   return response.data;

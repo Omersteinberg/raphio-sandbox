@@ -6,10 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
 const STYLE_OPTIONS = [
-  { id: "cinematic", name: "Cinematic", icon: "🎬", description: "Epic, dramatic, emotional" },
-  { id: "documentary", name: "Documentary", icon: "📹", description: "Authentic, grounded" },
-  { id: "social", name: "Social", icon: "📱", description: "Upbeat, trendy, fast-paced" },
-  { id: "dramatic", name: "Dramatic", icon: "🎭", description: "Intense, suspenseful" },
+  { id: "realistic", name: "Realistic", icon: "📷", description: "Photorealistic, natural, lifelike" },
+  { id: "animated", name: "Animated", icon: "🎨", description: "Cartoon, vibrant, stylized" },
+  { id: "cinematic", name: "Cinematic", icon: "🎬", description: "Film-like, dramatic, moody" },
+  { id: "surreal", name: "Surreal", icon: "✨", description: "Dreamlike, abstract, artistic" },
 ];
 
 export default function PromptStep({

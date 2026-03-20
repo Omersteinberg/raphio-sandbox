@@ -43,12 +43,17 @@ export default function TimelineItem({
     }
   }
 
+  const isMusic = trackType === "AUDIO" && item.trackIndex === 1;
+
   // Colors based on track type and overlap state
   const getBackgroundColor = () => {
     if (isOverlapping) {
       return trackType === "VIDEO"
         ? isSelected ? "bg-red-400" : "bg-red-500"
         : isSelected ? "bg-orange-400" : "bg-orange-500";
+    }
+    if (isMusic) {
+      return isSelected ? "bg-green-600" : "bg-green-500";
     }
     return trackType === "VIDEO"
       ? isSelected ? "bg-primary" : "bg-primary/80"

@@ -235,7 +235,7 @@ export default function ClipEditModal({
               ) : (
                 <span className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4" />
-                  Regenerate Video Clip
+                  Regenerate Video Clip (1 credit)
                 </span>
               )}
             </Button>

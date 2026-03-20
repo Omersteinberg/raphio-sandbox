@@ -7,30 +7,33 @@ import {
   Copy,
   Check,
   ArrowRight,
-  Sparkles,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { getVideo } from "@/services/videos";
+import { getSession } from "@/services/session";
 
 export default function VideoDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [video, setVideo] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
+  const video = session?.video;
+  const title = video?.title || session?.scriptData?.title || session?.userPrompt || "Untitled Video";
+  const finalVideoUrl = video?.finalVideoUrl;
+
   useEffect(() => {
-    const fetchVideo = async () => {
+    const fetchSession = async () => {
       try {
         setLoading(true);
-        const response = await getVideo(id);
-        if (response?.success) {
-          setVideo(response.data);
+        const data = await getSession(id);
+        if (data) {
+          setSession(data);
         } else {
           setError("Video not found");
         }
@@ -42,7 +45,7 @@ export default function VideoDetailPage() {
     };
 
     if (id) {
-      fetchVideo();
+      fetchSession();
     }
   }, [id]);
 
@@ -58,20 +61,20 @@ export default function VideoDetailPage() {
   };
 
   const handleDownload = async () => {
-    if (video?.finalVideoUrl) {
+    if (finalVideoUrl) {
       try {
-        const response = await fetch(video.finalVideoUrl);
+        const response = await fetch(finalVideoUrl);
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `${video.title || "video"}.mp4`;
+        link.download = `${title}.mp4`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } catch {
-        window.open(video.finalVideoUrl, "_blank");
+        window.open(finalVideoUrl, "_blank");
       }
     }
   };
@@ -82,7 +85,7 @@ export default function VideoDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-gradient font-montserrat flex items-center justify-center">
+      <div className="min-h-full bg-background-gradient font-montserrat flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading video...</p>
@@ -91,9 +94,9 @@ export default function VideoDetailPage() {
     );
   }
 
-  if (error || !video) {
+  if (error || !session) {
     return (
-      <div className="min-h-screen bg-background-gradient font-montserrat flex items-center justify-center">
+      <div className="min-h-full bg-background-gradient font-montserrat flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Video Not Found</h1>
@@ -112,10 +115,10 @@ export default function VideoDetailPage() {
     );
   }
 
-  // Video still processing
-  if (video.status === "PROCESSING") {
+  // Video still generating
+  if (session.stage === "GENERATING") {
     return (
-      <div className="min-h-screen bg-background-gradient font-montserrat flex items-center justify-center">
+      <div className="min-h-full bg-background-gradient font-montserrat flex items-center justify-center">
         <div className="text-center max-w-md">
           <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -137,28 +140,9 @@ export default function VideoDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-gradient font-montserrat">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => navigate("/")}
-          >
-            <Sparkles className="w-8 h-8 text-primary" />
-            <span className="text-xl font-semibold text-foreground">Merge</span>
-          </div>
-          <Button
-            onClick={handleCreateOwn}
-            className="bg-secondary hover:bg-secondary/90 text-white px-6"
-          >
-            Create Your Own
-          </Button>
-        </div>
-      </header>
-
+    <div className="min-h-full bg-background-gradient font-montserrat">
       {/* Main Content */}
-      <main className="pt-24 pb-12 px-6">
+      <main className="py-8 pb-12 px-6">
         <div className="max-w-4xl mx-auto">
           {/* Video Player */}
           <motion.div
@@ -167,20 +151,20 @@ export default function VideoDetailPage() {
             className="bg-black rounded-2xl overflow-hidden shadow-2xl mb-8"
           >
             <video
-              src={video.finalVideoUrl}
+              src={finalVideoUrl}
               controls
               className="w-full aspect-video"
-              poster={video.sections?.[0]?.imageUrl}
+              poster={video?.sections?.[0]?.imageUrl}
             />
           </motion.div>
 
           {/* Video Info */}
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              {video.title || "Untitled Video"}
+              {title}
             </h1>
             <p className="text-muted-foreground text-sm">
-              Created on {new Date(video.createdAt).toLocaleDateString()}
+              Created on {new Date(session.createdAt).toLocaleDateString()}
             </p>
           </div>
 
@@ -209,7 +193,7 @@ export default function VideoDetailPage() {
               Create Your Own Video Like This
             </h2>
             <p className="text-muted-foreground mb-6">
-              No sign-up required. Start creating in seconds.
+              Create another video in seconds.
             </p>
             <Button
               onClick={handleCreateOwn}

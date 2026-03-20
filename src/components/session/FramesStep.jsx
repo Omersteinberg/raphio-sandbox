@@ -1,21 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Mic, Music, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
+import { Mic, Music, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceSelector from "./VoiceSelector";
-
-const VIDEO_MODELS = [
-  { id: "KLING", name: "Kling", description: "Most realistic people and actions" },
-  { id: "HUNYUAN", name: "Hunyuan", description: "Best for movie-like physics" },
-  { id: "WAN", name: "Wan", description: "Best for clear text and logos" },
-  { id: "VEO", name: "Veo 3.1", description: "Fastest for high-energy action" },
-];
 
 export default function FramesStep({
   openingFrame,
   closingFrame,
-  videoModel,
-  setVideoModel,
   voiceId,
   setVoiceId,
   backgroundMusic,
@@ -38,8 +29,6 @@ export default function FramesStep({
     }
   };
 
-  const selectedModel = VIDEO_MODELS.find((m) => m.id === videoModel);
-
   return (
     <div className="w-full h-full flex flex-col items-center overflow-y-auto">
       <div className="w-full max-w-2xl px-6 py-8 space-y-4">
@@ -49,73 +38,6 @@ export default function FramesStep({
           <p className="text-sm text-gray-600">
             Confirm your settings and start video generation
           </p>
-        </div>
-
-        {/* Video Model Accordion */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <button
-            onClick={() => toggleSection("model")}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Film className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-gray-900">Video AI Model</p>
-                <p className="text-sm text-gray-500">
-                  {selectedModel?.name || "Select a model"}{" "}
-                  {selectedModel && (
-                    <span className="text-gray-400">- {selectedModel.description}</span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedModel && (
-                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check className="w-3.5 h-3.5 text-green-600" />
-                </div>
-              )}
-              <motion.div
-                animate={{ rotate: expandedSection === "model" ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ChevronDown className="w-5 h-5 text-gray-400" />
-              </motion.div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedSection === "model" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4 space-y-2">
-                  {VIDEO_MODELS.map((model) => (
-                    <motion.button
-                      key={model.id}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => setVideoModel(model.id)}
-                      className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                        videoModel === model.id
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-gray-200 bg-white hover:border-gray-300"
-                      }`}
-                    >
-                      <span className="font-medium text-gray-900 block">{model.name}</span>
-                      <span className="text-xs text-gray-500">{model.description}</span>
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Narration Voice Accordion */}

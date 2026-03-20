@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 
@@ -29,20 +29,12 @@ const STAGE_TO_STEP = {
   EDITING: 5,
 };
 
-// Video models
-const VIDEO_MODELS = [
-  { id: "KLING", name: "Kling", description: "Best for cinematic motion" },
-  { id: "HUNYUAN", name: "Hunyuan", description: "Good for realistic content" },
-  { id: "WAN", name: "Wan", description: "Fast for social media" },
-  { id: "VEO", name: "Veo 3.1", description: "Dramatic effects" },
-];
-
 // Style options
 const STYLE_OPTIONS = [
-  { id: "cinematic", name: "Cinematic", description: "Epic, dramatic, emotional" },
-  { id: "documentary", name: "Documentary", description: "Authentic, grounded" },
-  { id: "social", name: "Social", description: "Upbeat, trendy, fast-paced" },
-  { id: "dramatic", name: "Dramatic", description: "Intense, suspenseful" },
+  { id: "realistic", name: "Realistic", description: "Photorealistic, natural, lifelike" },
+  { id: "animated", name: "Animated", description: "Cartoon, vibrant, stylized" },
+  { id: "cinematic", name: "Cinematic", description: "Film-like, dramatic, moody" },
+  { id: "surreal", name: "Surreal", description: "Dreamlike, abstract, artistic" },
 ];
 
 export function useSession() {
@@ -58,8 +50,8 @@ export function useSession() {
 
   // Form state
   const [userPrompt, setUserPrompt] = useState("");
-  const [style, setStyle] = useState("cinematic");
-  const imageDuration = 10; // seconds per image
+  const [style, setStyle] = useState("realistic");
+  const imageDuration = 5; // seconds per image
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -100,10 +92,48 @@ export function useSession() {
 
   // Generation state
   const [generationProgress, setGenerationProgress] = useState(null);
+  const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
+
+  // Resume session from query param
+  const [searchParams] = useSearchParams();
+  const resumeSessionId = searchParams.get("session");
+  useEffect(() => {
+    if (resumeSessionId && !sessionId) {
+      const loadSession = async () => {
+        try {
+          setLoading(true);
+          const data = await sessionService.getSession(resumeSessionId);
+          if (data) {
+            setSessionId(resumeSessionId);
+            setSession(data);
+            if (data.userPrompt) setUserPrompt(data.userPrompt);
+            if (data.style) setStyle(data.style);
+            if (data.voiceId) setVoiceId(data.voiceId);
+            if (data.videoModel) setVideoModel(data.videoModel);
+            if (data.images?.length) {
+              setImages(data.images.map((img) => ({
+                id: img.id,
+                preview: img.imageUrl,
+                uploaded: true,
+              })));
+            }
+            if (data.scriptData) setScriptData(data.scriptData);
+          }
+        } catch (err) {
+          console.error("[useSession] Failed to load session:", err);
+          toast.error("Failed to load session");
+          navigate("/videos");
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadSession();
+    }
+  }, [resumeSessionId, sessionId, navigate]);
 
   // Sync step with session stage
   useEffect(() => {
@@ -777,6 +807,16 @@ export function useSession() {
         response: err.response?.data,
         status: err.response?.status,
       });
+      // Insufficient credits — show modal
+      if (err.response?.status === 402) {
+        setInsufficientCredits({
+          required: err.response.data.required,
+          available: err.response.data.available,
+        });
+        setDirection(-1);
+        setStep(2);
+        return;
+      }
       // Network errors (timeout/CORS) likely mean generation is still running
       // in the background - stay on step 3 and let polling pick up the result
       if (err.code === "ERR_NETWORK" || !err.response) {
@@ -816,6 +856,13 @@ export function useSession() {
       setSession(updatedSession);
       toast.success("Clip regenerated!");
     } catch (err) {
+      if (err.response?.status === 402) {
+        setInsufficientCredits({
+          required: err.response.data.required,
+          available: err.response.data.available,
+        });
+        return;
+      }
       toast.error("Failed to regenerate clip");
     } finally {
       setLoading(false);
@@ -1036,6 +1083,8 @@ export function useSession() {
     generationProgress,
     finalVideoUrl,
     scriptProgress,
+    insufficientCredits,
+    dismissInsufficientCredits: () => setInsufficientCredits(null),
 
     // Actions
     startSession,
@@ -1064,7 +1113,6 @@ export function useSession() {
     reset,
 
     // Constants
-    VIDEO_MODELS,
     STYLE_OPTIONS,
     STAGES,
   };

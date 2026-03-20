@@ -4,7 +4,10 @@
       "Bash(node:*)",
       "Bash(curl:*)",
       "Bash(xargs wc:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(xargs ls:*)",
+      "Read(//c/Users/mikha/merge-api/**)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

@@ -26,8 +26,8 @@ export async function getBalance() {
 /**
  * Create a Stripe Checkout session and return the URL
  */
-export async function createCheckoutSession() {
-  const response = await axios.post(`${CREDITS_URL}/checkout`);
+export async function createCheckoutSession(tier) {
+  const response = await axios.post(`${CREDITS_URL}/checkout`, { tier });
   return response.data.data;
 }
 

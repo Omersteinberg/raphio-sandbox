@@ -19,9 +19,10 @@ export default function TimelineTrack({
   overlappingItems = new Set(),
   dragPreview = null,
 }) {
+  const isMusic = trackType === "AUDIO" && trackIndex === 1;
   const Icon = trackType === "VIDEO" ? Film : Music;
-  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : "bg-blue-50";
-  const borderColor = trackType === "VIDEO" ? "border-primary/20" : "border-blue-200";
+  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : isMusic ? "bg-green-50" : "bg-blue-50";
+  const borderColor = trackType === "VIDEO" ? "border-primary/20" : isMusic ? "border-green-200" : "border-blue-200";
 
   return (
     <div

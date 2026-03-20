@@ -12,6 +12,7 @@ import FramesStep from "@/components/session/FramesStep";
 import GeneratingStep from "@/components/session/GeneratingStep";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
+import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 
 // Step names for progress bar
 const STEP_NAMES = [
@@ -29,7 +30,7 @@ export default function Creator() {
 
   // Redirect to buy credits if user has 0 credits
   useEffect(() => {
-    if (credits !== null && credits < 10) {
+    if (credits !== null && credits < 1) {
       navigate('/buy-credits');
     }
   }, [credits, navigate]);
@@ -68,8 +69,6 @@ export default function Creator() {
     closingFrame,
     setClosingFrame,
     generatedFrameImages,
-    videoModel,
-    setVideoModel,
     voiceId,
     setVoiceId,
     backgroundMusic,
@@ -95,6 +94,10 @@ export default function Creator() {
     // Navigation
     handleNext,
     goToStep,
+
+    // Credits
+    insufficientCredits,
+    dismissInsufficientCredits,
   } = session;
 
   // Animation variants
@@ -167,11 +170,7 @@ export default function Creator() {
         return (
           <FramesStep
             openingFrame={openingFrame}
-            setOpeningFrame={setOpeningFrame}
             closingFrame={closingFrame}
-            setClosingFrame={setClosingFrame}
-            videoModel={videoModel}
-            setVideoModel={setVideoModel}
             voiceId={voiceId}
             setVoiceId={setVoiceId}
             backgroundMusic={backgroundMusic}
@@ -310,6 +309,15 @@ export default function Creator() {
               : "Processing..."
           }
           progress={step === 0 ? scriptProgress : null}
+        />
+      )}
+
+      {/* Insufficient credits modal */}
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          required={insufficientCredits.required}
+          available={insufficientCredits.available}
+          onClose={dismissInsufficientCredits}
         />
       )}
     </div>
