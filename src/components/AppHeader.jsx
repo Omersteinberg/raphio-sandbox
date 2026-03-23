@@ -36,14 +36,17 @@ export default function AppHeader() {
       {/* Right: Credits + Avatar */}
       <div className="flex items-center gap-3" ref={menuRef}>
         {/* Credits pill */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-sm font-medium text-gray-700">
+        <button
+          onClick={() => navigate('/buy-credits')}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+        >
           <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v12M6 12h12" strokeLinecap="round" />
           </svg>
           <span className="font-bold text-primary">{credits ?? '...'}</span>
           <span className="hidden sm:inline">credits</span>
-        </div>
+        </button>
 
         {/* Avatar button */}
         <button

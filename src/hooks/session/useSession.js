@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
+import { useAuth } from "@/hooks/useAuth";
 
 // Session stages matching backend
 const STAGES = {
@@ -39,6 +40,8 @@ const STYLE_OPTIONS = [
 
 export function useSession() {
   const navigate = useNavigate();
+  const { refreshCredits } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Session state
   const [sessionId, setSessionId] = useState(null);
@@ -98,8 +101,17 @@ export function useSession() {
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
 
+  // Sync sessionId to URL so refresh restores the session
+  useEffect(() => {
+    const currentParam = searchParams.get("session");
+    if (sessionId && currentParam !== sessionId) {
+      setSearchParams({ session: sessionId }, { replace: true });
+    } else if (!sessionId && currentParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [sessionId, searchParams, setSearchParams]);
+
   // Resume session from query param
-  const [searchParams] = useSearchParams();
   const resumeSessionId = searchParams.get("session");
   useEffect(() => {
     if (resumeSessionId && !sessionId) {
@@ -179,6 +191,7 @@ export function useSession() {
           if (updatedSession.stage === "COMPLETED") {
             clearInterval(pollInterval);
             setFinalVideoUrl(updatedSession.video?.finalVideoUrl);
+            refreshCredits();
             toast.success("Video generation complete!");
           }
         } catch (err) {
@@ -799,6 +812,7 @@ export function useSession() {
       });
       console.log("[useSession] startGeneration response:", updatedSession);
       setSession(updatedSession);
+      refreshCredits();
       toast.success("Video generation started!");
     } catch (err) {
       console.error("[useSession] startGeneration failed:", err);
