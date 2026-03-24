@@ -6,13 +6,14 @@ const API_BASE = `${BASE}/video`;
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, imageDuration, voiceId }) {
+export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
     style,
     imageDuration,
     voiceId,
+    pipelineMode: pipelineMode || 'image',
   };
   
   console.log("[sessionService] POST", url);

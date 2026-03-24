@@ -25,13 +25,19 @@ export default function ScriptStep({
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
   const isGenerated = !!scriptData;
-  const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED";
+  const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED"
+    || session?.stage === "CHAR_SCRIPT_APPROVED" || session?.stage === "CHAR_FRAMES_GENERATED" || session?.stage === "CHAR_FRAMES_APPROVED";
+
+  console.log("[ScriptStep] render — scriptData:", scriptData);
+  console.log("[ScriptStep] render — scriptData?.sections:", scriptData?.sections);
+  console.log("[ScriptStep] render — isGenerated:", !!scriptData, "session stage:", session?.stage, "isApproved:", isApproved);
 
   // Separate opening/closing sections from content sections
   const allSections = scriptData?.sections || [];
   const openingSection = allSections.find((s) => s.sectionType === "OPENING");
   const closingSection = allSections.find((s) => s.sectionType === "CLOSING");
   const contentSections = allSections.filter((s) => s.sectionType !== "OPENING" && s.sectionType !== "CLOSING");
+  console.log("[ScriptStep] allSections:", allSections.length, "contentSections:", contentSections.length, "sections:", allSections);
   
   // Get the real indices in the original array for editing
   const getOriginalIndex = (section) => allSections.indexOf(section);
@@ -371,6 +377,23 @@ export default function ScriptStep({
                             <p className="text-sm text-gray-500 italic">
                               Visual: {section.visualDescription}
                             </p>
+                          )}
+                          {section.characterActions && (
+                            <p className="text-gray-400 text-xs mt-1">
+                              Action: {section.characterActions}
+                            </p>
+                          )}
+                          {section.characters?.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                              {section.characters.map((charName) => (
+                                <span
+                                  key={charName}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
+                                >
+                                  {charName}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </>
                       )}
