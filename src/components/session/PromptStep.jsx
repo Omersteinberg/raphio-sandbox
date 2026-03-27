@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
-const STYLE_OPTIONS = [
-  { id: "realistic", name: "Realistic", icon: "📷", description: "Photorealistic, natural, lifelike" },
-  { id: "animated", name: "Animated", icon: "🎨", description: "Cartoon, vibrant, stylized" },
-  { id: "cinematic", name: "Cinematic", icon: "🎬", description: "Film-like, dramatic, moody" },
-  { id: "surreal", name: "Surreal", icon: "✨", description: "Dreamlike, abstract, artistic" },
-];
+const STYLE_ICONS = {
+  realistic: "📷",
+  animated: "🎨",
+  cinematic: "🎬",
+  surreal: "✨",
+};
 
 export default function PromptStep({
   userPrompt,
@@ -27,6 +27,7 @@ export default function PromptStep({
   setOpeningFrame,
   closingFrame,
   setClosingFrame,
+  styleOptions = [],
 }) {
   const fileInputRef = useRef(null);
   const openingFileRef = useRef(null);
@@ -268,7 +269,7 @@ export default function PromptStep({
               Video Style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {STYLE_OPTIONS.map((option) => (
+              {styleOptions.map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -283,7 +284,7 @@ export default function PromptStep({
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  <span className="text-2xl mb-2 block">{option.icon}</span>
+                  <span className="text-2xl mb-2 block">{STYLE_ICONS[option.id] || "🎭"}</span>
                   <span className="font-medium text-gray-900 block">{option.name}</span>
                   <span className="text-xs text-gray-500">{option.description}</span>
                 </motion.button>

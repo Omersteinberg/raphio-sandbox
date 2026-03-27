@@ -7,7 +7,17 @@
       "WebSearch",
       "Bash(xargs ls:*)",
       "Read(//c/Users/mikha/merge-api/**)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "WebFetch(domain:piapi.ai)",
+      "WebFetch(domain:community.n8n.io)",
+      "WebFetch(domain:fluxai.pro)",
+      "WebFetch(domain:getimg.ai)",
+      "WebFetch(domain:kontext-dev.com)",
+      "WebFetch(domain:skywork.ai)",
+      "WebFetch(domain:www.dreamfaceapp.com)",
+      "WebFetch(domain:deepinfra.com)",
+      "WebFetch(domain:www.together.ai)",
+      "WebFetch(domain:blog.segmind.com)"
     ]
   }
 }

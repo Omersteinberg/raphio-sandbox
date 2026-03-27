@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
+import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 
 // Session stages matching backend
@@ -30,13 +31,6 @@ const STAGE_TO_STEP = {
   EDITING: 5,
 };
 
-// Style options
-const STYLE_OPTIONS = [
-  { id: "realistic", name: "Realistic", description: "Photorealistic, natural, lifelike" },
-  { id: "animated", name: "Animated", description: "Cartoon, vibrant, stylized" },
-  { id: "cinematic", name: "Cinematic", description: "Film-like, dramatic, moody" },
-  { id: "surreal", name: "Surreal", description: "Dreamlike, abstract, artistic" },
-];
 
 export function useSession() {
   const navigate = useNavigate();
@@ -100,6 +94,24 @@ export function useSession() {
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
+
+  // Style options (fetched from API)
+  const [styleOptions, setStyleOptions] = useState([]);
+
+  useEffect(() => {
+    fetchStyles()
+      .then(setStyleOptions)
+      .catch((err) => {
+        console.error('Failed to fetch styles:', err);
+        // Fallback to hardcoded styles if API fails
+        setStyleOptions([
+          { id: "realistic", name: "Realistic", description: "Photorealistic, natural, lifelike" },
+          { id: "animated", name: "Animated", description: "Cartoon, vibrant, stylized" },
+          { id: "cinematic", name: "Cinematic", description: "Film-like, dramatic, moody" },
+          { id: "surreal", name: "Surreal", description: "Dreamlike, abstract, artistic" },
+        ]);
+      });
+  }, []);
 
   // Sync sessionId to URL so refresh restores the session
   useEffect(() => {
@@ -1127,7 +1139,7 @@ export function useSession() {
     reset,
 
     // Constants
-    STYLE_OPTIONS,
+    styleOptions,
     STAGES,
   };
 }

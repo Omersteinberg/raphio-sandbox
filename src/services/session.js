@@ -309,6 +309,14 @@ export async function addClip(sessionId, clipData) {
 }
 
 /**
+ * Fetch available video styles
+ */
+export async function fetchStyles() {
+  const response = await axios.get(`${API_BASE}/styles`);
+  return response.data;
+}
+
+/**
  * Delete session
  */
 export async function deleteSession(sessionId) {

@@ -47,6 +47,7 @@ export default function Creator() {
     style,
     setStyle,
     startSession,
+    styleOptions,
 
     // Images (from prompt)
     images,
@@ -143,6 +144,7 @@ export default function Creator() {
             setOpeningFrame={setOpeningFrame}
             closingFrame={closingFrame}
             setClosingFrame={setClosingFrame}
+            styleOptions={styleOptions}
           />
         );
 
