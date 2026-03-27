@@ -1,10 +1,24 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
-import { useSessionBase, STAGES } from "./useSessionBase";
-import { STYLE_OPTIONS } from '../../constants/styles';
+import { fetchStyles } from "@/services/session";
+import { useAuth } from "@/hooks/useAuth";
 
-// Map backend stages to frontend step numbers (image pipeline)
+// Session stages matching backend
+const STAGES = {
+  PROMPT: "PROMPT",
+  IMAGES: "IMAGES",
+  ANALYSIS: "ANALYSIS",
+  SCRIPT: "SCRIPT",
+  FRAMES: "FRAMES",
+  GENERATING: "GENERATING",
+  COMPLETED: "COMPLETED",
+  EDITING: "EDITING",
+};
+
+// Map backend stages to frontend step numbers
+// Image upload/analysis are handled during startSession and do not have dedicated pages
 const STAGE_TO_STEP = {
   PROMPT_ENTERED: 1,
   IMAGES_UPLOADED: 1,
@@ -17,41 +31,35 @@ const STAGE_TO_STEP = {
   EDITING: 5,
 };
 
+
 export function useSession() {
-  // ── Image-pipeline step state ──────────────────────────────────────
+  const navigate = useNavigate();
+  const { refreshCredits } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Session state
+  const [sessionId, setSessionId] = useState(null);
+  const [session, setSession] = useState(null);
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Stable ref for onSessionLoaded so base hook doesn't re-trigger effect
-  const onSessionLoadedRef = useRef(null);
-
-  // ── Base hook ──────────────────────────────────────────────────────
-  const base = useSessionBase({
-    generatingStep: 3,
-    currentStep: step,
-    onSessionLoaded: (data) => {
-      if (onSessionLoadedRef.current) onSessionLoadedRef.current(data);
-    },
-  });
-
-  const {
-    sessionId, setSessionId, session, setSession,
-    direction, setDirection, loading, setLoading,
-    error, setError,
-    userPrompt, style, voiceId, videoModel, backgroundMusic,
-    scriptData, setScriptData, editRequest,
-    scriptProgress, setScriptProgress,
-    generationProgress, setGenerationProgress,
-    insufficientCredits, setInsufficientCredits,
-    finalVideoUrl, setFinalVideoUrl,
-    navigate, refreshCredits,
-    startGeneration: baseStartGeneration,
-    resetBase,
-  } = base;
-
-  // ── Image-pipeline specific state ──────────────────────────────────
+  // Form state
+  const [userPrompt, setUserPrompt] = useState("");
+  const [style, setStyle] = useState("realistic");
   const imageDuration = 5; // seconds per image
+  const [voiceId, setVoiceId] = useState("adam");
+  const [videoModel, setVideoModel] = useState("KLING");
+  const [backgroundMusic, setBackgroundMusic] = useState(true);
+
+  // Images state
   const [images, setImages] = useState([]);
   const [imageAnalysis, setImageAnalysis] = useState(null);
+
+  // Script state
+  const [scriptData, setScriptData] = useState(null);
+  const [editRequest, setEditRequest] = useState("");
 
   // Frame configuration
   const [openingFrame, setOpeningFrame] = useState({
@@ -59,38 +67,99 @@ export function useSession() {
     useUpload: false,
     customPrompt: "",
     textOverlay: "",
-    description: "",
-    uploadedImage: null,
-    uploadedFile: null,
+    description: "",     // explanation of what's happening and how AI should use it
+    uploadedImage: null, // base64 data URL for preview
+    uploadedFile: null,  // actual File object for upload
   });
   const [closingFrame, setClosingFrame] = useState({
     enabled: false,
     useUpload: false,
     customPrompt: "",
     textOverlay: "",
-    description: "",
-    uploadedImage: null,
-    uploadedFile: null,
+    description: "",     // explanation of what's happening and how AI should use it
+    uploadedImage: null, // base64 data URL for preview
+    uploadedFile: null,  // actual File object for upload
   });
 
   // Generated frame images (from DALL-E)
   const [generatedFrameImages, setGeneratedFrameImages] = useState({
-    opening: null,
-    closing: null,
+    opening: null, // { imageUrl, prompt }
+    closing: null, // { imageUrl, prompt }
   });
 
-  // ── Restore image-specific state when resuming a session ───────────
-  onSessionLoadedRef.current = (data) => {
-    if (data.images?.length) {
-      setImages(data.images.map((img) => ({
-        id: img.id,
-        preview: img.imageUrl,
-        uploaded: true,
-      })));
-    }
-  };
+  // Generation state
+  const [generationProgress, setGenerationProgress] = useState(null);
+  const [insufficientCredits, setInsufficientCredits] = useState(null);
+  const [finalVideoUrl, setFinalVideoUrl] = useState(null);
 
-  // ── Sync step with session stage (image pipeline mapping) ──────────
+  // Script generation progress (0-100)
+  const [scriptProgress, setScriptProgress] = useState(0);
+
+  // Style options (fetched from API)
+  const [styleOptions, setStyleOptions] = useState([]);
+
+  useEffect(() => {
+    fetchStyles()
+      .then(setStyleOptions)
+      .catch((err) => {
+        console.error('Failed to fetch styles:', err);
+        // Fallback to hardcoded styles if API fails
+        setStyleOptions([
+          { id: "realistic", name: "Realistic", description: "Photorealistic, natural, lifelike" },
+          { id: "animated", name: "Animated", description: "Cartoon, vibrant, stylized" },
+          { id: "cinematic", name: "Cinematic", description: "Film-like, dramatic, moody" },
+          { id: "surreal", name: "Surreal", description: "Dreamlike, abstract, artistic" },
+        ]);
+      });
+  }, []);
+
+  // Sync sessionId to URL so refresh restores the session
+  useEffect(() => {
+    const currentParam = searchParams.get("session");
+    if (sessionId && currentParam !== sessionId) {
+      setSearchParams({ session: sessionId }, { replace: true });
+    } else if (!sessionId && currentParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [sessionId, searchParams, setSearchParams]);
+
+  // Resume session from query param
+  const resumeSessionId = searchParams.get("session");
+  useEffect(() => {
+    if (resumeSessionId && !sessionId) {
+      const loadSession = async () => {
+        try {
+          setLoading(true);
+          const data = await sessionService.getSession(resumeSessionId);
+          if (data) {
+            setSessionId(resumeSessionId);
+            setSession(data);
+            if (data.userPrompt) setUserPrompt(data.userPrompt);
+            if (data.style) setStyle(data.style);
+            if (data.voiceId) setVoiceId(data.voiceId);
+            if (data.videoModel) setVideoModel(data.videoModel);
+            if (data.images?.length) {
+              setImages(data.images.map((img) => ({
+                id: img.id,
+                preview: img.imageUrl,
+                uploaded: true,
+              })));
+            }
+            if (data.scriptData) setScriptData(data.scriptData);
+          }
+        } catch (err) {
+          console.error("[useSession] Failed to load session:", err);
+          toast.error("Failed to load session");
+          navigate("/videos");
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadSession();
+    }
+  }, [resumeSessionId, sessionId, navigate]);
+
+  // Sync step with session stage
   useEffect(() => {
     if (session?.stage) {
       const newStep = STAGE_TO_STEP[session.stage] ?? 0;
@@ -98,7 +167,7 @@ export function useSession() {
       console.log("[useSession] Current session.stage:", session.stage);
       console.log("[useSession] Mapped to step:", newStep);
       console.log("[useSession] Current step:", step);
-
+      
       if (newStep !== step) {
         console.log("[useSession] Changing step from", step, "to", newStep);
         setDirection(newStep > step ? 1 : -1);
@@ -116,12 +185,39 @@ export function useSession() {
         setFinalVideoUrl(session.video.finalVideoUrl);
       }
       if (session.videoModel) {
-        base.setVideoModel(session.videoModel);
+        setVideoModel(session.videoModel);
       }
     }
   }, [session]);
 
-  // ── Start session with prompt (image pipeline) ─────────────────────
+  // Poll for session updates during generation
+  useEffect(() => {
+    let pollInterval;
+
+    if (sessionId && step === 3) {
+      pollInterval = setInterval(async () => {
+        try {
+          const updatedSession = await sessionService.getSession(sessionId);
+          setSession(updatedSession);
+
+          if (updatedSession.stage === "COMPLETED") {
+            clearInterval(pollInterval);
+            setFinalVideoUrl(updatedSession.video?.finalVideoUrl);
+            refreshCredits();
+            toast.success("Video generation complete!");
+          }
+        } catch (err) {
+          console.error("Error polling session:", err);
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [sessionId, step]);
+
+  // Start session with prompt
   const startSession = useCallback(async () => {
     console.log("[useSession] startSession called");
     console.log("[useSession] Current state:", {
@@ -189,12 +285,14 @@ export function useSession() {
       setScriptProgress(55);
 
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
+      // This way the AI can analyze the generated frame images too
       console.log("[useSession] Processing frame images...");
       const frameOptions = {};
       const newGeneratedFrameImages = { opening: null, closing: null };
 
       if (openingFrame.enabled) {
         if (openingFrame.useUpload && openingFrame.uploadedFile) {
+          // Upload the user's frame image — no AI generation needed
           const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
           if (uploadResult.images?.length > 0) {
             const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
@@ -207,6 +305,7 @@ export function useSession() {
             console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
           }
         } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
+          // AI Generate mode — generate an image using the user's custom prompt
           console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
           console.log("[useSession] Opening frame description:", openingFrame.description);
           try {
@@ -246,6 +345,7 @@ export function useSession() {
 
       if (closingFrame.enabled) {
         if (closingFrame.useUpload && closingFrame.uploadedFile) {
+          // Upload the user's frame image — no AI generation needed
           const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
           if (uploadResult.images?.length > 0) {
             const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
@@ -258,6 +358,7 @@ export function useSession() {
             console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
           }
         } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
+          // AI Generate mode — generate an image using the user's custom prompt
           console.log("[useSession] Generating AI closing frame image...");
           try {
             const frameResult = await sessionService.generateFrameImage(
@@ -297,7 +398,7 @@ export function useSession() {
       setGeneratedFrameImages(newGeneratedFrameImages);
       setScriptProgress(70);
 
-      // Step 5: Generate script
+      // Step 5: Generate script - AI now has access to the generated frame images for analysis
       console.log("[useSession] Generating script...");
       console.log("[useSession] Frame options:", frameOptions);
       setScriptProgress(75);
@@ -308,7 +409,7 @@ export function useSession() {
       setScriptProgress(100);
 
       setDirection(1);
-      setStep(1);
+      setStep(1); // Go directly to ScriptStep
       toast.success("Script generated! Review and approve your script.");
     } catch (err) {
       console.error("[useSession] Failed to start session:", err);
@@ -317,6 +418,7 @@ export function useSession() {
         response: err.response?.data,
         status: err.response?.status,
       });
+      // Reset session state so stage sync doesn't advance the step
       setSession(null);
       setSessionId(null);
       setScriptProgress(0);
@@ -335,7 +437,7 @@ export function useSession() {
     }
   }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, navigate]);
 
-  // ── Add images to pool ─────────────────────────────────────────────
+  // Add images to pool
   const addImages = useCallback((files) => {
     const newImages = Array.from(files).map((file) => ({
       file,
@@ -356,7 +458,7 @@ export function useSession() {
     });
   }, []);
 
-  // Reorder images
+  // Reorder images (move image from one index to another)
   const reorderImages = useCallback((fromIndex, toIndex) => {
     setImages((prev) => {
       const updated = [...prev];
@@ -416,6 +518,7 @@ export function useSession() {
     // Opening frame
     if (openingFrame.enabled) {
       if (openingFrame.useUpload && openingFrame.uploadedFile) {
+        // Upload the image first to get URL
         if (sessionId) {
           const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
           if (uploadResult.images?.length > 0) {
@@ -429,6 +532,7 @@ export function useSession() {
           }
         }
       } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
+        // AI Generate mode — generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -466,6 +570,7 @@ export function useSession() {
     // Closing frame
     if (closingFrame.enabled) {
       if (closingFrame.useUpload && closingFrame.uploadedFile) {
+        // Upload the image first to get URL
         if (sessionId) {
           const uploadResult = await sessionService.uploadImages(sessionId, [closingFrame.uploadedFile]);
           if (uploadResult.images?.length > 0) {
@@ -479,6 +584,7 @@ export function useSession() {
           }
         }
       } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
+        // AI Generate mode — generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -540,6 +646,85 @@ export function useSession() {
     }
   }, [sessionId, buildFrameOptions]);
 
+  // Update script directly
+  const updateScript = useCallback(async (newScriptData) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      const updatedSession = await sessionService.updateScript(sessionId, {
+        scriptData: newScriptData,
+      });
+      setSession(updatedSession);
+      setScriptData(updatedSession.scriptData);
+      toast.success("Script updated!");
+    } catch (err) {
+      toast.error("Failed to update script");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Edit script with AI
+  const editScriptWithAI = useCallback(async () => {
+    if (!sessionId || !editRequest.trim()) return;
+
+    setLoading(true);
+    try {
+      const updatedSession = await sessionService.updateScript(sessionId, {
+        editRequest,
+      });
+      setSession(updatedSession);
+      setScriptData(updatedSession.scriptData);
+      setEditRequest("");
+      toast.success("Script updated with AI!");
+    } catch (err) {
+      toast.error("Failed to edit script");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, editRequest]);
+
+  // Approve script
+  const approveScript = useCallback(async () => {
+    console.log("[useSession] approveScript called");
+    console.log("[useSession] sessionId:", sessionId);
+    
+    if (!sessionId) {
+      console.log("[useSession] No sessionId, aborting approveScript");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // First, save any local script edits to the backend
+      if (scriptData) {
+        console.log("[useSession] Saving local script edits before approving...");
+        await sessionService.updateScript(sessionId, { scriptData });
+        console.log("[useSession] Local script edits saved");
+      }
+
+      console.log("[useSession] Calling sessionService.approveScript...");
+      const updatedSession = await sessionService.approveScript(sessionId);
+      console.log("[useSession] approveScript response:", updatedSession);
+      console.log("[useSession] New stage:", updatedSession?.stage);
+      console.log("[useSession] Expected step from stage:", STAGE_TO_STEP[updatedSession?.stage]);
+      
+      setSession(updatedSession);
+      toast.success("Script approved!");
+    } catch (err) {
+      console.error("[useSession] approveScript failed:", err);
+      console.error("[useSession] Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      toast.error("Failed to approve script");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, scriptData]);
+
   // Configure frames
   const configureFrames = useCallback(async () => {
     console.log("[useSession] configureFrames called");
@@ -552,6 +737,8 @@ export function useSession() {
 
     setLoading(true);
     try {
+      // Upload frame images if user chose to upload AND has a new file to upload
+      // Otherwise, use the already-uploaded URL from generatedFrameImages (set during startSession)
       let openingImageUrl = generatedFrameImages.opening?.imageUrl || null;
       let closingImageUrl = generatedFrameImages.closing?.imageUrl || null;
 
@@ -559,6 +746,7 @@ export function useSession() {
         console.log("[useSession] Uploading opening frame image...");
         const formData = new FormData();
         formData.append("images", openingFrame.uploadedFile);
+        // Upload as session image and get URL
         const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
         if (uploadResult.images?.length > 0) {
           openingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
@@ -609,13 +797,13 @@ export function useSession() {
     }
   }, [sessionId, openingFrame, closingFrame, generatedFrameImages]);
 
-  // Start generation (image pipeline wrapper)
+  // Start generation
   const startGeneration = useCallback(async () => {
     console.log("[useSession] startGeneration called");
     console.log("[useSession] sessionId:", sessionId);
     console.log("[useSession] videoModel:", videoModel);
     console.log("[useSession] voiceId:", voiceId);
-
+    
     if (!sessionId) {
       console.log("[useSession] No sessionId, aborting startGeneration");
       return;
@@ -627,25 +815,208 @@ export function useSession() {
     setDirection(1);
     setStep(3);
 
-    const result = await baseStartGeneration({
-      videoModel,
-      voiceId,
-      backgroundMusic,
-    });
-
-    if (result && !result.success) {
-      if (result.reason === "insufficient_credits") {
+    try {
+      console.log("[useSession] Calling sessionService.startGeneration...");
+      const updatedSession = await sessionService.startGeneration(sessionId, {
+        videoModel,
+        voiceId,
+        backgroundMusic,
+      });
+      console.log("[useSession] startGeneration response:", updatedSession);
+      setSession(updatedSession);
+      refreshCredits();
+      toast.success("Video generation started!");
+    } catch (err) {
+      console.error("[useSession] startGeneration failed:", err);
+      console.error("[useSession] Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      // Insufficient credits — show modal
+      if (err.response?.status === 402) {
+        setInsufficientCredits({
+          required: err.response.data.required,
+          available: err.response.data.available,
+        });
         setDirection(-1);
         setStep(2);
-      } else if (result.reason === "network_error") {
-        // Stay on step 3, let polling pick up
-      } else {
-        // server_error — go back
-        setDirection(-1);
-        setStep(2);
+        return;
       }
+      // Network errors (timeout/CORS) likely mean generation is still running
+      // in the background - stay on step 3 and let polling pick up the result
+      if (err.code === "ERR_NETWORK" || !err.response) {
+        console.log("[useSession] Network error - generation likely running in background, continuing to poll...");
+        toast.info("Generation in progress... please wait");
+        return;
+      }
+      // Only go back for actual server errors (4xx/5xx with a response)
+      toast.error("Failed to start generation");
+      setDirection(-1);
+      setStep(2);
     }
-  }, [sessionId, videoModel, voiceId, backgroundMusic, baseStartGeneration]);
+  }, [sessionId, videoModel, voiceId, backgroundMusic]);
+
+  // Update section/clip
+  const updateClip = useCallback(async (clipId, updates) => {
+    if (!sessionId) return;
+
+    try {
+      await sessionService.updateClip(sessionId, clipId, updates);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Clip updated!");
+    } catch (err) {
+      toast.error("Failed to update clip");
+    }
+  }, [sessionId]);
+
+  // Regenerate clip
+  const regenerateClip = useCallback(async (clipId, options = {}) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      await sessionService.regenerateClip(sessionId, clipId, options);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Clip regenerated!");
+    } catch (err) {
+      if (err.response?.status === 402) {
+        setInsufficientCredits({
+          required: err.response.data.required,
+          available: err.response.data.available,
+        });
+        return;
+      }
+      toast.error("Failed to regenerate clip");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Regenerate narration for a single clip
+  const regenerateNarration = useCallback(async (clipId, options = {}) => {
+    console.log("[useSession] regenerateNarration called");
+    console.log("[useSession] sessionId:", sessionId);
+    console.log("[useSession] clipId:", clipId);
+    console.log("[useSession] options:", options);
+
+    if (!sessionId) {
+      console.warn("[useSession] No sessionId, aborting regenerateNarration");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("[useSession] Calling sessionService.regenerateNarration...");
+      const result = await sessionService.regenerateNarration(sessionId, clipId, options);
+      console.log("[useSession] sessionService.regenerateNarration result:", result);
+      const updatedSession = await sessionService.getSession(sessionId);
+      console.log("[useSession] Updated session after regeneration:", updatedSession);
+      setSession(updatedSession);
+      toast.success("Narration regenerated!");
+    } catch (err) {
+      console.error("[useSession] regenerateNarration failed:", err);
+      console.error("[useSession] Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      toast.error("Failed to regenerate narration");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Reorder clips
+  const reorderClips = useCallback(async (newOrder) => {
+    if (!sessionId) return;
+
+    try {
+      await sessionService.reorderClips(sessionId, newOrder);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Clips reordered!");
+    } catch (err) {
+      toast.error("Failed to reorder clips");
+    }
+  }, [sessionId]);
+
+  // Reassemble video
+  const reassembleVideo = useCallback(async (options = {}) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      const result = await sessionService.reassembleVideo(sessionId, options);
+      setFinalVideoUrl(result.finalVideoUrl);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Video reassembled!");
+    } catch (err) {
+      toast.error("Failed to reassemble video");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Delete clip
+  const deleteClip = useCallback(async (clipId) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      await sessionService.deleteClip(sessionId, clipId);
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      toast.success("Clip deleted!");
+    } catch (err) {
+      toast.error("Failed to delete clip");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Enter editing mode
+  const enterEditingMode = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const updatedSession = await sessionService.enterEditingMode(sessionId);
+      setSession(updatedSession);
+    } catch (err) {
+      toast.error("Failed to enter editing mode");
+    }
+  }, [sessionId]);
+
+  // Mark session as completed (used when returning from editing to result)
+  const completeSession = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const updatedSession = await sessionService.completeSession(sessionId);
+      setSession(updatedSession);
+    } catch (err) {
+      console.error("Failed to complete session:", err);
+    }
+  }, [sessionId]);
+
+  // Refresh session data from the server
+  const refreshSession = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const updatedSession = await sessionService.getSession(sessionId);
+      setSession(updatedSession);
+      if (updatedSession.video?.finalVideoUrl) {
+        setFinalVideoUrl(updatedSession.video.finalVideoUrl);
+      }
+      return updatedSession;
+    } catch (err) {
+      console.error("Failed to refresh session:", err);
+    }
+  }, [sessionId]);
 
   // Navigation
   const goToStep = useCallback((newStep) => {
@@ -663,37 +1034,56 @@ export function useSession() {
     setStep((prev) => Math.max(0, prev - 1));
   }, []);
 
-  // Reset session (image pipeline)
+  // Reset session
   const reset = useCallback(() => {
     // Cleanup image previews
     images.forEach((img) => {
       if (img.preview) URL.revokeObjectURL(img.preview);
     });
 
-    // Reset base shared state
-    resetBase();
-
-    // Reset image-pipeline specific state
+    setSessionId(null);
+    setSession(null);
     setStep(0);
+    setDirection(0);
+    setUserPrompt("");
+    setStyle("cinematic");
+    setTargetDuration(60);
+    setVoiceId("adam");
+    setVideoModel("KLING");
+    setBackgroundMusic(true);
     setImages([]);
     setImageAnalysis(null);
+    setScriptData(null);
+    setEditRequest("");
     setOpeningFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setGeneratedFrameImages({ opening: null, closing: null });
-  }, [images, resetBase]);
+    setGenerationProgress(null);
+    setFinalVideoUrl(null);
+    setError(null);
+  }, [images]);
 
   return {
-    // Spread all base shared state & callbacks
-    ...base,
-
-    // Override/add image-pipeline specifics
+    // Session
+    sessionId,
+    session,
     step,
-    direction: base.direction,
-    loading: base.loading,
-    error: base.error,
+    direction,
+    loading,
+    error,
 
     // Form state
+    userPrompt,
+    setUserPrompt,
+    style,
+    setStyle,
     imageDuration,
+    voiceId,
+    setVoiceId,
+    videoModel,
+    setVideoModel,
+    backgroundMusic,
+    setBackgroundMusic,
 
     // Images
     images,
@@ -702,6 +1092,12 @@ export function useSession() {
     reorderImages,
     imageAnalysis,
 
+    // Script
+    scriptData,
+    setScriptData,
+    editRequest,
+    setEditRequest,
+
     // Frames
     openingFrame,
     setOpeningFrame,
@@ -709,32 +1105,32 @@ export function useSession() {
     setClosingFrame,
     generatedFrameImages,
 
-    // Generation (override base with pipeline-specific wrapper)
-    startGeneration,
-    scriptProgress: base.scriptProgress,
-    generationProgress: base.generationProgress,
-    finalVideoUrl: base.finalVideoUrl,
-    insufficientCredits: base.insufficientCredits,
-    dismissInsufficientCredits: base.dismissInsufficientCredits,
+    // Generation
+    generationProgress,
+    finalVideoUrl,
+    scriptProgress,
+    insufficientCredits,
+    dismissInsufficientCredits: () => setInsufficientCredits(null),
 
     // Actions
     startSession,
     uploadImages,
     analyzeImages,
     generateScript,
-    updateScript: base.updateScript,
-    editScriptWithAI: base.editScriptWithAI,
-    approveScript: base.approveScript,
+    updateScript,
+    editScriptWithAI,
+    approveScript,
     configureFrames,
-    updateClip: base.updateClip,
-    regenerateClip: base.regenerateClip,
-    regenerateNarration: base.regenerateNarration,
-    reorderClips: base.reorderClips,
-    reassembleVideo: base.reassembleVideo,
-    deleteClip: base.deleteClip,
-    enterEditingMode: base.enterEditingMode,
-    completeSession: base.completeSession,
-    refreshSession: base.refreshSession,
+    startGeneration,
+    updateClip,
+    regenerateClip,
+    regenerateNarration,
+    reorderClips,
+    reassembleVideo,
+    deleteClip,
+    enterEditingMode,
+    completeSession,
+    refreshSession,
 
     // Navigation
     goToStep,
@@ -743,7 +1139,7 @@ export function useSession() {
     reset,
 
     // Constants
-    STYLE_OPTIONS,
+    styleOptions,
     STAGES,
   };
 }

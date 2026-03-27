@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import CharacterCard from './CharacterCard';
 
+const STYLE_ICONS = {
+  realistic: "📷",
+  animated: "🎨",
+  cinematic: "🎬",
+  surreal: "✨",
+};
+
 export default function PromptStep({
   userPrompt,
   setUserPrompt,
@@ -22,6 +29,7 @@ export default function PromptStep({
   setOpeningFrame,
   closingFrame,
   setClosingFrame,
+  styleOptions = [],
   // Character pipeline props
   pipelineMode,
   onModeChange,
@@ -113,9 +121,7 @@ export default function PromptStep({
   // Require custom prompt for AI-generated frames
   const openingNeedsPrompt = openingFrame?.enabled && !openingFrame?.useUpload && !openingFrame?.customPrompt?.trim();
   const closingNeedsPrompt = closingFrame?.enabled && !closingFrame?.useUpload && !closingFrame?.customPrompt?.trim();
-  const canStart = isCharacterMode
-    ? character?.name?.trim() && character?.description?.trim() && character?.referenceFile && userPrompt?.trim() && style
-    : userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
+  const canStart = userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -134,31 +140,9 @@ export default function PromptStep({
               Create Your Video
             </h1>
             <p className="text-gray-600">
-              {isCharacterMode
-                ? "Upload a character and describe the story you want to tell"
-                : "Describe the video you want to create and upload your images"}
+              Describe the video you want to create and upload your images
             </p>
           </div>
-
-          {/* Pipeline Mode Toggle */}
-          {onModeChange && (
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => onModeChange('image')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
-                  ${!isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
-              >
-                Image-Based
-              </button>
-              <button
-                onClick={() => onModeChange('character')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
-                  ${isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
-              >
-                Character Story
-              </button>
-            </div>
-          )}
 
           {/* Prompt Input */}
           <div className="mb-6">
@@ -176,22 +160,8 @@ export default function PromptStep({
             />
           </div>
 
-          {/* Character Card (character mode only) */}
-          {isCharacterMode && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-900 mb-3">
-                Your Character
-              </label>
-              <CharacterCard
-                character={character}
-                onChange={onCharacterChange}
-                disabled={loading}
-              />
-            </div>
-          )}
-
-          {/* Image Upload Section (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
+          {/* Image Upload Section */}
+          <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-700">
                 <ImageIcon className="w-4 h-4 inline mr-1" />
@@ -299,7 +269,7 @@ export default function PromptStep({
                 ))}
               </div>
             )}
-          </div>}
+          </div>
 
           {/* Style Selection */}
           <div className="mb-6">
@@ -308,7 +278,7 @@ export default function PromptStep({
               Video Style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {STYLE_OPTIONS.map((option) => (
+              {styleOptions.map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -323,7 +293,7 @@ export default function PromptStep({
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  <span className="text-2xl mb-2 block">{option.icon}</span>
+                  <span className="text-2xl mb-2 block">{STYLE_ICONS[option.id] || "🎭"}</span>
                   <span className="font-medium text-gray-900 block">{option.name}</span>
                   <span className="text-xs text-gray-500">{option.description}</span>
                 </motion.button>
@@ -331,8 +301,8 @@ export default function PromptStep({
             </div>
           </div>
 
-          {/* Opening & Closing Frames (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
+          {/* Opening & Closing Frames */}
+          <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
               className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
@@ -617,12 +587,7 @@ export default function PromptStep({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>}
-
-          {/* Error */}
-          {error && (
-            <p className="text-red-500 text-sm mb-4">{error}</p>
-          )}
+          </div>
 
           {/* Start Button */}
           <Button
@@ -645,7 +610,7 @@ export default function PromptStep({
                 Start Creating
                 {!canStart && (
                   <span className="text-sm font-normal opacity-75">
-                    ({!userPrompt?.trim() ? "enter prompt" : isCharacterMode ? "complete character details" : "upload images"})
+                    ({!userPrompt?.trim() ? "enter prompt" : "upload images"})
                   </span>
                 )}
               </span>
@@ -654,9 +619,7 @@ export default function PromptStep({
 
           {/* Help text */}
           <p className="text-center text-sm text-gray-500 mt-4">
-            {isCharacterMode
-              ? "You need a character (name, description, image), a prompt, and a style to continue"
-              : "You need both a prompt and at least one image to continue"}
+            You need both a prompt and at least one image to continue
           </p>
         </motion.div>
       </div>

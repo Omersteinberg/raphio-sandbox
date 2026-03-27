@@ -19,7 +19,14 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
   const totalTTS = progressData.totalTTS || 0;
 
   // Determine stage statuses based on progressData
-  // Order: Clips → TTS → Assembly
+  // Order: Restyle → Clips → TTS → Assembly
+  const restyleStatus = (() => {
+    if (currentStage === "RESTYLE") return "processing";
+    if (currentStage === "CLIPS" || currentStage === "TTS" || currentStage === "ASSEMBLY") return "completed";
+    if (!session?.restyled) return "completed";
+    return "pending";
+  })();
+
   const clipsStatus = (() => {
     if (completedSections >= totalClips && totalClips > 0) return "completed";
     if (currentStage === "CLIPS") return "processing";
@@ -41,6 +48,13 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
   })();
 
   const stages = [
+    ...(session?.restyled ? [{
+      id: "restyle",
+      name: "Restyling Images",
+      description: "Applying visual style to uploaded images",
+      icon: Image,
+      status: restyleStatus,
+    }] : []),
     {
       id: "clips",
       name: "Creating Video Clips",

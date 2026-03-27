@@ -28,9 +28,10 @@ export default function ImagePipelineCreator({ onModeChange }) {
   const navigate = useNavigate();
   const session = useSession();
 
+  // Redirect to buy credits if user has 0 credits
   useEffect(() => {
     if (credits !== null && credits < 1) {
-      navigate("/buy-credits");
+      navigate('/buy-credits');
     }
   }, [credits, navigate]);
 
@@ -46,6 +47,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     style,
     setStyle,
     startSession,
+    styleOptions,
 
     // Images (from prompt)
     images,
@@ -101,8 +103,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
 
   // Animation variants
   const slideVariants = {
-    enter: (dir) => ({
-      x: dir > 0 ? 1000 : -1000,
+    enter: (direction) => ({
+      x: direction > 0 ? 1000 : -1000,
       opacity: 0,
     }),
     center: {
@@ -110,9 +112,9 @@ export default function ImagePipelineCreator({ onModeChange }) {
       x: 0,
       opacity: 1,
     },
-    exit: (dir) => ({
+    exit: (direction) => ({
       zIndex: 0,
-      x: dir < 0 ? 1000 : -1000,
+      x: direction < 0 ? 1000 : -1000,
       opacity: 0,
     }),
   };
@@ -122,6 +124,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     opacity: { duration: 0.2 },
   };
 
+  // Render current step component
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -143,6 +146,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
             setOpeningFrame={setOpeningFrame}
             closingFrame={closingFrame}
             setClosingFrame={setClosingFrame}
+            styleOptions={styleOptions}
           />
         );
 
@@ -292,6 +296,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
             <div className="w-full h-full bg-white">{renderStep()}</div>
           </motion.div>
         </AnimatePresence>
+
+
       </div>
 
       {/* Loading overlay */}
