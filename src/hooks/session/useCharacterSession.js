@@ -59,6 +59,7 @@ export function useCharacterSession() {
     description: "",
     referenceImage: null, // preview URL
     referenceFile: null,  // File object
+    useUpload: true,      // true = upload image, false = AI generate
   });
   const [lockedImage, setLockedImage] = useState(null);
   const [characterApproved, setCharacterApproved] = useState(false);
@@ -136,12 +137,16 @@ export function useCharacterSession() {
       toast.error("Please enter a prompt");
       return;
     }
-    if (!character.referenceFile) {
-      toast.error("Please upload a character reference image");
-      return;
-    }
     if (!character.name.trim()) {
       toast.error("Please enter a character name");
+      return;
+    }
+    if (!character.description.trim()) {
+      toast.error("Please enter a character description");
+      return;
+    }
+    if (character.useUpload && !character.referenceFile) {
+      toast.error("Please upload a character reference image");
       return;
     }
 
@@ -166,15 +171,27 @@ export function useCharacterSession() {
       setSessionId(newSession.id);
       setSession(newSession);
 
-      // Step 2: Upload character
-      console.log("[useCharacterSession] Uploading character...");
-      setScriptProgress(30);
-      await characterApi.uploadCharacter(newSession.id, {
-        name: character.name,
-        description: character.description,
-        imageFile: character.referenceFile,
-      });
-      console.log("[useCharacterSession] Character uploaded");
+      // Step 2: Upload or generate character
+      if (character.useUpload) {
+        // Upload mode — existing flow
+        console.log("[useCharacterSession] Uploading character...");
+        setScriptProgress(30);
+        await characterApi.uploadCharacter(newSession.id, {
+          name: character.name,
+          description: character.description,
+          imageFile: character.referenceFile,
+        });
+        console.log("[useCharacterSession] Character uploaded");
+      } else {
+        // AI Generate mode — new flow
+        console.log("[useCharacterSession] Generating character from description...");
+        setScriptProgress(30);
+        await characterApi.generateCharacterImage(newSession.id, {
+          name: character.name,
+          description: character.description,
+        });
+        console.log("[useCharacterSession] Character generated from description");
+      }
       setScriptProgress(50);
 
       // Step 3: Lock character (generate consistent version)
@@ -419,7 +436,7 @@ export function useCharacterSession() {
     resetBase();
 
     setStep(0);
-    setCharacter({ name: "", description: "", referenceImage: null, referenceFile: null });
+    setCharacter({ name: "", description: "", referenceImage: null, referenceFile: null, useUpload: true });
     setLockedImage(null);
     setCharacterApproved(false);
     setSceneFrames([]);

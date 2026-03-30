@@ -121,7 +121,9 @@ export default function PromptStep({
   // Require custom prompt for AI-generated frames
   const openingNeedsPrompt = openingFrame?.enabled && !openingFrame?.useUpload && !openingFrame?.customPrompt?.trim();
   const closingNeedsPrompt = closingFrame?.enabled && !closingFrame?.useUpload && !closingFrame?.customPrompt?.trim();
-  const canStart = userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
+  const canStart = isCharacterMode
+    ? character?.name?.trim() && character?.description?.trim() && userPrompt?.trim() && style && (character?.useUpload === false || character?.referenceFile)
+    : userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -140,9 +142,31 @@ export default function PromptStep({
               Create Your Video
             </h1>
             <p className="text-gray-600">
-              Describe the video you want to create and upload your images
+              {isCharacterMode
+                ? "Upload a character and describe the story you want to tell"
+                : "Describe the video you want to create and upload your images"}
             </p>
           </div>
+
+          {/* Pipeline Mode Toggle */}
+          {onModeChange && (
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => onModeChange('image')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
+                  ${!isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+              >
+                Image-Based
+              </button>
+              <button
+                onClick={() => onModeChange('character')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
+                  ${isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+              >
+                Character Story
+              </button>
+            </div>
+          )}
 
           {/* Prompt Input */}
           <div className="mb-6">
@@ -160,8 +184,22 @@ export default function PromptStep({
             />
           </div>
 
-          {/* Image Upload Section */}
-          <div className="mb-6">
+          {/* Character Card (character mode only) */}
+          {isCharacterMode && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Your Character
+              </label>
+              <CharacterCard
+                character={character}
+                onChange={onCharacterChange}
+                disabled={loading}
+              />
+            </div>
+          )}
+
+          {/* Image Upload Section (image mode only) */}
+          {!isCharacterMode && <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-700">
                 <ImageIcon className="w-4 h-4 inline mr-1" />
@@ -269,7 +307,7 @@ export default function PromptStep({
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Style Selection */}
           <div className="mb-6">
@@ -278,7 +316,7 @@ export default function PromptStep({
               Video Style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {styleOptions.map((option) => (
+              {(isCharacterMode ? STYLE_OPTIONS : styleOptions).map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -293,7 +331,7 @@ export default function PromptStep({
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  <span className="text-2xl mb-2 block">{STYLE_ICONS[option.id] || "🎭"}</span>
+                  <span className="text-2xl mb-2 block">{option.icon || STYLE_ICONS[option.id] || "🎭"}</span>
                   <span className="font-medium text-gray-900 block">{option.name}</span>
                   <span className="text-xs text-gray-500">{option.description}</span>
                 </motion.button>
@@ -301,8 +339,8 @@ export default function PromptStep({
             </div>
           </div>
 
-          {/* Opening & Closing Frames */}
-          <div className="mb-6">
+          {/* Opening & Closing Frames (image mode only) */}
+          {!isCharacterMode && <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
               className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
@@ -587,7 +625,12 @@ export default function PromptStep({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </div>}
+
+          {/* Error */}
+          {error && (
+            <p className="text-red-500 text-sm mb-4">{error}</p>
+          )}
 
           {/* Start Button */}
           <Button

@@ -37,3 +37,11 @@ export async function regenerateSceneFrame(sessionId, index, { feedback } = {}) 
   );
   return response.data;
 }
+
+export async function generateCharacterImage(sessionId, { name, description }) {
+  const response = await axios.post(`${CHARACTER_API}/${sessionId}/character/generate`, {
+    name,
+    description,
+  });
+  return response.data;
+}

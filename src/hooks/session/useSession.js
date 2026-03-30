@@ -98,9 +98,12 @@ export function useSession() {
   // Style options (fetched from API)
   const [styleOptions, setStyleOptions] = useState([]);
 
+  // Image pipeline only supports original 4 styles
+  const IMAGE_PIPELINE_STYLES = ['realistic', 'animated', 'cinematic', 'surreal'];
+
   useEffect(() => {
     fetchStyles()
-      .then(setStyleOptions)
+      .then((styles) => setStyleOptions(styles.filter(s => IMAGE_PIPELINE_STYLES.includes(s.id))))
       .catch((err) => {
         console.error('Failed to fetch styles:', err);
         // Fallback to hardcoded styles if API fails
