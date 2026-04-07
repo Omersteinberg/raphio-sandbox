@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function MergeLoadingOverlay({ text = "Loading...", progress = null }) {
-  // Simulated progress when no real progress is provided
   const [simulated, setSimulated] = useState(0);
 
   useEffect(() => {
     if (progress !== null) return;
     setSimulated(0);
-    // Fast at first, then slows down as it approaches 90%
     const interval = setInterval(() => {
       setSimulated((prev) => {
         if (prev >= 90) return prev;
@@ -22,21 +20,27 @@ export default function MergeLoadingOverlay({ text = "Loading...", progress = nu
   const displayProgress = progress !== null ? progress : Math.round(simulated);
 
   return (
-    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col justify-center items-center z-50 pointer-events-auto p-4">
-      <div className="text-white text-center text-xl font-semibold max-w-xs leading-relaxed mb-4">
+    <div
+      className="absolute inset-0 flex flex-col justify-center items-center z-50 pointer-events-auto p-4"
+      style={{ background: "rgba(45,34,53,0.6)", backdropFilter: "blur(8px)" }}
+    >
+      <div className="text-white text-center text-xl font-bold max-w-xs leading-relaxed mb-4 font-figtree">
         {text}
       </div>
 
       <div className="w-64">
-        <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.15)" }}>
           <motion.div
-            className="h-full bg-purple-500 rounded-full"
+            className="h-full rounded-full"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             initial={{ width: 0 }}
             animate={{ width: `${displayProgress}%` }}
             transition={{ duration: 0.4, ease: "easeOut" }}
           />
         </div>
-        <p className="text-white/70 text-sm text-center mt-2">{displayProgress}%</p>
+        <p className="text-sm text-center mt-2 font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+          {displayProgress}%
+        </p>
       </div>
     </div>
   );

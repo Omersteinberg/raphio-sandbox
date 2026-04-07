@@ -77,7 +77,9 @@ export default function CharacterCard({ character, onChange, disabled }) {
 
         {/* Mode Toggle */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Reference Image</label>
+          {useUpload && (
+            <label className="block text-sm font-medium text-gray-700 mb-2">Reference Image</label>
+          )}
           <div className="flex gap-2 mb-3">
             <button
               onClick={() => !disabled && setMode(false)}

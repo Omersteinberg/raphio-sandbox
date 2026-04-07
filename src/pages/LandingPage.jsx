@@ -1,18 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
-  Sparkles,
-  Upload,
-  Video,
-  Wand2,
-  Mic2,
-  Zap,
-  Users,
-  Briefcase,
-  GraduationCap,
-  Play,
-  ArrowRight,
-} from "lucide-react";
+import { Wand2, Upload, Video, ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LandingPage() {
@@ -23,225 +11,170 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background-gradient font-montserrat">
+    <div className="min-h-screen font-figtree" style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}>
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-8 h-8 text-primary" />
-            <span className="text-xl font-semibold text-foreground">Merge</span>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md border-b border-orange-100/60">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}>
+              <Play className="w-4 h-4 text-white fill-white" />
+            </div>
+            <span className="text-xl font-bold" style={{ color: "#2D2235" }}>Raphio</span>
           </div>
           <Button
             onClick={handleGetStarted}
-            className="bg-secondary hover:bg-secondary/90 text-white px-6"
+            className="text-white px-6 rounded-full border-0 font-semibold shadow-md shadow-orange-200/50 hover:shadow-lg hover:shadow-orange-200/60 transition-all"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
           >
-            Create Video
+            Make a Video
           </Button>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
+      <section className="pt-36 pb-24 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-5xl md:text-6xl font-bold text-foreground mb-6"
+            transition={{ duration: 0.7, ease: "easeOut" }}
           >
-            Create AI Videos in{" "}
-            <span className="text-primary">
-              Minutes
+            <span
+              className="inline-block px-4 py-1.5 rounded-full text-sm font-semibold mb-6"
+              style={{ background: "#FFF0E6", color: "#E5582A" }}
+            >
+              100% free to try
+            </span>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.08, ease: "easeOut" }}
+            className="text-5xl md:text-6xl font-extrabold leading-tight mb-6"
+            style={{ color: "#2D2235" }}
+          >
+            Turn your ideas into{" "}
+            <span className="relative">
+              <span style={{
+                background: "linear-gradient(135deg, #F97066, #FB923C)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}>
+                beautiful videos
+              </span>
             </span>
           </motion.h1>
+
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto"
+            transition={{ duration: 0.7, delay: 0.16, ease: "easeOut" }}
+            className="text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed"
+            style={{ color: "#6B5E7B" }}
           >
-            No sign-up required. Just describe your idea, upload images, and let
-            AI generate your video with professional narration.
+            Just describe what you want, add some pictures, and we'll turn it
+            into a video with a professional voice. It's that easy.
           </motion.p>
+
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.7, delay: 0.24, ease: "easeOut" }}
           >
             <Button
               onClick={handleGetStarted}
               size="lg"
-              className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-full"
+              className="text-white px-10 py-7 text-lg rounded-full border-0 font-bold shadow-xl shadow-orange-200/40 hover:shadow-2xl hover:shadow-orange-300/50 hover:scale-[1.02] transition-all duration-200"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
-              Create Your Video Now
+              Try It Free
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </motion.div>
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* How It Works — combines steps + features */}
       <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
-            How It Works
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center mb-14"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: "#2D2235" }}>
+              Three simple steps
+            </h2>
+            <p className="text-lg" style={{ color: "#6B5E7B" }}>
+              No tech skills needed. If you can type, you can make a video.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: <Wand2 className="w-10 h-10" />,
+                icon: <Wand2 className="w-7 h-7" />,
                 step: "1",
-                title: "Describe Your Idea",
+                title: "Tell us your idea",
                 description:
-                  "Chat with AI to craft your story. Describe what you want and get a professional script.",
+                  "Just describe what your video should be about — like telling a friend. We'll write a professional script for you.",
+                gradient: "linear-gradient(135deg, #FFF0E6, #FFE4D6)",
+                iconBg: "#F97066",
+                accent: "#FECACA",
               },
               {
-                icon: <Upload className="w-10 h-10" />,
+                icon: <Upload className="w-7 h-7" />,
                 step: "2",
-                title: "Upload Images",
+                title: "Add your pictures",
                 description:
-                  "Add your images for each scene. Our AI will bring them to life with motion.",
+                  "Upload photos or images for each scene. Don't have any? No worries — our AI can create them for you.",
+                gradient: "linear-gradient(135deg, #EDE9FE, #E0D7FC)",
+                iconBg: "#8B5CF6",
+                accent: "#DDD6FE",
               },
               {
-                icon: <Video className="w-10 h-10" />,
+                icon: <Video className="w-7 h-7" />,
                 step: "3",
-                title: "Get Your Video",
+                title: "Pick a voice & go",
                 description:
-                  "Choose a voice, generate, and download your professional video in minutes.",
+                  "Choose from 36+ natural-sounding voices, hit generate, and your video will be ready in minutes.",
+                gradient: "linear-gradient(135deg, #DBEAFE, #C7D2FE)",
+                iconBg: "#3B82F6",
+                accent: "#BFDBFE",
               },
             ].map((item, index) => (
               <motion.div
                 key={item.step}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 28 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.5, delay: index * 0.12 }}
                 viewport={{ once: true }}
-                className="relative bg-card rounded-2xl p-8 border border-border hover:border-primary/50 transition-colors shadow-sm"
+                className="relative rounded-3xl p-8 border border-white/60 shadow-sm hover:shadow-md transition-shadow duration-300"
+                style={{ background: item.gradient }}
               >
-                <div className="absolute -top-4 -left-4 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
-                  {item.step}
+                {/* Step number pill */}
+                <div
+                  className="absolute -top-3 left-6 px-3 py-0.5 rounded-full text-xs font-bold text-white"
+                  style={{ background: item.iconBg }}
+                >
+                  Step {item.step}
                 </div>
-                <div className="text-primary mb-4">{item.icon}</div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">
+
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-5 shadow-sm"
+                  style={{ background: item.iconBg }}
+                >
+                  {item.icon}
+                </div>
+                <h3 className="text-xl font-bold mb-2" style={{ color: "#2D2235" }}>
                   {item.title}
                 </h3>
-                <p className="text-muted-foreground">{item.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 px-6 bg-muted/50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
-            Powerful Features
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                icon: <Sparkles className="w-6 h-6" />,
-                title: "AI Script Generation",
-                description:
-                  "Get professionally written scripts tailored to your content.",
-              },
-              {
-                icon: <Mic2 className="w-6 h-6" />,
-                title: "36+ Professional Voices",
-                description:
-                  "Choose from a variety of natural-sounding AI voices.",
-              },
-              {
-                icon: <Video className="w-6 h-6" />,
-                title: "HD Video Output",
-                description: "Generate high-quality videos ready for any platform.",
-              },
-              {
-                icon: <Zap className="w-6 h-6" />,
-                title: "Fast Processing",
-                description: "Get your videos in minutes, not hours.",
-              },
-              {
-                icon: <Wand2 className="w-6 h-6" />,
-                title: "Image to Video",
-                description: "Transform static images into dynamic video clips.",
-              },
-              {
-                icon: <Play className="w-6 h-6" />,
-                title: "Free to Use",
-                description: "No credit card or sign-up required to get started.",
-              },
-            ].map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
-                viewport={{ once: true }}
-                className="bg-card rounded-xl p-6 border border-border shadow-sm"
-              >
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-muted-foreground text-sm">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-4">
-            Who Is This For?
-          </h2>
-          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-            Whether you're a creator, marketer, or educator, our AI video
-            generator helps you produce professional content quickly.
-          </p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                icon: <Users className="w-8 h-8" />,
-                title: "Content Creators",
-                description: "YouTube videos, social media content, vlogs",
-              },
-              {
-                icon: <Briefcase className="w-8 h-8" />,
-                title: "Marketers",
-                description: "Product demos, ads, promotional content",
-              },
-              {
-                icon: <GraduationCap className="w-8 h-8" />,
-                title: "Educators",
-                description: "Tutorials, explainer videos, courses",
-              },
-              {
-                icon: <Sparkles className="w-8 h-8" />,
-                title: "Small Businesses",
-                description: "Company intros, service showcases",
-              },
-            ].map((useCase, index) => (
-              <motion.div
-                key={useCase.title}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="text-center p-6"
-              >
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
-                  {useCase.icon}
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  {useCase.title}
-                </h3>
-                <p className="text-muted-foreground text-sm">{useCase.description}</p>
+                <p className="leading-relaxed" style={{ color: "#6B5E7B" }}>
+                  {item.description}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -250,26 +183,28 @@ export default function LandingPage() {
 
       {/* Final CTA */}
       <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-3xl mx-auto text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="bg-primary/5 rounded-3xl p-12 border border-primary/20"
+            className="rounded-3xl p-14 border border-white/60 shadow-sm"
+            style={{ background: "linear-gradient(135deg, #2D2235, #3D2E4A)" }}
           >
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              Ready to Create Your First Video?
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Ready to make your first video?
             </h2>
-            <p className="text-muted-foreground mb-8">
-              No credit card required. No sign-up needed. Start creating now.
+            <p className="text-lg mb-8" style={{ color: "#B8A9C9" }}>
+              It's completely free to start. No account needed.
             </p>
             <Button
               onClick={handleGetStarted}
               size="lg"
-              className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-full font-semibold"
+              className="text-white px-10 py-7 text-lg rounded-full border-0 font-bold shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 hover:scale-[1.02] transition-all duration-200"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
-              Get Started - It's Free
+              Get Started — It's Free
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </motion.div>
@@ -277,14 +212,16 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-border">
+      <footer className="py-8 px-6 border-t" style={{ borderColor: "#F0E6DC" }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <span className="text-foreground font-semibold">Merge</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}>
+              <Play className="w-3.5 h-3.5 text-white fill-white" />
+            </div>
+            <span className="font-bold" style={{ color: "#2D2235" }}>Raphio</span>
           </div>
-          <p className="text-muted-foreground text-sm">
-            AI-powered video generation platform
+          <p className="text-sm" style={{ color: "#9B8FA8" }}>
+            Make videos from your ideas, no experience needed.
           </p>
         </div>
       </footer>

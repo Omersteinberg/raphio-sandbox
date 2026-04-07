@@ -59,6 +59,10 @@ export default {
   			montserrat: [
   				'Montserrat',
   				'sans-serif'
+  			],
+  			figtree: [
+  				'Figtree',
+  				'sans-serif'
   			]
   		},
   		borderRadius: {

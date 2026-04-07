@@ -3,14 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card } from '../components/ui/card';
+import { Play } from 'lucide-react';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -18,10 +18,10 @@ function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
       await login(username, password);
-      navigate('/create');
+      navigate('/videos');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -30,69 +30,98 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background-gradient py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="max-w-md w-full p-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-8">
-            Sign in to your account
-          </h2>
+    <div
+      className="min-h-screen flex items-center justify-center font-figtree py-12 px-4 sm:px-6 lg:px-8"
+      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+    >
+      <div className="max-w-md w-full">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2.5 mb-10">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+          >
+            <Play className="w-5 h-5 text-white fill-white" />
+          </div>
+          <span className="text-2xl font-bold" style={{ color: "#2D2235" }}>Raphio</span>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
+
+        {/* Card */}
+        <div
+          className="rounded-3xl p-8 sm:p-10 border border-white/60 shadow-lg"
+          style={{ background: "rgba(255, 255, 255, 0.75)", backdropFilter: "blur(20px)" }}
+        >
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2" style={{ color: "#2D2235" }}>
+              Welcome back
+            </h2>
+            <p style={{ color: "#6B5E7B" }}>
+              Sign in to keep creating videos
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div
+                className="px-4 py-3 rounded-xl text-sm font-medium"
+                style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="username" className="block text-sm font-semibold mb-2" style={{ color: "#2D2235" }}>
+                Username
+              </label>
+              <Input
+                id="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Your username"
+                className="w-full rounded-xl border-gray-200 focus:border-orange-300 focus:ring-orange-200 py-3"
+              />
             </div>
-          )}
-          
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-              Username
-            </label>
-            <Input
-              id="username"
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              className="w-full"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="w-full"
-            />
-          </div>
-          
-          <div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold mb-2" style={{ color: "#2D2235" }}>
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full rounded-xl border-gray-200 focus:border-orange-300 focus:ring-orange-200 py-3"
+              />
+            </div>
+
             <Button
               type="submit"
               disabled={loading}
-              className="w-full"
+              className="w-full text-white rounded-xl py-6 text-base font-bold border-0 shadow-md shadow-orange-200/50 hover:shadow-lg hover:shadow-orange-200/60 transition-all"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
-          </div>
-          
-          <p className="text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Sign up
-            </Link>
-          </p>
-        </form>
-      </Card>
+
+            <p className="text-center text-sm pt-2" style={{ color: "#6B5E7B" }}>
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="font-semibold hover:underline"
+                style={{ color: "#F97066" }}
+              >
+                Sign up
+              </Link>
+            </p>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

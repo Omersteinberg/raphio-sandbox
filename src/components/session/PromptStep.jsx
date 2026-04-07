@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,10 @@ import { STYLE_OPTIONS } from '../../constants/styles';
 import CharacterCard from './CharacterCard';
 
 const STYLE_ICONS = {
-  realistic: "📷",
-  animated: "🎨",
-  cinematic: "🎬",
-  surreal: "✨",
+  realistic: "\uD83D\uDCF7",
+  animated: "\uD83C\uDFA8",
+  cinematic: "\uD83C\uDFAC",
+  surreal: "\u2728",
 };
 
 export default function PromptStep({
@@ -44,6 +44,7 @@ export default function PromptStep({
   const [frameConfigExpanded, setFrameConfigExpanded] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [showPromptGuide, setShowPromptGuide] = useState(false);
 
   // Handle file upload for frames
   const handleFrameFileChange = (e, frameType) => {
@@ -135,16 +136,19 @@ export default function PromptStep({
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
-              <Sparkles className="w-8 h-8 text-primary" />
+            <div
+              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-sm"
+              style={{ background: "linear-gradient(135deg, #FFF0E6, #F0EAFF)" }}
+            >
+              <Sparkles className="w-8 h-8" style={{ color: "#F97066" }} />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Create Your Video
+            <h1 className="text-3xl font-bold mb-2" style={{ color: "#2D2235" }}>
+              {isCharacterMode ? "Create a Character Video" : "Create Your Video"}
             </h1>
-            <p className="text-gray-600">
+            <p style={{ color: "#6B5E7B" }}>
               {isCharacterMode
-                ? "Upload a character and describe the story you want to tell"
-                : "Describe the video you want to create and upload your images"}
+                ? "Upload a character and tell us the story you want"
+                : "Tell us what your video should be about and add your pictures"}
             </p>
           </div>
 
@@ -153,15 +157,23 @@ export default function PromptStep({
             <div className="flex gap-2 mb-6">
               <button
                 onClick={() => onModeChange('image')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
-                  ${!isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                style={
+                  !isCharacterMode
+                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
+                    : { background: "#F0EAFF", color: "#6B5E7B" }
+                }
               >
                 Image-Based
               </button>
               <button
                 onClick={() => onModeChange('character')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors
-                  ${isCharacterMode ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                style={
+                  isCharacterMode
+                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
+                    : { background: "#F0EAFF", color: "#6B5E7B" }
+                }
               >
                 Character Story
               </button>
@@ -170,9 +182,19 @@ export default function PromptStep({
 
           {/* Prompt Input */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              What's your video about?
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
+                What's your video about?
+              </label>
+              <button
+                onClick={() => setShowPromptGuide(true)}
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105"
+                style={{ background: "#FFF0E6", color: "#F97066" }}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Tips
+              </button>
+            </div>
             <Textarea
               value={userPrompt}
               onChange={(e) => {
@@ -180,14 +202,15 @@ export default function PromptStep({
                 setUserPrompt(e.target.value);
               }}
               placeholder="e.g., A promotional video for my coffee shop showing our cozy atmosphere, specialty drinks, and friendly baristas..."
-              className="w-full min-h-[120px] bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none"
+              className="w-full min-h-[120px] rounded-xl border-gray-200 focus:border-orange-300 focus:ring-orange-200 resize-none"
+              style={{ background: "rgba(255,255,255,0.8)" }}
             />
           </div>
 
           {/* Character Card (character mode only) */}
           {isCharacterMode && (
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-semibold mb-3" style={{ color: "#2D2235" }}>
                 Your Character
               </label>
               <CharacterCard
@@ -201,9 +224,9 @@ export default function PromptStep({
           {/* Image Upload Section (image mode only) */}
           {!isCharacterMode && <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
                 <ImageIcon className="w-4 h-4 inline mr-1" />
-                Upload Images ({images?.length || 0})
+                Your Pictures ({images?.length || 0})
               </label>
               {images?.length > 0 && (
                 <Button
@@ -213,7 +236,7 @@ export default function PromptStep({
                     console.log("[PromptStep] Clearing all images");
                     images.forEach((_, i) => removeImage(i));
                   }}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
                   Clear All
@@ -237,14 +260,17 @@ export default function PromptStep({
               }}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors mb-4"
+              className="border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all mb-4 hover:scale-[1.01]"
+              style={{ borderColor: "#E0D7FC", background: "rgba(240,234,255,0.3)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F97066"; e.currentTarget.style.background = "rgba(249,112,102,0.04)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E0D7FC"; e.currentTarget.style.background = "rgba(240,234,255,0.3)"; }}
             >
-              <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
-              <p className="text-gray-700 font-medium">
-                Drop images here or click to upload
+              <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "#F97066" }} />
+              <p className="font-semibold" style={{ color: "#2D2235" }}>
+                Drop pictures here or tap to upload
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Supports JPEG and PNG only
+              <p className="text-sm mt-1" style={{ color: "#9B8FA8" }}>
+                JPEG and PNG files
               </p>
             </div>
 
@@ -279,16 +305,20 @@ export default function PromptStep({
                       setDragIndex(null);
                       setDragOverIndex(null);
                     }}
-                    className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all ${
+                    className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all rounded-xl overflow-hidden ${
                       dragIndex === index ? "opacity-40 scale-95" : ""
-                    } ${dragOverIndex === index && dragIndex !== index ? "ring-2 ring-primary ring-offset-2 scale-105" : ""}`}
+                    } ${dragOverIndex === index && dragIndex !== index ? "ring-2 ring-offset-2 scale-105" : ""}`}
+                    style={dragOverIndex === index && dragIndex !== index ? { ringColor: "#F97066" } : {}}
                   >
                     <img
                       src={img.preview}
                       alt={`Upload ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg pointer-events-none"
+                      className="w-full h-full object-cover pointer-events-none"
                     />
-                    <div className="absolute top-1 left-1 w-6 h-6 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div
+                      className="absolute top-1 left-1 w-6 h-6 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      style={{ background: "rgba(45,34,53,0.5)" }}
+                    >
                       <GripVertical className="w-3.5 h-3.5" />
                     </div>
                     <button
@@ -300,7 +330,10 @@ export default function PromptStep({
                     >
                       <X className="w-4 h-4" />
                     </button>
-                    <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-medium">
+                    <span
+                      className="absolute bottom-1 left-1 text-white text-xs px-2 py-0.5 rounded-full font-bold"
+                      style={{ background: "rgba(45,34,53,0.6)" }}
+                    >
                       {index + 1}
                     </span>
                   </motion.div>
@@ -311,9 +344,9 @@ export default function PromptStep({
 
           {/* Style Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-semibold mb-3" style={{ color: "#2D2235" }}>
               <Palette className="w-4 h-4 inline mr-1" />
-              Video Style
+              Pick a style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {(isCharacterMode ? STYLE_OPTIONS : styleOptions).map((option) => (
@@ -325,15 +358,16 @@ export default function PromptStep({
                     console.log("[PromptStep] Style selected:", option.id);
                     setStyle(option.id);
                   }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  className="p-4 rounded-2xl border-2 text-left transition-all"
+                  style={
                     style === option.id
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
+                      ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)" }
+                      : { borderColor: "rgba(240,234,255,0.8)", background: "rgba(255,255,255,0.6)" }
+                  }
                 >
-                  <span className="text-2xl mb-2 block">{option.icon || STYLE_ICONS[option.id] || "🎭"}</span>
-                  <span className="font-medium text-gray-900 block">{option.name}</span>
-                  <span className="text-xs text-gray-500">{option.description}</span>
+                  <span className="text-2xl mb-2 block">{option.icon || STYLE_ICONS[option.id] || "\uD83C\uDFAD"}</span>
+                  <span className="font-semibold block" style={{ color: "#2D2235" }}>{option.name}</span>
+                  <span className="text-xs" style={{ color: "#9B8FA8" }}>{option.description}</span>
                 </motion.button>
               ))}
             </div>
@@ -343,17 +377,18 @@ export default function PromptStep({
           {!isCharacterMode && <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+              className="w-full flex items-center justify-between p-4 rounded-2xl border transition-colors"
+              style={{ background: "rgba(255,255,255,0.6)", borderColor: "rgba(240,234,255,0.8)" }}
             >
               <div className="flex items-center gap-3">
-                <Film className="w-5 h-5 text-primary" />
-                <span className="font-medium text-gray-900">Opening & Closing Frames</span>
-                <span className="text-sm text-gray-500">(Optional)</span>
+                <Film className="w-5 h-5" style={{ color: "#F97066" }} />
+                <span className="font-semibold" style={{ color: "#2D2235" }}>Opening & Closing Frames</span>
+                <span className="text-sm" style={{ color: "#9B8FA8" }}>(Optional)</span>
               </div>
               {frameConfigExpanded ? (
-                <ChevronUp className="w-5 h-5 text-gray-500" />
+                <ChevronUp className="w-5 h-5" style={{ color: "#9B8FA8" }} />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-500" />
+                <ChevronDown className="w-5 h-5" style={{ color: "#9B8FA8" }} />
               )}
             </button>
 
@@ -366,9 +401,12 @@ export default function PromptStep({
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-4 border border-t-0 border-gray-200 rounded-b-lg space-y-6 bg-white">
-                    <p className="text-sm text-gray-600">
-                      Configure opening and closing frames for your video. These are analyzed by AI along with your prompt to create a cohesive story.
+                  <div
+                    className="p-4 border border-t-0 rounded-b-2xl space-y-6"
+                    style={{ borderColor: "rgba(240,234,255,0.8)", background: "rgba(255,255,255,0.5)" }}
+                  >
+                    <p className="text-sm" style={{ color: "#6B5E7B" }}>
+                      Add intro and outro screens for your video. The AI uses these along with your description to tell a cohesive story.
                     </p>
 
                     {/* Opening Frame */}
@@ -379,73 +417,72 @@ export default function PromptStep({
                             type="checkbox"
                             checked={openingFrame?.enabled}
                             onChange={(e) => setOpeningFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                            className="w-4 h-4 rounded border-gray-300"
+                            style={{ accentColor: "#F97066" }}
                           />
-                          <span className="font-medium text-gray-900">Opening Frame</span>
+                          <span className="font-semibold" style={{ color: "#2D2235" }}>Opening Frame</span>
                         </label>
                         {openingFrame?.enabled && (
-                          <span className="text-xs text-gray-500">Intro screen before your video</span>
+                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Intro screen before your video</span>
                         )}
                       </div>
 
                       {openingFrame?.enabled && (
                         <div className="pl-6 space-y-3">
-                          {/* Explanation / Context */}
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">What's happening in this frame? How should AI use it?</label>
+                            <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
                               value={openingFrame.description || ""}
                               onChange={(e) => setOpeningFrame((prev) => ({ ...prev, description: e.target.value }))}
-                              placeholder="e.g., This is our brand logo intro — use it as the first thing viewers see to establish brand identity before the main content begins..."
-                              className="text-sm"
+                              placeholder="e.g., This is our brand logo intro — the first thing viewers see..."
+                              className="text-sm rounded-xl"
                               rows={2}
                             />
                           </div>
 
-                          {/* Toggle between AI and Upload */}
                           <div className="flex gap-2">
                             <button
                               onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
-                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all"
+                              style={
                                 !openingFrame.useUpload
-                                  ? "border-primary bg-primary/5 text-primary"
-                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                              }`}
+                                  ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)", color: "#F97066" }
+                                  : { borderColor: "rgba(240,234,255,0.8)", color: "#6B5E7B" }
+                              }
                             >
                               <Wand2 className="w-4 h-4" />
-                              <span className="text-sm">AI Generate</span>
+                              <span className="text-sm font-medium">AI Generate</span>
                             </button>
                             <button
                               onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
-                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all"
+                              style={
                                 openingFrame.useUpload
-                                  ? "border-primary bg-primary/5 text-primary"
-                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                              }`}
+                                  ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)", color: "#F97066" }
+                                  : { borderColor: "rgba(240,234,255,0.8)", color: "#6B5E7B" }
+                              }
                             >
                               <Upload className="w-4 h-4" />
-                              <span className="text-sm">Upload Image</span>
+                              <span className="text-sm font-medium">Upload Image</span>
                             </button>
                           </div>
 
-                          {/* AI Generate Option */}
                           {!openingFrame.useUpload && (
                             <div>
-                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt <span className="text-red-500">*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
                               <Textarea
                                 value={openingFrame.customPrompt || ""}
                                 onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
-                                className={`text-sm ${openingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className={`text-sm rounded-xl ${openingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
                                 rows={2}
                               />
                               {openingNeedsPrompt && (
-                                <p className="text-xs text-red-500 mt-1">Please enter an AI prompt to generate the opening frame image</p>
+                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the opening image should look like</p>
                               )}
                             </div>
                           )}
 
-                          {/* Upload Option */}
                           {openingFrame.useUpload && (
                             <div>
                               <input
@@ -460,7 +497,8 @@ export default function PromptStep({
                                   <img
                                     src={openingFrame.uploadedImage}
                                     alt="Opening frame"
-                                    className="w-32 h-20 object-cover rounded-lg border border-gray-200"
+                                    className="w-32 h-20 object-cover rounded-xl border"
+                                    style={{ borderColor: "rgba(240,234,255,0.8)" }}
                                   />
                                   <button
                                     onClick={() => removeFrameImage("opening")}
@@ -472,30 +510,30 @@ export default function PromptStep({
                               ) : (
                                 <button
                                   onClick={() => openingFileRef.current?.click()}
-                                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                                  className="w-full py-3 border-2 border-dashed rounded-xl transition-all flex items-center justify-center gap-2"
+                                  style={{ borderColor: "#E0D7FC", color: "#9B8FA8" }}
                                 >
                                   <Upload className="w-4 h-4" />
-                                  <span className="text-sm">Click to upload image</span>
+                                  <span className="text-sm">Tap to upload image</span>
                                 </button>
                               )}
                             </div>
                           )}
 
-                          {/* Narration Text */}
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
+                            <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Narration / Text Overlay</label>
                             <Input
                               value={openingFrame.textOverlay || ""}
                               onChange={(e) => setOpeningFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
                               placeholder="e.g., Welcome to our story..."
-                              className="text-sm"
+                              className="text-sm rounded-xl"
                             />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <hr className="border-gray-200" />
+                    <hr style={{ borderColor: "rgba(240,234,255,0.8)" }} />
 
                     {/* Closing Frame */}
                     <div className="space-y-3">
@@ -505,73 +543,72 @@ export default function PromptStep({
                             type="checkbox"
                             checked={closingFrame?.enabled}
                             onChange={(e) => setClosingFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                            className="w-4 h-4 rounded border-gray-300"
+                            style={{ accentColor: "#F97066" }}
                           />
-                          <span className="font-medium text-gray-900">Closing Frame</span>
+                          <span className="font-semibold" style={{ color: "#2D2235" }}>Closing Frame</span>
                         </label>
                         {closingFrame?.enabled && (
-                          <span className="text-xs text-gray-500">Outro screen after your video</span>
+                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Outro screen after your video</span>
                         )}
                       </div>
 
                       {closingFrame?.enabled && (
                         <div className="pl-6 space-y-3">
-                          {/* Explanation / Context */}
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">What's happening in this frame? How should AI use it?</label>
+                            <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
                               value={closingFrame.description || ""}
                               onChange={(e) => setClosingFrame((prev) => ({ ...prev, description: e.target.value }))}
-                              placeholder="e.g., This is our call-to-action ending — show our website URL and social media handles so viewers know where to find us..."
-                              className="text-sm"
+                              placeholder="e.g., This is our call-to-action ending — show our website URL..."
+                              className="text-sm rounded-xl"
                               rows={2}
                             />
                           </div>
 
-                          {/* Toggle between AI and Upload */}
                           <div className="flex gap-2">
                             <button
                               onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
-                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all"
+                              style={
                                 !closingFrame.useUpload
-                                  ? "border-primary bg-primary/5 text-primary"
-                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                              }`}
+                                  ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)", color: "#F97066" }
+                                  : { borderColor: "rgba(240,234,255,0.8)", color: "#6B5E7B" }
+                              }
                             >
                               <Wand2 className="w-4 h-4" />
-                              <span className="text-sm">AI Generate</span>
+                              <span className="text-sm font-medium">AI Generate</span>
                             </button>
                             <button
                               onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
-                              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all"
+                              style={
                                 closingFrame.useUpload
-                                  ? "border-primary bg-primary/5 text-primary"
-                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                              }`}
+                                  ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)", color: "#F97066" }
+                                  : { borderColor: "rgba(240,234,255,0.8)", color: "#6B5E7B" }
+                              }
                             >
                               <Upload className="w-4 h-4" />
-                              <span className="text-sm">Upload Image</span>
+                              <span className="text-sm font-medium">Upload Image</span>
                             </button>
                           </div>
 
-                          {/* AI Generate Option */}
                           {!closingFrame.useUpload && (
                             <div>
-                              <label className="text-xs text-gray-500 mb-1 block">AI Image Prompt <span className="text-red-500">*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
                               <Textarea
                                 value={closingFrame.customPrompt || ""}
                                 onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Elegant thank you card with soft lighting..."
-                                className={`text-sm ${closingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className={`text-sm rounded-xl ${closingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
                                 rows={2}
                               />
                               {closingNeedsPrompt && (
-                                <p className="text-xs text-red-500 mt-1">Please enter an AI prompt to generate the closing frame image</p>
+                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the closing image should look like</p>
                               )}
                             </div>
                           )}
 
-                          {/* Upload Option */}
                           {closingFrame.useUpload && (
                             <div>
                               <input
@@ -586,7 +623,8 @@ export default function PromptStep({
                                   <img
                                     src={closingFrame.uploadedImage}
                                     alt="Closing frame"
-                                    className="w-32 h-20 object-cover rounded-lg border border-gray-200"
+                                    className="w-32 h-20 object-cover rounded-xl border"
+                                    style={{ borderColor: "rgba(240,234,255,0.8)" }}
                                   />
                                   <button
                                     onClick={() => removeFrameImage("closing")}
@@ -598,23 +636,23 @@ export default function PromptStep({
                               ) : (
                                 <button
                                   onClick={() => closingFileRef.current?.click()}
-                                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                                  className="w-full py-3 border-2 border-dashed rounded-xl transition-all flex items-center justify-center gap-2"
+                                  style={{ borderColor: "#E0D7FC", color: "#9B8FA8" }}
                                 >
                                   <Upload className="w-4 h-4" />
-                                  <span className="text-sm">Click to upload image</span>
+                                  <span className="text-sm">Tap to upload image</span>
                                 </button>
                               )}
                             </div>
                           )}
 
-                          {/* Narration Text */}
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Narration / Text Overlay</label>
+                            <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Narration / Text Overlay</label>
                             <Input
                               value={closingFrame.textOverlay || ""}
                               onChange={(e) => setClosingFrame((prev) => ({ ...prev, textOverlay: e.target.value }))}
                               placeholder="e.g., Thanks for watching!"
-                              className="text-sm"
+                              className="text-sm rounded-xl"
                             />
                           </div>
 
@@ -629,14 +667,20 @@ export default function PromptStep({
 
           {/* Error */}
           {error && (
-            <p className="text-red-500 text-sm mb-4">{error}</p>
+            <div
+              className="px-4 py-3 rounded-xl text-sm font-medium mb-4"
+              style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}
+            >
+              {error}
+            </div>
           )}
 
           {/* Start Button */}
           <Button
             onClick={handleStart}
             disabled={!canStart || loading}
-            className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-white py-6 text-lg font-bold rounded-xl border-0 shadow-lg shadow-orange-200/40 hover:shadow-xl hover:shadow-orange-200/50 hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100"
+            style={{ background: canStart && !loading ? "linear-gradient(135deg, #F97066, #FB923C)" : "#D4CDE0" }}
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -653,7 +697,7 @@ export default function PromptStep({
                 Start Creating
                 {!canStart && (
                   <span className="text-sm font-normal opacity-75">
-                    ({!userPrompt?.trim() ? "enter prompt" : "upload images"})
+                    ({!userPrompt?.trim() ? "enter a description" : "add pictures"})
                   </span>
                 )}
               </span>
@@ -661,11 +705,164 @@ export default function PromptStep({
           </Button>
 
           {/* Help text */}
-          <p className="text-center text-sm text-gray-500 mt-4">
-            You need both a prompt and at least one image to continue
+          <p className="text-center text-sm mt-4" style={{ color: "#9B8FA8" }}>
+            {isCharacterMode
+              ? "Add a character, describe your story, and pick a style to get started"
+              : "Add a description and at least one picture to get started"}
           </p>
         </motion.div>
       </div>
+
+      {/* Prompt Guide Modal */}
+      <AnimatePresence>
+        {showPromptGuide && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(45,34,53,0.5)", backdropFilter: "blur(4px)" }}
+            onClick={() => setShowPromptGuide(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-3xl border border-white/60 shadow-2xl"
+              style={{ background: "linear-gradient(165deg, #FFFAF6, #FFF7F0, #F8F5FF)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between p-6 pb-4 border-b" style={{ background: "linear-gradient(165deg, #FFFAF6, #FFF7F0)", borderColor: "rgba(240,234,255,0.6)" }}>
+                <h2 className="text-xl font-bold" style={{ color: "#2D2235" }}>
+                  How to Write a Great Prompt
+                </h2>
+                <button
+                  onClick={() => setShowPromptGuide(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  style={{ background: "#F0EAFF", color: "#6B5E7B" }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Tip 1 */}
+                <div>
+                  <h3 className="text-sm font-bold mb-2" style={{ color: "#2D2235" }}>Tell us the story, not just the topic</h3>
+                  <div className="space-y-1.5 text-sm" style={{ color: "#6B5E7B" }}>
+                    <p><span className="font-semibold" style={{ color: "#DC2626" }}>Weak:</span> "A video about coffee"</p>
+                    <p><span className="font-semibold" style={{ color: "#F97066" }}>Better:</span> "A barista crafts a latte from bean to cup in a cozy morning cafe"</p>
+                    <p><span className="font-semibold" style={{ color: "#16A34A" }}>Best:</span> "Follow a barista through her morning routine — grinding fresh beans, steaming milk, and pouring latte art for her first customer of the day"</p>
+                  </div>
+                </div>
+
+                {/* Tip 2 */}
+                <div>
+                  <h3 className="text-sm font-bold mb-2" style={{ color: "#2D2235" }}>Include these key ingredients</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: "Who", desc: "The main character(s). Keep it to 1\u20132 people" },
+                      { label: "Where", desc: "The setting or location" },
+                      { label: "What happens", desc: "The story arc or sequence of events" },
+                      { label: "Mood", desc: "How it should feel (warm, dramatic, energetic)" },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="p-3 rounded-xl"
+                        style={{ background: "rgba(240,234,255,0.5)" }}
+                      >
+                        <span className="text-xs font-bold block mb-0.5" style={{ color: "#F97066" }}>{item.label}</span>
+                        <span className="text-xs" style={{ color: "#6B5E7B" }}>{item.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tip 3 */}
+                <div>
+                  <h3 className="text-sm font-bold mb-2" style={{ color: "#2D2235" }}>Structure helps</h3>
+                  <p className="text-sm mb-2" style={{ color: "#6B5E7B" }}>
+                    Your prompt becomes a series of 5-second clips. Prompts that describe a progression work best:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["First... then... finally...", "From X to Y", "A morning at...", "The moment when..."].map((ex) => (
+                      <span
+                        key={ex}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full"
+                        style={{ background: "#FFF0E6", color: "#E5582A" }}
+                      >
+                        {ex}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tip 4 */}
+                <div>
+                  <h3 className="text-sm font-bold mb-2" style={{ color: "#2D2235" }}>Keep it visual and grounded</h3>
+                  <p className="text-sm mb-2" style={{ color: "#6B5E7B" }}>
+                    Describe things a camera could actually film — the AI needs physical scenes, not abstract ideas.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.15)" }}>
+                      <span className="font-semibold" style={{ color: "#16A34A" }}>Works:</span>{" "}
+                      <span style={{ color: "#6B5E7B" }}>"A street musician plays guitar on a rainy sidewalk as people walk by with umbrellas"</span>
+                    </div>
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.12)" }}>
+                      <span className="font-semibold" style={{ color: "#DC2626" }}>Doesn't work:</span>{" "}
+                      <span style={{ color: "#6B5E7B" }}>"The universal language of music transcends all barriers and connects souls across time"</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Do / Don't */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 rounded-2xl" style={{ background: "rgba(22,163,74,0.06)" }}>
+                    <h4 className="text-xs font-bold mb-2" style={{ color: "#16A34A" }}>What works best</h4>
+                    <ul className="space-y-1.5 text-xs" style={{ color: "#6B5E7B" }}>
+                      <li>Simple stories with a clear arc</li>
+                      <li>1-2 characters, consistent setting</li>
+                      <li>Real-world scenarios</li>
+                      <li>Specific details about atmosphere</li>
+                    </ul>
+                  </div>
+                  <div className="p-4 rounded-2xl" style={{ background: "rgba(220,38,38,0.04)" }}>
+                    <h4 className="text-xs font-bold mb-2" style={{ color: "#DC2626" }}>What to avoid</h4>
+                    <ul className="space-y-1.5 text-xs" style={{ color: "#6B5E7B" }}>
+                      <li>Vague or abstract concepts</li>
+                      <li>Too many characters or locations</li>
+                      <li>Overly complex plots</li>
+                      <li>Emotions without actions</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Examples */}
+                <div>
+                  <h3 className="text-sm font-bold mb-3" style={{ color: "#2D2235" }}>Example prompts</h3>
+                  <div className="space-y-2">
+                    {[
+                      "A solo hiker treks through misty mountain trails at dawn, reaching the summit just as the sun breaks through the clouds",
+                      "A little girl discovers a hidden garden behind her grandmother's house, exploring the overgrown paths and blooming wildflowers",
+                      "Behind the scenes of a pottery studio \u2014 hands shaping wet clay on a spinning wheel, glazing, and the final reveal from the kiln",
+                    ].map((example, i) => (
+                      <div
+                        key={i}
+                        className="p-3 rounded-xl text-sm italic"
+                        style={{ background: "rgba(255,240,230,0.6)", color: "#6B5E7B", borderLeft: "3px solid #FB923C" }}
+                      >
+                        "{example}"
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { createCheckoutSession } from '../services/credits';
 import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
+import { CheckCircle, Sparkles, Zap, Crown, ArrowLeft } from 'lucide-react';
 
 const TIERS = [
-  { id: 10, credits: 10, price: 10, label: 'Starter' },
-  { id: 30, credits: 30, price: 28, label: 'Popular', popular: true },
-  { id: 50, credits: 50, price: 45, label: 'Best Value' },
+  { id: 10, credits: 10, price: 10, label: 'Starter', icon: Sparkles, gradient: 'linear-gradient(135deg, #FFF0E6, #FFE4D6)' },
+  { id: 30, credits: 30, price: 28, label: 'Popular', popular: true, icon: Zap, gradient: 'linear-gradient(135deg, #F97066, #FB923C)' },
+  { id: 50, credits: 50, price: 45, label: 'Best Value', icon: Crown, gradient: 'linear-gradient(135deg, #EDE9FE, #E0D7FC)' },
 ];
 
 export default function BuyCreditsPage() {
@@ -21,7 +22,6 @@ export default function BuyCreditsPage() {
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
 
-  // Poll for credit update after successful payment
   useEffect(() => {
     if (success !== 'true') return;
 
@@ -50,82 +50,173 @@ export default function BuyCreditsPage() {
 
   if (success === 'true') {
     return (
-      <div className="h-full flex items-center justify-center py-12 px-4">
-        <Card className="max-w-md w-full p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Payment Successful!</h2>
-          <p className="text-gray-600 mb-2">Your credits have been added to your account.</p>
-          <p className="text-lg font-semibold text-primary mb-6">
-            Current balance: {credits ?? '...'} credits
+      <div
+        className="h-full flex items-center justify-center py-12 px-4 font-figtree"
+        style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full rounded-3xl p-10 text-center border border-white/60 shadow-lg"
+          style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(20px)" }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+            style={{ background: "rgba(22,163,74,0.1)" }}
+          >
+            <CheckCircle className="w-8 h-8" style={{ color: "#16A34A" }} />
+          </div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: "#2D2235" }}>Payment Successful!</h2>
+          <p className="mb-2" style={{ color: "#6B5E7B" }}>Your credits have been added.</p>
+          <p className="text-2xl font-bold mb-6" style={{ color: "#F97066" }}>
+            {credits ?? '...'} credits
           </p>
-          <Button onClick={() => navigate('/create')} className="w-full">
+          <Button
+            onClick={() => navigate('/create')}
+            className="w-full text-white rounded-xl py-6 text-base font-bold border-0 shadow-md shadow-orange-200/50 hover:shadow-lg transition-all"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+          >
             Start Creating
           </Button>
-        </Card>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col items-center py-12 px-4">
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-        {canceled === 'true' ? 'Checkout Canceled' : 'Buy Credits'}
-      </h2>
-      <p className="text-gray-600 mb-1">
-        You need credits to generate videos. Each video costs 10 credits.
-      </p>
-      <p className="text-lg font-semibold text-gray-900 mb-8">
-        Current balance: <span className="text-primary">{credits ?? 0}</span> credits
-      </p>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 max-w-2xl w-full">
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl w-full mb-6">
-        {TIERS.map((tier) => (
-          <Card
-            key={tier.id}
-            className={`p-6 text-center relative flex flex-col ${
-              tier.popular ? 'border-primary border-2 shadow-lg' : ''
-            }`}
+    <div
+      className="h-full flex flex-col items-center py-12 px-4 font-figtree"
+      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-3xl"
+      >
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold mb-2" style={{ color: "#2D2235" }}>
+            {canceled === 'true' ? 'Checkout Canceled' : 'Get More Credits'}
+          </h2>
+          <p className="text-base mb-3" style={{ color: "#6B5E7B" }}>
+            Each video costs 10 credits. Pick a plan that works for you.
+          </p>
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
+            style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(240,234,255,0.8)" }}
           >
-            {tier.popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
-                Most Popular
-              </span>
-            )}
-            <h3 className="text-lg font-semibold text-gray-900 mt-2">{tier.label}</h3>
-            <p className="text-4xl font-bold text-gray-900 my-3">
-              ${tier.price}
-            </p>
-            <p className="text-gray-600 mb-1">
-              {tier.credits} credits
-            </p>
-            <p className="text-sm text-gray-400 mb-4">
-              {tier.credits / 10} video{tier.credits / 10 > 1 ? 's' : ''}
-            </p>
-            <Button
-              onClick={() => handleBuyCredits(tier.id)}
-              disabled={loadingTier !== null}
-              className="w-full mt-auto"
-              variant={tier.popular ? 'default' : 'outline'}
-            >
-              {loadingTier === tier.id ? 'Redirecting...' : 'Buy Now'}
-            </Button>
-          </Card>
-        ))}
-      </div>
+            <span className="text-sm" style={{ color: "#6B5E7B" }}>Your balance:</span>
+            <span className="text-lg font-bold" style={{ color: "#F97066" }}>{credits ?? 0}</span>
+            <span className="text-sm" style={{ color: "#6B5E7B" }}>credits</span>
+          </div>
+        </div>
 
-      {credits > 0 && (
-        <Button
-          variant="outline"
-          onClick={() => navigate('/create')}
-        >
-          Back to Creator
-        </Button>
-      )}
+        {error && (
+          <div
+            className="px-4 py-3 rounded-xl text-sm font-medium mb-6 max-w-2xl mx-auto"
+            style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* Pricing Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+          {TIERS.map((tier, index) => {
+            const Icon = tier.icon;
+            return (
+              <motion.div
+                key={tier.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`relative rounded-3xl p-6 text-center flex flex-col border transition-all hover:shadow-lg ${
+                  tier.popular ? 'md:-mt-3 md:mb-0' : ''
+                }`}
+                style={
+                  tier.popular
+                    ? { background: "linear-gradient(165deg, #2D2235, #3D2E4A)", border: "1px solid rgba(249,112,102,0.3)" }
+                    : { background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(240,234,255,0.8)" }
+                }
+              >
+                {tier.popular && (
+                  <span
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-4 py-1 rounded-full"
+                    style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                  >
+                    Most Popular
+                  </span>
+                )}
+
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ background: tier.popular ? "rgba(249,112,102,0.2)" : tier.gradient }}
+                >
+                  <Icon
+                    className="w-6 h-6"
+                    style={{ color: tier.popular ? "#FB923C" : "#F97066" }}
+                  />
+                </div>
+
+                <h3
+                  className="text-base font-bold mb-1"
+                  style={{ color: tier.popular ? "rgba(255,255,255,0.7)" : "#6B5E7B" }}
+                >
+                  {tier.label}
+                </h3>
+
+                <p
+                  className="text-4xl font-extrabold my-3"
+                  style={{ color: tier.popular ? "#fff" : "#2D2235" }}
+                >
+                  ${tier.price}
+                </p>
+
+                <p
+                  className="text-sm font-medium mb-1"
+                  style={{ color: tier.popular ? "rgba(255,255,255,0.6)" : "#6B5E7B" }}
+                >
+                  {tier.credits} credits
+                </p>
+                <p
+                  className="text-xs mb-5"
+                  style={{ color: tier.popular ? "rgba(255,255,255,0.4)" : "#9B8FA8" }}
+                >
+                  That's {tier.credits / 10} video{tier.credits / 10 > 1 ? 's' : ''}
+                </p>
+
+                <Button
+                  onClick={() => handleBuyCredits(tier.id)}
+                  disabled={loadingTier !== null}
+                  className={`w-full mt-auto rounded-xl py-5 text-base font-bold border-0 transition-all ${
+                    loadingTier === tier.id ? 'opacity-70' : ''
+                  }`}
+                  style={
+                    tier.popular
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 16px rgba(249,112,102,0.3)" }
+                      : { background: "#F0EAFF", color: "#2D2235" }
+                  }
+                >
+                  {loadingTier === tier.id ? 'Opening checkout...' : 'Buy Now'}
+                </Button>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {credits > 0 && (
+          <div className="text-center">
+            <button
+              onClick={() => navigate('/create')}
+              className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:opacity-70"
+              style={{ color: "#6B5E7B" }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Creator
+            </button>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }

@@ -232,10 +232,16 @@ export default function ImagePipelineCreator({ onModeChange }) {
   const progressSteps = STEP_NAMES.slice(0, 3);
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div
+      className="h-full flex flex-col font-figtree"
+      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+    >
       {/* Progress Bar */}
       {showProgressBar && (
-        <div className="bg-white border-b border-gray-200 shadow-sm px-6 py-3">
+        <div
+          className="px-6 py-3 border-b"
+          style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
+        >
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-2">
               {progressSteps.map((name, index) => (
@@ -246,31 +252,36 @@ export default function ImagePipelineCreator({ onModeChange }) {
                   }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+                    style={
                       step > index
-                        ? "bg-primary text-white"
+                        ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff" }
                         : step === index
-                        ? "bg-primary/10 text-primary border-2 border-primary"
-                        : "bg-gray-200 text-gray-500"
-                    }`}
+                        ? { background: "#FFF0E6", color: "#F97066", border: "2px solid #F97066" }
+                        : { background: "#F0EAFF", color: "#9B8FA8" }
+                    }
                   >
                     {index + 1}
                   </div>
                   {index < progressSteps.length - 1 && (
                     <div
-                      className={`flex-1 h-1 mx-2 ${
-                        step > index ? "bg-primary" : "bg-gray-200"
-                      }`}
+                      className="flex-1 h-1 mx-2 rounded-full"
+                      style={{
+                        background: step > index
+                          ? "linear-gradient(135deg, #F97066, #FB923C)"
+                          : "#F0EAFF",
+                      }}
                     />
                   )}
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs">
               {progressSteps.map((name, index) => (
                 <span
                   key={name}
-                  className={step === index ? "text-primary font-medium" : ""}
+                  className="font-medium"
+                  style={{ color: step === index ? "#F97066" : "#9B8FA8" }}
                 >
                   {name}
                 </span>
@@ -293,7 +304,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
             transition={transition}
             className="absolute inset-0 flex"
           >
-            <div className="w-full h-full bg-white">{renderStep()}</div>
+            <div className="w-full h-full">{renderStep()}</div>
           </motion.div>
         </AnimatePresence>
 
