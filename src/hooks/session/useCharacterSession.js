@@ -417,9 +417,10 @@ export function useCharacterSession() {
   }, [step]);
 
   const handleNext = useCallback(() => {
+    console.log("[useCharacterSession] handleNext called, current step:", step, "-> next step:", step + 1);
     setDirection(1);
     setStep((prev) => prev + 1);
-  }, []);
+  }, [step]);
 
   const handlePrev = useCallback(() => {
     setDirection(-1);

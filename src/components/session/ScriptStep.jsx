@@ -16,11 +16,13 @@ export default function ScriptStep({
   session,
   loading,
   onNext,
+  pipelineMode,
   images = [],
   openingFrame,
   closingFrame,
   generatedFrameImages,
 }) {
+  const isCharacterPipeline = pipelineMode === "character";
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
@@ -282,7 +284,8 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail */}
+                    {/* Image Thumbnail — hidden for character pipeline */}
+                    {!isCharacterPipeline && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
                         <div className="relative group">
@@ -314,6 +317,7 @@ export default function ScriptStep({
                         </button>
                       )}
                     </div>
+                    )}
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">

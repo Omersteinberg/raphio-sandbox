@@ -165,6 +165,7 @@ export default function CharacterPipelineCreator({ onModeChange }) {
       case 2:
         return (
           <ScriptStep
+            pipelineMode="character"
             scriptData={scriptData}
             setScriptData={setScriptData}
             editRequest={editRequest}
