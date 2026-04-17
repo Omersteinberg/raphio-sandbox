@@ -9,10 +9,11 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { getSession } from "@/services/session";
+import { getSession, enterEditingMode } from "@/services/session";
 
 export default function VideoDetailPage() {
   const { id } = useParams();
@@ -81,6 +82,15 @@ export default function VideoDetailPage() {
 
   const handleCreateOwn = () => {
     navigate("/create");
+  };
+
+  const handleEditVideo = async () => {
+    try {
+      await enterEditingMode(id);
+      navigate(`/create?session=${id}`);
+    } catch (err) {
+      toast.error("Failed to enter editing mode");
+    }
   };
 
   if (loading) {
@@ -176,6 +186,14 @@ export default function VideoDetailPage() {
             >
               <Download className="w-4 h-4 mr-2" />
               Download Video (HD)
+            </Button>
+            <Button
+              onClick={handleEditVideo}
+              variant="outline"
+              className="border-border text-foreground hover:bg-muted"
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Video
             </Button>
             <Button
               onClick={() => setShowShareModal(true)}
