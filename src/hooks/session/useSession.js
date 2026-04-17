@@ -4,6 +4,8 @@ import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
+import { MAX_IMAGES, VIDEO_COST } from "@/lib/limits";
+import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Session stages matching backend
 const STAGES = {
@@ -34,7 +36,7 @@ const STAGE_TO_STEP = {
 
 export function useSession() {
   const navigate = useNavigate();
-  const { refreshCredits } = useAuth();
+  const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Session state
@@ -94,6 +96,24 @@ export function useSession() {
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
+
+  // Persist prompt-step draft when leaving /create via header navigation.
+  useEffect(() => {
+    return () => {
+      if (sessionId || step !== 0) return;
+
+      const hasDraft = Boolean(userPrompt?.trim()) || images.length > 0;
+      if (!hasDraft) return;
+
+      savePending("image", {
+        userPrompt,
+        style,
+        images: images.map((img) => ({ file: img.file, name: img.name })),
+      }).catch((err) => {
+        console.warn("[useSession] autosave pending failed:", err);
+      });
+    };
+  }, [sessionId, step, userPrompt, style, images]);
 
   // Style options (fetched from API)
   const [styleOptions, setStyleOptions] = useState([]);
@@ -245,6 +265,38 @@ export function useSession() {
       return;
     }
 
+    if (credits != null && credits < VIDEO_COST) {
+      console.log("[useSession] Credits insufficient at start — saving pending and redirecting");
+      try {
+        // Convert File objects to base64 strings for IndexedDB serialization
+        const imagesToSave = await Promise.all(
+          images.map((img) =>
+            new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  dataUrl: reader.result, // base64 data URL
+                  name: img.name,
+                });
+              };
+              reader.readAsDataURL(img.file);
+            })
+          )
+        );
+
+        await savePending("image", {
+          userPrompt,
+          style,
+          images: imagesToSave,
+        });
+      } catch (err) {
+        console.warn("[useSession] Failed to save pending session:", err);
+      }
+      toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
+      navigate("/buy-credits");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setScriptProgress(0);
@@ -268,6 +320,8 @@ export function useSession() {
 
       setSessionId(newSession.id);
       setSession(newSession);
+
+      try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
 
       // Step 2: Upload the images that were already selected
       console.log("[useSession] Uploading images to session...");
@@ -440,14 +494,28 @@ export function useSession() {
     }
   }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, navigate]);
 
-  // Add images to pool
+  // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
     const newImages = Array.from(files).map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       name: file.name,
     }));
-    setImages((prev) => [...prev, ...newImages]);
+    setImages((prev) => {
+      const room = MAX_IMAGES - prev.length;
+      if (room <= 0) {
+        newImages.forEach((img) => URL.revokeObjectURL(img.preview));
+        toast.error(`Maximum ${MAX_IMAGES} images per video`);
+        return prev;
+      }
+      const accepted = newImages.slice(0, room);
+      const rejected = newImages.slice(room);
+      rejected.forEach((img) => URL.revokeObjectURL(img.preview));
+      if (rejected.length > 0) {
+        toast(`Only added ${accepted.length} — limit is ${MAX_IMAGES} per video`);
+      }
+      return [...prev, ...accepted];
+    });
   }, []);
 
   // Remove image from pool

@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useSession } from "@/hooks/session/useSession";
-import { useAuth } from "@/hooks/useAuth.jsx";
+import { loadPending } from "@/lib/pendingSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -24,16 +23,7 @@ const STEP_NAMES = [
 ];
 
 export default function ImagePipelineCreator({ onModeChange }) {
-  const { credits } = useAuth();
-  const navigate = useNavigate();
   const session = useSession();
-
-  // Redirect to buy credits if user has 0 credits
-  useEffect(() => {
-    if (credits !== null && credits < 1) {
-      navigate('/buy-credits');
-    }
-  }, [credits, navigate]);
 
   const {
     step,
@@ -100,6 +90,43 @@ export default function ImagePipelineCreator({ onModeChange }) {
     insufficientCredits,
     dismissInsufficientCredits,
   } = session;
+
+  // Rehydrate pending inputs after a credit-driven redirect
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadPending("image");
+        if (cancelled || !saved) return;
+        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
+        if (saved.style) setStyle(saved.style);
+        if (Array.isArray(saved.images) && saved.images.length > 0) {
+          // Support both raw File entries and base64 entries.
+          const files = await Promise.all(
+            saved.images
+              .filter((entry) => entry && (entry.file || entry.dataUrl))
+              .map(async (entry) => {
+                if (entry.file) return entry.file;
+
+                const response = await fetch(entry.dataUrl);
+                const blob = await response.blob();
+                return new File([blob], entry.name || "image.png", {
+                  type: blob.type,
+                });
+              })
+          );
+          if (files.length > 0) addImages(files);
+        }
+      } catch (err) {
+        console.warn("[ImagePipelineCreator] rehydrate failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Mount-only: hydrate once when the page loads. Setters are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Animation variants
   const slideVariants = {

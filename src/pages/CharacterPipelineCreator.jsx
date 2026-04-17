@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useCharacterSession } from "@/hooks/session/useCharacterSession";
-import { useAuth } from "@/hooks/useAuth.jsx";
+import { loadPending } from "@/lib/pendingSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -28,15 +27,7 @@ const STEP_NAMES = [
 ];
 
 export default function CharacterPipelineCreator({ onModeChange }) {
-  const { credits } = useAuth();
-  const navigate = useNavigate();
   const session = useCharacterSession();
-
-  useEffect(() => {
-    if (credits !== null && credits < 1) {
-      navigate("/buy-credits");
-    }
-  }, [credits, navigate]);
 
   const {
     step,
@@ -107,6 +98,48 @@ export default function CharacterPipelineCreator({ onModeChange }) {
     insufficientCredits,
     dismissInsufficientCredits,
   } = session;
+
+  // Rehydrate pending inputs after a credit-driven redirect
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadPending("character");
+        if (cancelled || !saved) return;
+        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
+        if (saved.style) setStyle(saved.style);
+        if (saved.character) {
+          // Handle both raw File and base64 reference-file formats
+          let referenceFile = null;
+          if (saved.character.referenceFile instanceof File) {
+            referenceFile = saved.character.referenceFile;
+          } else if (saved.character.referenceFile && saved.character.referenceFile.dataUrl) {
+            const response = await fetch(saved.character.referenceFile.dataUrl);
+            const blob = await response.blob();
+            referenceFile = new File(
+              [blob],
+              saved.character.referenceFile.name || "reference.png",
+              { type: blob.type }
+            );
+          }
+
+          setCharacter((prev) => ({
+            ...prev,
+            name: saved.character.name ?? prev.name,
+            description: saved.character.description ?? prev.description,
+            useUpload: saved.character.useUpload ?? prev.useUpload,
+            referenceFile: referenceFile ?? prev.referenceFile,
+          }));
+        }
+      } catch (err) {
+        console.warn("[CharacterPipelineCreator] rehydrate failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Animation variants
   const slideVariants = {

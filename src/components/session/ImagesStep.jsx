@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion } from "framer-motion";
 import { Upload, X, Image as ImageIcon, Trash2, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MAX_IMAGES } from "@/lib/limits";
 
 export default function ImagesStep({
   images,
@@ -17,6 +18,7 @@ export default function ImagesStep({
   const fileInputRef = useRef(null);
   const isUploaded = session?.stage === "IMAGES_UPLOADED" || session?.stage === "IMAGES_ANALYZED";
   const isAnalyzed = session?.stage === "IMAGES_ANALYZED";
+  const atCap = (images?.length ?? 0) >= MAX_IMAGES;
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -70,24 +72,36 @@ export default function ImagesStep({
           accept="image/jpeg,image/png"
           multiple
           className="hidden"
-          disabled={isUploaded}
+          disabled={isUploaded || atCap}
         />
 
         {!isUploaded && (
           <div
-            onClick={() => fileInputRef.current?.click()}
-            onDrop={handleDrop}
+            onClick={() => { if (atCap) return; fileInputRef.current?.click(); }}
+            onDrop={(e) => { if (atCap) { e.preventDefault(); return; } handleDrop(e); }}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors mb-4"
+            title={atCap ? `Maximum ${MAX_IMAGES} images per video` : undefined}
+            aria-disabled={atCap}
+            className={`border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-colors mb-2 ${atCap ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-purple-500 hover:bg-purple-50"}`}
           >
             <Upload className="w-10 h-10 text-purple-500 mx-auto mb-3" />
             <p className="text-gray-700 font-medium">
-              Drop images here or click to upload
+              {atCap ? `Maximum ${MAX_IMAGES} images per video` : "Drop images here or click to upload"}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               Supports JPEG and PNG only
             </p>
           </div>
+        )}
+
+        {!isUploaded && (
+          <p className="text-xs text-gray-500 mb-4">
+            Up to {MAX_IMAGES} images per video · 10 credits
+            {" · "}
+            <span className={`font-semibold ${atCap ? "text-purple-600" : "text-gray-700"}`}>
+              {images?.length ?? 0} / {MAX_IMAGES}
+            </span>
+          </p>
         )}
 
         {/* Image Grid */}

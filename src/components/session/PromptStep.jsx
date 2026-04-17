@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Trash2, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import CharacterCard from './CharacterCard';
+import { MAX_IMAGES } from "@/lib/limits";
 
 const STYLE_ICONS = {
   realistic: "\uD83D\uDCF7",
@@ -45,6 +46,8 @@ export default function PromptStep({
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showPromptGuide, setShowPromptGuide] = useState(false);
+  const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
+  const atCap = (images?.length ?? 0) >= MAX_IMAGES;
 
   // Handle file upload for frames
   const handleFrameFileChange = (e, frameType) => {
@@ -228,20 +231,21 @@ export default function PromptStep({
                 <ImageIcon className="w-4 h-4 inline mr-1" />
                 Your Pictures ({images?.length || 0})
               </label>
-              {images?.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    console.log("[PromptStep] Clearing all images");
-                    images.forEach((_, i) => removeImage(i));
-                  }}
-                  className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Clear All
-                </Button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowImageOrderGuide(true)}
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105"
+                style={{ background: "#FFF0E6", color: "#F97066" }}
+                title="Image order tip"
+                aria-label="Show image order tip"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Tips
+              </button>
+            </div>
+
+            <div className="text-xs mb-3" style={{ color: "#9B8FA8" }}>
+              Drag and drop to reorder before starting.
             </div>
 
             {/* Drop Zone */}
@@ -252,27 +256,45 @@ export default function PromptStep({
               accept="image/jpeg,image/png"
               multiple
               className="hidden"
+              disabled={atCap}
             />
             <div
               onClick={() => {
+                if (atCap) return;
                 console.log("[PromptStep] Drop zone clicked, opening file picker");
                 fileInputRef.current?.click();
               }}
-              onDrop={handleDrop}
+              onDrop={(e) => {
+                if (atCap) {
+                  e.preventDefault();
+                  return;
+                }
+                handleDrop(e);
+              }}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all mb-4 hover:scale-[1.01]"
+              title={atCap ? `Maximum ${MAX_IMAGES} images per video` : undefined}
+              aria-disabled={atCap}
+              className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all mb-2 ${atCap ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:scale-[1.01]"}`}
               style={{ borderColor: "#E0D7FC", background: "rgba(240,234,255,0.3)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F97066"; e.currentTarget.style.background = "rgba(249,112,102,0.04)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E0D7FC"; e.currentTarget.style.background = "rgba(240,234,255,0.3)"; }}
+              onMouseEnter={(e) => { if (atCap) return; e.currentTarget.style.borderColor = "#F97066"; e.currentTarget.style.background = "rgba(249,112,102,0.04)"; }}
+              onMouseLeave={(e) => { if (atCap) return; e.currentTarget.style.borderColor = "#E0D7FC"; e.currentTarget.style.background = "rgba(240,234,255,0.3)"; }}
             >
               <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "#F97066" }} />
               <p className="font-semibold" style={{ color: "#2D2235" }}>
-                Drop pictures here or tap to upload
+                {atCap ? `Maximum ${MAX_IMAGES} images per video` : "Drop pictures here or tap to upload"}
               </p>
               <p className="text-sm mt-1" style={{ color: "#9B8FA8" }}>
                 JPEG and PNG files
               </p>
             </div>
+
+            <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
+              Up to {MAX_IMAGES} images per video · 10 credits
+              {" · "}
+              <span className="font-semibold" style={{ color: atCap ? "#F97066" : "#6B5E7B" }}>
+                {images?.length ?? 0} / {MAX_IMAGES}
+              </span>
+            </p>
 
             {/* Image Grid (drag to reorder) */}
             {images?.length > 0 && (
@@ -857,6 +879,63 @@ export default function PromptStep({
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Order Guide Modal */}
+      <AnimatePresence>
+        {showImageOrderGuide && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(45,34,53,0.5)", backdropFilter: "blur(4px)" }}
+            onClick={() => setShowImageOrderGuide(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg rounded-3xl border border-white/60 shadow-2xl"
+              style={{ background: "linear-gradient(165deg, #FFFAF6, #FFF7F0, #F8F5FF)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 pb-4 border-b" style={{ borderColor: "rgba(240,234,255,0.6)" }}>
+                <h2 className="text-lg font-bold" style={{ color: "#2D2235" }}>
+                  Arrange Images Before Script
+                </h2>
+                <button
+                  onClick={() => setShowImageOrderGuide(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  style={{ background: "#F0EAFF", color: "#6B5E7B" }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-sm" style={{ color: "#6B5E7B" }}>
+                  You can drag and drop images here to set the story order.
+                </p>
+                <p className="text-sm" style={{ color: "#6B5E7B" }}>
+                  The script follows this sequence, so it is best to finalize order before starting.
+                </p>
+
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    onClick={() => setShowImageOrderGuide(false)}
+                    className="w-full text-white"
+                    style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                  >
+                    Got It
+                  </Button>
                 </div>
               </div>
             </motion.div>

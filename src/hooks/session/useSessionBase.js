@@ -30,7 +30,7 @@ export const STAGES = {
  */
 export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } = {}) {
   const navigate = useNavigate();
-  const { refreshCredits } = useAuth();
+  const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Session state ──────────────────────────────────────────────────
@@ -506,6 +506,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
 
     // Internals exposed for pipeline hooks
     navigate,
+    credits,
     refreshCredits,
     searchParams,
     setSearchParams,

@@ -4,6 +4,8 @@ import * as sessionService from "@/services/session";
 import * as characterApi from "@/services/character";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
+import { VIDEO_COST } from "@/lib/limits";
+import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Map backend character-pipeline stages to frontend step numbers
 const CHAR_STAGE_TO_STEP = {
@@ -48,7 +50,7 @@ export function useCharacterSession() {
     setScriptProgress,
     setInsufficientCredits,
     setFinalVideoUrl,
-    navigate, refreshCredits,
+    navigate, credits, refreshCredits,
     startGeneration: baseStartGeneration,
     resetBase,
   } = base;
@@ -67,6 +69,29 @@ export function useCharacterSession() {
   const [lockLoading, setLockLoading] = useState(false);
   const [framesLoading, setFramesLoading] = useState(false);
   const [lockRegenerateCount, setLockRegenerateCount] = useState(0);
+
+  // Persist prompt-step draft when leaving /create via header navigation.
+  useEffect(() => {
+    return () => {
+      if (sessionId || step !== 0) return;
+
+      const hasDraft = Boolean(userPrompt?.trim()) || Boolean(character.name?.trim()) || Boolean(character.description?.trim()) || Boolean(character.referenceFile);
+      if (!hasDraft) return;
+
+      savePending("character", {
+        userPrompt,
+        style,
+        character: {
+          name: character.name,
+          description: character.description,
+          useUpload: character.useUpload,
+          referenceFile: character.useUpload ? character.referenceFile : null,
+        },
+      }).catch((err) => {
+        console.warn("[useCharacterSession] autosave pending failed:", err);
+      });
+    };
+  }, [sessionId, step, userPrompt, style, character]);
 
   // ── Restore character-specific state when resuming a session ────────
   onSessionLoadedRef.current = (data) => {
@@ -150,6 +175,42 @@ export function useCharacterSession() {
       return;
     }
 
+    if (credits != null && credits < VIDEO_COST) {
+      console.log("[useCharacterSession] Credits insufficient at start — saving pending and redirecting");
+      try {
+        // Convert referenced File object to base64 string for IndexedDB serialization
+        let referenceFileData = null;
+        if (character.useUpload && character.referenceFile) {
+          referenceFileData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                dataUrl: reader.result, // base64 data URL
+                name: character.referenceFile.name,
+              });
+            };
+            reader.readAsDataURL(character.referenceFile);
+          });
+        }
+
+        await savePending("character", {
+          userPrompt,
+          style,
+          character: {
+            name: character.name,
+            description: character.description,
+            useUpload: character.useUpload,
+            referenceFile: referenceFileData,
+          },
+        });
+      } catch (err) {
+        console.warn("[useCharacterSession] Failed to save pending session:", err);
+      }
+      toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
+      navigate("/buy-credits");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setScriptProgress(0);
@@ -170,6 +231,7 @@ export function useCharacterSession() {
 
       setSessionId(newSession.id);
       setSession(newSession);
+      try { await clearPending("character"); } catch (err) { console.warn("[useCharacterSession] clearPending failed:", err); }
 
       // Step 2: Upload or generate character
       if (character.useUpload) {
@@ -226,7 +288,7 @@ export function useCharacterSession() {
     } finally {
       setLoading(false);
     }
-  }, [userPrompt, style, voiceId, character, navigate]);
+  }, [userPrompt, style, voiceId, character, navigate, credits]);
 
   // ── Regenerate lock ─────────────────────────────────────────────────
   const regenerateLock = useCallback(async (feedback) => {
