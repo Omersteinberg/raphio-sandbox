@@ -204,18 +204,19 @@ export default function BuyCreditsPage() {
           })}
         </div>
 
-        {credits > 0 && (
-          <div className="text-center">
-            <button
-              onClick={() => navigate('/create')}
-              className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:opacity-70"
-              style={{ color: "#6B5E7B" }}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Creator
-            </button>
-          </div>
-        )}
+        <div className="text-center">
+          <button
+            onClick={() => {
+              if (window.history.length > 1) navigate(-1);
+              else navigate('/create');
+            }}
+            className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:opacity-70"
+            style={{ color: "#6B5E7B" }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        </div>
       </motion.div>
     </div>
   );

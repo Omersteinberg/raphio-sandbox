@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Volume2, RefreshCw, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getVoiceOptionLabel } from "@/lib/voiceMetadata";
 import { getVoices } from "@/services/voices";
 
 export default function NarrationEditModal({
@@ -192,7 +193,7 @@ export default function NarrationEditModal({
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>
-                    {voice.name} - {voice.description}
+                    {getVoiceOptionLabel(voice)}
                   </option>
                 ))}
               </select>

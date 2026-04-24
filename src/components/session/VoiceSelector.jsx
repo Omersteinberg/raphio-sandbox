@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Search, Check, User, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  getVoiceSecondaryLabel,
+  getVoiceStyleLabel,
+} from "@/lib/voiceMetadata";
 import * as voicesService from "@/services/voices";
 
 export default function VoiceSelector({ value, onChange }) {
@@ -32,10 +36,12 @@ export default function VoiceSelector({ value, onChange }) {
 
   // Filter voices based on search and gender
   const filteredVoices = voices.filter((voice) => {
+    const styleText = getVoiceStyleLabel(voice).toLowerCase();
     const matchesSearch =
       voice.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       voice.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      voice.accent?.toLowerCase().includes(searchQuery.toLowerCase());
+      voice.accent?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      styleText.includes(searchQuery.toLowerCase());
     const matchesGender =
       genderFilter === "all" || voice.gender === genderFilter;
     return matchesSearch && matchesGender;
@@ -126,7 +132,7 @@ export default function VoiceSelector({ value, onChange }) {
               </div>
               <div>
                 <p className="font-medium text-purple-900">{selectedVoice.name}</p>
-                <p className="text-xs text-purple-700">{selectedVoice.description}</p>
+                <p className="text-xs text-purple-700">{getVoiceStyleLabel(selectedVoice)}</p>
               </div>
             </div>
             <button
@@ -208,7 +214,7 @@ export default function VoiceSelector({ value, onChange }) {
                   <div className="flex-1 min-w-0">
                     <span className="font-medium text-gray-900 block">{voice.name}</span>
                     <span className="text-xs text-gray-500 truncate block">
-                      {voice.accent} - {voice.category}
+                      {getVoiceSecondaryLabel(voice)}
                     </span>
                   </div>
                   <button

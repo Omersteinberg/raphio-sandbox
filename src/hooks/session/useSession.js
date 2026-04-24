@@ -169,6 +169,50 @@ export function useSession() {
               })));
             }
             if (data.scriptData) setScriptData(data.scriptData);
+
+            // Restore frame UI state + previews from persisted frame configs
+            // so returning from /buy-credits (or any navigation) doesn't
+            // silently reset the user's choices or drop the generated images.
+            const restoredGenerated = { opening: null, closing: null };
+            if (data.openingFrameConfig) {
+              const cfg = data.openingFrameConfig;
+              setOpeningFrame((prev) => ({
+                ...prev,
+                enabled: true,
+                useUpload: !cfg.customPrompt && !!cfg.uploadedImageUrl,
+                customPrompt: cfg.customPrompt || "",
+                textOverlay: cfg.textOverlay || "",
+                description: cfg.visualDescription || "",
+                uploadedImage: cfg.uploadedImageUrl || null,
+              }));
+              if (cfg.uploadedImageUrl) {
+                restoredGenerated.opening = {
+                  imageUrl: cfg.uploadedImageUrl,
+                  prompt: cfg.customPrompt || null,
+                };
+              }
+            }
+            if (data.closingFrameConfig) {
+              const cfg = data.closingFrameConfig;
+              setClosingFrame((prev) => ({
+                ...prev,
+                enabled: true,
+                useUpload: !cfg.customPrompt && !!cfg.uploadedImageUrl,
+                customPrompt: cfg.customPrompt || "",
+                textOverlay: cfg.textOverlay || "",
+                description: cfg.visualDescription || "",
+                uploadedImage: cfg.uploadedImageUrl || null,
+              }));
+              if (cfg.uploadedImageUrl) {
+                restoredGenerated.closing = {
+                  imageUrl: cfg.uploadedImageUrl,
+                  prompt: cfg.customPrompt || null,
+                };
+              }
+            }
+            if (restoredGenerated.opening || restoredGenerated.closing) {
+              setGeneratedFrameImages(restoredGenerated);
+            }
           }
         } catch (err) {
           console.error("[useSession] Failed to load session:", err);
@@ -483,7 +527,16 @@ export function useSession() {
       setStep(0);
       setError(err.message);
       if (err.response?.status === 402) {
-        toast.error("Insufficient credits");
+        try {
+          await savePending("image", {
+            userPrompt,
+            style,
+            images: images.map((img) => ({ file: img.file, name: img.name })),
+          });
+        } catch (saveErr) {
+          console.warn("[useSession] Failed to save pending on 402:", saveErr);
+        }
+        toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
         navigate('/buy-credits');
       } else {
         toast.error(err.response?.data?.error || "Failed to start session");
@@ -712,6 +765,8 @@ export function useSession() {
       toast.success("Script generated!");
     } catch (err) {
       toast.error("Failed to generate script");
+      setDirection(-1);
+      setStep(0);
     } finally {
       setLoading(false);
     }

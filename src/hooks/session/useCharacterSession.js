@@ -280,7 +280,21 @@ export function useCharacterSession() {
       setStep(0);
       setError(err.message);
       if (err.response?.status === 402) {
-        toast.error("Insufficient credits");
+        try {
+          await savePending("character", {
+            userPrompt,
+            style,
+            character: {
+              name: character.name,
+              description: character.description,
+              useUpload: character.useUpload,
+              referenceFile: null,
+            },
+          });
+        } catch (saveErr) {
+          console.warn("[useCharacterSession] Failed to save pending on 402:", saveErr);
+        }
+        toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
         navigate("/buy-credits");
       } else {
         toast.error(err.response?.data?.error || "Failed to start character session");
@@ -343,7 +357,10 @@ export function useCharacterSession() {
         toast.error("Insufficient credits");
         navigate("/buy-credits");
       } else {
-        toast.error(err.response?.data?.error || "Failed to approve character");
+        toast.error(err.response?.data?.error || "Failed to generate script");
+        setCharacterApproved(false);
+        setDirection(-1);
+        setStep(0);
       }
     } finally {
       setLoading(false);

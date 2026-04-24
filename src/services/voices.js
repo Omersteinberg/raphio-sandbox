@@ -11,18 +11,25 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 /**
  * Get all available voices with metadata
  */
-export async function getVoices() {
+export async function getVoices(options = {}) {
+  const includeLiveMeta = Boolean(options.includeLiveMeta);
+
   // Check cache
-  if (voicesCache && Date.now() - cacheTimestamp < CACHE_TTL) {
+  if (!includeLiveMeta && voicesCache && Date.now() - cacheTimestamp < CACHE_TTL) {
     return voicesCache;
   }
 
   try {
-    const response = await axios.get(API_BASE);
+    const response = await axios.get(API_BASE, {
+      params: includeLiveMeta ? { includeLiveMeta: true } : undefined,
+    });
     if (response.data.success) {
-      voicesCache = response.data.data;
-      cacheTimestamp = Date.now();
-      return voicesCache;
+      const voices = response.data.data;
+      if (!includeLiveMeta) {
+        voicesCache = voices;
+        cacheTimestamp = Date.now();
+      }
+      return voices;
     }
     throw new Error(response.data.error || "Failed to fetch voices");
   } catch (error) {
