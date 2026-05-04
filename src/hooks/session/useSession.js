@@ -385,6 +385,28 @@ export function useSession() {
       setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
       setScriptProgress(55);
 
+      // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
+      // finish. /analyze submits the jobs and returns immediately, so we have
+      // to poll before generating the script — otherwise the script would be
+      // built from the pre-restyle (e.g. photo) images.
+      console.log("[useSession] Waiting for restyle jobs to complete...");
+      const restyleResult = await sessionService.pollRestyleUntilDone(newSession.id, {
+        onProgress: (status) => {
+          console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
+          // Map restyle progress into the 55-70 band of the overall progress bar.
+          if (status.total > 0) {
+            const settled = status.complete + status.skipped + status.failed;
+            const ratio = settled / status.total;
+            setScriptProgress(55 + Math.round(ratio * 15));
+          }
+        },
+      });
+      console.log("[useSession] Restyle complete:", restyleResult);
+      if (restyleResult.failed > 0) {
+        toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+      }
+      setScriptProgress(70);
+
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
       // This way the AI can analyze the generated frame images too
       console.log("[useSession] Processing frame images...");

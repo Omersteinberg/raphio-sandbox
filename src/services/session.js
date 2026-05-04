@@ -85,6 +85,40 @@ export async function analyzeImages(sessionId) {
 }
 
 /**
+ * Check current state of Flux Kontext restyle jobs for a session.
+ * Returns { total, complete, pending, failed, skipped, done }.
+ */
+export async function getRestyleStatus(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/restyle-status`);
+  return response.data;
+}
+
+/**
+ * Poll /restyle-status until every Kontext job has settled. Each poll resolves
+ * in well under a second so no proxy/CDN idle timeout fires.
+ *
+ * @param {string} sessionId
+ * @param {object} [options]
+ * @param {number} [options.intervalMs=3000]
+ * @param {number} [options.timeoutMs=600000] - 10 min cap
+ * @param {(status: object) => void} [options.onProgress]
+ */
+export async function pollRestyleUntilDone(sessionId, options = {}) {
+  const { intervalMs = 3000, timeoutMs = 600000, onProgress } = options;
+  const startedAt = Date.now();
+
+  while (true) {
+    const status = await getRestyleStatus(sessionId);
+    if (typeof onProgress === 'function') onProgress(status);
+    if (status.done) return status;
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`Restyle polling timed out after ${Math.round(timeoutMs / 1000)}s (still ${status.pending} pending)`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/**
  * Generate a frame image (opening or closing) using DALL-E
  * @param {string} sessionId
  * @param {string} frameType - 'opening' or 'closing'
