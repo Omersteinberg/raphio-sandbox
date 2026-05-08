@@ -116,18 +116,17 @@ export default function PromptStep({
       userPrompt,
       style,
       imagesCount: images?.length || 0,
-      openingFrame: { enabled: openingFrame?.enabled, useUpload: openingFrame?.useUpload, customPrompt: openingFrame?.customPrompt },
-      closingFrame: { enabled: closingFrame?.enabled, useUpload: closingFrame?.useUpload, customPrompt: closingFrame?.customPrompt },
+      openingFrame: { useUpload: openingFrame?.useUpload, customPrompt: openingFrame?.customPrompt },
+      closingFrame: { useUpload: closingFrame?.useUpload, customPrompt: closingFrame?.customPrompt },
     });
     onStart();
   };
 
-  // Require custom prompt for AI-generated frames
-  const openingNeedsPrompt = openingFrame?.enabled && !openingFrame?.useUpload && !openingFrame?.customPrompt?.trim();
-  const closingNeedsPrompt = closingFrame?.enabled && !closingFrame?.useUpload && !closingFrame?.customPrompt?.trim();
+  // Frames are mandatory but auto-figure-out is allowed when the user
+  // provides neither a prompt nor an upload — so no per-frame prompt requirement.
   const canStart = isCharacterMode
     ? character?.name?.trim() && character?.description?.trim() && userPrompt?.trim() && style && (character?.useUpload === false || character?.referenceFile)
-    : userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
+    : userPrompt?.trim() && images?.length > 0;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -434,23 +433,11 @@ export default function PromptStep({
                     {/* Opening Frame */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={openingFrame?.enabled}
-                            onChange={(e) => setOpeningFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#F97066" }}
-                          />
-                          <span className="font-semibold" style={{ color: "#2D2235" }}>Opening Frame</span>
-                        </label>
-                        {openingFrame?.enabled && (
-                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Intro screen before your video</span>
-                        )}
+                        <span className="font-semibold" style={{ color: "#2D2235" }}>Opening Frame</span>
+                        <span className="text-xs" style={{ color: "#9B8FA8" }}>Intro screen before your video</span>
                       </div>
 
-                      {openingFrame?.enabled && (
-                        <div className="pl-6 space-y-3">
+                      <div className="pl-6 space-y-3">
                           <div>
                             <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
@@ -491,17 +478,14 @@ export default function PromptStep({
 
                           {!openingFrame.useUpload && (
                             <div>
-                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span className="text-xs italic" style={{ color: "#9B8FA8" }}>(optional — leave blank for auto)</span></label>
                               <Textarea
                                 value={openingFrame.customPrompt || ""}
                                 onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
-                                className={`text-sm rounded-xl ${openingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className="text-sm rounded-xl"
                                 rows={2}
                               />
-                              {openingNeedsPrompt && (
-                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the opening image should look like</p>
-                              )}
                             </div>
                           )}
 
@@ -551,8 +535,7 @@ export default function PromptStep({
                               className="text-sm rounded-xl"
                             />
                           </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
 
                     <hr style={{ borderColor: "rgba(240,234,255,0.8)" }} />
@@ -560,23 +543,11 @@ export default function PromptStep({
                     {/* Closing Frame */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={closingFrame?.enabled}
-                            onChange={(e) => setClosingFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#F97066" }}
-                          />
-                          <span className="font-semibold" style={{ color: "#2D2235" }}>Closing Frame</span>
-                        </label>
-                        {closingFrame?.enabled && (
-                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Outro screen after your video</span>
-                        )}
+                        <span className="font-semibold" style={{ color: "#2D2235" }}>Closing Frame</span>
+                        <span className="text-xs" style={{ color: "#9B8FA8" }}>Outro screen after your video</span>
                       </div>
 
-                      {closingFrame?.enabled && (
-                        <div className="pl-6 space-y-3">
+                      <div className="pl-6 space-y-3">
                           <div>
                             <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
@@ -617,17 +588,14 @@ export default function PromptStep({
 
                           {!closingFrame.useUpload && (
                             <div>
-                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span className="text-xs italic" style={{ color: "#9B8FA8" }}>(optional — leave blank for auto)</span></label>
                               <Textarea
                                 value={closingFrame.customPrompt || ""}
                                 onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Elegant thank you card with soft lighting..."
-                                className={`text-sm rounded-xl ${closingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className="text-sm rounded-xl"
                                 rows={2}
                               />
-                              {closingNeedsPrompt && (
-                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the closing image should look like</p>
-                              )}
                             </div>
                           )}
 
@@ -678,8 +646,7 @@ export default function PromptStep({
                             />
                           </div>
 
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>

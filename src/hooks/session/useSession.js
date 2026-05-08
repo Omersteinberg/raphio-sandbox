@@ -413,109 +413,87 @@ export function useSession() {
       const frameOptions = {};
       const newGeneratedFrameImages = { opening: null, closing: null };
 
-      if (openingFrame.enabled) {
-        if (openingFrame.useUpload && openingFrame.uploadedFile) {
-          // Upload the user's frame image — no AI generation needed
-          const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.opening = "user_image";
-            frameOptions.openingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.opening = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-            console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
-          }
-        } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
-          // AI Generate mode — generate an image using the user's custom prompt
-          console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
-          console.log("[useSession] Opening frame description:", openingFrame.description);
-          try {
-            const frameResult = await sessionService.generateFrameImage(
-              newSession.id,
-              "opening",
-              openingFrame.customPrompt,
-              openingFrame.description || ""
-            );
-            if (frameResult?.imageUrl) {
-              frameOptions.opening = "ai_generated_image";
-              frameOptions.openingImageUrl = frameResult.imageUrl;
-              newGeneratedFrameImages.opening = {
-                imageUrl: frameResult.imageUrl,
-                prompt: openingFrame.customPrompt,
-              };
-              console.log("[useSession] Opening frame image generated:", frameResult.imageUrl);
-            } else {
-              frameOptions.opening = "ai_generate";
-              frameOptions.openingPrompt = openingFrame.customPrompt;
-            }
-          } catch (err) {
-            console.warn("[useSession] Failed to pre-generate opening frame image, falling back:", err);
+      // OPENING frame: gather user-supplied input. If user supplied nothing,
+      // omit the field so the backend auto-figures-out from script context.
+      if (openingFrame?.useUpload && openingFrame?.uploadedFile) {
+        const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          frameOptions.opening = "user_image";
+          frameOptions.openingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.opening = { imageUrl: uploadedUrl, prompt: null };
+          console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
+        }
+      } else if (!openingFrame?.useUpload && openingFrame?.customPrompt) {
+        console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
+        try {
+          const frameResult = await sessionService.generateFrameImage(
+            newSession.id,
+            "opening",
+            openingFrame.customPrompt,
+            openingFrame.description || ""
+          );
+          if (frameResult?.imageUrl) {
+            frameOptions.opening = "ai_generated_image";
+            frameOptions.openingImageUrl = frameResult.imageUrl;
+            newGeneratedFrameImages.opening = { imageUrl: frameResult.imageUrl, prompt: openingFrame.customPrompt };
+            console.log("[useSession] Opening frame image generated:", frameResult.imageUrl);
+          } else {
             frameOptions.opening = "ai_generate";
             frameOptions.openingPrompt = openingFrame.customPrompt;
           }
+        } catch (err) {
+          console.warn("[useSession] Failed to pre-generate opening frame image, falling back:", err);
+          frameOptions.opening = "ai_generate";
+          frameOptions.openingPrompt = openingFrame.customPrompt;
         }
-        if (openingFrame.textOverlay) {
-          frameOptions.openingNarration = openingFrame.textOverlay;
-        }
-        if (openingFrame.description) {
-          frameOptions.openingDescription = openingFrame.description;
-        }
-      } else {
-        frameOptions.opening = "none";
+      }
+      if (openingFrame?.textOverlay) {
+        frameOptions.openingNarration = openingFrame.textOverlay;
+      }
+      if (openingFrame?.description) {
+        frameOptions.openingDescription = openingFrame.description;
       }
 
-      if (closingFrame.enabled) {
-        if (closingFrame.useUpload && closingFrame.uploadedFile) {
-          // Upload the user's frame image — no AI generation needed
-          const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.closing = "user_image";
-            frameOptions.closingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.closing = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-            console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
-          }
-        } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
-          // AI Generate mode — generate an image using the user's custom prompt
-          console.log("[useSession] Generating AI closing frame image...");
-          try {
-            const frameResult = await sessionService.generateFrameImage(
-              newSession.id,
-              "closing",
-              closingFrame.customPrompt,
-              closingFrame.description || ""
-            );
-            if (frameResult?.imageUrl) {
-              frameOptions.closing = "ai_generated_image";
-              frameOptions.closingImageUrl = frameResult.imageUrl;
-              newGeneratedFrameImages.closing = {
-                imageUrl: frameResult.imageUrl,
-                prompt: closingFrame.customPrompt,
-              };
-              console.log("[useSession] Closing frame image generated:", frameResult.imageUrl);
-            } else {
-              frameOptions.closing = "ai_generate";
-              frameOptions.closingPrompt = closingFrame.customPrompt;
-            }
-          } catch (err) {
-            console.warn("[useSession] Failed to pre-generate closing frame image, falling back:", err);
+      // CLOSING frame: same shape as opening.
+      if (closingFrame?.useUpload && closingFrame?.uploadedFile) {
+        const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          frameOptions.closing = "user_image";
+          frameOptions.closingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.closing = { imageUrl: uploadedUrl, prompt: null };
+          console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
+        }
+      } else if (!closingFrame?.useUpload && closingFrame?.customPrompt) {
+        console.log("[useSession] Generating AI closing frame image…");
+        try {
+          const frameResult = await sessionService.generateFrameImage(
+            newSession.id,
+            "closing",
+            closingFrame.customPrompt,
+            closingFrame.description || ""
+          );
+          if (frameResult?.imageUrl) {
+            frameOptions.closing = "ai_generated_image";
+            frameOptions.closingImageUrl = frameResult.imageUrl;
+            newGeneratedFrameImages.closing = { imageUrl: frameResult.imageUrl, prompt: closingFrame.customPrompt };
+            console.log("[useSession] Closing frame image generated:", frameResult.imageUrl);
+          } else {
             frameOptions.closing = "ai_generate";
             frameOptions.closingPrompt = closingFrame.customPrompt;
           }
+        } catch (err) {
+          console.warn("[useSession] Failed to pre-generate closing frame image, falling back:", err);
+          frameOptions.closing = "ai_generate";
+          frameOptions.closingPrompt = closingFrame.customPrompt;
         }
-        if (closingFrame.textOverlay) {
-          frameOptions.closingNarration = closingFrame.textOverlay;
-        }
-        if (closingFrame.description) {
-          frameOptions.closingDescription = closingFrame.description;
-        }
-      } else {
-        frameOptions.closing = "none";
+      }
+      if (closingFrame?.textOverlay) {
+        frameOptions.closingNarration = closingFrame.textOverlay;
+      }
+      if (closingFrame?.description) {
+        frameOptions.closingDescription = closingFrame.description;
       }
 
       setGeneratedFrameImages(newGeneratedFrameImages);
@@ -529,6 +507,18 @@ export function useSession() {
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
+
+      // If the backend auto-pre-generated frame images (auto path),
+      // their URLs land in {opening,closing}FrameConfig.uploadedImageUrl.
+      // Surface those into generatedFrameImages so ScriptStep can render them.
+      const backendOpeningUrl = sessionAfterScript?.openingFrameConfig?.uploadedImageUrl;
+      const backendClosingUrl = sessionAfterScript?.closingFrameConfig?.uploadedImageUrl;
+      if (backendOpeningUrl || backendClosingUrl) {
+        setGeneratedFrameImages((prev) => ({
+          opening: prev.opening || (backendOpeningUrl ? { imageUrl: backendOpeningUrl, prompt: null } : null),
+          closing: prev.closing || (backendClosingUrl ? { imageUrl: backendClosingUrl, prompt: null } : null),
+        }));
+      }
       setScriptProgress(100);
 
       setDirection(1);

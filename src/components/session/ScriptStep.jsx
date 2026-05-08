@@ -150,8 +150,8 @@ export default function ScriptStep({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4">
-            {/* Opening Frame - shown above content sections */}
-            {openingFrame?.enabled && (
+            {/* Opening Frame - shown above content sections (always rendered; frames are mandatory) */}
+            {(
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -162,14 +162,14 @@ export default function ScriptStep({
                 <div className="flex gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
-                    {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage) ? (
+                    {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl) ? (
                       <div className="relative">
                         <img
-                          src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage}
+                          src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl}
                           alt="Opening frame"
                           className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        {generatedFrameImages?.opening?.imageUrl && !openingFrame.uploadedImage && (
+                        {(generatedFrameImages?.opening?.imageUrl || session?.openingFrameConfig?.uploadedImageUrl) && !openingFrame.uploadedImage && (
                           <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
@@ -260,7 +260,7 @@ export default function ScriptStep({
                           <p className="text-sm text-gray-600"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
                         )}
                         {!openingFrame.description && !openingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Opening frame enabled — script will include narration & visual direction</p>
+                          <p className="text-sm text-gray-400 italic">Opening frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -409,8 +409,8 @@ export default function ScriptStep({
 
             {/* Frame Configuration Section removed - now in PromptStep */}
 
-            {/* Closing Frame - shown below content sections */}
-            {closingFrame?.enabled && (
+            {/* Closing Frame - shown below content sections (always rendered; frames are mandatory) */}
+            {(
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -422,14 +422,14 @@ export default function ScriptStep({
                 <div className="flex gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
-                    {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage) ? (
+                    {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl) ? (
                       <div className="relative">
                         <img
-                          src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage}
+                          src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl}
                           alt="Closing frame"
                           className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        {generatedFrameImages?.closing?.imageUrl && !closingFrame.uploadedImage && (
+                        {(generatedFrameImages?.closing?.imageUrl || session?.closingFrameConfig?.uploadedImageUrl) && !closingFrame.uploadedImage && (
                           <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
@@ -520,7 +520,7 @@ export default function ScriptStep({
                           <p className="text-sm text-gray-600 mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
                         )}
                         {!closingFrame.description && !closingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Closing frame enabled — script will include narration & visual direction</p>
+                          <p className="text-sm text-gray-400 italic">Closing frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
