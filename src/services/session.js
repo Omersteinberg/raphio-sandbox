@@ -167,6 +167,48 @@ export async function generateScript(sessionId, frameOptions = null) {
 }
 
 /**
+ * Generate story outline with bridge frame proposals
+ */
+export async function generateOutline(sessionId, frameOptions = null) {
+  const payload = frameOptions ? { frameOptions } : {};
+  const response = await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload);
+  return response.data;
+}
+
+/**
+ * Approve outline and trigger bridge frame image generation
+ */
+export async function approveOutline(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/approve-outline`);
+  return response.data;
+}
+
+/**
+ * Retry failed bridge frame image generation
+ */
+export async function retryBridgeFrames(sessionId, orderIndices) {
+  const payload = orderIndices ? { orderIndices } : {};
+  const response = await axios.post(`${API_BASE}/${sessionId}/retry-bridge-frames`, payload);
+  return response.data;
+}
+
+/**
+ * Upload a user image for a bridge frame
+ */
+export async function uploadBridgeImage(sessionId, orderIndex, file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('orderIndex', orderIndex.toString());
+
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/bridge-frame-upload`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data;
+}
+
+/**
  * Update script (direct update or AI-assisted edit)
  */
 export async function updateScript(sessionId, { scriptData, editRequest }) {

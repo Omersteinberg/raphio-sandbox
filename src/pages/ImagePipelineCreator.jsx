@@ -17,6 +17,7 @@ import InsufficientCreditsModal from "@/components/session/InsufficientCreditsMo
 const STEP_NAMES = [
   "Prompt",
   "Script",
+  "Bridges",
   "Generate",
   "Processing",
   "Complete",
@@ -53,6 +54,9 @@ export default function ImagePipelineCreator({ onModeChange }) {
     generateScript,
     editScriptWithAI,
     approveScript,
+    approveOutline,
+    retryBridgeFrames,
+    uploadBridgeImage,
 
     // Frames step
     openingFrame,
@@ -186,7 +190,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
             setEditRequest={setEditRequest}
             generateScript={generateScript}
             editScriptWithAI={editScriptWithAI}
-            approveScript={approveScript}
+            approveOutline={approveOutline}
             session={session.session}
             loading={loading}
             images={images}
@@ -194,10 +198,32 @@ export default function ImagePipelineCreator({ onModeChange }) {
             openingFrame={openingFrame}
             closingFrame={closingFrame}
             generatedFrameImages={generatedFrameImages}
+            phase="outline"
           />
         );
 
       case 2:
+        return (
+          <ScriptStep
+            scriptData={scriptData}
+            setScriptData={setScriptData}
+            editRequest={editRequest}
+            setEditRequest={setEditRequest}
+            approveScript={approveScript}
+            retryBridgeFrames={retryBridgeFrames}
+            uploadBridgeImage={uploadBridgeImage}
+            session={session.session}
+            loading={loading}
+            images={images}
+            onNext={handleNext}
+            openingFrame={openingFrame}
+            closingFrame={closingFrame}
+            generatedFrameImages={generatedFrameImages}
+            phase="bridges"
+          />
+        );
+
+      case 3:
         return (
           <FramesStep
             openingFrame={openingFrame}
@@ -211,7 +237,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           />
         );
 
-      case 3:
+      case 4:
         return (
           <GeneratingStep
             session={session.session}
@@ -221,7 +247,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           />
         );
 
-      case 4:
+      case 5:
         return (
           <ResultStep
             finalVideoUrl={finalVideoUrl}
@@ -232,7 +258,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           />
         );
 
-      case 5:
+      case 6:
         return (
           <EditingStep
             session={session.session}
@@ -243,7 +269,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
             reorderClips={reorderClips}
             reassembleVideo={reassembleVideo}
             deleteClip={deleteClip}
-            goToResult={() => goToStep(4)}
+            goToResult={() => goToStep(5)}
             refreshSession={refreshSession}
             loading={loading}
           />
@@ -255,8 +281,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
   };
 
   // Show progress bar for content steps
-  const showProgressBar = step > 0 && step < 3;
-  const progressSteps = STEP_NAMES.slice(0, 3);
+  const showProgressBar = step > 0 && step < 4;
+  const progressSteps = STEP_NAMES.slice(0, 4);
 
   return (
     <div
@@ -339,7 +365,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
       </div>
 
       {/* Loading overlay */}
-      {loading && step !== 3 && (
+      {loading && step !== 4 && (
         <MergeLoadingOverlay
           text={
             step === 0
@@ -347,6 +373,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
               : step === 1
               ? "Generating script..."
               : step === 2
+              ? "Generating bridge images..."
+              : step === 3
               ? "Saving generation settings..."
               : "Processing..."
           }
