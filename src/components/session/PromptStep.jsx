@@ -31,6 +31,9 @@ export default function PromptStep({
   closingFrame,
   setClosingFrame,
   styleOptions = [],
+  // Bridge toggle
+  enableBridges,
+  setEnableBridges,
   // Character pipeline props
   pipelineMode,
   onModeChange,
@@ -393,6 +396,41 @@ export default function PromptStep({
               ))}
             </div>
           </div>
+
+          {/* AI Bridge Frames toggle (image mode only) */}
+          {!isCharacterMode && setEnableBridges && (
+            <div className="mb-6">
+              <button
+                onClick={() => setEnableBridges(!enableBridges)}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl border transition-colors"
+                style={{
+                  background: enableBridges ? "rgba(249,112,102,0.06)" : "rgba(255,255,255,0.6)",
+                  borderColor: enableBridges ? "#F97066" : "rgba(240,234,255,0.8)",
+                }}
+              >
+                <div
+                  className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                  style={
+                    enableBridges
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", borderColor: "#F97066" }
+                      : { background: "transparent", borderColor: "#D4CDE0" }
+                  }
+                >
+                  {enableBridges && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block" style={{ color: "#2D2235" }}>AI Bridge Frames</span>
+                  <span className="text-xs" style={{ color: "#9B8FA8" }}>
+                    Generate AI transition scenes between your uploaded images
+                  </span>
+                </div>
+              </button>
+            </div>
+          )}
 
           {/* Opening & Closing Frames (image mode only) */}
           {!isCharacterMode && <div className="mb-6">

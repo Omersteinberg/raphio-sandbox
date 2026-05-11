@@ -19,20 +19,38 @@ const STAGES = {
   EDITING: "EDITING",
 };
 
-// Map backend stages to frontend step numbers
-// Image upload/analysis are handled during startSession and do not have dedicated pages
-const STAGE_TO_STEP = {
-  PROMPT_ENTERED: 1,
-  IMAGES_UPLOADED: 1,
-  IMAGES_ANALYZED: 1,
-  OUTLINE_GENERATED: 1,
-  SCRIPT_GENERATED: 2,
-  SCRIPT_APPROVED: 3,
-  FRAMES_CONFIGURED: 3,
-  GENERATING: 4,
-  COMPLETED: 5,
-  EDITING: 6,
-};
+// Map backend stages to frontend step numbers.
+// When bridges are enabled the flow has an extra "bridges" step between
+// outline review and frames configuration, shifting later steps up by 1.
+function getStageToStep(bridgesEnabled) {
+  if (bridgesEnabled) {
+    return {
+      PROMPT_ENTERED: 1,
+      IMAGES_UPLOADED: 1,
+      IMAGES_ANALYZED: 1,
+      OUTLINE_GENERATED: 1,
+      SCRIPT_GENERATED: 2,
+      SCRIPT_APPROVED: 3,
+      FRAMES_CONFIGURED: 3,
+      GENERATING: 4,
+      COMPLETED: 5,
+      EDITING: 6,
+    };
+  }
+  // No bridges — skip the bridges review step entirely
+  return {
+    PROMPT_ENTERED: 1,
+    IMAGES_UPLOADED: 1,
+    IMAGES_ANALYZED: 1,
+    OUTLINE_GENERATED: 1,
+    SCRIPT_GENERATED: 2,   // goes straight to frames config
+    SCRIPT_APPROVED: 2,
+    FRAMES_CONFIGURED: 2,
+    GENERATING: 3,
+    COMPLETED: 4,
+    EDITING: 5,
+  };
+}
 
 
 export function useSession() {
@@ -55,6 +73,7 @@ export function useSession() {
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
+  const [enableBridges, setEnableBridges] = useState(false);
 
   // Images state
   const [images, setImages] = useState([]);
@@ -162,6 +181,7 @@ export function useSession() {
             if (data.style) setStyle(data.style);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
+            if (data.enableBridges != null) setEnableBridges(data.enableBridges);
             if (data.images?.length) {
               setImages(data.images.map((img) => ({
                 id: img.id,
@@ -230,10 +250,11 @@ export function useSession() {
   // Sync step with session stage
   useEffect(() => {
     if (session?.stage) {
-      const newStep = STAGE_TO_STEP[session.stage] ?? 0;
+      const stageMap = getStageToStep(enableBridges);
+      const newStep = stageMap[session.stage] ?? 0;
       console.log("[useSession] Stage sync effect triggered");
       console.log("[useSession] Current session.stage:", session.stage);
-      console.log("[useSession] Mapped to step:", newStep);
+      console.log("[useSession] Mapped to step:", newStep, "(enableBridges:", enableBridges, ")");
       console.log("[useSession] Current step:", step);
       
       if (newStep !== step) {
@@ -262,7 +283,8 @@ export function useSession() {
   useEffect(() => {
     let pollInterval;
 
-    if (sessionId && step === 4) {
+    const generatingStep = enableBridges ? 4 : 3;
+    if (sessionId && step === generatingStep) {
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
@@ -355,6 +377,7 @@ export function useSession() {
         style,
         imageDuration,
         voiceId,
+        enableBridges,
       };
       console.log("[useSession] Request payload:", payload);
 
@@ -558,7 +581,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, navigate]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, navigate]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -878,7 +901,9 @@ export function useSession() {
       setSession(updatedSession);
       setScriptData(updatedSession.scriptData);
 
-      if (updatedSession.hasBridgeFailures) {
+      if (!enableBridges) {
+        toast.success("Script approved!");
+      } else if (updatedSession.hasBridgeFailures) {
         toast.warning("Some bridge frames failed to generate. You can retry or remove them.");
       } else {
         toast.success("Outline approved! Bridge images generated.");
@@ -1013,11 +1038,12 @@ export function useSession() {
       return;
     }
 
-    // Immediately transition to GeneratingStep (step 4) so user sees
+    // Immediately transition to GeneratingStep so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
-    console.log("[useSession] Transitioning to GeneratingStep (step 4) immediately");
+    const genStep = enableBridges ? 4 : 3;
+    console.log(`[useSession] Transitioning to GeneratingStep (step ${genStep}) immediately`);
     setDirection(1);
-    setStep(4);
+    setStep(genStep);
 
     try {
       console.log("[useSession] Calling sessionService.startGeneration...");
@@ -1038,17 +1064,18 @@ export function useSession() {
         status: err.response?.status,
       });
       // Insufficient credits — show modal
+      const framesStep = enableBridges ? 3 : 2;
       if (err.response?.status === 402) {
         setInsufficientCredits({
           required: err.response.data.required,
           available: err.response.data.available,
         });
         setDirection(-1);
-        setStep(3);
+        setStep(framesStep);
         return;
       }
       // Network errors (timeout/CORS) likely mean generation is still running
-      // in the background - stay on step 4 and let polling pick up the result
+      // in the background - stay on generating step and let polling pick up the result
       if (err.code === "ERR_NETWORK" || !err.response) {
         console.log("[useSession] Network error - generation likely running in background, continuing to poll...");
         toast.info("Generation in progress... please wait");
@@ -1057,7 +1084,7 @@ export function useSession() {
       // Only go back for actual server errors (4xx/5xx with a response)
       toast.error("Failed to start generation");
       setDirection(-1);
-      setStep(3);
+      setStep(framesStep);
     }
   }, [sessionId, videoModel, voiceId, backgroundMusic]);
 
@@ -1255,6 +1282,7 @@ export function useSession() {
     setVoiceId("adam");
     setVideoModel("KLING");
     setBackgroundMusic(true);
+    setEnableBridges(false);
     setImages([]);
     setImageAnalysis(null);
     setScriptData(null);
@@ -1288,6 +1316,8 @@ export function useSession() {
     setVideoModel,
     backgroundMusic,
     setBackgroundMusic,
+    enableBridges,
+    setEnableBridges,
 
     // Images
     images,

@@ -13,15 +13,9 @@ import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 
-// Step names for progress bar
-const STEP_NAMES = [
-  "Prompt",
-  "Script",
-  "Bridges",
-  "Generate",
-  "Processing",
-  "Complete",
-];
+// Step names for progress bar — dynamic based on whether bridges are enabled
+const STEP_NAMES_WITH_BRIDGES = ["Prompt", "Script", "Bridges", "Generate", "Processing", "Complete"];
+const STEP_NAMES_NO_BRIDGES = ["Prompt", "Script", "Generate", "Processing", "Complete"];
 
 export default function ImagePipelineCreator({ onModeChange }) {
   const session = useSession();
@@ -39,6 +33,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setStyle,
     startSession,
     styleOptions,
+    enableBridges,
+    setEnableBridges,
 
     // Images (from prompt)
     images,
@@ -155,134 +151,150 @@ export default function ImagePipelineCreator({ onModeChange }) {
     opacity: { duration: 0.2 },
   };
 
+  // Step offsets shift when bridges are disabled
+  const framesStep = enableBridges ? 3 : 2;
+  const generatingStep = enableBridges ? 4 : 3;
+  const completedStep = enableBridges ? 5 : 4;
+  const editingStep = enableBridges ? 6 : 5;
+
   // Render current step component
   const renderStep = () => {
-    switch (step) {
-      case 0:
-        return (
-          <PromptStep
-            pipelineMode="image"
-            onModeChange={!session.sessionId ? onModeChange : undefined}
-            userPrompt={userPrompt}
-            setUserPrompt={setUserPrompt}
-            style={style}
-            setStyle={setStyle}
-            images={images}
-            addImages={addImages}
-            removeImage={removeImage}
-            reorderImages={reorderImages}
-            onStart={startSession}
-            loading={loading}
-            openingFrame={openingFrame}
-            setOpeningFrame={setOpeningFrame}
-            closingFrame={closingFrame}
-            setClosingFrame={setClosingFrame}
-            styleOptions={styleOptions}
-          />
-        );
-
-      case 1:
-        return (
-          <ScriptStep
-            scriptData={scriptData}
-            setScriptData={setScriptData}
-            editRequest={editRequest}
-            setEditRequest={setEditRequest}
-            generateScript={generateScript}
-            editScriptWithAI={editScriptWithAI}
-            approveOutline={approveOutline}
-            session={session.session}
-            loading={loading}
-            images={images}
-            onNext={handleNext}
-            openingFrame={openingFrame}
-            closingFrame={closingFrame}
-            generatedFrameImages={generatedFrameImages}
-            phase="outline"
-          />
-        );
-
-      case 2:
-        return (
-          <ScriptStep
-            scriptData={scriptData}
-            setScriptData={setScriptData}
-            editRequest={editRequest}
-            setEditRequest={setEditRequest}
-            approveScript={approveScript}
-            retryBridgeFrames={retryBridgeFrames}
-            uploadBridgeImage={uploadBridgeImage}
-            session={session.session}
-            loading={loading}
-            images={images}
-            onNext={handleNext}
-            openingFrame={openingFrame}
-            closingFrame={closingFrame}
-            generatedFrameImages={generatedFrameImages}
-            phase="bridges"
-          />
-        );
-
-      case 3:
-        return (
-          <FramesStep
-            openingFrame={openingFrame}
-            closingFrame={closingFrame}
-            voiceId={voiceId}
-            setVoiceId={setVoiceId}
-            backgroundMusic={backgroundMusic}
-            setBackgroundMusic={setBackgroundMusic}
-            configureFrames={configureFrames}
-            startGeneration={startGeneration}
-          />
-        );
-
-      case 4:
-        return (
-          <GeneratingStep
-            session={session.session}
-            scriptData={scriptData}
-            openingFrame={openingFrame}
-            closingFrame={closingFrame}
-          />
-        );
-
-      case 5:
-        return (
-          <ResultStep
-            finalVideoUrl={finalVideoUrl}
-            scriptData={scriptData}
-            session={session.session}
-            enterEditingMode={enterEditingMode}
-            reset={reset}
-          />
-        );
-
-      case 6:
-        return (
-          <EditingStep
-            session={session.session}
-            sessionId={session.sessionId}
-            updateClip={updateClip}
-            regenerateClip={regenerateClip}
-            regenerateNarration={regenerateNarration}
-            reorderClips={reorderClips}
-            reassembleVideo={reassembleVideo}
-            deleteClip={deleteClip}
-            goToResult={() => goToStep(5)}
-            refreshSession={refreshSession}
-            loading={loading}
-          />
-        );
-
-      default:
-        return null;
+    if (step === 0) {
+      return (
+        <PromptStep
+          pipelineMode="image"
+          onModeChange={!session.sessionId ? onModeChange : undefined}
+          userPrompt={userPrompt}
+          setUserPrompt={setUserPrompt}
+          style={style}
+          setStyle={setStyle}
+          images={images}
+          addImages={addImages}
+          removeImage={removeImage}
+          reorderImages={reorderImages}
+          onStart={startSession}
+          loading={loading}
+          openingFrame={openingFrame}
+          setOpeningFrame={setOpeningFrame}
+          closingFrame={closingFrame}
+          setClosingFrame={setClosingFrame}
+          styleOptions={styleOptions}
+          enableBridges={enableBridges}
+          setEnableBridges={setEnableBridges}
+        />
+      );
     }
+
+    if (step === 1) {
+      return (
+        <ScriptStep
+          scriptData={scriptData}
+          setScriptData={setScriptData}
+          editRequest={editRequest}
+          setEditRequest={setEditRequest}
+          generateScript={generateScript}
+          editScriptWithAI={editScriptWithAI}
+          approveOutline={approveOutline}
+          session={session.session}
+          loading={loading}
+          images={images}
+          onNext={handleNext}
+          openingFrame={openingFrame}
+          closingFrame={closingFrame}
+          generatedFrameImages={generatedFrameImages}
+          phase="outline"
+          enableBridges={enableBridges}
+        />
+      );
+    }
+
+    // Bridges step only exists when bridges are enabled
+    if (enableBridges && step === 2) {
+      return (
+        <ScriptStep
+          scriptData={scriptData}
+          setScriptData={setScriptData}
+          editRequest={editRequest}
+          setEditRequest={setEditRequest}
+          approveScript={approveScript}
+          retryBridgeFrames={retryBridgeFrames}
+          uploadBridgeImage={uploadBridgeImage}
+          session={session.session}
+          loading={loading}
+          images={images}
+          onNext={handleNext}
+          openingFrame={openingFrame}
+          closingFrame={closingFrame}
+          generatedFrameImages={generatedFrameImages}
+          phase="bridges"
+          enableBridges={enableBridges}
+        />
+      );
+    }
+
+    if (step === framesStep) {
+      return (
+        <FramesStep
+          openingFrame={openingFrame}
+          closingFrame={closingFrame}
+          voiceId={voiceId}
+          setVoiceId={setVoiceId}
+          backgroundMusic={backgroundMusic}
+          setBackgroundMusic={setBackgroundMusic}
+          configureFrames={configureFrames}
+          startGeneration={startGeneration}
+        />
+      );
+    }
+
+    if (step === generatingStep) {
+      return (
+        <GeneratingStep
+          session={session.session}
+          scriptData={scriptData}
+          openingFrame={openingFrame}
+          closingFrame={closingFrame}
+        />
+      );
+    }
+
+    if (step === completedStep) {
+      return (
+        <ResultStep
+          finalVideoUrl={finalVideoUrl}
+          scriptData={scriptData}
+          session={session.session}
+          enterEditingMode={enterEditingMode}
+          reset={reset}
+        />
+      );
+    }
+
+    if (step === editingStep) {
+      return (
+        <EditingStep
+          session={session.session}
+          sessionId={session.sessionId}
+          updateClip={updateClip}
+          regenerateClip={regenerateClip}
+          regenerateNarration={regenerateNarration}
+          reorderClips={reorderClips}
+          reassembleVideo={reassembleVideo}
+          deleteClip={deleteClip}
+          goToResult={() => goToStep(completedStep)}
+          refreshSession={refreshSession}
+          loading={loading}
+        />
+      );
+    }
+
+    return null;
   };
 
-  // Show progress bar for content steps
-  const showProgressBar = step > 0 && step < 4;
-  const progressSteps = STEP_NAMES.slice(0, 4);
+  // Show progress bar for content steps (before generating)
+  const stepNames = enableBridges ? STEP_NAMES_WITH_BRIDGES : STEP_NAMES_NO_BRIDGES;
+  const showProgressBar = step > 0 && step < generatingStep;
+  const progressSteps = stepNames.slice(0, enableBridges ? 4 : 3);
 
   return (
     <div
@@ -365,16 +377,16 @@ export default function ImagePipelineCreator({ onModeChange }) {
       </div>
 
       {/* Loading overlay */}
-      {loading && step !== 4 && (
+      {loading && step !== generatingStep && (
         <MergeLoadingOverlay
           text={
             step === 0
               ? "Creating session..."
               : step === 1
               ? "Generating script..."
-              : step === 2
+              : enableBridges && step === 2
               ? "Generating bridge images..."
-              : step === 3
+              : step === framesStep
               ? "Saving generation settings..."
               : "Processing..."
           }

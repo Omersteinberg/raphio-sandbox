@@ -26,6 +26,7 @@ export default function ScriptStep({
   closingFrame,
   generatedFrameImages,
   phase,
+  enableBridges,
 }) {
   const isCharacterPipeline = pipelineMode === "character";
   const [editingSection, setEditingSection] = useState(null);
@@ -123,7 +124,9 @@ export default function ScriptStep({
                   className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  {loading ? "Generating Bridge Images..." : "Approve Outline"}
+                  {loading
+                    ? (enableBridges ? "Generating Bridge Images..." : "Approving...")
+                    : (enableBridges ? "Approve Outline" : "Approve Script")}
                 </Button>
               ) : phase === "bridges" ? (
                 <Button
