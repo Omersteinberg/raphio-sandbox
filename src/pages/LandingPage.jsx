@@ -11,7 +11,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen font-figtree" style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}>
+    <div className="min-h-screen font-figtree" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md border-b border-orange-100/60">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">

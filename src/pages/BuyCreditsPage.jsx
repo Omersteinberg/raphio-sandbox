@@ -52,7 +52,7 @@ export default function BuyCreditsPage() {
     return (
       <div
         className="h-full flex items-center justify-center py-12 px-4 font-figtree"
-        style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+        style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -86,7 +86,7 @@ export default function BuyCreditsPage() {
   return (
     <div
       className="h-full flex flex-col items-center py-12 px-4 font-figtree"
-      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
     >
       <motion.div
         initial={{ opacity: 0, y: 16 }}

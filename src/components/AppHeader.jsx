@@ -24,7 +24,7 @@ export default function AppHeader() {
   const initials = (user.username || user.email || '?').charAt(0).toUpperCase();
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-gray-200 shrink-0 z-50 relative">
+    <header className="h-14 flex items-center justify-between px-4 bg-white shrink-0 z-50 relative">
       {/* Left: Logo / brand */}
       <button
         onClick={() => navigate('/create')}

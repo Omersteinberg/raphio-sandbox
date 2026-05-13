@@ -45,7 +45,7 @@ function RegisterPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center font-figtree py-12 px-4 sm:px-6 lg:px-8"
-      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
     >
       <div className="max-w-md w-full">
         {/* Logo */}
