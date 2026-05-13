@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Download, Share2, Edit3, Plus, Check, Play } from "lucide-react";
+import { Download, Edit3, Plus, Check, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ResultStep({
