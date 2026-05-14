@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Play } from 'lucide-react';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -36,14 +35,8 @@ function LoginPage() {
     >
       <div className="max-w-md w-full">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-10">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
-          >
-            <Play className="w-5 h-5 text-white fill-white" />
-          </div>
-          <span className="text-2xl font-bold" style={{ color: "#2D2235" }}>Raphio</span>
+        <div className="flex items-center justify-center mb-10">
+          <img src="/Logo.svg" alt="Raphio" className="h-10" />
         </div>
 
         {/* Card */}

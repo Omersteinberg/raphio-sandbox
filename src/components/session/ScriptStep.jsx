@@ -129,7 +129,8 @@ export default function ScriptStep({
             <Button
               onClick={generateScript}
               disabled={loading}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-6 text-lg"
+              className="text-white border-0 px-8 py-6 text-lg"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -535,7 +536,8 @@ export default function ScriptStep({
           <div className="mt-4">
             <Button
               onClick={onNext}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               <span className="flex items-center gap-2">
                 Continue to Generation Settings
@@ -580,7 +582,8 @@ export default function ScriptStep({
             <Button
               onClick={editScriptWithAI}
               disabled={!editRequest.trim() || loading}
-              className="mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+              className="mt-4 text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">

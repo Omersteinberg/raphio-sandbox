@@ -281,7 +281,7 @@ export default function PromptStep({
               background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)", 
               color: "#fff", 
               borderColor: "transparent",
-              fontWeight: "800", // Makes it bold like the image
+              fontWeight: "700", // Makes it bold like the image
               boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)" // Adds the 'bright' glow
           }
         : { 

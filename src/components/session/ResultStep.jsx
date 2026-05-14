@@ -96,7 +96,8 @@ export default function ResultStep({
           <Button
             onClick={handleDownload}
             disabled={!finalVideoUrl}
-            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+            className="text-white border-0 flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
           >
             <Download className="w-4 h-4" />
             Download

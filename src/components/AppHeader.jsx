@@ -30,7 +30,7 @@ export default function AppHeader() {
         onClick={() => navigate('/create')}
         className="text-lg font-bold text-gray-900 hover:opacity-80 transition-opacity"
       >
-        Raphio
+        <img src="/Logo.svg" alt="Raphio" className="h-7" />
       </button>
 
       {/* Right: Credits + Avatar */}
@@ -40,18 +40,18 @@ export default function AppHeader() {
           onClick={() => navigate('/buy-credits')}
           className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
         >
-          <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4 text-[#6691FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v12M6 12h12" strokeLinecap="round" />
           </svg>
-          <span className="font-bold text-primary">{credits ?? '...'}</span>
+          <span className="font-bold text-[#6691FF]">{credits ?? '...'}</span>
           <span className="hidden sm:inline">credits</span>
         </button>
 
         {/* Avatar button */}
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="w-9 h-9 rounded-full bg-[#4F46E5] text-white flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           {initials}
         </button>

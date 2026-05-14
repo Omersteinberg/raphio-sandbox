@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Wand2, Upload, Video, ArrowRight, Play } from "lucide-react";
+import { Wand2, Upload, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LandingPage() {
@@ -15,11 +15,8 @@ export default function LandingPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md border-b border-orange-100/60">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}>
-              <Play className="w-4 h-4 text-white fill-white" />
-            </div>
-            <span className="text-xl font-bold" style={{ color: "#2D2235" }}>Raphio</span>
+          <div className="flex items-center">
+            <img src="/Logo.svg" alt="Raphio" className="h-8" />
           </div>
           <Button
             onClick={handleGetStarted}
@@ -214,11 +211,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 px-6 border-t" style={{ borderColor: "#F0E6DC" }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}>
-              <Play className="w-3.5 h-3.5 text-white fill-white" />
-            </div>
-            <span className="font-bold" style={{ color: "#2D2235" }}>Raphio</span>
+          <div className="flex items-center">
+            <img src="/Logo.svg" alt="Raphio" className="h-8" />
           </div>
           <p className="text-sm" style={{ color: "#9B8FA8" }}>
             Make videos from your ideas, no experience needed.

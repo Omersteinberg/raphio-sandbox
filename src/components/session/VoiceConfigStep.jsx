@@ -66,7 +66,8 @@ export default function VoiceConfigStep({
         <button
           onClick={onStartGeneration}
           disabled={loading}
-          className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+          className="w-full disabled:opacity-50 text-white font-medium py-3 rounded-xl"
+          style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
         >
           {loading ? 'Starting Generation...' : `Generate Video (${clipCount} credits)`}
         </button>

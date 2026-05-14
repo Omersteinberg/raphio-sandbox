@@ -166,7 +166,8 @@ export default function ImagesStep({
             <Button
               onClick={uploadImages}
               disabled={loading}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              className="flex-1 text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {loading ? "Uploading..." : `Upload ${images.length} Images`}
             </Button>
@@ -176,7 +177,8 @@ export default function ImagesStep({
             <Button
               onClick={analyzeImages}
               disabled={loading}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              className="flex-1 text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -199,7 +201,8 @@ export default function ImagesStep({
           {isAnalyzed && (
             <Button
               onClick={onNext}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              className="flex-1 text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               <span className="flex items-center gap-2">
                 Continue to Script
