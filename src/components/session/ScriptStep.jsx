@@ -22,19 +22,21 @@ export default function ScriptStep({
   onNext,
   pipelineMode,
   images = [],
-  openingFrame,
-  closingFrame,
+  openingFrame = {},
+  closingFrame = {},
   generatedFrameImages,
   phase,
   enableBridges,
 }) {
   const isCharacterPipeline = pipelineMode === "character";
+  const isReferencesPipeline = pipelineMode === "references";
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED"
-    || session?.stage === "CHAR_SCRIPT_APPROVED" || session?.stage === "CHAR_FRAMES_GENERATED" || session?.stage === "CHAR_FRAMES_APPROVED";
+    || session?.stage === "CHAR_SCRIPT_APPROVED" || session?.stage === "CHAR_FRAMES_GENERATED" || session?.stage === "CHAR_FRAMES_APPROVED"
+    || session?.stage === "REF_SCRIPT_APPROVED" || session?.stage === "REF_FRAMES_GENERATED" || session?.stage === "REF_FRAMES_APPROVED";
   const isOutlineStage = session?.stage === "OUTLINE_GENERATED";
   const hasBridgeFailures = (scriptData?.sections || []).some(
     s => s.source === "bridge" && s.bridgeStatus === "failed"
@@ -117,7 +119,17 @@ export default function ScriptStep({
           </div>
           {isGenerated && !isApproved && (
             <div className="flex items-center gap-2">
-              {phase === "outline" ? (
+              {isReferencesPipeline ? (
+                <Button
+                  onClick={approveScript}
+                  disabled={loading}
+                  className="text-white"
+                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {loading ? "Approving..." : "Approve Script"}
+                </Button>
+              ) : phase === "outline" ? (
                 <Button
                   onClick={approveOutline}
                   disabled={loading}
@@ -178,8 +190,8 @@ export default function ScriptStep({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4">
-            {/* Opening Frame - shown above content sections (always rendered; frames are mandatory) */}
-            {(
+            {/* Opening Frame - shown above content sections (hidden for references pipeline) */}
+            {!isReferencesPipeline && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -333,8 +345,8 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail — hidden for character pipeline */}
-                    {!isCharacterPipeline && (
+                    {/* Image Thumbnail — hidden for character and references pipelines */}
+                    {!isCharacterPipeline && !isReferencesPipeline && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
                         <div className="relative group">
@@ -458,8 +470,8 @@ export default function ScriptStep({
 
             {/* Frame Configuration Section removed - now in PromptStep */}
 
-            {/* Closing Frame - shown below content sections (always rendered; frames are mandatory) */}
-            {(
+            {/* Closing Frame - shown below content sections (hidden for references pipeline) */}
+            {!isReferencesPipeline && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

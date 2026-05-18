@@ -15,6 +15,99 @@ const STYLE_ICONS = {
   surreal: "\u2728",
 };
 
+function ReferenceInput({ item, index, type, onChange, onRemove }) {
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onChange(index, {
+        ...item,
+        referenceFile: file,
+        referenceImage: URL.createObjectURL(file),
+      });
+    }
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 bg-white relative">
+      {/* Remove button */}
+      <button
+        onClick={() => onRemove(index)}
+        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center text-sm transition-colors"
+      >
+        ×
+      </button>
+
+      {/* Name */}
+      <input
+        type="text"
+        value={item.name}
+        onChange={(e) => onChange(index, { ...item, name: e.target.value })}
+        placeholder={`${type === 'character' ? 'Character' : 'Setting'} name`}
+        className="w-full mb-2 bg-transparent border-b border-gray-200 pb-1 text-gray-900 font-medium focus:outline-none focus:border-blue-500 placeholder-gray-400"
+      />
+
+      {/* Description */}
+      <textarea
+        value={item.description}
+        onChange={(e) => onChange(index, { ...item, description: e.target.value })}
+        placeholder={`Describe this ${type} in detail (required)`}
+        rows={2}
+        className="w-full mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+      />
+
+      {/* Upload / AI Generate toggle */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => onChange(index, { ...item, useUpload: true })}
+          className={`text-xs px-3 py-1 rounded-full transition-colors ${
+            item.useUpload
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          Upload Image
+        </button>
+        <button
+          onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
+          className={`text-xs px-3 py-1 rounded-full transition-colors ${
+            !item.useUpload
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          AI Generate
+        </button>
+      </div>
+
+      {/* File picker or AI label */}
+      {item.useUpload ? (
+        <div>
+          {item.referenceImage ? (
+            <div className="relative">
+              <img src={item.referenceImage} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+              <button
+                onClick={() => onChange(index, { ...item, referenceFile: null, referenceImage: null })}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center text-xs"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+              <span className="text-sm text-gray-400">Click to upload</span>
+              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            </label>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-16 bg-purple-50 rounded-lg">
+          <span className="text-sm text-purple-500">Will be generated from description</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PromptStep({
   userPrompt,
   setUserPrompt,
@@ -39,9 +132,13 @@ export default function PromptStep({
   onModeChange,
   character,
   onCharacterChange,
+  // References pipeline props
+  references = { characters: [], settings: [] },
+  onReferencesChange,
   error,
 }) {
   const isCharacterMode = pipelineMode === 'character';
+  const isReferencesMode = pipelineMode === 'references';
   const fileInputRef = useRef(null);
   const openingFileRef = useRef(null);
   const closingFileRef = useRef(null);
@@ -129,6 +226,8 @@ export default function PromptStep({
   // provides neither a prompt nor an upload — so no per-frame prompt requirement.
   const canStart = isCharacterMode
     ? character?.name?.trim() && character?.description?.trim() && userPrompt?.trim() && style && (character?.useUpload === false || character?.referenceFile)
+    : isReferencesMode
+    ? userPrompt?.trim() && style && references.characters.some(c => c.name?.trim() && c.description?.trim())
     : userPrompt?.trim() && images?.length > 0;
 
   return (
@@ -148,10 +247,12 @@ export default function PromptStep({
               <Sparkles className="w-8 h-8" style={{ color: "#F97066" }} />
             </div>
             <h1 className="text-3xl font-bold mb-2" style={{ color: "#2D2235" }}>
-              {isCharacterMode ? "Create a Character Video" : "Create Your Video"}
+              {isReferencesMode ? "Create a References Video" : isCharacterMode ? "Create a Character Video" : "Create Your Video"}
             </h1>
             <p style={{ color: "#6B5E7B" }}>
-              {isCharacterMode
+              {isReferencesMode
+                ? "Define your characters and settings, then tell us the story"
+                : isCharacterMode
                 ? "Upload a character and tell us the story you want"
                 : "Tell us what your video should be about and add your pictures"}
             </p>
@@ -160,28 +261,23 @@ export default function PromptStep({
           {/* Pipeline Mode Toggle */}
           {onModeChange && (
             <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => onModeChange('image')}
-                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
-                style={
-                  !isCharacterMode
-                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
-                    : { background: "#F0EAFF", color: "#6B5E7B" }
-                }
-              >
-                Image-Based
-              </button>
-              <button
-                onClick={() => onModeChange('character')}
-                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
-                style={
-                  isCharacterMode
-                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
-                    : { background: "#F0EAFF", color: "#6B5E7B" }
-                }
-              >
-                Character Story
-              </button>
+              {[
+                { id: 'image', label: 'Image-Based' },
+                { id: 'references', label: 'References' },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => onModeChange(mode.id)}
+                  className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                  style={
+                    pipelineMode === mode.id
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
+                      : { background: "#F0EAFF", color: "#6B5E7B" }
+                  }
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -226,8 +322,102 @@ export default function PromptStep({
             </div>
           )}
 
+          {/* References Section (references mode only) */}
+          {isReferencesMode && (
+            <div className="mb-6 space-y-6">
+              {/* Characters */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Characters</h3>
+                  {references.characters.length < 4 && (
+                    <button
+                      onClick={() => {
+                        onReferencesChange({
+                          ...references,
+                          characters: [
+                            ...references.characters,
+                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                          ],
+                        });
+                      }}
+                      className="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                    >
+                      + Add Character ({references.characters.length}/4)
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {references.characters.map((char, idx) => (
+                    <ReferenceInput
+                      key={idx}
+                      item={char}
+                      index={idx}
+                      type="character"
+                      onChange={(i, updated) => {
+                        const chars = [...references.characters];
+                        chars[i] = updated;
+                        onReferencesChange({ ...references, characters: chars });
+                      }}
+                      onRemove={(i) => {
+                        const chars = references.characters.filter((_, j) => j !== i);
+                        onReferencesChange({ ...references, characters: chars });
+                      }}
+                    />
+                  ))}
+                </div>
+                {references.characters.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    Add at least one character to get started
+                  </p>
+                )}
+              </div>
+
+              {/* Settings */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Settings</h3>
+                  {references.settings.length < 2 && (
+                    <button
+                      onClick={() => {
+                        onReferencesChange({
+                          ...references,
+                          settings: [
+                            ...references.settings,
+                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                          ],
+                        });
+                      }}
+                      className="text-xs px-3 py-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                    >
+                      + Add Setting ({references.settings.length}/2)
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {references.settings.map((setting, idx) => (
+                    <ReferenceInput
+                      key={idx}
+                      item={setting}
+                      index={idx}
+                      type="setting"
+                      onChange={(i, updated) => {
+                        const sets = [...references.settings];
+                        sets[i] = updated;
+                        onReferencesChange({ ...references, settings: sets });
+                      }}
+                      onRemove={(i) => {
+                        const sets = references.settings.filter((_, j) => j !== i);
+                        onReferencesChange({ ...references, settings: sets });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Image Upload Section (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
+          {!isCharacterMode && !isReferencesMode && <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
                 <ImageIcon className="w-4 h-4 inline mr-1" />
@@ -373,7 +563,7 @@ export default function PromptStep({
               Pick a style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(isCharacterMode ? STYLE_OPTIONS : styleOptions).map((option) => (
+              {(isCharacterMode || isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -398,7 +588,7 @@ export default function PromptStep({
           </div>
 
           {/* AI Bridge Frames toggle (image mode only) */}
-          {!isCharacterMode && setEnableBridges && (
+          {!isCharacterMode && !isReferencesMode && setEnableBridges && (
             <div className="mb-6">
               <button
                 onClick={() => setEnableBridges(!enableBridges)}
@@ -433,7 +623,7 @@ export default function PromptStep({
           )}
 
           {/* Opening & Closing Frames (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
+          {!isCharacterMode && !isReferencesMode && <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
               className="w-full flex items-center justify-between p-4 rounded-2xl border transition-colors"
@@ -733,7 +923,9 @@ export default function PromptStep({
 
           {/* Help text */}
           <p className="text-center text-sm mt-4" style={{ color: "#9B8FA8" }}>
-            {isCharacterMode
+            {isReferencesMode
+              ? "Add at least one character, describe your story, and pick a style"
+              : isCharacterMode
               ? "Add a character, describe your story, and pick a style to get started"
               : "Add a description and at least one picture to get started"}
           </p>
