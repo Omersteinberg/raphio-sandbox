@@ -238,128 +238,195 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Image Upload Section (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
-                <ImageIcon className="w-4 h-4 inline mr-1" />
-                Your Pictures ({images?.length || 0})
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowImageOrderGuide(true)}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105"
-                style={{ background: "#FFF0E6", color: "#F97066" }}
-                title="Image order tip"
-                aria-label="Show image order tip"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                Tips
-              </button>
-            </div>
-
-{/* Hidden file input */}
-<input
-  type="file"
-  ref={fileInputRef}
-  onChange={handleFileChange}
-  accept="image/jpeg,image/png"
-  multiple
-  className="hidden"
-/>
-
-{/* Template Selector */}
-<div className="flex gap-2 mb-3 flex-wrap">
-  {Object.keys(SLOT_LABELS).map((key) => (
-    <button
-      key={key}
-      onClick={() => setTemplate(key)}
-      className="text-xs px-3 py-1 rounded-full border transition-all font-medium"
-      style={
-      template === key
-        ? { 
-              background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)", 
-              color: "#fff", 
-              borderColor: "transparent",
-              fontWeight: "700", // Makes it bold like the image
-              boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)" // Adds the 'bright' glow
-          }
-        : { 
-              background: "#F9F7FF", // Very subtle background for unselected
-              color: "#7B6F91", 
-              borderColor: "#C5B8F0", // Slightly bolder border
-              borderWidth: "1.5px",   // Makes the border feel more substantial
-              fontWeight: "600"       // Slightly bolder than standard medium
-          }
-      }
-    >
-      {key === 'general' ? 'General' : key === 'business_ad' ? 'Business Ad' : key === 'social_content' ? 'Social' : key === 'birthday' ? 'Birthday' : 'Product'}
-    </button>
-  ))}
-</div>
-
-{/* Ghost Grid */}
-<div className="grid grid-cols-5 gap-2 mb-3">
-  {slotLabels.map((label, index) => {
-    const img = images?.[index];
-    return img ? (
-      <motion.div
-        key={index}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        draggable
-        onDragStart={() => setDragSlot(index)}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={() => { if (dragSlot !== null && dragSlot !== index) { reorderImages(dragSlot, index); } setDragSlot(null); }}
-        className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab ${dragSlot === index ? "opacity-50" : ""}`}
-      >
-        <img
-          src={img.preview}
-          alt={label}
-          className="w-full h-full object-cover pointer-events-none"
-        />
-
-        <span
-          className="absolute bottom-1 left-1 right-1 text-center text-white font-medium rounded px-1"
-          style={{ fontSize: "9px", background: "rgba(0,0,0,0.45)" }}
-        >
-          {label}
-        </span>
-
+{/* Image Upload Section (image mode only) */}
+{!isCharacterMode && (
+  <div className="mb-6">
+    {/* Template Selector — sits above dropzone to prime the user */}
+    <div className="flex gap-2 mb-4 flex-wrap">
+      {Object.keys(SLOT_LABELS).map((key) => (
         <button
-          onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
+          key={key}
+          onClick={() => setTemplate(key)}
+          className="text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+          style={
+            template === key
+              ? {
+                  background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)",
+                  color: "#fff",
+                  borderColor: "transparent",
+                  fontWeight: "700",
+                  boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)",
+                }
+              : {
+                  background: "#F9F7FF",
+                  color: "#7B6F91",
+                  borderColor: "#C5B8F0",
+                  borderWidth: "1.5px",
+                  fontWeight: "600",
+                }
+          }
         >
-          <X className="w-3 h-3" />
+          {key === "general" ? "General" : key === "business_ad" ? "Business Ad" : key === "social_content" ? "Social" : key === "birthday" ? "Birthday" : "Product"}
         </button>
-      </motion.div>
-    ) : (
-      <div
-        key={index}
-        onClick={() => { if (atCap) return; fileInputRef.current?.click(); }}
-        onDrop={(e) => { if (atCap) { e.preventDefault(); return; } handleDrop(e); }}
-        onDragOver={handleDragOver}
-        className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
-          atCap
-            ? "cursor-not-allowed opacity-40 border-gray-200 bg-gray-50"
-            : "cursor-pointer border-gray-200 bg-gray-50 hover:border-orange-400 hover:bg-orange-50"
-        }`}
-      >
-        <Plus className="w-4 h-4 mb-1" style={{ color: "#9B8FA8" }} />
-        <span className="text-center px-1 leading-tight" style={{ fontSize: "9px", color: "#9B8FA8" }}>{label}</span>
-      </div>
-    );
-  })}
-</div>
+      ))}
+    </div>
 
-<p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
-  Up to {MAX_IMAGES} images per video · 10 credits
-  {" · "}
-  <span className="font-semibold" style={{ color: (images?.length ?? 0) > 0 ? "#F97066" : "#9B8FA8" }}>
-    {images?.length ?? 0} / {MAX_IMAGES}
-  </span>
-</p>
-</div>}
+    {/* Hidden file input */}
+    <input
+      type="file"
+      ref={fileInputRef}
+      onChange={handleFileChange}
+      accept="image/jpeg,image/png"
+      multiple
+      className="hidden"
+      disabled={atCap}
+    />
+
+    <AnimatePresence mode="wait">
+      {/* ── EMPTY STATE: clean dropzone ── */}
+      {(images?.length ?? 0) === 0 && (
+        <motion.div
+          key="dropzone"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 px-6 transition-all hover:border-orange-400 hover:bg-orange-50/60"
+          style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.6)" }}
+        >
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #FFF0E6, #F0EAFF)" }}
+          >
+            <Upload className="w-5 h-5" style={{ color: "#F97066" }} />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold text-sm" style={{ color: "#2D2235" }}>
+              Drop images here or click to upload
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#9B8FA8" }}>
+              JPEG or PNG · Up to {MAX_IMAGES} images
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── FILLED STATE: ghost-grid ── */}
+      {(images?.length ?? 0) > 0 && (
+        <motion.div
+          key="grid"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* Scene counter + reorder hint */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold" style={{ color: "#F97066" }}>
+              {images.length} scene{images.length !== 1 ? "s" : ""} created
+            </p>
+            {images.length >= 2 && (
+              <p className="text-xs" style={{ color: "#9B8FA8" }}>
+                Drag to reorder
+              </p>
+            )}
+          </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {/* Filled slots */}
+            {images.map((img, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.75 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22, delay: index * 0.04 }}
+                draggable
+                onDragStart={() => setDragSlot(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragSlot !== null && dragSlot !== index) {
+                    reorderImages(dragSlot, index);
+                  }
+                  setDragSlot(null);
+                }}
+                className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab active:cursor-grabbing ${
+                  dragSlot === index ? "opacity-40 scale-95" : ""
+                }`}
+                style={{
+                  boxShadow: dragSlot === index ? "none" : "0 2px 8px rgba(45,34,53,0.12)",
+                  transition: "box-shadow 0.15s, opacity 0.15s, transform 0.15s",
+                }}
+              >
+                <img
+                  src={img.preview}
+                  alt={slotLabels[index]}
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+
+                {/* Scene label badge */}
+                <span
+                  className="absolute bottom-1 left-1 right-1 text-center text-white font-semibold rounded-md px-1 truncate"
+                  style={{ fontSize: "8px", background: "rgba(0,0,0,0.52)", lineHeight: "16px" }}
+                >
+                  {slotLabels[index]}
+                </span>
+
+                {/* Remove button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </motion.div>
+            ))}
+
+            {/* "+ Add More" slot — only shown when under cap */}
+            {!atCap && (
+              <motion.div
+                key="add-more"
+                initial={{ opacity: 0, scale: 0.75 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22, delay: images.length * 0.04 }}
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:border-orange-400 hover:bg-orange-50/60"
+                style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.5)" }}
+              >
+                <Plus className="w-4 h-4 mb-0.5" style={{ color: "#9B8FA8" }} />
+                <span className="text-center leading-tight" style={{ fontSize: "8px", color: "#9B8FA8" }}>
+                  Add
+                </span>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Live counter */}
+          <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
+            Up to {MAX_IMAGES} images per video · 10 credits
+            {" · "}
+            <span
+              className="font-semibold"
+              style={{ color: atCap ? "#F97066" : "#9B8FA8" }}
+            >
+              {images.length} / {MAX_IMAGES}
+            </span>
+            {atCap && (
+              <span className="ml-1 font-medium" style={{ color: "#F97066" }}>
+                · Max reached
+              </span>
+            )}
+          </p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+)}
 
           {/* Style Selection */}
           <div className="mb-6">
