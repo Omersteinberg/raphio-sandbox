@@ -336,7 +336,7 @@ export function useSession() {
 
     setLoading(true);
     setError(null);
-    setScriptProgress(0);
+    setScriptProgress(1);
 
     try {
       // Step 1: Create the session

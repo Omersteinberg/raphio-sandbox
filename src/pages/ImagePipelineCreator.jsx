@@ -12,6 +12,7 @@ import GeneratingStep from "@/components/session/GeneratingStep";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
+import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 
 // Step names for progress bar
 const STEP_NAMES = [
@@ -155,27 +156,27 @@ export default function ImagePipelineCreator({ onModeChange }) {
   const renderStep = () => {
     switch (step) {
       case 0:
-        return (
-          <PromptStep
-            pipelineMode="image"
-            onModeChange={!session.sessionId ? onModeChange : undefined}
-            userPrompt={userPrompt}
-            setUserPrompt={setUserPrompt}
-            style={style}
-            setStyle={setStyle}
-            images={images}
-            addImages={addImages}
-            removeImage={removeImage}
-            reorderImages={reorderImages}
-            onStart={startSession}
-            loading={loading}
-            openingFrame={openingFrame}
-            setOpeningFrame={setOpeningFrame}
-            closingFrame={closingFrame}
-            setClosingFrame={setClosingFrame}
-            styleOptions={styleOptions}
-          />
-        );
+         return (
+            <PromptStep
+              pipelineMode="image"
+              onModeChange={!session.sessionId ? onModeChange : undefined}
+              userPrompt={userPrompt}
+              setUserPrompt={setUserPrompt}
+              style={style}
+              setStyle={setStyle}
+              images={images}
+              addImages={addImages}
+              removeImage={removeImage}
+              reorderImages={reorderImages}
+              onStart={startSession}
+              loading={loading}
+              openingFrame={openingFrame}
+              setOpeningFrame={setOpeningFrame}
+              closingFrame={closingFrame}
+              setClosingFrame={setClosingFrame}
+              styleOptions={styleOptions}
+            />
+          );
 
       case 1:
         return (
@@ -335,22 +336,23 @@ export default function ImagePipelineCreator({ onModeChange }) {
           </motion.div>
         </AnimatePresence>
 
-
+        {/* ScriptLoadingScreen lives here — outside the slide animation */}
+        <AnimatePresence>
+          {loading && (step === 0 || step === 1) && (
+            <ScriptLoadingScreen progress={scriptProgress} />
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Loading overlay */}
-      {loading && step !== 3 && (
+      {/* Loading overlay — step 0 handled by ScriptLoadingScreen inside renderStep */}
+      {loading && step !== 3 && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
-            step === 0
-              ? "Creating session..."
-              : step === 1
-              ? "Generating script..."
-              : step === 2
-              ? "Saving generation settings..."
-              : "Processing..."
+            step === 1 ? "Generating script..."
+            : step === 2 ? "Saving settings..."
+            : "Processing..."
           }
-          progress={step === 0 ? scriptProgress : null}
+          progress={null}
         />
       )}
 
