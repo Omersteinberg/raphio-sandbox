@@ -154,20 +154,6 @@ export default function BuyCreditsPage() {
   return (
     <div className="min-h-full font-figtree py-10 px-4 flex flex-col justify-center" style={{ background: C.bg }}>
 
-      {/* Floating back — top-left */}
-      <div className="max-w-5xl w-full mx-auto relative">
-        <button
-          onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/create'); }}
-          className="absolute -top-2 left-0 inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: C.muted, transition: 'gap 0.15s ease' }}
-          onMouseEnter={e => e.currentTarget.style.gap = '10px'}
-          onMouseLeave={e => e.currentTarget.style.gap = '6px'}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-      </div>
-
       <div className="max-w-5xl w-full mx-auto pt-6">
 
         {/* Header */}
