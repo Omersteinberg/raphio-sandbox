@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Download, Share2, Edit3, Plus, Check, Play } from "lucide-react";
+import { Download, Edit3, Plus, Check, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/services/api";
 import { API_BASE } from "@/config";
@@ -99,7 +99,8 @@ export default function ResultStep({
           <Button
             onClick={handleDownload}
             disabled={!finalVideoUrl}
-            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+            className="text-white border-0 flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
           >
             <Download className="w-4 h-4" />
             Download

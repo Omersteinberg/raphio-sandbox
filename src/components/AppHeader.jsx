@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown } from 'lucide-react';
 
 export default function AppHeader() {
   const { user, credits, logout } = useAuth();
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
@@ -22,90 +23,225 @@ export default function AppHeader() {
   if (!user) return null;
 
   const initials = (user.username || user.email || '?').charAt(0).toUpperCase();
+  const isLow = (credits ?? 0) < 20;
+  const isActive = (path) => location.pathname === path;
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-gray-200 shrink-0 z-50 relative">
-      {/* Left: Logo / brand */}
-      <button
-        onClick={() => navigate('/create')}
-        className="text-lg font-bold text-gray-900 hover:opacity-80 transition-opacity"
-      >
-        Raphio
-      </button>
+    <header
+      className="h-14 flex items-center justify-between px-5 shrink-0 z-50 relative font-figtree"
+      style={{
+        background: 'rgba(255,250,247,0.92)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(193,68,14,0.10)',
+      }}
+    >
+      {/* Left: Logo + nav */}
+      <div className="flex items-center gap-6">
+        <button
+          onClick={() => navigate('/create')}
+          className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
+          aria-label="Go to home"
+        >
+          <img src="/Logo.svg" alt="Raphio" className="h-7" />
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'rgba(193,68,14,0.15)' }} />
+
+        <nav className="flex items-center gap-1">
+          <button
+            onClick={() => navigate('/create')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+            style={
+              isActive('/create')
+                ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                : { color: '#2C2420', background: 'transparent' }
+            }
+            onMouseEnter={e => {
+              if (!isActive('/create')) {
+                e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                e.currentTarget.style.color = '#C1440E';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isActive('/create')) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#2C2420';
+              }
+            }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create
+          </button>
+
+          <button
+            onClick={() => navigate('/videos')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+            style={
+              isActive('/videos')
+                ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                : { color: '#7A6A62', background: 'transparent' }
+            }
+            onMouseEnter={e => {
+              if (!isActive('/videos')) {
+                e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                e.currentTarget.style.color = '#C1440E';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isActive('/videos')) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#7A6A62';
+              }
+            }}
+          >
+            <Video className="w-3.5 h-3.5" />
+            My Videos
+          </button>
+        </nav>
+      </div>
 
       {/* Right: Credits + Avatar */}
-      <div className="flex items-center gap-3" ref={menuRef}>
+      <div className="flex items-center gap-2.5" ref={dropdownRef}>
+
         {/* Credits pill */}
         <button
           onClick={() => navigate('/buy-credits')}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+          style={{
+            background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)',
+            color: isLow ? '#C1440E' : '#7A6A62',
+            border: isLow ? '1px solid rgba(193,68,14,0.25)' : '1px solid rgba(193,68,14,0.12)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = isLow ? 'rgba(193,68,14,0.16)' : 'rgba(193,68,14,0.08)';
+            e.currentTarget.style.color = '#C1440E';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)';
+            e.currentTarget.style.color = isLow ? '#C1440E' : '#7A6A62';
+          }}
+          title={isLow ? 'Running low — top up credits' : 'Buy more credits'}
         >
-          <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 6v12M6 12h12" strokeLinecap="round" />
-          </svg>
-          <span className="font-bold text-primary">{credits ?? '...'}</span>
-          <span className="hidden sm:inline">credits</span>
+          <Zap className="w-3 h-3" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
+          <span>{credits ?? '...'}</span>
+          <span style={{ color: isLow ? '#C1440E' : '#9B8B83', fontWeight: 500 }}>credits</span>
+          {isLow && (
+            <span
+              className="ml-0.5 px-1.5 py-0.5 rounded-full text-white"
+              style={{ fontSize: '9px', background: '#C1440E', lineHeight: 1 }}
+            >
+              Low
+            </span>
+          )}
         </button>
 
         {/* Avatar button */}
         <button
-          onClick={() => setOpen((v) => !v)}
-          className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity"
+          onClick={() => setDropdownOpen(v => !v)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full transition-all"
+          style={{
+            background: dropdownOpen ? 'rgba(193,68,14,0.08)' : 'transparent',
+            border: '1px solid rgba(193,68,14,0.15)',
+          }}
+          onMouseEnter={e => { if (!dropdownOpen) e.currentTarget.style.background = 'rgba(193,68,14,0.06)'; }}
+          onMouseLeave={e => { if (!dropdownOpen) e.currentTarget.style.background = 'transparent'; }}
+          aria-label="Account menu"
+          aria-expanded={dropdownOpen}
         >
-          {initials}
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+          >
+            {initials}
+          </div>
+          <ChevronDown
+            className={`w-3 h-3 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : 'rotate-0'}`}
+            style={{ color: '#7A6A62' }}
+          />
         </button>
 
         {/* Dropdown */}
-        {open && (
-          <div className="absolute right-4 top-12 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        {dropdownOpen && (
+          <div
+            className="absolute right-4 top-[58px] w-56 rounded-2xl overflow-hidden z-50"
+            style={{
+              background: 'rgba(255,250,247,0.98)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(193,68,14,0.12)',
+              boxShadow: '0 8px 32px rgba(44,36,32,0.12), 0 2px 8px rgba(44,36,32,0.06)',
+            }}
+          >
             {/* User info */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold">
+            <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(193,68,14,0.08)' }}>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+                >
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{user.username}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: '#2C2420' }}>
+                    {user.username || 'Account'}
+                  </p>
                   {user.email && (
-                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    <p className="text-xs truncate" style={{ color: '#9B8B83' }}>{user.email}</p>
                   )}
                 </div>
               </div>
+
+              {/* Credit summary inside dropdown */}
+              <div
+                className="mt-2.5 flex items-center justify-between px-2.5 py-1.5 rounded-xl"
+                style={{ background: 'rgba(193,68,14,0.06)' }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-3 h-3" style={{ color: '#E8603C' }} />
+                  <span className="text-xs font-semibold" style={{ color: '#2C2420' }}>
+                    {credits ?? '...'} credits
+                  </span>
+                </div>
+                {isLow && (
+                  <span className="text-xs font-semibold" style={{ color: '#C1440E' }}>
+                    Running low
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* My Videos */}
-            <button
-              onClick={() => { setOpen(false); navigate('/videos'); }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-            >
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-              </svg>
-              My Videos
-            </button>
+            {/* Top up */}
+            <div className="py-1.5">
+              <button
+                onClick={() => { setDropdownOpen(false); navigate('/buy-credits'); }}
+                className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
+                style={{ color: '#2C2420' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <CreditCard className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
+                <span className="text-sm font-medium">Top up credits</span>
+              </button>
+            </div>
 
-            {/* Buy Credits */}
-            <button
-              onClick={() => { setOpen(false); navigate('/buy-credits'); }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-            >
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Buy Credits
-            </button>
-
-            {/* Sign Out */}
-            <button
-              onClick={() => { setOpen(false); logout(); }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-            >
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-              Sign Out
-            </button>
+            {/* Sign out */}
+            <div className="py-1.5" style={{ borderTop: '1px solid rgba(193,68,14,0.08)' }}>
+              <button
+                onClick={() => { setDropdownOpen(false); logout(); }}
+                className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
+                style={{ color: '#9B8B83' }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(185,28,28,0.05)';
+                  e.currentTarget.style.color = '#B91C1C';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#9B8B83';
+                }}
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span className="text-sm font-medium">Sign out</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

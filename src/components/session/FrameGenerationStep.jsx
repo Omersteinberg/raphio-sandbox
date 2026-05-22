@@ -39,7 +39,8 @@ export default function FrameGenerationStep({
         {sceneFrames.length === 0 && !framesLoading && (
           <button
             onClick={() => onGenerateFrames()}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-xl transition-colors"
+            className="w-full text-white font-medium py-3 rounded-xl"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
           >
             Generate Scene Frames
           </button>

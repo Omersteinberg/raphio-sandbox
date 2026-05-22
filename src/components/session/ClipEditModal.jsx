@@ -225,7 +225,8 @@ export default function ClipEditModal({
             <Button
               onClick={handleRegenerate}
               disabled={regenerating || loading}
-              className="mt-3 bg-purple-600 hover:bg-purple-700 text-white"
+              className="mt-3 text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {regenerating ? (
                 <span className="flex items-center gap-2">

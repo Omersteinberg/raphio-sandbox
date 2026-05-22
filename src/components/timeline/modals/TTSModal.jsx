@@ -133,7 +133,8 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
             <Button
               onClick={handleGenerate}
               disabled={!text.trim() || generating}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="text-white border-0"
+              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
             >
               {generating ? (
                 <>

@@ -1,11 +1,19 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { MAX_IMAGES } from "@/lib/limits";
+
+const SLOT_LABELS = {
+  general: ['Opening Scene','Main Hook','Scene 3','Scene 4','Scene 5','Scene 6','Scene 7','Scene 8','Scene 9','Call to Action'],
+  business_ad: ['Hook','Problem','Solution','Product Demo','Social Proof','Testimonial','Scene 7','Scene 8','Scene 9','Call to Action'],
+  social_content: ['Hook','Scene 2','Scene 3','Scene 4','Scene 5','Scene 6','Scene 7','Scene 8','Scene 9','Outro'],
+  birthday: ['Opening Moment','Memory 1','Memory 2','Memory 3','Memory 4','Memory 5','Memory 6','Memory 7','Memory 8','Closing Message'],
+  product_showcase: ['Hero Shot','Feature 1','Feature 2','Feature 3','Feature 4','Lifestyle','Testimonial','Price & CTA','Scene 9','Closing'],
+};
 
 const STYLE_ICONS = {
   realistic: "\uD83D\uDCF7",
@@ -114,6 +122,7 @@ export default function PromptStep({
   setStyle,
   images,
   addImages,
+  setImages,
   removeImage,
   reorderImages,
   onStart,
@@ -139,11 +148,13 @@ export default function PromptStep({
   const openingFileRef = useRef(null);
   const closingFileRef = useRef(null);
   const [frameConfigExpanded, setFrameConfigExpanded] = useState(false);
-  const [dragIndex, setDragIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showPromptGuide, setShowPromptGuide] = useState(false);
   const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
+  const [template, setTemplate] = useState('general');
+  const [targetSlot, setTargetSlot] = useState(null);
+  const [dragSlot, setDragSlot] = useState(null);
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
+  const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
 
   // Handle file upload for frames
   const handleFrameFileChange = (e, frameType) => {
@@ -181,12 +192,15 @@ export default function PromptStep({
   });
 
   const handleFileChange = (e) => {
-    console.log("[PromptStep] File input changed");
     const files = Array.from(e.target.files || []);
-    console.log("[PromptStep] Selected files:", files.length);
-    if (files.length > 0) {
+    if (files.length > 0 && targetSlot !== null) {
+      const newImages = [...(images || [])];
+      newImages.splice(targetSlot, 0, ...files.map(f => ({ file: f, preview: URL.createObjectURL(f) })));
+      addImages(newImages.slice(0, MAX_IMAGES));
+    } else if (files.length > 0) {
       addImages(files);
     }
+    setTargetSlot(null);
     e.target.value = "";
   };
 
@@ -404,144 +418,194 @@ export default function PromptStep({
           )}
 
           {/* Image Upload Section (image mode only) */}
-          {!isReferencesMode && <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
-                <ImageIcon className="w-4 h-4 inline mr-1" />
-                Your Pictures ({images?.length || 0})
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowImageOrderGuide(true)}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105"
-                style={{ background: "#FFF0E6", color: "#F97066" }}
-                title="Image order tip"
-                aria-label="Show image order tip"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                Tips
-              </button>
-            </div>
-
-            <div className="text-xs mb-3" style={{ color: "#9B8FA8" }}>
-              Drag and drop to reorder before starting.
-            </div>
-
-            {/* Drop Zone */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/jpeg,image/png"
-              multiple
-              className="hidden"
-              disabled={atCap}
-            />
-            <div
-              onClick={() => {
-                if (atCap) return;
-                console.log("[PromptStep] Drop zone clicked, opening file picker");
-                fileInputRef.current?.click();
-              }}
-              onDrop={(e) => {
-                if (atCap) {
-                  e.preventDefault();
-                  return;
-                }
-                handleDrop(e);
-              }}
-              onDragOver={handleDragOver}
-              title={atCap ? `Maximum ${MAX_IMAGES} images per video` : undefined}
-              aria-disabled={atCap}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all mb-2 ${atCap ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:scale-[1.01]"}`}
-              style={{ borderColor: "#E0D7FC", background: "rgba(240,234,255,0.3)" }}
-              onMouseEnter={(e) => { if (atCap) return; e.currentTarget.style.borderColor = "#F97066"; e.currentTarget.style.background = "rgba(249,112,102,0.04)"; }}
-              onMouseLeave={(e) => { if (atCap) return; e.currentTarget.style.borderColor = "#E0D7FC"; e.currentTarget.style.background = "rgba(240,234,255,0.3)"; }}
-            >
-              <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "#F97066" }} />
-              <p className="font-semibold" style={{ color: "#2D2235" }}>
-                {atCap ? `Maximum ${MAX_IMAGES} images per video` : "Drop pictures here or tap to upload"}
-              </p>
-              <p className="text-sm mt-1" style={{ color: "#9B8FA8" }}>
-                JPEG and PNG files
-              </p>
-            </div>
-
-            <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
-              Up to {MAX_IMAGES} images per video · 10 credits
-              {" · "}
-              <span className="font-semibold" style={{ color: atCap ? "#F97066" : "#6B5E7B" }}>
-                {images?.length ?? 0} / {MAX_IMAGES}
-              </span>
-            </p>
-
-            {/* Image Grid (drag to reorder) */}
-            {images?.length > 0 && (
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-                {images.map((img, index) => (
-                  <motion.div
-                    key={img.preview}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    draggable
-                    onDragStart={(e) => {
-                      setDragIndex(index);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      setDragOverIndex(index);
-                    }}
-                    onDragLeave={() => setDragOverIndex(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (dragIndex !== null && dragIndex !== index) {
-                        reorderImages(dragIndex, index);
-                      }
-                      setDragIndex(null);
-                      setDragOverIndex(null);
-                    }}
-                    onDragEnd={() => {
-                      setDragIndex(null);
-                      setDragOverIndex(null);
-                    }}
-                    className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all rounded-xl overflow-hidden ${
-                      dragIndex === index ? "opacity-40 scale-95" : ""
-                    } ${dragOverIndex === index && dragIndex !== index ? "ring-2 ring-offset-2 scale-105" : ""}`}
-                    style={dragOverIndex === index && dragIndex !== index ? { ringColor: "#F97066" } : {}}
+          {!isReferencesMode && (
+            <div className="mb-6">
+              {/* Template Selector */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {Object.keys(SLOT_LABELS).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setTemplate(key)}
+                    className="text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                    style={
+                      template === key
+                        ? {
+                            background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)",
+                            color: "#fff",
+                            borderColor: "transparent",
+                            fontWeight: "700",
+                            boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)",
+                          }
+                        : {
+                            background: "#F9F7FF",
+                            color: "#7B6F91",
+                            borderColor: "#C5B8F0",
+                            borderWidth: "1.5px",
+                            fontWeight: "600",
+                          }
+                    }
                   >
-                    <img
-                      src={img.preview}
-                      alt={`Upload ${index + 1}`}
-                      className="w-full h-full object-cover pointer-events-none"
-                    />
-                    <div
-                      className="absolute top-1 left-1 w-6 h-6 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                      style={{ background: "rgba(45,34,53,0.5)" }}
-                    >
-                      <GripVertical className="w-3.5 h-3.5" />
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeImage(index);
-                      }}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                    <span
-                      className="absolute bottom-1 left-1 text-white text-xs px-2 py-0.5 rounded-full font-bold"
-                      style={{ background: "rgba(45,34,53,0.6)" }}
-                    >
-                      {index + 1}
-                    </span>
-                  </motion.div>
+                    {key === "general" ? "General" : key === "business_ad" ? "Business Ad" : key === "social_content" ? "Social" : key === "birthday" ? "Birthday" : "Product"}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>}
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/jpeg,image/png"
+                multiple
+                className="hidden"
+                disabled={atCap}
+              />
+
+              <AnimatePresence mode="wait">
+                {/* Empty state: clean dropzone */}
+                {(images?.length ?? 0) === 0 && (
+                  <motion.div
+                    key="dropzone"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 px-6 transition-all hover:border-orange-400 hover:bg-orange-50/60"
+                    style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.6)" }}
+                  >
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                      style={{ background: "linear-gradient(135deg, #FFF0E6, #F0EAFF)" }}
+                    >
+                      <Upload className="w-5 h-5" style={{ color: "#F97066" }} />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-sm" style={{ color: "#2D2235" }}>
+                        Drop images here or click to upload
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "#9B8FA8" }}>
+                        JPEG or PNG · Up to {MAX_IMAGES} images
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Filled state: ghost-grid */}
+                {(images?.length ?? 0) > 0 && (
+                  <motion.div
+                    key="grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* Scene counter + reorder hint */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold" style={{ color: "#F97066" }}>
+                        {images.length} scene{images.length !== 1 ? "s" : ""} created
+                      </p>
+                      {images.length >= 2 && (
+                        <p className="text-xs" style={{ color: "#9B8FA8" }}>
+                          Drag to reorder
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Grid */}
+                    <div className="grid grid-cols-5 gap-2 mb-3">
+                      {/* Filled slots */}
+                      {images.map((img, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.75 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 22, delay: index * 0.04 }}
+                          draggable
+                          onDragStart={() => setDragSlot(index)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (dragSlot !== null && dragSlot !== index) {
+                              reorderImages(dragSlot, index);
+                            }
+                            setDragSlot(null);
+                          }}
+                          className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab active:cursor-grabbing ${
+                            dragSlot === index ? "opacity-40 scale-95" : ""
+                          }`}
+                          style={{
+                            boxShadow: dragSlot === index ? "none" : "0 2px 8px rgba(45,34,53,0.12)",
+                            transition: "box-shadow 0.15s, opacity 0.15s, transform 0.15s",
+                          }}
+                        >
+                          <img
+                            src={img.preview}
+                            alt={slotLabels[index]}
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
+
+                          {/* Scene label badge */}
+                          <span
+                            className="absolute bottom-1 left-1 right-1 text-center text-white font-semibold rounded-md px-1 truncate"
+                            style={{ fontSize: "8px", background: "rgba(0,0,0,0.52)", lineHeight: "16px" }}
+                          >
+                            {slotLabels[index]}
+                          </span>
+
+                          {/* Remove button */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))}
+
+                      {/* "+ Add More" slot */}
+                      {!atCap && (
+                        <motion.div
+                          key="add-more"
+                          initial={{ opacity: 0, scale: 0.75 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 22, delay: images.length * 0.04 }}
+                          onClick={() => fileInputRef.current?.click()}
+                          onDrop={handleDrop}
+                          onDragOver={handleDragOver}
+                          className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:border-orange-400 hover:bg-orange-50/60"
+                          style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.5)" }}
+                        >
+                          <Plus className="w-4 h-4 mb-0.5" style={{ color: "#9B8FA8" }} />
+                          <span className="text-center leading-tight" style={{ fontSize: "8px", color: "#9B8FA8" }}>
+                            Add
+                          </span>
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* Live counter */}
+                    <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
+                      Up to {MAX_IMAGES} images per video · 10 credits
+                      {" · "}
+                      <span
+                        className="font-semibold"
+                        style={{ color: atCap ? "#F97066" : "#9B8FA8" }}
+                      >
+                        {images.length} / {MAX_IMAGES}
+                      </span>
+                      {atCap && (
+                        <span className="ml-1 font-medium" style={{ color: "#F97066" }}>
+                          · Max reached
+                        </span>
+                      )}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Style Selection */}
           <div className="mb-6">

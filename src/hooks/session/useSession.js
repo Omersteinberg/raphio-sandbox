@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
@@ -57,6 +57,7 @@ export function useSession() {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const skipResumeRef = useRef(false);
 
   // Session state
   const [sessionId, setSessionId] = useState(null);
@@ -169,6 +170,10 @@ export function useSession() {
   // Resume session from query param
   const resumeSessionId = searchParams.get("session");
   useEffect(() => {
+    if (skipResumeRef.current) {
+      skipResumeRef.current = false;
+      return;
+    }
     if (resumeSessionId && !sessionId) {
       const loadSession = async () => {
         try {
@@ -333,29 +338,17 @@ export function useSession() {
     }
 
     if (credits != null && credits < VIDEO_COST) {
-      console.log("[useSession] Credits insufficient at start — saving pending and redirecting");
       try {
-        // Convert File objects to base64 strings for IndexedDB serialization
         const imagesToSave = await Promise.all(
           images.map((img) =>
             new Promise((resolve) => {
               const reader = new FileReader();
-              reader.onload = () => {
-                resolve({
-                  dataUrl: reader.result, // base64 data URL
-                  name: img.name,
-                });
-              };
+              reader.onload = () => resolve({ dataUrl: reader.result, name: img.name });
               reader.readAsDataURL(img.file);
             })
           )
         );
-
-        await savePending("image", {
-          userPrompt,
-          style,
-          images: imagesToSave,
-        });
+        await savePending("image", { userPrompt, style, images: imagesToSave });
       } catch (err) {
         console.warn("[useSession] Failed to save pending session:", err);
       }
@@ -366,7 +359,7 @@ export function useSession() {
 
     setLoading(true);
     setError(null);
-    setScriptProgress(0);
+    setScriptProgress(1);
 
     try {
       // Step 1: Create the session
@@ -564,11 +557,7 @@ export function useSession() {
       setError(err.message);
       if (err.response?.status === 402) {
         try {
-          await savePending("image", {
-            userPrompt,
-            style,
-            images: images.map((img) => ({ file: img.file, name: img.name })),
-          });
+          await savePending("image", { userPrompt, style, images: images.map((img) => ({ file: img.file, name: img.name })) });
         } catch (saveErr) {
           console.warn("[useSession] Failed to save pending on 402:", saveErr);
         }
@@ -581,7 +570,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, navigate]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -1267,6 +1256,7 @@ export function useSession() {
 
   // Reset session
   const reset = useCallback(() => {
+    skipResumeRef.current = true;
     // Cleanup image previews
     images.forEach((img) => {
       if (img.preview) URL.revokeObjectURL(img.preview);
@@ -1277,8 +1267,7 @@ export function useSession() {
     setStep(0);
     setDirection(0);
     setUserPrompt("");
-    setStyle("cinematic");
-    setTargetDuration(60);
+    setStyle("realistic");
     setVoiceId("adam");
     setVideoModel("KLING");
     setBackgroundMusic(true);
@@ -1291,6 +1280,7 @@ export function useSession() {
     setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setGeneratedFrameImages({ opening: null, closing: null });
     setGenerationProgress(null);
+    setInsufficientCredits(null);
     setFinalVideoUrl(null);
     setError(null);
   }, [images]);

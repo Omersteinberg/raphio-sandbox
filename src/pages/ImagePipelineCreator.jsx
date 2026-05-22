@@ -12,6 +12,7 @@ import GeneratingStep from "@/components/session/GeneratingStep";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
+import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 
 // Step names for progress bar — dynamic based on whether bridges are enabled
 const STEP_NAMES_WITH_BRIDGES = ["Prompt", "Script", "Bridges", "Generate", "Processing", "Complete"];
@@ -183,7 +184,6 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setEnableBridges={setEnableBridges}
         />
       );
-    }
 
     if (step === 1) {
       return (
@@ -299,7 +299,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
   return (
     <div
       className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
     >
       {/* Progress Bar */}
       {showProgressBar && (
@@ -373,24 +373,25 @@ export default function ImagePipelineCreator({ onModeChange }) {
           </motion.div>
         </AnimatePresence>
 
-
+        {/* ScriptLoadingScreen lives here — outside the slide animation */}
+        <AnimatePresence>
+          {loading && (step === 0 || step === 1) && (
+            <ScriptLoadingScreen progress={scriptProgress} />
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Loading overlay */}
-      {loading && step !== generatingStep && (
+      {/* Loading overlay — steps 0/1 handled by ScriptLoadingScreen */}
+      {loading && step !== generatingStep && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
-            step === 0
-              ? "Creating session..."
-              : step === 1
-              ? "Generating script..."
-              : enableBridges && step === 2
+            enableBridges && step === 2
               ? "Generating bridge images..."
               : step === framesStep
-              ? "Saving generation settings..."
+              ? "Saving settings..."
               : "Processing..."
           }
-          progress={step === 0 ? scriptProgress : null}
+          progress={null}
         />
       )}
 

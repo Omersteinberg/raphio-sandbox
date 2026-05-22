@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Play } from 'lucide-react';
 
 function RegisterPage() {
   const [username, setUsername] = useState('');
@@ -45,18 +44,12 @@ function RegisterPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center font-figtree py-12 px-4 sm:px-6 lg:px-8"
-      style={{ background: "linear-gradient(165deg, #FFF7F0 0%, #FFF0E6 30%, #F0EAFF 70%, #F9FAFB 100%)" }}
+      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
     >
       <div className="max-w-md w-full">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-10">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
-          >
-            <Play className="w-5 h-5 text-white fill-white" />
-          </div>
-          <span className="text-2xl font-bold" style={{ color: "#2D2235" }}>Raphio</span>
+        <div className="flex items-center justify-center mb-10">
+          <img src="/Logo.svg" alt="Raphio" className="h-10" />
         </div>
 
         {/* Card */}

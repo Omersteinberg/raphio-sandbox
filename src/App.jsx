@@ -22,6 +22,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
+
           {/* Protected routes with persistent header */}
           <Route element={<AppLayout />}>
             <Route path="/create" element={<Creator />} />
