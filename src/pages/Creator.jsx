@@ -1,6 +1,5 @@
 import { useState } from "react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
-import CharacterPipelineCreator from "./CharacterPipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 
 export default function Creator() {
@@ -8,9 +7,6 @@ export default function Creator() {
 
   if (pipelineMode === "references") {
     return <ReferencesPipelineCreator onModeChange={setPipelineMode} />;
-  }
-  if (pipelineMode === "character") {
-    return <CharacterPipelineCreator onModeChange={setPipelineMode} />;
   }
   return <ImagePipelineCreator onModeChange={setPipelineMode} />;
 }

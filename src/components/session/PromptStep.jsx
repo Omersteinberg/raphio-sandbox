@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
-import CharacterCard from './CharacterCard';
 import { MAX_IMAGES } from "@/lib/limits";
 
 const STYLE_ICONS = {
@@ -127,17 +126,14 @@ export default function PromptStep({
   // Bridge toggle
   enableBridges,
   setEnableBridges,
-  // Character pipeline props
+  // Pipeline mode props
   pipelineMode,
   onModeChange,
-  character,
-  onCharacterChange,
   // References pipeline props
   references = { characters: [], settings: [] },
   onReferencesChange,
   error,
 }) {
-  const isCharacterMode = pipelineMode === 'character';
   const isReferencesMode = pipelineMode === 'references';
   const fileInputRef = useRef(null);
   const openingFileRef = useRef(null);
@@ -224,9 +220,7 @@ export default function PromptStep({
 
   // Frames are mandatory but auto-figure-out is allowed when the user
   // provides neither a prompt nor an upload — so no per-frame prompt requirement.
-  const canStart = isCharacterMode
-    ? character?.name?.trim() && character?.description?.trim() && userPrompt?.trim() && style && (character?.useUpload === false || character?.referenceFile)
-    : isReferencesMode
+  const canStart = isReferencesMode
     ? userPrompt?.trim() && style && references.characters.some(c => c.name?.trim() && c.description?.trim())
     : userPrompt?.trim() && images?.length > 0;
 
@@ -247,13 +241,11 @@ export default function PromptStep({
               <Sparkles className="w-8 h-8" style={{ color: "#F97066" }} />
             </div>
             <h1 className="text-3xl font-bold mb-2" style={{ color: "#2D2235" }}>
-              {isReferencesMode ? "Create a References Video" : isCharacterMode ? "Create a Character Video" : "Create Your Video"}
+              {isReferencesMode ? "Create a References Video" : "Create Your Video"}
             </h1>
             <p style={{ color: "#6B5E7B" }}>
               {isReferencesMode
                 ? "Define your characters and settings, then tell us the story"
-                : isCharacterMode
-                ? "Upload a character and tell us the story you want"
                 : "Tell us what your video should be about and add your pictures"}
             </p>
           </div>
@@ -307,20 +299,6 @@ export default function PromptStep({
               style={{ background: "rgba(255,255,255,0.8)" }}
             />
           </div>
-
-          {/* Character Card (character mode only) */}
-          {isCharacterMode && (
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3" style={{ color: "#2D2235" }}>
-                Your Character
-              </label>
-              <CharacterCard
-                character={character}
-                onChange={onCharacterChange}
-                disabled={loading}
-              />
-            </div>
-          )}
 
           {/* References Section (references mode only) */}
           {isReferencesMode && (
@@ -417,7 +395,7 @@ export default function PromptStep({
           )}
 
           {/* Image Upload Section (image mode only) */}
-          {!isCharacterMode && !isReferencesMode && <div className="mb-6">
+          {!isReferencesMode && <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-semibold" style={{ color: "#2D2235" }}>
                 <ImageIcon className="w-4 h-4 inline mr-1" />
@@ -563,7 +541,7 @@ export default function PromptStep({
               Pick a style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(isCharacterMode || isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
+              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -588,7 +566,7 @@ export default function PromptStep({
           </div>
 
           {/* AI Bridge Frames toggle (image mode only) */}
-          {!isCharacterMode && !isReferencesMode && setEnableBridges && (
+          {!isReferencesMode && setEnableBridges && (
             <div className="mb-6">
               <button
                 onClick={() => setEnableBridges(!enableBridges)}
@@ -623,7 +601,7 @@ export default function PromptStep({
           )}
 
           {/* Opening & Closing Frames (image mode only) */}
-          {!isCharacterMode && !isReferencesMode && <div className="mb-6">
+          {!isReferencesMode && <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
               className="w-full flex items-center justify-between p-4 rounded-2xl border transition-colors"
@@ -925,8 +903,6 @@ export default function PromptStep({
           <p className="text-center text-sm mt-4" style={{ color: "#9B8FA8" }}>
             {isReferencesMode
               ? "Add at least one character, describe your story, and pick a style"
-              : isCharacterMode
-              ? "Add a character, describe your story, and pick a style to get started"
               : "Add a description and at least one picture to get started"}
           </p>
         </motion.div>

@@ -28,14 +28,12 @@ export default function ScriptStep({
   phase,
   enableBridges,
 }) {
-  const isCharacterPipeline = pipelineMode === "character";
   const isReferencesPipeline = pipelineMode === "references";
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED"
-    || session?.stage === "CHAR_SCRIPT_APPROVED" || session?.stage === "CHAR_FRAMES_GENERATED" || session?.stage === "CHAR_FRAMES_APPROVED"
     || session?.stage === "REF_SCRIPT_APPROVED" || session?.stage === "REF_FRAMES_GENERATED" || session?.stage === "REF_FRAMES_APPROVED";
   const isOutlineStage = session?.stage === "OUTLINE_GENERATED";
   const hasBridgeFailures = (scriptData?.sections || []).some(
@@ -345,8 +343,8 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail — hidden for character and references pipelines */}
-                    {!isCharacterPipeline && !isReferencesPipeline && (
+                    {/* Image Thumbnail — hidden for references pipeline */}
+                    {!isReferencesPipeline && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
                         <div className="relative group">
@@ -442,23 +440,6 @@ export default function ScriptStep({
                             <p className="text-sm text-gray-500 italic">
                               Visual: {section.visualDescription}
                             </p>
-                          )}
-                          {section.characterActions && (
-                            <p className="text-gray-400 text-xs mt-1">
-                              Action: {section.characterActions}
-                            </p>
-                          )}
-                          {section.characters?.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                              {section.characters.map((charName) => (
-                                <span
-                                  key={charName}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
-                                >
-                                  {charName}
-                                </span>
-                              ))}
-                            </div>
                           )}
                         </>
                       )}

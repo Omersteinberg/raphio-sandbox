@@ -96,15 +96,6 @@ export default function FrameGenerationStep({
                             Visual: {section.visualDescription}
                           </p>
                         )}
-                        {section.characters?.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
-                            {section.characters.map((c) => (
-                              <span key={c} className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                                {c}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </>
                     )}
 
