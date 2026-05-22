@@ -41,7 +41,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
         type="text"
         value={item.name}
         onChange={(e) => onChange(index, { ...item, name: e.target.value })}
-        placeholder={`${type === 'character' ? 'Character' : 'Setting'} name`}
+        placeholder={`${type === 'character' ? 'Prop' : 'Background'} name`}
         className="w-full mb-2 bg-transparent border-b border-gray-200 pb-1 text-gray-900 font-medium focus:outline-none focus:border-blue-500 placeholder-gray-400"
       />
 
@@ -49,7 +49,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
       <textarea
         value={item.description}
         onChange={(e) => onChange(index, { ...item, description: e.target.value })}
-        placeholder={`Describe this ${type} in detail (required)`}
+        placeholder={`Describe this ${type === 'character' ? 'prop' : 'background'} in detail (required)`}
         rows={2}
         className="w-full mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
       />
@@ -245,7 +245,7 @@ export default function PromptStep({
             </h1>
             <p style={{ color: "#6B5E7B" }}>
               {isReferencesMode
-                ? "Define your characters and settings, then tell us the story"
+                ? "Define your props and backgrounds, then tell us the story"
                 : "Tell us what your video should be about and add your pictures"}
             </p>
           </div>
@@ -303,10 +303,19 @@ export default function PromptStep({
           {/* References Section (references mode only) */}
           {isReferencesMode && (
             <div className="mb-6 space-y-6">
-              {/* Characters */}
+              {/* Props */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Characters</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Props</h3>
+                    <div className="group relative">
+                      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 rounded-lg bg-gray-900 text-white text-xs leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                        Props are the main subjects in your video — characters, brand logos, products, objects, or anything you want to appear consistently across scenes.
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-gray-900 rotate-45" />
+                      </div>
+                    </div>
+                  </div>
                   {references.characters.length < 4 && (
                     <button
                       onClick={() => {
@@ -320,7 +329,7 @@ export default function PromptStep({
                       }}
                       className="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                     >
-                      + Add Character ({references.characters.length}/4)
+                      + Add Prop ({references.characters.length}/4)
                     </button>
                   )}
                 </div>
@@ -345,15 +354,15 @@ export default function PromptStep({
                 </div>
                 {references.characters.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-4">
-                    Add at least one character to get started
+                    Add at least one prop to get started
                   </p>
                 )}
               </div>
 
-              {/* Settings */}
+              {/* Backgrounds */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Settings</h3>
+                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Backgrounds</h3>
                   {references.settings.length < 2 && (
                     <button
                       onClick={() => {
@@ -367,7 +376,7 @@ export default function PromptStep({
                       }}
                       className="text-xs px-3 py-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                     >
-                      + Add Setting ({references.settings.length}/2)
+                      + Add Background ({references.settings.length}/2)
                     </button>
                   )}
                 </div>
@@ -902,7 +911,7 @@ export default function PromptStep({
           {/* Help text */}
           <p className="text-center text-sm mt-4" style={{ color: "#9B8FA8" }}>
             {isReferencesMode
-              ? "Add at least one character, describe your story, and pick a style"
+              ? "Add at least one prop, describe your story, and pick a style"
               : "Add a description and at least one picture to get started"}
           </p>
         </motion.div>

@@ -57,7 +57,7 @@ export function useReferencesSession() {
   });
   const [referenceData, setReferenceData] = useState(null);
   const [sceneFrames, setSceneFrames] = useState([]);
-  const [lockLoading, setLockLoading] = useState(false);
+  const [lockLoading, setLockLoading] = useState(new Set());
   const [framesLoading, setFramesLoading] = useState(false);
 
   // ── Restore state when resuming ────────────────────────────────────
@@ -175,7 +175,7 @@ export function useReferencesSession() {
         await referenceApi.addReference(newSession.id, {
           type: 'character',
           name: char.name,
-          description: char.description,
+          description: `${char.description}. Do not generate any background, use a plain solid color background only.`,
           imageFile: char.useUpload ? char.referenceFile : null,
         });
 
@@ -218,7 +218,7 @@ export function useReferencesSession() {
       // Step 3: Restyle references
       console.log("[useReferencesSession] Restyling references...");
       setScriptProgress(55);
-      setLockLoading(true);
+      setLockLoading(new Set(['__all__']));
       await referenceApi.restyleReferences(newSession.id);
       setScriptProgress(90);
 
@@ -227,7 +227,7 @@ export function useReferencesSession() {
       setSession(updatedSession);
       setReferenceData(updatedSession.referenceData);
       setScriptProgress(100);
-      setLockLoading(false);
+      setLockLoading(new Set());
 
       // Move to step 1 (reference lock review)
       setDirection(1);
@@ -238,7 +238,7 @@ export function useReferencesSession() {
       setSession(null);
       setSessionId(null);
       setScriptProgress(0);
-      setLockLoading(false);
+      setLockLoading(new Set());
       setDirection(-1);
       setStep(0);
       setError(err.message);
@@ -312,7 +312,7 @@ export function useReferencesSession() {
   const regenerateReference = useCallback(async (refId, feedback) => {
     if (!sessionId) return;
 
-    setLockLoading(true);
+    setLockLoading(prev => new Set([...prev, refId]));
     try {
       console.log("[useReferencesSession] Regenerating reference:", refId);
       await referenceApi.regenerateReference(sessionId, refId, { feedback });
@@ -325,7 +325,11 @@ export function useReferencesSession() {
       console.error("[useReferencesSession] Failed to regenerate reference:", err);
       toast.error("Failed to regenerate reference");
     } finally {
-      setLockLoading(false);
+      setLockLoading(prev => {
+        const next = new Set(prev);
+        next.delete(refId);
+        return next;
+      });
     }
   }, [sessionId]);
 
@@ -450,7 +454,7 @@ export function useReferencesSession() {
     setReferences({ characters: [], settings: [] });
     setReferenceData(null);
     setSceneFrames([]);
-    setLockLoading(false);
+    setLockLoading(new Set());
     setFramesLoading(false);
   }, [resetBase]);
 

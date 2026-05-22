@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 
-function ReferenceCard({ reference, lockLoading, onRegenerate }) {
+function ReferenceCard({ reference, isLoading, onRegenerate }) {
   const [feedback, setFeedback] = useState('');
 
   return (
@@ -43,7 +43,7 @@ function ReferenceCard({ reference, lockLoading, onRegenerate }) {
             {reference.needsRestyle ? 'Restyled' : 'Locked'}
           </span>
           <div className="border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
-            {lockLoading ? (
+            {isLoading ? (
               <div className="w-full aspect-square flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               </div>
@@ -59,7 +59,7 @@ function ReferenceCard({ reference, lockLoading, onRegenerate }) {
       </div>
 
       {/* Regenerate feedback */}
-      {reference.lockedUrl && !lockLoading && (
+      {reference.lockedUrl && !isLoading && (
         <div className="mt-3 flex gap-2">
           <input
             type="text"
@@ -111,20 +111,20 @@ export default function ReferenceLockStep({
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Approve Your References</h2>
           <p className="text-gray-500">
-            Review how your characters and settings look in the chosen style. Approve to continue or regenerate with feedback.
+            Review how your props and backgrounds look in the chosen style. Approve to continue or regenerate with feedback.
           </p>
         </div>
 
-        {/* Characters */}
+        {/* Props */}
         {referenceData.characters?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Characters</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Props</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.characters.map((char) => (
                 <ReferenceCard
                   key={char.id}
                   reference={char}
-                  lockLoading={lockLoading}
+                  isLoading={lockLoading.has('__all__') || lockLoading.has(char.id)}
                   onRegenerate={onRegenerate}
                 />
               ))}
@@ -132,16 +132,16 @@ export default function ReferenceLockStep({
           </div>
         )}
 
-        {/* Settings */}
+        {/* Backgrounds */}
         {referenceData.settings?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Settings</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Backgrounds</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.settings.map((setting) => (
                 <ReferenceCard
                   key={setting.id}
                   reference={setting}
-                  lockLoading={lockLoading}
+                  isLoading={lockLoading.has('__all__') || lockLoading.has(setting.id)}
                   onRegenerate={onRegenerate}
                 />
               ))}
@@ -150,7 +150,7 @@ export default function ReferenceLockStep({
         )}
 
         {/* Approve All */}
-        {allLocked && !lockLoading && (
+        {allLocked && lockLoading.size === 0 && (
           <div className="flex justify-center pt-4">
             <button
               onClick={onApproveAll}
