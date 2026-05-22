@@ -17,7 +17,10 @@
       "WebFetch(domain:www.dreamfaceapp.com)",
       "WebFetch(domain:deepinfra.com)",
       "WebFetch(domain:www.together.ai)",
-      "WebFetch(domain:blog.segmind.com)"
+      "WebFetch(domain:blog.segmind.com)",
+      "Bash(npx vite *)",
+      "Bash(Select-Object -First 30)",
+      "PowerShell(npx vite build --logLevel error 2>&1)"
     ]
   }
 }

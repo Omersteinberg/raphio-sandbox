@@ -6,7 +6,7 @@ const API_BASE = `${BASE}/video`;
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode }) {
+export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode, enableBridges }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
@@ -14,6 +14,7 @@ export async function startSession({ userPrompt, style, imageDuration, voiceId, 
     imageDuration,
     voiceId,
     pipelineMode: pipelineMode || 'image',
+    enableBridges: enableBridges || false,
   };
   
   console.log("[sessionService] POST", url);
@@ -85,6 +86,40 @@ export async function analyzeImages(sessionId) {
 }
 
 /**
+ * Check current state of Flux Kontext restyle jobs for a session.
+ * Returns { total, complete, pending, failed, skipped, done }.
+ */
+export async function getRestyleStatus(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/restyle-status`);
+  return response.data;
+}
+
+/**
+ * Poll /restyle-status until every Kontext job has settled. Each poll resolves
+ * in well under a second so no proxy/CDN idle timeout fires.
+ *
+ * @param {string} sessionId
+ * @param {object} [options]
+ * @param {number} [options.intervalMs=3000]
+ * @param {number} [options.timeoutMs=600000] - 10 min cap
+ * @param {(status: object) => void} [options.onProgress]
+ */
+export async function pollRestyleUntilDone(sessionId, options = {}) {
+  const { intervalMs = 3000, timeoutMs = 600000, onProgress } = options;
+  const startedAt = Date.now();
+
+  while (true) {
+    const status = await getRestyleStatus(sessionId);
+    if (typeof onProgress === 'function') onProgress(status);
+    if (status.done) return status;
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`Restyle polling timed out after ${Math.round(timeoutMs / 1000)}s (still ${status.pending} pending)`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/**
  * Generate a frame image (opening or closing) using DALL-E
  * @param {string} sessionId
  * @param {string} frameType - 'opening' or 'closing'
@@ -129,6 +164,48 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
 export async function generateScript(sessionId, frameOptions = null) {
   const payload = frameOptions ? { frameOptions } : {};
   const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload);
+  return response.data;
+}
+
+/**
+ * Generate story outline with bridge frame proposals
+ */
+export async function generateOutline(sessionId, frameOptions = null) {
+  const payload = frameOptions ? { frameOptions } : {};
+  const response = await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload);
+  return response.data;
+}
+
+/**
+ * Approve outline and trigger bridge frame image generation
+ */
+export async function approveOutline(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/approve-outline`);
+  return response.data;
+}
+
+/**
+ * Retry failed bridge frame image generation
+ */
+export async function retryBridgeFrames(sessionId, orderIndices) {
+  const payload = orderIndices ? { orderIndices } : {};
+  const response = await axios.post(`${API_BASE}/${sessionId}/retry-bridge-frames`, payload);
+  return response.data;
+}
+
+/**
+ * Upload a user image for a bridge frame
+ */
+export async function uploadBridgeImage(sessionId, orderIndex, file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('orderIndex', orderIndex.toString());
+
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/bridge-frame-upload`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
   return response.data;
 }
 

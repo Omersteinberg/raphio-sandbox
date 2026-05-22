@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Download, Edit3, Plus, Check, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import api from "@/services/api";
+import { API_BASE } from "@/config";
 
 export default function ResultStep({
   finalVideoUrl,
@@ -10,21 +12,22 @@ export default function ResultStep({
   reset,
 }) {
   const handleDownload = async () => {
-    if (finalVideoUrl) {
-      try {
-        const response = await fetch(finalVideoUrl);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${scriptData?.title || "video"}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch {
-        window.open(finalVideoUrl, "_blank");
-      }
+    if (!session?.id) return;
+    try {
+      const response = await api.get(`${API_BASE}/video/${session.id}/download`, {
+        responseType: "blob",
+      });
+      const blob = response.data;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${scriptData?.title || "video"}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      if (finalVideoUrl) window.open(finalVideoUrl, "_blank");
     }
   };
 
@@ -113,7 +116,7 @@ export default function ResultStep({
           </Button>
 
           <Button
-            onClick={reset}
+            onClick={() => navigate("/create")}
             variant="outline"
             className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
           >

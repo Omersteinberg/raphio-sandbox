@@ -19,19 +19,38 @@ const STAGES = {
   EDITING: "EDITING",
 };
 
-// Map backend stages to frontend step numbers
-// Image upload/analysis are handled during startSession and do not have dedicated pages
-const STAGE_TO_STEP = {
-  PROMPT_ENTERED: 1,
-  IMAGES_UPLOADED: 1,
-  IMAGES_ANALYZED: 1,
-  SCRIPT_GENERATED: 1,
-  SCRIPT_APPROVED: 2,
-  FRAMES_CONFIGURED: 2,
-  GENERATING: 3,
-  COMPLETED: 4,
-  EDITING: 5,
-};
+// Map backend stages to frontend step numbers.
+// When bridges are enabled the flow has an extra "bridges" step between
+// outline review and frames configuration, shifting later steps up by 1.
+function getStageToStep(bridgesEnabled) {
+  if (bridgesEnabled) {
+    return {
+      PROMPT_ENTERED: 1,
+      IMAGES_UPLOADED: 1,
+      IMAGES_ANALYZED: 1,
+      OUTLINE_GENERATED: 1,
+      SCRIPT_GENERATED: 2,
+      SCRIPT_APPROVED: 3,
+      FRAMES_CONFIGURED: 3,
+      GENERATING: 4,
+      COMPLETED: 5,
+      EDITING: 6,
+    };
+  }
+  // No bridges — skip the bridges review step entirely
+  return {
+    PROMPT_ENTERED: 1,
+    IMAGES_UPLOADED: 1,
+    IMAGES_ANALYZED: 1,
+    OUTLINE_GENERATED: 1,
+    SCRIPT_GENERATED: 2,   // goes straight to frames config
+    SCRIPT_APPROVED: 2,
+    FRAMES_CONFIGURED: 2,
+    GENERATING: 3,
+    COMPLETED: 4,
+    EDITING: 5,
+  };
+}
 
 
 export function useSession() {
@@ -55,6 +74,7 @@ export function useSession() {
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
+  const [enableBridges, setEnableBridges] = useState(false);
 
   // Images state
   const [images, setImages] = useState([]);
@@ -166,6 +186,7 @@ export function useSession() {
             if (data.style) setStyle(data.style);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
+            if (data.enableBridges != null) setEnableBridges(data.enableBridges);
             if (data.images?.length) {
               setImages(data.images.map((img) => ({
                 id: img.id,
@@ -234,10 +255,11 @@ export function useSession() {
   // Sync step with session stage
   useEffect(() => {
     if (session?.stage) {
-      const newStep = STAGE_TO_STEP[session.stage] ?? 0;
+      const stageMap = getStageToStep(enableBridges);
+      const newStep = stageMap[session.stage] ?? 0;
       console.log("[useSession] Stage sync effect triggered");
       console.log("[useSession] Current session.stage:", session.stage);
-      console.log("[useSession] Mapped to step:", newStep);
+      console.log("[useSession] Mapped to step:", newStep, "(enableBridges:", enableBridges, ")");
       console.log("[useSession] Current step:", step);
       
       if (newStep !== step) {
@@ -266,7 +288,8 @@ export function useSession() {
   useEffect(() => {
     let pollInterval;
 
-    if (sessionId && step === 3) {
+    const generatingStep = enableBridges ? 4 : 3;
+    if (sessionId && step === generatingStep) {
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
@@ -315,17 +338,29 @@ export function useSession() {
     }
 
     if (credits != null && credits < VIDEO_COST) {
+      console.log("[useSession] Credits insufficient at start — saving pending and redirecting");
       try {
+        // Convert File objects to base64 strings for IndexedDB serialization
         const imagesToSave = await Promise.all(
           images.map((img) =>
             new Promise((resolve) => {
               const reader = new FileReader();
-              reader.onload = () => resolve({ dataUrl: reader.result, name: img.name });
+              reader.onload = () => {
+                resolve({
+                  dataUrl: reader.result, // base64 data URL
+                  name: img.name,
+                });
+              };
               reader.readAsDataURL(img.file);
             })
           )
         );
-        await savePending("image", { userPrompt, style, images: imagesToSave });
+
+        await savePending("image", {
+          userPrompt,
+          style,
+          images: imagesToSave,
+        });
       } catch (err) {
         console.warn("[useSession] Failed to save pending session:", err);
       }
@@ -347,6 +382,7 @@ export function useSession() {
         style,
         imageDuration,
         voiceId,
+        enableBridges,
       };
       console.log("[useSession] Request payload:", payload);
 
@@ -378,115 +414,115 @@ export function useSession() {
       setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
       setScriptProgress(55);
 
+      // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
+      // finish. /analyze submits the jobs and returns immediately, so we have
+      // to poll before generating the script — otherwise the script would be
+      // built from the pre-restyle (e.g. photo) images.
+      console.log("[useSession] Waiting for restyle jobs to complete...");
+      const restyleResult = await sessionService.pollRestyleUntilDone(newSession.id, {
+        onProgress: (status) => {
+          console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
+          // Map restyle progress into the 55-70 band of the overall progress bar.
+          if (status.total > 0) {
+            const settled = status.complete + status.skipped + status.failed;
+            const ratio = settled / status.total;
+            setScriptProgress(55 + Math.round(ratio * 15));
+          }
+        },
+      });
+      console.log("[useSession] Restyle complete:", restyleResult);
+      if (restyleResult.failed > 0) {
+        toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+      }
+      setScriptProgress(70);
+
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
       // This way the AI can analyze the generated frame images too
       console.log("[useSession] Processing frame images...");
       const frameOptions = {};
       const newGeneratedFrameImages = { opening: null, closing: null };
 
-      if (openingFrame.enabled) {
-        if (openingFrame.useUpload && openingFrame.uploadedFile) {
-          // Upload the user's frame image — no AI generation needed
-          const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.opening = "user_image";
-            frameOptions.openingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.opening = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-            console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
-          }
-        } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
-          // AI Generate mode — generate an image using the user's custom prompt
-          console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
-          console.log("[useSession] Opening frame description:", openingFrame.description);
-          try {
-            const frameResult = await sessionService.generateFrameImage(
-              newSession.id,
-              "opening",
-              openingFrame.customPrompt,
-              openingFrame.description || ""
-            );
-            if (frameResult?.imageUrl) {
-              frameOptions.opening = "ai_generated_image";
-              frameOptions.openingImageUrl = frameResult.imageUrl;
-              newGeneratedFrameImages.opening = {
-                imageUrl: frameResult.imageUrl,
-                prompt: openingFrame.customPrompt,
-              };
-              console.log("[useSession] Opening frame image generated:", frameResult.imageUrl);
-            } else {
-              frameOptions.opening = "ai_generate";
-              frameOptions.openingPrompt = openingFrame.customPrompt;
-            }
-          } catch (err) {
-            console.warn("[useSession] Failed to pre-generate opening frame image, falling back:", err);
+      // OPENING frame: gather user-supplied input. If user supplied nothing,
+      // omit the field so the backend auto-figures-out from script context.
+      if (openingFrame?.useUpload && openingFrame?.uploadedFile) {
+        const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          frameOptions.opening = "user_image";
+          frameOptions.openingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.opening = { imageUrl: uploadedUrl, prompt: null };
+          console.log("[useSession] Opening frame image uploaded:", uploadedUrl);
+        }
+      } else if (!openingFrame?.useUpload && openingFrame?.customPrompt) {
+        console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
+        try {
+          const frameResult = await sessionService.generateFrameImage(
+            newSession.id,
+            "opening",
+            openingFrame.customPrompt,
+            openingFrame.description || ""
+          );
+          if (frameResult?.imageUrl) {
+            frameOptions.opening = "ai_generated_image";
+            frameOptions.openingImageUrl = frameResult.imageUrl;
+            newGeneratedFrameImages.opening = { imageUrl: frameResult.imageUrl, prompt: openingFrame.customPrompt };
+            console.log("[useSession] Opening frame image generated:", frameResult.imageUrl);
+          } else {
             frameOptions.opening = "ai_generate";
             frameOptions.openingPrompt = openingFrame.customPrompt;
           }
+        } catch (err) {
+          console.warn("[useSession] Failed to pre-generate opening frame image, falling back:", err);
+          frameOptions.opening = "ai_generate";
+          frameOptions.openingPrompt = openingFrame.customPrompt;
         }
-        if (openingFrame.textOverlay) {
-          frameOptions.openingNarration = openingFrame.textOverlay;
-        }
-        if (openingFrame.description) {
-          frameOptions.openingDescription = openingFrame.description;
-        }
-      } else {
-        frameOptions.opening = "none";
+      }
+      if (openingFrame?.textOverlay) {
+        frameOptions.openingNarration = openingFrame.textOverlay;
+      }
+      if (openingFrame?.description) {
+        frameOptions.openingDescription = openingFrame.description;
       }
 
-      if (closingFrame.enabled) {
-        if (closingFrame.useUpload && closingFrame.uploadedFile) {
-          // Upload the user's frame image — no AI generation needed
-          const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.closing = "user_image";
-            frameOptions.closingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.closing = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-            console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
-          }
-        } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
-          // AI Generate mode — generate an image using the user's custom prompt
-          console.log("[useSession] Generating AI closing frame image...");
-          try {
-            const frameResult = await sessionService.generateFrameImage(
-              newSession.id,
-              "closing",
-              closingFrame.customPrompt,
-              closingFrame.description || ""
-            );
-            if (frameResult?.imageUrl) {
-              frameOptions.closing = "ai_generated_image";
-              frameOptions.closingImageUrl = frameResult.imageUrl;
-              newGeneratedFrameImages.closing = {
-                imageUrl: frameResult.imageUrl,
-                prompt: closingFrame.customPrompt,
-              };
-              console.log("[useSession] Closing frame image generated:", frameResult.imageUrl);
-            } else {
-              frameOptions.closing = "ai_generate";
-              frameOptions.closingPrompt = closingFrame.customPrompt;
-            }
-          } catch (err) {
-            console.warn("[useSession] Failed to pre-generate closing frame image, falling back:", err);
+      // CLOSING frame: same shape as opening.
+      if (closingFrame?.useUpload && closingFrame?.uploadedFile) {
+        const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
+        if (uploadResult.images?.length > 0) {
+          const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
+          frameOptions.closing = "user_image";
+          frameOptions.closingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.closing = { imageUrl: uploadedUrl, prompt: null };
+          console.log("[useSession] Closing frame image uploaded:", uploadedUrl);
+        }
+      } else if (!closingFrame?.useUpload && closingFrame?.customPrompt) {
+        console.log("[useSession] Generating AI closing frame image…");
+        try {
+          const frameResult = await sessionService.generateFrameImage(
+            newSession.id,
+            "closing",
+            closingFrame.customPrompt,
+            closingFrame.description || ""
+          );
+          if (frameResult?.imageUrl) {
+            frameOptions.closing = "ai_generated_image";
+            frameOptions.closingImageUrl = frameResult.imageUrl;
+            newGeneratedFrameImages.closing = { imageUrl: frameResult.imageUrl, prompt: closingFrame.customPrompt };
+            console.log("[useSession] Closing frame image generated:", frameResult.imageUrl);
+          } else {
             frameOptions.closing = "ai_generate";
             frameOptions.closingPrompt = closingFrame.customPrompt;
           }
+        } catch (err) {
+          console.warn("[useSession] Failed to pre-generate closing frame image, falling back:", err);
+          frameOptions.closing = "ai_generate";
+          frameOptions.closingPrompt = closingFrame.customPrompt;
         }
-        if (closingFrame.textOverlay) {
-          frameOptions.closingNarration = closingFrame.textOverlay;
-        }
-        if (closingFrame.description) {
-          frameOptions.closingDescription = closingFrame.description;
-        }
-      } else {
-        frameOptions.closing = "none";
+      }
+      if (closingFrame?.textOverlay) {
+        frameOptions.closingNarration = closingFrame.textOverlay;
+      }
+      if (closingFrame?.description) {
+        frameOptions.closingDescription = closingFrame.description;
       }
 
       setGeneratedFrameImages(newGeneratedFrameImages);
@@ -496,10 +532,22 @@ export function useSession() {
       console.log("[useSession] Generating script...");
       console.log("[useSession] Frame options:", frameOptions);
       setScriptProgress(75);
-      const sessionAfterScript = await sessionService.generateScript(newSession.id, frameOptions);
+      const sessionAfterScript = await sessionService.generateOutline(newSession.id, frameOptions);
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
+
+      // If the backend auto-pre-generated frame images (auto path),
+      // their URLs land in {opening,closing}FrameConfig.uploadedImageUrl.
+      // Surface those into generatedFrameImages so ScriptStep can render them.
+      const backendOpeningUrl = sessionAfterScript?.openingFrameConfig?.uploadedImageUrl;
+      const backendClosingUrl = sessionAfterScript?.closingFrameConfig?.uploadedImageUrl;
+      if (backendOpeningUrl || backendClosingUrl) {
+        setGeneratedFrameImages((prev) => ({
+          opening: prev.opening || (backendOpeningUrl ? { imageUrl: backendOpeningUrl, prompt: null } : null),
+          closing: prev.closing || (backendClosingUrl ? { imageUrl: backendClosingUrl, prompt: null } : null),
+        }));
+      }
       setScriptProgress(100);
 
       setDirection(1);
@@ -521,7 +569,11 @@ export function useSession() {
       setError(err.message);
       if (err.response?.status === 402) {
         try {
-          await savePending("image", { userPrompt, style, images: images.map((img) => ({ file: img.file, name: img.name })) });
+          await savePending("image", {
+            userPrompt,
+            style,
+            images: images.map((img) => ({ file: img.file, name: img.name })),
+          });
         } catch (saveErr) {
           console.warn("[useSession] Failed to save pending on 402:", saveErr);
         }
@@ -534,7 +586,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, credits, navigate]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -748,10 +800,10 @@ export function useSession() {
     setLoading(true);
     try {
       const frameOptions = await buildFrameOptions();
-      const updatedSession = await sessionService.generateScript(sessionId, frameOptions);
+      const updatedSession = await sessionService.generateOutline(sessionId, frameOptions);
       setSession(updatedSession);
       setScriptData(updatedSession.scriptData);
-      toast.success("Script generated!");
+      toast.success("Outline generated!");
     } catch (err) {
       toast.error("Failed to generate script");
       setDirection(-1);
@@ -840,6 +892,73 @@ export function useSession() {
     }
   }, [sessionId, scriptData]);
 
+  // Approve outline and generate bridge images
+  const approveOutline = useCallback(async () => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      if (scriptData) {
+        await sessionService.updateScript(sessionId, { scriptData });
+      }
+
+      const updatedSession = await sessionService.approveOutline(sessionId);
+      setSession(updatedSession);
+      setScriptData(updatedSession.scriptData);
+
+      if (!enableBridges) {
+        toast.success("Script approved!");
+      } else if (updatedSession.hasBridgeFailures) {
+        toast.warning("Some bridge frames failed to generate. You can retry or remove them.");
+      } else {
+        toast.success("Outline approved! Bridge images generated.");
+      }
+    } catch (err) {
+      toast.error("Failed to approve outline");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, scriptData]);
+
+  // Retry failed bridge frames
+  const retryBridgeFrames = useCallback(async (orderIndices) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      const updatedSession = await sessionService.retryBridgeFrames(sessionId, orderIndices);
+      setSession(updatedSession);
+      setScriptData(updatedSession.scriptData);
+
+      if (updatedSession.hasBridgeFailures) {
+        toast.warning("Some bridge frames still failed.");
+      } else {
+        toast.success("Bridge frames regenerated successfully!");
+      }
+    } catch (err) {
+      toast.error("Failed to retry bridge frames");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // Upload user image for a bridge frame
+  const uploadBridgeImage = useCallback(async (orderIndex, file) => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      const updatedSession = await sessionService.uploadBridgeImage(sessionId, orderIndex, file);
+      setSession(updatedSession);
+      setScriptData(updatedSession.scriptData);
+      toast.success("Bridge frame image uploaded!");
+    } catch (err) {
+      toast.error("Failed to upload bridge frame image");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
   // Configure frames
   const configureFrames = useCallback(async () => {
     console.log("[useSession] configureFrames called");
@@ -924,11 +1043,12 @@ export function useSession() {
       return;
     }
 
-    // Immediately transition to GeneratingStep (step 3) so user sees
+    // Immediately transition to GeneratingStep so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
-    console.log("[useSession] Transitioning to GeneratingStep (step 3) immediately");
+    const genStep = enableBridges ? 4 : 3;
+    console.log(`[useSession] Transitioning to GeneratingStep (step ${genStep}) immediately`);
     setDirection(1);
-    setStep(3);
+    setStep(genStep);
 
     try {
       console.log("[useSession] Calling sessionService.startGeneration...");
@@ -949,17 +1069,18 @@ export function useSession() {
         status: err.response?.status,
       });
       // Insufficient credits — show modal
+      const framesStep = enableBridges ? 3 : 2;
       if (err.response?.status === 402) {
         setInsufficientCredits({
           required: err.response.data.required,
           available: err.response.data.available,
         });
         setDirection(-1);
-        setStep(2);
+        setStep(framesStep);
         return;
       }
       // Network errors (timeout/CORS) likely mean generation is still running
-      // in the background - stay on step 3 and let polling pick up the result
+      // in the background - stay on generating step and let polling pick up the result
       if (err.code === "ERR_NETWORK" || !err.response) {
         console.log("[useSession] Network error - generation likely running in background, continuing to poll...");
         toast.info("Generation in progress... please wait");
@@ -968,7 +1089,7 @@ export function useSession() {
       // Only go back for actual server errors (4xx/5xx with a response)
       toast.error("Failed to start generation");
       setDirection(-1);
-      setStep(2);
+      setStep(framesStep);
     }
   }, [sessionId, videoModel, voiceId, backgroundMusic]);
 
@@ -1152,6 +1273,7 @@ export function useSession() {
   // Reset session
   const reset = useCallback(() => {
     skipResumeRef.current = true;
+
     // Cleanup image previews
     images.forEach((img) => {
       if (img.preview) URL.revokeObjectURL(img.preview);
@@ -1166,6 +1288,7 @@ export function useSession() {
     setVoiceId("adam");
     setVideoModel("KLING");
     setBackgroundMusic(true);
+    setEnableBridges(false);
     setImages([]);
     setImageAnalysis(null);
     setScriptData(null);
@@ -1174,9 +1297,9 @@ export function useSession() {
     setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setGeneratedFrameImages({ opening: null, closing: null });
     setGenerationProgress(null);
-    setInsufficientCredits(null);
     setFinalVideoUrl(null);
     setError(null);
+    setInsufficientCredits(null);
   }, [images]);
 
   return {
@@ -1200,6 +1323,8 @@ export function useSession() {
     setVideoModel,
     backgroundMusic,
     setBackgroundMusic,
+    enableBridges,
+    setEnableBridges,
 
     // Images
     images,
@@ -1236,6 +1361,9 @@ export function useSession() {
     updateScript,
     editScriptWithAI,
     approveScript,
+    approveOutline,
+    retryBridgeFrames,
+    uploadBridgeImage,
     configureFrames,
     startGeneration,
     updateClip,

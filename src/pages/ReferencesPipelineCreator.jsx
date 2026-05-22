@@ -1,12 +1,10 @@
-import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
-import { useCharacterSession } from "@/hooks/session/useCharacterSession";
-import { loadPending } from "@/lib/pendingSession";
+import { useReferencesSession } from "@/hooks/session/useReferencesSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
-import CharacterLockStep from "@/components/session/CharacterLockStep";
+import ReferenceLockStep from "@/components/session/ReferenceLockStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FrameGenerationStep from "@/components/session/FrameGenerationStep";
 import VoiceConfigStep from "@/components/session/VoiceConfigStep";
@@ -15,10 +13,9 @@ import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 
-// Step names for progress bar
 const STEP_NAMES = [
   "Prompt",
-  "Character",
+  "References",
   "Script",
   "Frames",
   "Voice",
@@ -26,8 +23,8 @@ const STEP_NAMES = [
   "Complete",
 ];
 
-export default function CharacterPipelineCreator({ onModeChange }) {
-  const session = useCharacterSession();
+export default function ReferencesPipelineCreator({ onModeChange }) {
+  const session = useReferencesSession();
 
   const {
     step,
@@ -41,16 +38,15 @@ export default function CharacterPipelineCreator({ onModeChange }) {
     setUserPrompt,
     style,
     setStyle,
-    startCharacterSession,
+    startReferencesSession,
 
-    // Character state
-    character,
-    setCharacter,
-    lockedImage,
+    // References state
+    references,
+    setReferences,
+    referenceData,
     lockLoading,
-    lockRegenerateCount,
-    approveLock,
-    regenerateLock,
+    approveAllReferences,
+    regenerateReference,
 
     // Script step
     scriptData,
@@ -99,64 +95,10 @@ export default function CharacterPipelineCreator({ onModeChange }) {
     dismissInsufficientCredits,
   } = session;
 
-  // Rehydrate pending inputs after a credit-driven redirect
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const saved = await loadPending("character");
-        if (cancelled || !saved) return;
-        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
-        if (saved.style) setStyle(saved.style);
-        if (saved.character) {
-          // Handle both raw File and base64 reference-file formats
-          let referenceFile = null;
-          if (saved.character.referenceFile instanceof File) {
-            referenceFile = saved.character.referenceFile;
-          } else if (saved.character.referenceFile && saved.character.referenceFile.dataUrl) {
-            const response = await fetch(saved.character.referenceFile.dataUrl);
-            const blob = await response.blob();
-            referenceFile = new File(
-              [blob],
-              saved.character.referenceFile.name || "reference.png",
-              { type: blob.type }
-            );
-          }
-
-          setCharacter((prev) => ({
-            ...prev,
-            name: saved.character.name ?? prev.name,
-            description: saved.character.description ?? prev.description,
-            useUpload: saved.character.useUpload ?? prev.useUpload,
-            referenceFile: referenceFile ?? prev.referenceFile,
-          }));
-        }
-      } catch (err) {
-        console.warn("[CharacterPipelineCreator] rehydrate failed:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Animation variants
   const slideVariants = {
-    enter: (dir) => ({
-      x: dir > 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1,
-    },
-    exit: (dir) => ({
-      zIndex: 0,
-      x: dir < 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
+    enter: (dir) => ({ x: dir > 0 ? 1000 : -1000, opacity: 0 }),
+    center: { zIndex: 1, x: 0, opacity: 1 },
+    exit: (dir) => ({ zIndex: 0, x: dir < 0 ? 1000 : -1000, opacity: 0 }),
   };
 
   const transition = {
@@ -169,15 +111,15 @@ export default function CharacterPipelineCreator({ onModeChange }) {
       case 0:
         return (
           <PromptStep
-            pipelineMode="character"
+            pipelineMode="references"
             onModeChange={!sessionId ? onModeChange : undefined}
-            character={character}
-            onCharacterChange={setCharacter}
+            references={references}
+            onReferencesChange={setReferences}
             userPrompt={userPrompt}
             setUserPrompt={setUserPrompt}
             style={style}
             setStyle={setStyle}
-            onStart={startCharacterSession}
+            onStart={startReferencesSession}
             loading={loading}
             error={error}
           />
@@ -185,20 +127,19 @@ export default function CharacterPipelineCreator({ onModeChange }) {
 
       case 1:
         return (
-          <CharacterLockStep
-            character={character}
-            lockedImage={lockedImage}
+          <ReferenceLockStep
+            referenceData={referenceData}
             lockLoading={lockLoading}
-            lockRegenerateCount={lockRegenerateCount}
-            onApprove={approveLock}
-            onRegenerate={regenerateLock}
+            onApproveAll={approveAllReferences}
+            onRegenerate={regenerateReference}
+            loading={loading}
           />
         );
 
       case 2:
         return (
           <ScriptStep
-            pipelineMode="character"
+            pipelineMode="references"
             scriptData={scriptData}
             setScriptData={setScriptData}
             editRequest={editRequest}
@@ -279,17 +220,15 @@ export default function CharacterPipelineCreator({ onModeChange }) {
     }
   };
 
-  // Show progress bar for content steps (1-4)
   const showProgressBar = step >= 1 && step <= 4;
-  const progressSteps = STEP_NAMES.slice(1, 5); // Character, Script, Frames, Voice
-  const progressIndex = step - 1; // map step 1-4 to 0-3
+  const progressSteps = STEP_NAMES.slice(1, 5);
+  const progressIndex = step - 1;
 
   return (
     <div
       className="h-full flex flex-col font-figtree"
       style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
     >
-      {/* Progress Bar */}
       {showProgressBar && (
         <div
           className="px-6 py-3 border-b"
@@ -300,9 +239,7 @@ export default function CharacterPipelineCreator({ onModeChange }) {
               {progressSteps.map((name, index) => (
                 <div
                   key={name}
-                  className={`flex items-center ${
-                    index < progressSteps.length - 1 ? "flex-1" : ""
-                  }`}
+                  className={`flex items-center ${index < progressSteps.length - 1 ? "flex-1" : ""}`}
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
@@ -344,7 +281,6 @@ export default function CharacterPipelineCreator({ onModeChange }) {
         </div>
       )}
 
-      {/* Main Content */}
       <div className="flex-1 relative overflow-y-auto">
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
@@ -362,14 +298,13 @@ export default function CharacterPipelineCreator({ onModeChange }) {
         </AnimatePresence>
       </div>
 
-      {/* Loading overlay */}
       {loading && step !== 5 && (
         <MergeLoadingOverlay
           text={
             step === 0
-              ? "Creating session..."
+              ? "Processing references..."
               : step === 1
-              ? "Generating character..."
+              ? "Processing..."
               : step === 2
               ? "Generating script..."
               : step === 3
@@ -380,7 +315,6 @@ export default function CharacterPipelineCreator({ onModeChange }) {
         />
       )}
 
-      {/* Insufficient credits modal */}
       {insufficientCredits && (
         <InsufficientCreditsModal
           required={insufficientCredits.required}

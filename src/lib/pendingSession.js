@@ -1,6 +1,6 @@
 // Stores per-pipeline-mode work-in-progress so that redirecting to
 // /buy-credits and coming back does not lose the user's inputs.
-// Mode: "image" | "character".
+// Mode: "image" | "references".
 
 const DB_NAME = "merge-pending-sessions";
 const STORE = "pending";

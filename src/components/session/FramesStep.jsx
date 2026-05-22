@@ -138,11 +138,11 @@ export default function FramesStep({
             <strong>What happens next:</strong>
           </p>
           <ul className="text-xs text-purple-700 mt-2 space-y-1">
-            {openingFrame?.enabled && <li>- Opening frame generated with DALL-E 3</li>}
+            <li>- Opening frame generated with DALL-E 3</li>
             <li>- Each section converted to video clips</li>
             <li>- Narration generated with AI voice</li>
             {backgroundMusic && <li>- Background music generated with AI</li>}
-            {closingFrame?.enabled && <li>- Closing frame generated with DALL-E 3</li>}
+            <li>- Closing frame generated with DALL-E 3</li>
             <li>- Final video assembled automatically</li>
           </ul>
         </div>
