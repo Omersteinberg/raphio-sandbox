@@ -650,8 +650,10 @@ export default function LandingPage() {
               </motion.h1>
 
               <motion.p initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.5,delay:0.25 }}
-                className="text-lg leading-relaxed mb-10 max-w-sm" style={{ color:C.muted }}>
-                Describe what you want. Upload a few images. Raphio writes the script, records a voice, and assembles the video.
+                className="text-lg leading-relaxed mb-10 max-w-sm" style={{ fontSize:'19px' ,color:C.muted }}>
+                Upload your images, describe what you want, and Raphio does the rest.
+                <br></br>
+                No timeline or editing skills needed
               </motion.p>
 
               <motion.div initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4,delay:0.38 }}
@@ -661,8 +663,8 @@ export default function LandingPage() {
                   style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)` }}
                   onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0) scale(1)'; }}
-                >Start free →</button>
-                <span className="text-sm" style={{ color:C.muted }}>No account needed</span>
+                >Create your video →</button>
+                <span className="text-sm" style={{ color:C.muted }}>Free to try · Ready in minutes</span>
               </motion.div>
             </div>
 
