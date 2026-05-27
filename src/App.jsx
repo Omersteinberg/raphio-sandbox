@@ -4,8 +4,9 @@ import Creator from "./pages/Creator";
 import LandingPage from "./pages/LandingPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
 import TimelineTest from "./pages/TimelineTest";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import AuthPage from "./pages/AuthPage";
+// import LoginPage from "./pages/LoginPage";
+// import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
 import AppLayout from "./components/AppLayout";
@@ -19,8 +20,10 @@ function App() {
         <Routes>
           {/* Public routes (no header) */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/register" element={<AuthPage />} />
+          {/* <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} /> */}
 
 
           {/* Protected routes with persistent header */}
