@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValueEvent } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2 } from "lucide-react";
+import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2,} from "lucide-react";
+import { Infinity, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import brainImg from '../assets/brain.png';
 
 const C = {
@@ -14,6 +15,45 @@ const C = {
   faint:   '#DDD6CC',
   white:   '#FFFAF7',
 };
+
+function PricingButton({ tier, onClick }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full rounded-xl py-3 text-sm font-bold"
+      style={{
+        transition: 'background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+        ...(tier.popular
+          ? {
+              background: hovered
+                ? 'linear-gradient(135deg, #CE5520, #E8603C)'
+                : `linear-gradient(135deg, #C1440E, #E8603C)`,
+              color: '#fff',
+              border: 'none',
+              boxShadow: '0 4px 16px rgba(193,68,14,0.18)',
+            }
+          : tier.price === 0
+          ? {
+              background: hovered ? '#EDE8E2' : '#F0EAE5',
+              color: '#2C2420',
+              border: '1.5px solid rgba(193,68,14,0.12)',
+            }
+          : {
+              background: hovered ? 'rgba(193,68,14,0.06)' : '#fff',
+              color: '#C1440E',
+              border: '1.5px solid rgba(193,68,14,0.28)',
+            }
+        ),
+      }}
+    >
+      {tier.cta}
+    </button>
+  );
+}
 
 // ── Animated counter ──────────────────────────────────────────────
 function Counter({ to, suffix = '' }) {
@@ -1028,39 +1068,236 @@ export default function LandingPage() {
 
       {/* Scroll-reveal text section */}
       <section style={{ background: C.bg, padding: '120px 24px' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center'}}>
           <ScrollRevealText
             className="display"
             style={{ fontSize: 'clamp(32px,4.5vw,60px)', letterSpacing: '-0.02em', lineHeight: 1.15, color: C.dark }}
             mutedColor="rgba(28,25,23,0.15)"
           >
-            Raphio turns your photos and words into polished videos — with a real voice, real scenes, and real results.
+            If you have photos and a story, Raphio does the rest — turning everyday moments into videos worth sharing.
           </ScrollRevealText>
-          <div style={{ marginTop: 40, height: 2, width: 64, borderRadius: 99, background: C.terra }} />
+          <div style={{ marginTop: 40, height: 2, width:164, borderRadius: 99, background: C.terra, margin:' 40px auto 0'}}/>
         </div>
       </section>
 
-      {/* Pricing placeholder */}
-      <section id="pricing" className="py-28 px-6" style={{ background: C.bgAlt }}>
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:C.terra }}>Pricing</p>
-          <h2 className="display mb-4" style={{ fontSize:'clamp(36px,4vw,56px)', color:C.dark, letterSpacing:'-0.02em' }}>
-            Simple, transparent<br/>credit packs.
-          </h2>
-          <p className="text-base max-w-md mx-auto" style={{ color:C.muted }}>
-            No subscription hooks. Buy the credits you need, create whenever inspiration strikes.
-          </p>
+      {/* Pricing Section */}
+      <section id="pricing" className="py-28 px-6 font-figtree" style={{ background: 'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)' }}>
+        <div className="max-w-5xl w-full mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-10">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>Pricing</p>
+            <h2 className="display mb-3" style={{ fontSize: 'clamp(32px,4vw,52px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              Simple, transparent<br />credit packs.
+            </h2>
+            <p className="text-base max-w-md mx-auto" style={{ color: C.muted }}>
+              No subscription hooks. Buy the credits you need, create whenever inspiration strikes.
+            </p>
+          </div>
+
+          {/* Trust strip */}
+          <div className="flex flex-wrap justify-center gap-3 mb-10">
+            {[
+              { icon: Infinity,    text: 'Credits never expire' },
+              { icon: ShieldCheck, text: '30-day money back on Starter' },
+              { icon: Clock,       text: 'No subscription required' },
+            ].map((t) => {
+              const Icon = t.icon;
+              return (
+                <div key={t.text} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                  style={{ background: '#fff', border: '1px solid rgba(193,68,14,0.12)' }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color: C.terra }} />
+                  <span className="text-xs font-semibold" style={{ color: '#2C2420' }}>{t.text}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pricing cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch">
+            {[
+              {
+                id: 'free', label: 'Free', price: 0, credits: 10, save: null,
+                icon: Sparkles, cta: 'Start Free', popular: false,
+                features: [
+                  { text: '1 short video (≤15s)',   ok: true  },
+                  { text: 'Watermarked exports',    ok: true  },
+                  { text: 'Watermark-free exports', ok: false },
+                  { text: 'Commercial use',         ok: false },
+                  { text: 'Priority generation',    ok: false },
+                  { text: 'Credits never expire',   ok: false },
+                ],
+              },
+              {
+                id: 'starter', label: 'Starter', price: 9, credits: 30, save: 'Save 10%',
+                icon: Zap, cta: 'Get Starter pack', popular: false,
+                features: [
+                  { text: 'Up to 3 short videos (≤15s)', ok: true  },
+                  { text: 'Watermarked exports',          ok: true  },
+                  { text: 'Watermark-free exports',       ok: false },
+                  { text: 'Commercial use',               ok: false },
+                  { text: 'Priority generation',          ok: false },
+                  { text: 'Credits never expire',         ok: true  },
+                ],
+              },
+              {
+                id: 'creator', label: 'Creator', price: 19, credits: 75, save: 'Save 15%',
+                icon: Layers, cta: 'Get Creator Pack', popular: true,
+                features: [
+                  { text: 'Up to 6 videos (≤30s)',  ok: true  },
+                  { text: 'Watermark-free exports', ok: true  },
+                  { text: 'Commercial use',         ok: true  },
+                  { text: 'All styles unlocked',    ok: true  },
+                  { text: 'Priority generation',    ok: false },
+                  { text: 'Credits never expire',   ok: true  },
+                ],
+              },
+              {
+                id: 'studio', label: 'Studio', price: 39, credits: 175, save: 'Save 25%',
+                icon: Crown, cta: 'Get Studio Pack', popular: false,
+                features: [
+                  { text: 'Up to 8 full videos (≤60s)', ok: true },
+                  { text: 'Watermark-free exports',      ok: true },
+                  { text: 'Commercial use',              ok: true },
+                  { text: 'All styles unlocked',         ok: true },
+                  { text: 'Priority generation',         ok: true },
+                  { text: 'Credits never expire',        ok: true },
+                ],
+              },
+            ].map((tier, i) => {
+              const Icon = tier.icon;
+              return (
+                <motion.div key={tier.id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.07 }}
+                  className="relative flex flex-col rounded-3xl h-full"
+                  style={{
+                    background: '#FFFAF7',
+                    marginTop: '16px',
+                    border: tier.popular ? `2px solid ${C.terra}` : '1.5px solid rgba(193,68,14,0.12)',
+                    boxShadow: tier.popular ? '0 8px 32px rgba(193,68,14,0.18)' : '0 4px 16px rgba(193,68,14,0.04)',
+                    transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+                  }}
+                  whileHover={{
+                    y: -5,
+                    boxShadow: tier.popular
+                      ? '0 24px 56px rgba(193,68,14,0.22)'
+                      : '0 16px 40px rgba(193,68,14,0.10)',
+                  }}
+                >
+                  {tier.popular && (
+                    <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 z-10 whitespace-nowrap">
+                      <span className="text-xs font-extrabold px-4 py-1.5 text-white uppercase tracking-wider"
+                        style={{ background: `linear-gradient(90deg, ${C.terra}, #E8603C)`, borderRadius: 999, boxShadow: '0 4px 12px rgba(193,68,14,0.18)' }}>
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col flex-1 p-6 pt-4 justify-between">
+                    <div>
+                      {/* Spacer to align non-badged cards */}
+                      <div className="mb-3" style={{ height: 28 }} />
+
+                      {/* Icon + Name */}
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: '#F0EAE5' }}>
+                          <Icon className="w-4 h-4" style={{ color: C.terra }} />
+                        </div>
+                        <h3 className="text-base font-bold" style={{ color: '#2C2420' }}>{tier.label}</h3>
+                      </div>
+
+                      {/* Price */}
+                      <div className="flex items-end gap-1.5 mb-4">
+                        {tier.price === 0
+                          ? <span className="text-4xl font-extrabold leading-none" style={{ color: '#2C2420' }}>Free</span>
+                          : <>
+                              <span className="text-base font-bold self-start mt-1" style={{ color: C.muted }}>$</span>
+                              <span className="text-4xl font-extrabold leading-none" style={{ color: '#2C2420' }}>{tier.price}</span>
+                              <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>one-time</span>
+                              {tier.save && (
+                                <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
+                                  style={{ background: 'rgba(21,128,61,0.10)', color: '#15803D', border: '1px solid rgba(21,128,61,0.18)' }}>
+                                  {tier.save}
+                                </span>
+                              )}
+                            </>
+                        }
+                      </div>
+
+                      {/* Credits */}
+                      <p className="text-sm font-bold mt-3 mb-6" style={{ color: C.terra }}>{tier.credits} credits</p>
+
+                      {/* Features */}
+                      <ul className="flex flex-col gap-3 mb-7">
+                        {tier.features.map((f) => (
+                          <li key={f.text} className="flex items-start gap-2">
+                            {f.ok
+                              ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#15803D' }} />
+                              : <XCircle   className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'rgba(193,68,14,0.35)' }} />
+                            }
+                            <span className="text-xs leading-snug" style={{ color: '#2C2420' }}>{f.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <PricingButton
+                      tier={tier}
+                      onClick={() => tier.price === 0 ? navigate('/create') : navigate('/login?redirect=/pricing')}
+                    />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Credits per video reference */}
+          <div className="rounded-2xl p-5 mb-6 mx-auto max-w-sm"
+            style={{ background: '#FFFAF7', border: '1.5px solid rgba(193,68,14,0.12)' }}>
+            <p className="text-xs font-bold text-center mb-3 uppercase tracking-wider" style={{ color: C.muted }}>
+              Credits per video
+            </p>
+            <div className="flex justify-around">
+              {[{ label: 'Up to 15s', credits: 8 }, { label: '16s – 30s', credits: 12 }, { label: '31s – 60s', credits: 20 }].map((row) => (
+                <div key={row.label} className="text-center">
+                  <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
+                  <p className="text-xs font-semibold" style={{ color: '#2C2420' }}>credits</p>
+                  <p className="text-xs mt-0.5" style={{ color: C.muted }}>{row.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-center mt-3" style={{ color: C.muted }}>
+              Shorter videos cost fewer credits — you stay in control.
+            </p>
+          </div>
+
+          {/* Bottom nudge */}
+          <div className="text-center py-4 rounded-2xl"
+            style={{ background: '#F0EAE5', border: '1px solid rgba(193,68,14,0.12)' }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: '#2C2420' }}>Not sure yet?</p>
+            <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 10 free credits — no card needed.</p>
+            <button onClick={() => navigate('/create')}
+              className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
+              style={{ color: C.terra }}>
+              Try it free →
+            </button>
+          </div>
+
         </div>
       </section>
 
       {/* Final CTA */}
       <section className="py-28 px-6" style={{ background: C.dark }}>
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center">
           <motion.div initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.6 }}>
             <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'-0.02em', lineHeight:1 }}>
               Ready to make<br/>your first video?
             </h2>
-            <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.40)' }}>It's completely free to start. No account needed.</p>
+            <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>It's completely free to start. No account needed.</p>
             <button onClick={() => navigate('/create')}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 24px rgba(193,68,14,0.35)` }}
@@ -1074,8 +1311,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 px-6" style={{ background: C.dark, borderTop:`1px solid rgba(245,240,235,0.07)` }}>
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <img src="/Logo.svg" alt="Raphio" className="h-7 opacity-60" />
-          <p className="text-sm" style={{ color:'rgba(245,240,235,0.28)' }}>Make videos from your ideas, no experience needed.</p>
+          <img src="/Logo-Light.svg" alt="Raphio" className="h-7 opacity-90" />
+          <p className="text-sm" style={{ color:'rgba(245,240,235,0.68)' }}>Make videos from your ideas, no experience needed.</p>
         </div>
       </footer>
     </div>
