@@ -26,10 +26,6 @@ const C = {
 };
 
 const PAGE_SIZE = 12;
-const TABS = [
-  { key: "completed",   label: "Completed"   },
-  { key: "in-progress", label: "In Progress" },
-];
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
   { value: 'oldest', label: 'Oldest first' },
@@ -114,8 +110,38 @@ function SkeletonCard({ list = false }) {
 }
 
 // ── Resume banner ─────────────────────────────────────────────────
-function ResumeBanner({ session, onClick, visible }) {
+// Always renders to hold vertical space — prevents tab baseline shift.
+// For new users: shows a faint "first video in progress" hint instead
+// of being completely invisible, filling the space meaningfully.
+function ResumeBanner({ session, onClick, visible, isNewUser }) {
   const title = session ? getTitle(session) : null;
+
+  // New user variant — subtle hint that fills the reserved space
+  if (isNewUser) {
+    return (
+      <div style={{
+        marginBottom: 20, height: 60,
+        display: 'flex', alignItems: 'center',
+      }}>
+        <div style={{
+          width: '100%', height: '100%',
+          display: 'flex', alignItems: 'center',
+          padding: '0 18px', borderRadius: 14,
+          background: 'rgba(45,34,53,0.03)',
+          border: '1px dashed rgba(45,34,53,0.12)',
+        }}>
+          <p style={{
+            fontSize: 12, color: 'rgba(107,94,123,0.55)',
+            fontStyle: 'italic', margin: 0,
+          }}>
+           Start a video and you'll be able to resume it right here
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Returning user variant — invisible space holder when no session
   return (
     <div style={{
       marginBottom: 20,
@@ -311,24 +337,22 @@ function Pagination({ page, totalPages, onPrev, onNext }) {
   );
 }
 
-// ── NEW: Welcome empty state — lives inside the grid card area ────
-// Mirrors the canvas design: left text column + right ambient stream,
-// but contained within the standard page workspace below tabs.
+// ── Stream tiles ──────────────────────────────────────────────────
 const STREAM_TILES_A = [
-  { ratio:'16/9', grad:`linear-gradient(135deg,${C.terraLt},${C.terra})`,  opacity:0.22 },
-  { ratio:'9/16', grad:`linear-gradient(145deg,${C.terra},${C.blush})`,    opacity:0.18 },
-  { ratio:'4/3',  grad:`linear-gradient(120deg,${C.peach},${C.terra})`,    opacity:0.24 },
-  { ratio:'1/1',  grad:`linear-gradient(150deg,#7A1A00,${C.terra})`,       opacity:0.20 },
-  { ratio:'3/4',  grad:`linear-gradient(135deg,${C.terra},${C.blush})`,    opacity:0.16 },
-  { ratio:'16/9', grad:`linear-gradient(160deg,${C.terraDk},${C.terraLt})`,opacity:0.26 },
+  { ratio:'16/9', grad:`linear-gradient(135deg,${C.terraLt},${C.terra})`,   opacity:0.32 },
+  { ratio:'9/16', grad:`linear-gradient(145deg,${C.terra},${C.blush})`,     opacity:0.28 },
+  { ratio:'4/3',  grad:`linear-gradient(120deg,${C.peach},${C.terra})`,     opacity:0.34 },
+  { ratio:'1/1',  grad:`linear-gradient(150deg,#7A1A00,${C.terra})`,        opacity:0.30 },
+  { ratio:'3/4',  grad:`linear-gradient(135deg,${C.terra},${C.blush})`,     opacity:0.26 },
+  { ratio:'16/9', grad:`linear-gradient(160deg,${C.terraDk},${C.terraLt})`, opacity:0.36 },
 ];
 const STREAM_TILES_B = [
-  { ratio:'3/4',  grad:`linear-gradient(130deg,${C.blush},${C.terraLt})`,  opacity:0.17 },
-  { ratio:'16/9', grad:`linear-gradient(140deg,${C.terraDk},${C.terraLt})`,opacity:0.26 },
-  { ratio:'1/1',  grad:`linear-gradient(155deg,${C.terra},${C.blush})`,    opacity:0.20 },
-  { ratio:'4/3',  grad:`linear-gradient(125deg,#7A1A00,${C.blush})`,       opacity:0.18 },
-  { ratio:'9/16', grad:`linear-gradient(145deg,${C.terraLt},${C.terra})`,  opacity:0.22 },
-  { ratio:'16/9', grad:`linear-gradient(135deg,${C.peach},#7A1A00)`,       opacity:0.19 },
+  { ratio:'3/4',  grad:`linear-gradient(130deg,${C.blush},${C.terraLt})`,   opacity:0.27 },
+  { ratio:'16/9', grad:`linear-gradient(140deg,${C.terraDk},${C.terraLt})`, opacity:0.36 },
+  { ratio:'1/1',  grad:`linear-gradient(155deg,${C.terra},${C.blush})`,     opacity:0.30 },
+  { ratio:'4/3',  grad:`linear-gradient(125deg,#7A1A00,${C.blush})`,        opacity:0.28 },
+  { ratio:'9/16', grad:`linear-gradient(145deg,${C.terraLt},${C.terra})`,   opacity:0.32 },
+  { ratio:'16/9', grad:`linear-gradient(135deg,${C.peach},#7A1A00)`,        opacity:0.29 },
 ];
 
 function PlayIcon() {
@@ -376,175 +400,68 @@ function StreamCol({ tiles, reverse=false, speed=30, marginTop=0 }) {
   );
 }
 
+// ── Welcome empty state ───────────────────────────────────────────
 function WelcomeEmptyState({ username, onCreateClick }) {
   const firstName = username?.split(' ')[0] || username || 'there';
   return (
     <>
-      {/* Inject responsive rules — avoids inline media query limitations */}
       <style>{`
-        .wes-card {
-          background: #fff;
-          border-radius: 20px;
-          border: 1px solid ${C.border};
-          box-shadow: 0 2px 16px rgba(45,34,53,0.06);
-          overflow: hidden;
-          min-height: calc(100vh - 320px);
-          display: flex;
-          position: relative;
+        .wes-card { background:#fff; border-radius:20px; border:1px solid ${C.border}; box-shadow:0 2px 16px rgba(45,34,53,0.06); overflow:hidden; min-height:calc(100vh - 320px); display:flex; position:relative; }
+        .wes-text { width:52%; flex-shrink:0; padding:52px 48px; display:flex; flex-direction:column; justify-content:center; position:relative; z-index:2; }
+        .wes-stream { flex:1; position:relative; overflow:hidden; min-width:0; }
+        @media (max-width:680px) {
+          .wes-card { min-height:calc(100vh - 280px); }
+          .wes-text { width:100%; padding:40px 28px; }
+          .wes-stream { display:none; }
         }
-        .wes-text {
-          width: 52%;
-          flex-shrink: 0;
-          padding: 52px 48px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          position: relative;
-          z-index: 2;
-        }
-        .wes-stream {
-          flex: 1;
-          position: relative;
-          overflow: hidden;
-          min-width: 0;
-        }
-        /* Below 680px: text goes full width, stream hides */
-        @media (max-width: 680px) {
-          .wes-card {
-            min-height: calc(100vh - 280px);
-          }
-          .wes-text {
-            width: 100%;
-            padding: 40px 28px;
-          }
-          .wes-stream {
-            display: none;
-          }
-        }
-        /* 680–900px: narrower text column, single stream column */
-        @media (min-width: 681px) and (max-width: 900px) {
-          .wes-text {
-            width: 58%;
-            padding: 40px 32px;
-          }
-          .wes-stream-inner {
-            padding: 0 10px;
-            gap: 10px;
-          }
-          /* Hide second column on mid-size screens */
-          .wes-col-b { display: none; }
+        @media (min-width:681px) and (max-width:900px) {
+          .wes-text { width:58%; padding:40px 32px; }
+          .wes-col-b { display:none; }
         }
       `}</style>
-
       <div className="wes-card">
-
-        {/* ── Left: hero text ── */}
         <div className="wes-text">
-          {/* Badge */}
-          <div style={{
-            display:'inline-flex', alignItems:'center', gap:6,
-            padding:'3px 12px', borderRadius:20,
-            background:'rgba(193,68,14,0.07)',
-            border:'1px solid rgba(193,68,14,0.14)',
-            fontSize:10, fontWeight:700, color:C.terra,
-            letterSpacing:'0.07em', textTransform:'uppercase',
-            marginBottom:18, width:'fit-content',
-          }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'3px 12px', borderRadius:20, background:'rgba(193,68,14,0.07)', border:'1px solid rgba(193,68,14,0.14)', fontSize:10, fontWeight:700, color:C.terra, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:18, width:'fit-content' }}>
             <span style={{ width:5, height:5, borderRadius:'50%', background:C.terra, display:'inline-block' }} />
             Welcome to Raphio
           </div>
-
-          {/* Headline */}
-          <h2 style={{
-            fontSize:'clamp(22px, 3.5vw, 40px)',
-            fontWeight:800, color:C.dark,
-            letterSpacing:'-0.025em', lineHeight:1.1,
-            marginBottom:14,
-          }}>
-            Hey {firstName} —<br/>
-            <span style={{ color:C.terra }}>start creating.</span>
+          <h2 style={{ fontSize:'clamp(22px, 3.5vw, 40px)', fontWeight:800, color:C.dark, letterSpacing:'-0.025em', lineHeight:1.1, marginBottom:14 }}>
+            Hey {firstName} —<br/><span style={{ color:C.terra }}>start creating.</span>
           </h2>
-
-          {/* Subtext */}
-          <p style={{
-            fontSize:14, color:C.muted,
-            lineHeight:1.65, marginBottom:28,
-            maxWidth:320,
-          }}>
+          <p style={{ fontSize:14, color:C.muted, lineHeight:1.65, marginBottom:28, maxWidth:320 }}>
             Upload your images, describe the moment, and Raphio builds the rest. Your first video is one click away.
           </p>
-
-          {/* CTA */}
-          <button
-            onClick={onCreateClick}
-            style={{
-              display:'inline-flex', alignItems:'center', gap:8,
-              height:46, paddingLeft:26, paddingRight:26,
-              borderRadius:9999, border:'none',
-              background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`,
-              color:'#fff', fontSize:14, fontWeight:700,
-              fontFamily:'inherit', cursor:'pointer',
-              boxShadow:'0 4px 20px rgba(193,68,14,0.28)',
-              transition:'box-shadow 0.2s ease, transform 0.15s ease',
-              width:'fit-content',
-            }}
+          <button onClick={onCreateClick}
+            style={{ display:'inline-flex', alignItems:'center', gap:8, height:46, paddingLeft:26, paddingRight:26, borderRadius:9999, border:'none', background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`, color:'#fff', fontSize:14, fontWeight:700, fontFamily:'inherit', cursor:'pointer', boxShadow:'0 4px 20px rgba(193,68,14,0.28)', transition:'box-shadow 0.2s ease, transform 0.15s ease', width:'fit-content' }}
             onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 8px 28px rgba(193,68,14,0.42)';e.currentTarget.style.transform='translateY(-1px)';}}
             onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 4px 20px rgba(193,68,14,0.28)';e.currentTarget.style.transform='translateY(0)';}}
           >
             Create your first video
             <ArrowRight style={{ width:16, height:16 }} />
           </button>
-
-          {/* Reassurance */}
           <p style={{ fontSize:11, color:C.muted, marginTop:12, opacity:0.65 }}>
             No editing skills needed · Ready in minutes
           </p>
         </div>
 
-        {/* ── Right: ambient stream ── */}
         <div className="wes-stream">
-          <div
-            className="wes-stream-inner"
-            style={{
-              position:'absolute',
-              top:-40, bottom:-40, left:0, right:0,
-              display:'flex', gap:12, padding:'0 14px',
-              alignItems:'flex-start',
-            }}
-          >
+          <div style={{ position:'absolute', top:-40, bottom:-40, left:0, right:0, display:'flex', gap:12, padding:'0 14px', alignItems:'flex-start' }}>
             <div style={{ flex:1, minWidth:0 }}>
-              <StreamCol tiles={STREAM_TILES_A} reverse={false} speed={28} marginTop={0}  />
+              <StreamCol tiles={STREAM_TILES_A} reverse={false} speed={28} marginTop={0} />
             </div>
             <div className="wes-col-b" style={{ flex:1, minWidth:0 }}>
-              <StreamCol tiles={STREAM_TILES_B} reverse={true}  speed={36} marginTop={50} />
+              <StreamCol tiles={STREAM_TILES_B} reverse={true} speed={36} marginTop={50} />
             </div>
           </div>
-
-          {/* Left-edge dissolve */}
-          <div style={{
-            position:'absolute', inset:0, zIndex:2, pointerEvents:'none',
-            background:`linear-gradient(to right,
-              #fff 0%,
-              rgba(255,255,255,0.90) 10%,
-              rgba(255,255,255,0.18) 36%,
-              transparent 100%)`,
-          }} />
-
-          {/* Top + bottom fades */}
-          <div style={{
-            position:'absolute', inset:0, zIndex:2, pointerEvents:'none',
-            background:`linear-gradient(to bottom,
-              #fff 0%, transparent 8%,
-              transparent 92%, #fff 100%)`,
-          }} />
+          <div style={{ position:'absolute', inset:0, zIndex:2, pointerEvents:'none', background:`linear-gradient(to right, #fff 0%, rgba(255,255,255,0.90) 10%, rgba(255,255,255,0.18) 36%, transparent 100%)` }} />
+          <div style={{ position:'absolute', inset:0, zIndex:2, pointerEvents:'none', background:`linear-gradient(to bottom, #fff 0%, transparent 8%, transparent 92%, #fff 100%)` }} />
         </div>
-
       </div>
     </>
   );
 }
 
-// ── Tab-level empty state (returning user, no content in this tab) ─
+// ── Tab empty state ───────────────────────────────────────────────
 function TabEmptyState({ tab, styleFilter, onCreateClick, onClearFilter }) {
   const isFiltered = !!styleFilter;
   const styleName  = isFiltered ? STYLE_OPTIONS.find(s=>s.id===styleFilter)?.name : null;
@@ -561,9 +478,11 @@ function TabEmptyState({ tab, styleFilter, onCreateClick, onClearFilter }) {
         {isFiltered ? `No ${styleName} videos` : tab==='completed' ? 'No finished videos yet' : 'Nothing in progress'}
       </h3>
       <p style={{ fontSize:14, color:C.muted, marginBottom:28, maxWidth:280, lineHeight:1.65 }}>
-        {isFiltered ? `You haven't made any ${styleName} videos yet.`
-          : tab==='completed' ? 'Completed videos will appear here once you finish creating.'
-          : 'Ready to start something new?'}
+        {isFiltered
+          ? `You haven't made any ${styleName} videos yet.`
+          : tab==='completed'
+            ? 'Completed videos will appear here once you finish creating.'
+            : 'Ready to start something new?'}
       </p>
       {isFiltered ? (
         <button onClick={onClearFilter} style={{
@@ -637,7 +556,9 @@ export default function MyVideosPage() {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listSessions({ status:activeTab, limit:PAGE_SIZE, offset:(page-1)*PAGE_SIZE });
+      const result = await listSessions({
+        status: activeTab, limit: PAGE_SIZE, offset: (page-1) * PAGE_SIZE,
+      });
       setSessions(result.data);
       if (activeTab==='completed')   setCompletedTotal(result.total);
       if (activeTab==='in-progress') setInProgressTotal(result.total);
@@ -663,10 +584,7 @@ export default function MyVideosPage() {
       <style>{`
         .mvp-wrap { max-width:1100px; margin:0 auto; padding:36px 24px; }
         .mvp-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
-        @media (max-width:520px) {
-          .mvp-wrap { padding:20px 16px; }
-          .mvp-header { margin-bottom:12px; }
-        }
+        @media (max-width:520px) { .mvp-wrap { padding:20px 16px; } .mvp-header { margin-bottom:12px; } }
       `}</style>
       <div className="mvp-wrap">
 
@@ -676,7 +594,7 @@ export default function MyVideosPage() {
             My Videos
           </h1>
           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-            {/* Only show controls when there are videos */}
+            {/* Sort + view toggle only shown when user has videos */}
             {!isNewUser && checkedNew && (<>
               <SortDropdown value={sort} onChange={setSort} />
               <div style={{ display:'flex', borderRadius:9999, border:`1px solid ${C.border}`, overflow:'hidden', background:'#fff' }}>
@@ -705,12 +623,15 @@ export default function MyVideosPage() {
           </div>
         </div>
 
-        {/* ── Resume banner — always renders to reserve space, hidden for new users ── */}
-        <ResumeBanner
-          session={resumeSession}
-          onClick={() => resumeSession && handleCardClick(resumeSession)}
-          visible={!isNewUser && activeTab==='completed'}
-        />
+        {/* ── Resume banner — always reserves 60px of space ── */}
+        {checkedNew && (
+          <ResumeBanner
+            session={resumeSession}
+            onClick={() => resumeSession && handleCardClick(resumeSession)}
+            visible={!isNewUser && activeTab==='completed'}
+            isNewUser={isNewUser}
+          />
+        )}
 
         {/* ── Tabs with counts ── */}
         <div style={{ display:'flex', borderBottom:'1.5px solid rgba(45,34,53,0.10)', marginBottom:20 }}>
@@ -745,7 +666,7 @@ export default function MyVideosPage() {
         {/* ── Content ── */}
         <AnimatePresence mode="wait">
 
-          {/* Case 1: Brand new user — welcome card inside the grid zone */}
+          {/* Case 1: New user */}
           {checkedNew && isNewUser && (
             <motion.div key="welcome" initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} transition={{ duration:0.35, ease:'easeOut' }}>
               <WelcomeEmptyState
@@ -770,7 +691,7 @@ export default function MyVideosPage() {
             </motion.div>
           )}
 
-          {/* Case 3: Returning user, no videos in this tab */}
+          {/* Case 3: Returning user, empty tab */}
           {checkedNew && !isNewUser && !loading && !hasVideos && (
             <TabEmptyState
               tab={activeTab}
@@ -787,7 +708,7 @@ export default function MyVideosPage() {
               initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}
               exit={{ opacity:0 }} transition={{ duration:0.22, ease:'easeOut' }}
             >
-              {!loading && sessions.length > 0 && (
+              {sessions.length > 0 && (
                 <StyleFilterChips sessions={sessions} activeStyle={styleFilter} onChange={setStyleFilter} />
               )}
               {viewMode==='grid' ? (
