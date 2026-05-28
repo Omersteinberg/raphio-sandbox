@@ -16,21 +16,21 @@ const C = {
 // Mixed aspect ratios. Colours pulled from Raphio's actual palette.
 // opacity + rotation per item = organic, not mechanical.
 const COL_A = [
-  { id: 1,  ratio: '16/9', grad: 'linear-gradient(135deg, #C1440E 0%, #E8632A 100%)',  opacity: 0.22, rot:  1.2, time: '0:34', label: 'Travel'    },
-  { id: 2,  ratio: '9/16', grad: 'linear-gradient(160deg, #FDDCC8 0%, #F0A070 100%)',  opacity: 0.20, rot: -0.8, time: '1:02', label: 'Family'    },
-  { id: 3,  ratio: '4/3',  grad: 'linear-gradient(120deg, #E8632A 0%, #FDDCC8 100%)',  opacity: 0.26, rot:  0.5, time: '0:47', label: 'Sport'     },
-  { id: 4,  ratio: '1/1',  grad: 'linear-gradient(150deg, #FFB088 0%, #C1440E 100%)',  opacity: 0.18, rot: -1.5, time: '0:21', label: 'Cinematic' },
-  { id: 5,  ratio: '16/9', grad: 'linear-gradient(135deg, #F0A070 0%, #E8632A 100%)',  opacity: 0.24, rot:  0.9, time: '1:15', label: 'Nature'    },
-  { id: 6,  ratio: '3/4',  grad: 'linear-gradient(145deg, #C1440E 0%, #FFB088 100%)',  opacity: 0.20, rot: -0.4, time: '0:58', label: 'Wedding'   },
+  { id: 1,  ratio: '16/9', grad: 'linear-gradient(135deg, #C1440E 0%, #E8632A 100%)',  opacity: 0.32, rot:  1.2, time: '0:34', label: 'Travel'    },
+  { id: 2,  ratio: '9/16', grad: 'linear-gradient(160deg, #FDDCC8 0%, #F0A070 100%)',  opacity: 0.30, rot: -0.8, time: '1:02', label: 'Family'    },
+  { id: 3,  ratio: '4/3',  grad: 'linear-gradient(120deg, #E8632A 0%, #FDDCC8 100%)',  opacity: 0.36, rot:  0.5, time: '0:47', label: 'Sport'     },
+  { id: 4,  ratio: '1/1',  grad: 'linear-gradient(150deg, #FFB088 0%, #C1440E 100%)',  opacity: 0.38, rot: -1.5, time: '0:21', label: 'Cinematic' },
+  { id: 5,  ratio: '16/9', grad: 'linear-gradient(135deg, #F0A070 0%, #E8632A 100%)',  opacity: 0.34, rot:  0.9, time: '1:15', label: 'Nature'    },
+  { id: 6,  ratio: '3/4',  grad: 'linear-gradient(145deg, #C1440E 0%, #FFB088 100%)',  opacity: 0.30, rot: -0.4, time: '0:58', label: 'Wedding'   },
 ];
  
 const COL_B = [
-  { id: 7,  ratio: '4/3',  grad: 'linear-gradient(125deg, #7A1A00 0%, #C1440E 100%)',  opacity: 0.22, rot: -1.0, time: '0:43', label: 'Adventure' },
-  { id: 8,  ratio: '16/9', grad: 'linear-gradient(140deg, #E8632A 0%, #7A1A00 100%)',  opacity: 0.26, rot:  1.6, time: '1:08', label: 'Birthday'  },
-  { id: 9,  ratio: '1/1',  grad: 'linear-gradient(155deg, #FFB088 0%, #E8632A 100%)',  opacity: 0.18, rot: -0.6, time: '0:29', label: 'Memories'  },
-  { id: 10, ratio: '9/16', grad: 'linear-gradient(135deg, #5C1000 0%, #C1440E 100%)',  opacity: 0.20, rot:  0.3, time: '0:52', label: 'Lifestyle' },
-  { id: 11, ratio: '16/9', grad: 'linear-gradient(145deg, #C1440E 0%, #FDDCC8 100%)',  opacity: 0.24, rot: -1.2, time: '1:33', label: 'Fitness'   },
-  { id: 12, ratio: '3/4',  grad: 'linear-gradient(130deg, #7A1A00 0%, #FFB088 100%)',  opacity: 0.22, rot:  0.7, time: '0:38', label: 'Pets'      },
+  { id: 7,  ratio: '4/3',  grad: 'linear-gradient(125deg, #7A1A00 0%, #C1440E 100%)',  opacity: 0.32, rot: -1.0, time: '0:43', label: 'Adventure' },
+  { id: 8,  ratio: '16/9', grad: 'linear-gradient(140deg, #E8632A 0%, #7A1A00 100%)',  opacity: 0.36, rot:  1.6, time: '1:08', label: 'Birthday'  },
+  { id: 9,  ratio: '1/1',  grad: 'linear-gradient(155deg, #FFB088 0%, #E8632A 100%)',  opacity: 0.38, rot: -0.6, time: '0:29', label: 'Memories'  },
+  { id: 10, ratio: '9/16', grad: 'linear-gradient(135deg, #5C1000 0%, #C1440E 100%)',  opacity: 0.30, rot:  0.3, time: '0:52', label: 'Lifestyle' },
+  { id: 11, ratio: '16/9', grad: 'linear-gradient(145deg, #C1440E 0%, #FDDCC8 100%)',  opacity: 0.34, rot: -1.2, time: '1:33', label: 'Fitness'   },
+  { id: 12, ratio: '3/4',  grad: 'linear-gradient(130deg, #7A1A00 0%, #FFB088 100%)',  opacity: 0.32, rot:  0.7, time: '0:38', label: 'Pets'      },
 ];
  
 

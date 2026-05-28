@@ -17,7 +17,8 @@
       "WebFetch(domain:www.dreamfaceapp.com)",
       "WebFetch(domain:deepinfra.com)",
       "WebFetch(domain:www.together.ai)",
-      "WebFetch(domain:blog.segmind.com)"
+      "WebFetch(domain:blog.segmind.com)",
+      "Bash(python skills/ui-ux-pro-max/scripts/search.py \"SaaS video creation dashboard welcome hero\" --design-system -p \"Raphio\" -f markdown)"
     ]
   }
 }
