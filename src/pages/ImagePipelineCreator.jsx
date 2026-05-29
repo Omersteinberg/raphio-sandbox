@@ -184,6 +184,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setEnableBridges={setEnableBridges}
         />
       );
+    }
 
     if (step === 1) {
       return (
