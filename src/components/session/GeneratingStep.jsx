@@ -7,8 +7,8 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
 
-  // Count extra clips for opening/closing frames
-  const extraFrames = (openingFrame?.enabled ? 1 : 0) + (closingFrame?.enabled ? 1 : 0);
+  // Frames are mandatory: always 2 extra clips (opening + closing).
+  const extraFrames = 2;
 
   // Get progress data from backend (if available)
   const progressData = session?.video?.progressData || {};

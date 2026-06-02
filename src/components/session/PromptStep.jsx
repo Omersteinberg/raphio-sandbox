@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
-import CharacterCard from './CharacterCard';
 import { MAX_IMAGES } from "@/lib/limits";
 
 const SLOT_LABELS = {
@@ -22,6 +21,99 @@ const STYLE_ICONS = {
   cinematic: "\uD83C\uDFAC",
   surreal: "\u2728",
 };
+
+function ReferenceInput({ item, index, type, onChange, onRemove }) {
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onChange(index, {
+        ...item,
+        referenceFile: file,
+        referenceImage: URL.createObjectURL(file),
+      });
+    }
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 bg-white relative">
+      {/* Remove button */}
+      <button
+        onClick={() => onRemove(index)}
+        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center text-sm transition-colors"
+      >
+        ×
+      </button>
+
+      {/* Name */}
+      <input
+        type="text"
+        value={item.name}
+        onChange={(e) => onChange(index, { ...item, name: e.target.value })}
+        placeholder={`${type === 'character' ? 'Prop' : 'Background'} name`}
+        className="w-full mb-2 bg-transparent border-b border-gray-200 pb-1 text-gray-900 font-medium focus:outline-none focus:border-blue-500 placeholder-gray-400"
+      />
+
+      {/* Description */}
+      <textarea
+        value={item.description}
+        onChange={(e) => onChange(index, { ...item, description: e.target.value })}
+        placeholder={`Describe this ${type === 'character' ? 'prop' : 'background'} in detail (required)`}
+        rows={2}
+        className="w-full mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+      />
+
+      {/* Upload / AI Generate toggle */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => onChange(index, { ...item, useUpload: true })}
+          className={`text-xs px-3 py-1 rounded-full transition-colors ${
+            item.useUpload
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          Upload Image
+        </button>
+        <button
+          onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
+          className={`text-xs px-3 py-1 rounded-full transition-colors ${
+            !item.useUpload
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          AI Generate
+        </button>
+      </div>
+
+      {/* File picker or AI label */}
+      {item.useUpload ? (
+        <div>
+          {item.referenceImage ? (
+            <div className="relative">
+              <img src={item.referenceImage} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+              <button
+                onClick={() => onChange(index, { ...item, referenceFile: null, referenceImage: null })}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center text-xs"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+              <span className="text-sm text-gray-400">Click to upload</span>
+              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            </label>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-16 bg-purple-50 rounded-lg">
+          <span className="text-sm text-purple-500">Will be generated from description</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PromptStep({
   userPrompt,
@@ -40,14 +132,18 @@ export default function PromptStep({
   closingFrame,
   setClosingFrame,
   styleOptions = [],
-  // Character pipeline props
+  // Bridge toggle
+  enableBridges,
+  setEnableBridges,
+  // Pipeline mode props
   pipelineMode,
   onModeChange,
-  character,
-  onCharacterChange,
+  // References pipeline props
+  references = { characters: [], settings: [] },
+  onReferencesChange,
   error,
 }) {
-  const isCharacterMode = pipelineMode === 'character';
+  const isReferencesMode = pipelineMode === 'references';
   const fileInputRef = useRef(null);
   const openingFileRef = useRef(null);
   const closingFileRef = useRef(null);
@@ -130,18 +226,17 @@ export default function PromptStep({
       userPrompt,
       style,
       imagesCount: images?.length || 0,
-      openingFrame: { enabled: openingFrame?.enabled, useUpload: openingFrame?.useUpload, customPrompt: openingFrame?.customPrompt },
-      closingFrame: { enabled: closingFrame?.enabled, useUpload: closingFrame?.useUpload, customPrompt: closingFrame?.customPrompt },
+      openingFrame: { useUpload: openingFrame?.useUpload, customPrompt: openingFrame?.customPrompt },
+      closingFrame: { useUpload: closingFrame?.useUpload, customPrompt: closingFrame?.customPrompt },
     });
     onStart();
   };
 
-  // Require custom prompt for AI-generated frames
-  const openingNeedsPrompt = openingFrame?.enabled && !openingFrame?.useUpload && !openingFrame?.customPrompt?.trim();
-  const closingNeedsPrompt = closingFrame?.enabled && !closingFrame?.useUpload && !closingFrame?.customPrompt?.trim();
-  const canStart = isCharacterMode
-    ? character?.name?.trim() && character?.description?.trim() && userPrompt?.trim() && style && (character?.useUpload === false || character?.referenceFile)
-    : userPrompt?.trim() && images?.length > 0 && !openingNeedsPrompt && !closingNeedsPrompt;
+  // Frames are mandatory but auto-figure-out is allowed when the user
+  // provides neither a prompt nor an upload — so no per-frame prompt requirement.
+  const canStart = isReferencesMode
+    ? userPrompt?.trim() && style && references.characters.some(c => c.name?.trim() && c.description?.trim())
+    : userPrompt?.trim() && images?.length > 0;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -160,11 +255,11 @@ export default function PromptStep({
               <Sparkles className="w-8 h-8" style={{ color: "#F97066" }} />
             </div>
             <h1 className="text-3xl font-bold mb-2" style={{ color: "#2D2235" }}>
-              {isCharacterMode ? "Create a Character Video" : "Create Your Video"}
+              {isReferencesMode ? "Create a References Video" : "Create Your Video"}
             </h1>
             <p style={{ color: "#6B5E7B" }}>
-              {isCharacterMode
-                ? "Upload a character and tell us the story you want"
+              {isReferencesMode
+                ? "Define your props and backgrounds, then tell us the story"
                 : "Tell us what your video should be about and add your pictures"}
             </p>
           </div>
@@ -172,28 +267,23 @@ export default function PromptStep({
           {/* Pipeline Mode Toggle */}
           {onModeChange && (
             <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => onModeChange('image')}
-                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
-                style={
-                  !isCharacterMode
-                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
-                    : { background: "#F0EAFF", color: "#6B5E7B" }
-                }
-              >
-                Image-Based
-              </button>
-              <button
-                onClick={() => onModeChange('character')}
-                className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
-                style={
-                  isCharacterMode
-                    ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
-                    : { background: "#F0EAFF", color: "#6B5E7B" }
-                }
-              >
-                Character Story
-              </button>
+              {[
+                { id: 'image', label: 'Image-Based' },
+                { id: 'references', label: 'References' },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => onModeChange(mode.id)}
+                  className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                  style={
+                    pipelineMode === mode.id
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 12px rgba(249,112,102,0.25)" }
+                      : { background: "#F0EAFF", color: "#6B5E7B" }
+                  }
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -224,209 +314,298 @@ export default function PromptStep({
             />
           </div>
 
-          {/* Character Card (character mode only) */}
-          {isCharacterMode && (
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-3" style={{ color: "#2D2235" }}>
-                Your Character
-              </label>
-              <CharacterCard
-                character={character}
-                onChange={onCharacterChange}
-                disabled={loading}
-              />
+          {/* References Section (references mode only) */}
+          {isReferencesMode && (
+            <div className="mb-6 space-y-6">
+              {/* Props */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Props</h3>
+                    <div className="group relative">
+                      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 rounded-lg bg-gray-900 text-white text-xs leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                        Props are the main subjects in your video — characters, brand logos, products, objects, or anything you want to appear consistently across scenes.
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-gray-900 rotate-45" />
+                      </div>
+                    </div>
+                  </div>
+                  {references.characters.length < 4 && (
+                    <button
+                      onClick={() => {
+                        onReferencesChange({
+                          ...references,
+                          characters: [
+                            ...references.characters,
+                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                          ],
+                        });
+                      }}
+                      className="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                    >
+                      + Add Prop ({references.characters.length}/4)
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {references.characters.map((char, idx) => (
+                    <ReferenceInput
+                      key={idx}
+                      item={char}
+                      index={idx}
+                      type="character"
+                      onChange={(i, updated) => {
+                        const chars = [...references.characters];
+                        chars[i] = updated;
+                        onReferencesChange({ ...references, characters: chars });
+                      }}
+                      onRemove={(i) => {
+                        const chars = references.characters.filter((_, j) => j !== i);
+                        onReferencesChange({ ...references, characters: chars });
+                      }}
+                    />
+                  ))}
+                </div>
+                {references.characters.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    Add at least one prop to get started
+                  </p>
+                )}
+              </div>
+
+              {/* Backgrounds */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold" style={{ color: "#2D2235" }}>Backgrounds</h3>
+                  {references.settings.length < 2 && (
+                    <button
+                      onClick={() => {
+                        onReferencesChange({
+                          ...references,
+                          settings: [
+                            ...references.settings,
+                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                          ],
+                        });
+                      }}
+                      className="text-xs px-3 py-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                    >
+                      + Add Background ({references.settings.length}/2)
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {references.settings.map((setting, idx) => (
+                    <ReferenceInput
+                      key={idx}
+                      item={setting}
+                      index={idx}
+                      type="setting"
+                      onChange={(i, updated) => {
+                        const sets = [...references.settings];
+                        sets[i] = updated;
+                        onReferencesChange({ ...references, settings: sets });
+                      }}
+                      onRemove={(i) => {
+                        const sets = references.settings.filter((_, j) => j !== i);
+                        onReferencesChange({ ...references, settings: sets });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-{/* Image Upload Section (image mode only) */}
-{!isCharacterMode && (
-  <div className="mb-6">
-    {/* Template Selector — sits above dropzone to prime the user */}
-    <div className="flex gap-2 mb-4 flex-wrap">
-      {Object.keys(SLOT_LABELS).map((key) => (
-        <button
-          key={key}
-          onClick={() => setTemplate(key)}
-          className="text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
-          style={
-            template === key
-              ? {
-                  background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)",
-                  color: "#fff",
-                  borderColor: "transparent",
-                  fontWeight: "700",
-                  boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)",
-                }
-              : {
-                  background: "#F9F7FF",
-                  color: "#7B6F91",
-                  borderColor: "#C5B8F0",
-                  borderWidth: "1.5px",
-                  fontWeight: "600",
-                }
-          }
-        >
-          {key === "general" ? "General" : key === "business_ad" ? "Business Ad" : key === "social_content" ? "Social" : key === "birthday" ? "Birthday" : "Product"}
-        </button>
-      ))}
-    </div>
+          {/* Image Upload Section (image mode only) */}
+          {!isReferencesMode && (
+            <div className="mb-6">
+              {/* Template Selector */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {Object.keys(SLOT_LABELS).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setTemplate(key)}
+                    className="text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                    style={
+                      template === key
+                        ? {
+                            background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)",
+                            color: "#fff",
+                            borderColor: "transparent",
+                            fontWeight: "700",
+                            boxShadow: "0 2px 10px rgba(255, 126, 103, 0.3)",
+                          }
+                        : {
+                            background: "#F9F7FF",
+                            color: "#7B6F91",
+                            borderColor: "#C5B8F0",
+                            borderWidth: "1.5px",
+                            fontWeight: "600",
+                          }
+                    }
+                  >
+                    {key === "general" ? "General" : key === "business_ad" ? "Business Ad" : key === "social_content" ? "Social" : key === "birthday" ? "Birthday" : "Product"}
+                  </button>
+                ))}
+              </div>
 
-    {/* Hidden file input */}
-    <input
-      type="file"
-      ref={fileInputRef}
-      onChange={handleFileChange}
-      accept="image/jpeg,image/png"
-      multiple
-      className="hidden"
-      disabled={atCap}
-    />
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/jpeg,image/png"
+                multiple
+                className="hidden"
+                disabled={atCap}
+              />
 
-    <AnimatePresence mode="wait">
-      {/* ── EMPTY STATE: clean dropzone ── */}
-      {(images?.length ?? 0) === 0 && (
-        <motion.div
-          key="dropzone"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2 }}
-          onClick={() => fileInputRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 px-6 transition-all hover:border-orange-400 hover:bg-orange-50/60"
-          style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.6)" }}
-        >
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #FFF0E6, #F0EAFF)" }}
-          >
-            <Upload className="w-5 h-5" style={{ color: "#F97066" }} />
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-sm" style={{ color: "#2D2235" }}>
-              Drop images here or click to upload
-            </p>
-            <p className="text-xs mt-1" style={{ color: "#9B8FA8" }}>
-              JPEG or PNG · Up to {MAX_IMAGES} images
-            </p>
-          </div>
-        </motion.div>
-      )}
+              <AnimatePresence mode="wait">
+                {/* Empty state: clean dropzone */}
+                {(images?.length ?? 0) === 0 && (
+                  <motion.div
+                    key="dropzone"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 px-6 transition-all hover:border-orange-400 hover:bg-orange-50/60"
+                    style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.6)" }}
+                  >
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                      style={{ background: "linear-gradient(135deg, #FFF0E6, #F0EAFF)" }}
+                    >
+                      <Upload className="w-5 h-5" style={{ color: "#F97066" }} />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-sm" style={{ color: "#2D2235" }}>
+                        Drop images here or click to upload
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "#9B8FA8" }}>
+                        JPEG or PNG · Up to {MAX_IMAGES} images
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
 
-      {/* ── FILLED STATE: ghost-grid ── */}
-      {(images?.length ?? 0) > 0 && (
-        <motion.div
-          key="grid"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {/* Scene counter + reorder hint */}
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold" style={{ color: "#F97066" }}>
-              {images.length} scene{images.length !== 1 ? "s" : ""} created
-            </p>
-            {images.length >= 2 && (
-              <p className="text-xs" style={{ color: "#9B8FA8" }}>
-                Drag to reorder
-              </p>
-            )}
-          </div>
+                {/* Filled state: ghost-grid */}
+                {(images?.length ?? 0) > 0 && (
+                  <motion.div
+                    key="grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* Scene counter + reorder hint */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold" style={{ color: "#F97066" }}>
+                        {images.length} scene{images.length !== 1 ? "s" : ""} created
+                      </p>
+                      {images.length >= 2 && (
+                        <p className="text-xs" style={{ color: "#9B8FA8" }}>
+                          Drag to reorder
+                        </p>
+                      )}
+                    </div>
 
-          {/* Grid */}
-          <div className="grid grid-cols-5 gap-2 mb-3">
-            {/* Filled slots */}
-            {images.map((img, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, scale: 0.75 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 22, delay: index * 0.04 }}
-                draggable
-                onDragStart={() => setDragSlot(index)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (dragSlot !== null && dragSlot !== index) {
-                    reorderImages(dragSlot, index);
-                  }
-                  setDragSlot(null);
-                }}
-                className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab active:cursor-grabbing ${
-                  dragSlot === index ? "opacity-40 scale-95" : ""
-                }`}
-                style={{
-                  boxShadow: dragSlot === index ? "none" : "0 2px 8px rgba(45,34,53,0.12)",
-                  transition: "box-shadow 0.15s, opacity 0.15s, transform 0.15s",
-                }}
-              >
-                <img
-                  src={img.preview}
-                  alt={slotLabels[index]}
-                  className="w-full h-full object-cover pointer-events-none"
-                />
+                    {/* Grid */}
+                    <div className="grid grid-cols-5 gap-2 mb-3">
+                      {/* Filled slots */}
+                      {images.map((img, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.75 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 22, delay: index * 0.04 }}
+                          draggable
+                          onDragStart={() => setDragSlot(index)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (dragSlot !== null && dragSlot !== index) {
+                              reorderImages(dragSlot, index);
+                            }
+                            setDragSlot(null);
+                          }}
+                          className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab active:cursor-grabbing ${
+                            dragSlot === index ? "opacity-40 scale-95" : ""
+                          }`}
+                          style={{
+                            boxShadow: dragSlot === index ? "none" : "0 2px 8px rgba(45,34,53,0.12)",
+                            transition: "box-shadow 0.15s, opacity 0.15s, transform 0.15s",
+                          }}
+                        >
+                          <img
+                            src={img.preview}
+                            alt={slotLabels[index]}
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
 
-                {/* Scene label badge */}
-                <span
-                  className="absolute bottom-1 left-1 right-1 text-center text-white font-semibold rounded-md px-1 truncate"
-                  style={{ fontSize: "8px", background: "rgba(0,0,0,0.52)", lineHeight: "16px" }}
-                >
-                  {slotLabels[index]}
-                </span>
+                          {/* Scene label badge */}
+                          <span
+                            className="absolute bottom-1 left-1 right-1 text-center text-white font-semibold rounded-md px-1 truncate"
+                            style={{ fontSize: "8px", background: "rgba(0,0,0,0.52)", lineHeight: "16px" }}
+                          >
+                            {slotLabels[index]}
+                          </span>
 
-                {/* Remove button */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </motion.div>
-            ))}
+                          {/* Remove button */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))}
 
-            {/* "+ Add More" slot — only shown when under cap */}
-            {!atCap && (
-              <motion.div
-                key="add-more"
-                initial={{ opacity: 0, scale: 0.75 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 22, delay: images.length * 0.04 }}
-                onClick={() => fileInputRef.current?.click()}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:border-orange-400 hover:bg-orange-50/60"
-                style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.5)" }}
-              >
-                <Plus className="w-4 h-4 mb-0.5" style={{ color: "#9B8FA8" }} />
-                <span className="text-center leading-tight" style={{ fontSize: "8px", color: "#9B8FA8" }}>
-                  Add
-                </span>
-              </motion.div>
-            )}
-          </div>
+                      {/* "+ Add More" slot */}
+                      {!atCap && (
+                        <motion.div
+                          key="add-more"
+                          initial={{ opacity: 0, scale: 0.75 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 22, delay: images.length * 0.04 }}
+                          onClick={() => fileInputRef.current?.click()}
+                          onDrop={handleDrop}
+                          onDragOver={handleDragOver}
+                          className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:border-orange-400 hover:bg-orange-50/60"
+                          style={{ borderColor: "#D8CEFF", background: "rgba(249,247,255,0.5)" }}
+                        >
+                          <Plus className="w-4 h-4 mb-0.5" style={{ color: "#9B8FA8" }} />
+                          <span className="text-center leading-tight" style={{ fontSize: "8px", color: "#9B8FA8" }}>
+                            Add
+                          </span>
+                        </motion.div>
+                      )}
+                    </div>
 
-          {/* Live counter */}
-          <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
-            Up to {MAX_IMAGES} images per video · 10 credits
-            {" · "}
-            <span
-              className="font-semibold"
-              style={{ color: atCap ? "#F97066" : "#9B8FA8" }}
-            >
-              {images.length} / {MAX_IMAGES}
-            </span>
-            {atCap && (
-              <span className="ml-1 font-medium" style={{ color: "#F97066" }}>
-                · Max reached
-              </span>
-            )}
-          </p>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-)}
+                    {/* Live counter */}
+                    <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
+                      Up to {MAX_IMAGES} images per video · 10 credits
+                      {" · "}
+                      <span
+                        className="font-semibold"
+                        style={{ color: atCap ? "#F97066" : "#9B8FA8" }}
+                      >
+                        {images.length} / {MAX_IMAGES}
+                      </span>
+                      {atCap && (
+                        <span className="ml-1 font-medium" style={{ color: "#F97066" }}>
+                          · Max reached
+                        </span>
+                      )}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Style Selection */}
           <div className="mb-6">
@@ -435,7 +614,7 @@ export default function PromptStep({
               Pick a style
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(isCharacterMode ? STYLE_OPTIONS : styleOptions).map((option) => (
+              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.02 }}
@@ -459,8 +638,43 @@ export default function PromptStep({
             </div>
           </div>
 
+          {/* AI Bridge Frames toggle (image mode only) */}
+          {!isReferencesMode && setEnableBridges && (
+            <div className="mb-6">
+              <button
+                onClick={() => setEnableBridges(!enableBridges)}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl border transition-colors"
+                style={{
+                  background: enableBridges ? "rgba(249,112,102,0.06)" : "rgba(255,255,255,0.6)",
+                  borderColor: enableBridges ? "#F97066" : "rgba(240,234,255,0.8)",
+                }}
+              >
+                <div
+                  className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                  style={
+                    enableBridges
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", borderColor: "#F97066" }
+                      : { background: "transparent", borderColor: "#D4CDE0" }
+                  }
+                >
+                  {enableBridges && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block" style={{ color: "#2D2235" }}>AI Bridge Frames</span>
+                  <span className="text-xs" style={{ color: "#9B8FA8" }}>
+                    Generate AI transition scenes between your uploaded images
+                  </span>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* Opening & Closing Frames (image mode only) */}
-          {!isCharacterMode && <div className="mb-6">
+          {!isReferencesMode && <div className="mb-6">
             <button
               onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
               className="w-full flex items-center justify-between p-4 rounded-2xl border transition-colors"
@@ -498,23 +712,11 @@ export default function PromptStep({
                     {/* Opening Frame */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={openingFrame?.enabled}
-                            onChange={(e) => setOpeningFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#F97066" }}
-                          />
-                          <span className="font-semibold" style={{ color: "#2D2235" }}>Opening Frame</span>
-                        </label>
-                        {openingFrame?.enabled && (
-                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Intro screen before your video</span>
-                        )}
+                        <span className="font-semibold" style={{ color: "#2D2235" }}>Opening Frame</span>
+                        <span className="text-xs" style={{ color: "#9B8FA8" }}>Intro screen before your video</span>
                       </div>
 
-                      {openingFrame?.enabled && (
-                        <div className="pl-6 space-y-3">
+                      <div className="pl-6 space-y-3">
                           <div>
                             <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
@@ -555,17 +757,14 @@ export default function PromptStep({
 
                           {!openingFrame.useUpload && (
                             <div>
-                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span className="text-xs italic" style={{ color: "#9B8FA8" }}>(optional — leave blank for auto)</span></label>
                               <Textarea
                                 value={openingFrame.customPrompt || ""}
                                 onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Epic mountain landscape at sunset with dramatic clouds..."
-                                className={`text-sm rounded-xl ${openingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className="text-sm rounded-xl"
                                 rows={2}
                               />
-                              {openingNeedsPrompt && (
-                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the opening image should look like</p>
-                              )}
                             </div>
                           )}
 
@@ -615,8 +814,7 @@ export default function PromptStep({
                               className="text-sm rounded-xl"
                             />
                           </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
 
                     <hr style={{ borderColor: "rgba(240,234,255,0.8)" }} />
@@ -624,23 +822,11 @@ export default function PromptStep({
                     {/* Closing Frame */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={closingFrame?.enabled}
-                            onChange={(e) => setClosingFrame((prev) => ({ ...prev, enabled: e.target.checked }))}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#F97066" }}
-                          />
-                          <span className="font-semibold" style={{ color: "#2D2235" }}>Closing Frame</span>
-                        </label>
-                        {closingFrame?.enabled && (
-                          <span className="text-xs" style={{ color: "#9B8FA8" }}>Outro screen after your video</span>
-                        )}
+                        <span className="font-semibold" style={{ color: "#2D2235" }}>Closing Frame</span>
+                        <span className="text-xs" style={{ color: "#9B8FA8" }}>Outro screen after your video</span>
                       </div>
 
-                      {closingFrame?.enabled && (
-                        <div className="pl-6 space-y-3">
+                      <div className="pl-6 space-y-3">
                           <div>
                             <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>What's this frame for?</label>
                             <Textarea
@@ -681,17 +867,14 @@ export default function PromptStep({
 
                           {!closingFrame.useUpload && (
                             <div>
-                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span style={{ color: "#F97066" }}>*</span></label>
+                              <label className="text-xs mb-1 block" style={{ color: "#9B8FA8" }}>Describe the image you want <span className="text-xs italic" style={{ color: "#9B8FA8" }}>(optional — leave blank for auto)</span></label>
                               <Textarea
                                 value={closingFrame.customPrompt || ""}
                                 onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
                                 placeholder="e.g., Elegant thank you card with soft lighting..."
-                                className={`text-sm rounded-xl ${closingNeedsPrompt ? "border-red-300 focus:border-red-500" : ""}`}
+                                className="text-sm rounded-xl"
                                 rows={2}
                               />
-                              {closingNeedsPrompt && (
-                                <p className="text-xs mt-1" style={{ color: "#F97066" }}>Please describe what the closing image should look like</p>
-                              )}
                             </div>
                           )}
 
@@ -742,8 +925,7 @@ export default function PromptStep({
                             />
                           </div>
 
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -792,8 +974,8 @@ export default function PromptStep({
 
           {/* Help text */}
           <p className="text-center text-sm mt-4" style={{ color: "#9B8FA8" }}>
-            {isCharacterMode
-              ? "Add a character, describe your story, and pick a style to get started"
+            {isReferencesMode
+              ? "Add at least one prop, describe your story, and pick a style"
               : "Add a description and at least one picture to get started"}
           </p>
         </motion.div>

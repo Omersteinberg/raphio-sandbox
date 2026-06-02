@@ -928,8 +928,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen font-figtree" style={{ background: C.bg }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap');
-        .display { font-family: 'Syne', sans-serif; font-weight: 800; }
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
+        .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
 
       {/* Navbar */}
@@ -947,9 +947,9 @@ export default function LandingPage() {
               {[['How it works','how-it-works'],['Pricing','pricing']].map(([label, id]) => (
                 <button key={id} onClick={() => scrollTo(id)}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                  style={{ color: C.muted, background: 'transparent' }}
+                  style={{ color: C.dark, background: 'transparent' }}
                   onMouseEnter={e => { e.currentTarget.style.background='rgba(193,68,14,0.06)'; e.currentTarget.style.color=C.terra; }}
-                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.muted; }}
+                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.dark; }}
                 >{label}</button>
               ))}
             </nav>
@@ -972,42 +972,43 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section id="hero" className="min-h-screen flex items-center pt-14" style={{ background: C.bg }}>
-        <div className="max-w-6xl mx-auto px-6 w-full py-20">
+      <section id="hero" className="min-h-screen flex items-center" style={{ background: C.bg }}>
+        <div className="max-w-7xl mx-auto px-6 w-full py-12">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
             {/* Left */}
             <div>
               <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-xs font-bold uppercase tracking-widest"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6 text-xs font-bold uppercase tracking-widest"
                 style={{ background:'rgba(193,68,14,0.08)', color:C.terra, border:`1px solid rgba(193,68,14,0.15)` }}>
                 <span style={{ width:6,height:6,borderRadius:'50%',background:C.terra,display:'inline-block' }} />
                 AI Video Creator
               </motion.div>
 
               <motion.h1 initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.7,delay:0.1,ease:[0.22,1,0.36,1] }}
-                className="display leading-none mb-6"
-                style={{ fontSize:'clamp(52px,7vw,88px)', color:C.dark, letterSpacing:'-0.02em' }}>
-                Your ideas,<br/>
-                <span style={{ color:C.terra }}>on screen.</span>
+                className="display leading-none mb-8"
+                style={{ fontSize:'clamp(52px,7vw,72px)', color:C.dark ,lineHeight: 1.05 }}>
+                Turn your photos into videos —{' '}
+                <span style={{ color:C.terra }}>Instantly.</span>
               </motion.h1>
 
               <motion.p initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.5,delay:0.25 }}
-                className="text-lg leading-relaxed mb-10 max-w-sm" style={{ fontSize:'19px' ,color:C.muted }}>
-                Upload your images, describe what you want, and Raphio does the rest.
-                <br></br>
-                No timeline or editing skills needed
+                className="text-lg leading-relaxed mb-12 max-w-md" style={{ fontSize:'19px', color:'#6B5A52' }}>
+                Upload your images, describe what you want, and Raphio handles the rest. No editing skills needed.
               </motion.p>
 
               <motion.div initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4,delay:0.38 }}
                 className="flex items-center gap-4">
                 <button onClick={() => navigate('/create')}
-                  className="flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-bold text-white transition-all duration-300"
-                  style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)` }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0) scale(1)'; }}
-                >Create your video →</button>
-                <span className="text-sm" style={{ color:C.muted }}>Free to try · Ready in minutes</span>
+                  className="flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-bold text-white"
+                  style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)`, transition:'box-shadow 0.3s ease, transform 0.3s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0)'; }}
+                >
+                  Create your video
+                  <ArrowRight style={{ width:16, height:16 }} />
+                </button>
+                <span className="text-sm" style={{ color:'#6B5A52' }}>Free to try · Ready in minutes</span>
               </motion.div>
             </div>
 
@@ -1071,7 +1072,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center'}}>
           <ScrollRevealText
             className="display"
-            style={{ fontSize: 'clamp(32px,4.5vw,60px)', letterSpacing: '-0.02em', lineHeight: 1.15, color: C.dark }}
+            style={{ fontSize: 'clamp(32px,4.5vw,70px)', letterSpacing: '0.01em', lineHeight: 1.15, color: C.dark }}
             mutedColor="rgba(28,25,23,0.15)"
           >
             If you have photos and a story, Raphio does the rest — turning everyday moments into videos worth sharing.
@@ -1294,7 +1295,7 @@ export default function LandingPage() {
       <section className="py-28 px-6" style={{ background: C.dark }}>
         <div className="max-w-4xl mx-auto text-center">
           <motion.div initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.6 }}>
-            <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'-0.02em', lineHeight:1 }}>
+            <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'0.01em', lineHeight:1 }}>
               Ready to make<br/>your first video?
             </h2>
             <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>It's completely free to start. No account needed.</p>

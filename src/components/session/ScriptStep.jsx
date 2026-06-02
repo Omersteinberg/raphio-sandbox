@@ -4,6 +4,7 @@ import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Fi
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import BridgeSectionCard from "./BridgeSectionCard";
 
 export default function ScriptStep({
   scriptData,
@@ -13,22 +14,31 @@ export default function ScriptStep({
   generateScript,
   editScriptWithAI,
   approveScript,
+  approveOutline,
+  retryBridgeFrames,
+  uploadBridgeImage,
   session,
   loading,
   onNext,
   pipelineMode,
   images = [],
-  openingFrame,
-  closingFrame,
+  openingFrame = {},
+  closingFrame = {},
   generatedFrameImages,
+  phase,
+  enableBridges,
 }) {
-  const isCharacterPipeline = pipelineMode === "character";
+  const isReferencesPipeline = pipelineMode === "references";
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED"
-    || session?.stage === "CHAR_SCRIPT_APPROVED" || session?.stage === "CHAR_FRAMES_GENERATED" || session?.stage === "CHAR_FRAMES_APPROVED";
+    || session?.stage === "REF_SCRIPT_APPROVED" || session?.stage === "REF_FRAMES_GENERATED" || session?.stage === "REF_FRAMES_APPROVED";
+  const isOutlineStage = session?.stage === "OUTLINE_GENERATED";
+  const hasBridgeFailures = (scriptData?.sections || []).some(
+    s => s.source === "bridge" && s.bridgeStatus === "failed"
+  );
 
   console.log("[ScriptStep] render — scriptData:", scriptData);
   console.log("[ScriptStep] render — scriptData?.sections:", scriptData?.sections);
@@ -97,21 +107,49 @@ export default function ScriptStep({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              {scriptData?.title || "Video Script"}
+              {phase === "bridges" ? "Review Bridge Frames" : (scriptData?.title || "Video Script")}
             </h2>
             <p className="text-sm text-gray-600">
-              {isGenerated ? `${allSections.length} sections • ${totalDuration}s estimated` : "Generate a script from your prompt"}
+              {phase === "bridges"
+                ? `Review generated bridge images • ${(scriptData?.sections || []).filter(s => s.source === "bridge").length} bridge frames`
+                : isGenerated ? `${allSections.length} sections • ${totalDuration}s estimated` : "Generate a script from your prompt"}
             </p>
           </div>
           {isGenerated && !isApproved && (
-            <Button
-              onClick={approveScript}
-              disabled={loading}
-              className="bg-secondary hover:bg-secondary/90 text-white"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Approve Script
-            </Button>
+            <div className="flex items-center gap-2">
+              {isReferencesPipeline ? (
+                <Button
+                  onClick={approveScript}
+                  disabled={loading}
+                  className="text-white"
+                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {loading ? "Approving..." : "Approve Script"}
+                </Button>
+              ) : phase === "outline" ? (
+                <Button
+                  onClick={approveOutline}
+                  disabled={loading}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {loading
+                    ? (enableBridges ? "Generating Bridge Images..." : "Approving...")
+                    : (enableBridges ? "Approve Outline" : "Approve Script")}
+                </Button>
+              ) : phase === "bridges" ? (
+                <Button
+                  onClick={approveScript}
+                  disabled={loading || hasBridgeFailures}
+                  className="bg-secondary hover:bg-secondary/90 text-white"
+                  title={hasBridgeFailures ? "Fix failed bridge frames first" : ""}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Approve Script
+                </Button>
+              ) : null}
+            </div>
           )}
         </div>
 
@@ -151,8 +189,8 @@ export default function ScriptStep({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4">
-            {/* Opening Frame - shown above content sections */}
-            {openingFrame?.enabled && (
+            {/* Opening Frame - shown above content sections (hidden for references pipeline) */}
+            {!isReferencesPipeline && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -163,14 +201,14 @@ export default function ScriptStep({
                 <div className="flex gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
-                    {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage) ? (
+                    {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl) ? (
                       <div className="relative">
                         <img
-                          src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage}
+                          src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl}
                           alt="Opening frame"
                           className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        {generatedFrameImages?.opening?.imageUrl && !openingFrame.uploadedImage && (
+                        {(generatedFrameImages?.opening?.imageUrl || session?.openingFrameConfig?.uploadedImageUrl) && !openingFrame.uploadedImage && (
                           <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
@@ -261,7 +299,7 @@ export default function ScriptStep({
                           <p className="text-sm text-gray-600"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
                         )}
                         {!openingFrame.description && !openingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Opening frame enabled — script will include narration & visual direction</p>
+                          <p className="text-sm text-gray-400 italic">Opening frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -273,6 +311,27 @@ export default function ScriptStep({
             {/* Content Sections */}
             {contentSections.map((section, contentIndex) => {
               const originalIndex = getOriginalIndex(section);
+              if (section.source === "bridge") {
+                return (
+                  <BridgeSectionCard
+                    key={originalIndex}
+                    section={section}
+                    contentIndex={contentIndex}
+                    originalIndex={originalIndex}
+                    isApproved={isApproved}
+                    isOutlineStage={isOutlineStage}
+                    sessionImages={sessionImages}
+                    onEdit={handleSectionEdit}
+                    onRemove={(idx) => {
+                      const newSections = scriptData.sections.filter((_, i) => i !== idx);
+                      setScriptData({ ...scriptData, sections: newSections });
+                    }}
+                    onRetry={retryBridgeFrames}
+                    onUploadImage={uploadBridgeImage}
+                    loading={loading}
+                  />
+                );
+              }
               const sectionImage = getSectionImage(section);
               return (
                 <motion.div
@@ -285,8 +344,8 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail — hidden for character pipeline */}
-                    {!isCharacterPipeline && (
+                    {/* Image Thumbnail — hidden for references pipeline */}
+                    {!isReferencesPipeline && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
                         <div className="relative group">
@@ -383,23 +442,6 @@ export default function ScriptStep({
                               Visual: {section.visualDescription}
                             </p>
                           )}
-                          {section.characterActions && (
-                            <p className="text-gray-400 text-xs mt-1">
-                              Action: {section.characterActions}
-                            </p>
-                          )}
-                          {section.characters?.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                              {section.characters.map((charName) => (
-                                <span
-                                  key={charName}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
-                                >
-                                  {charName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </>
                       )}
                     </div>
@@ -410,8 +452,8 @@ export default function ScriptStep({
 
             {/* Frame Configuration Section removed - now in PromptStep */}
 
-            {/* Closing Frame - shown below content sections */}
-            {closingFrame?.enabled && (
+            {/* Closing Frame - shown below content sections (hidden for references pipeline) */}
+            {!isReferencesPipeline && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -423,14 +465,14 @@ export default function ScriptStep({
                 <div className="flex gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
-                    {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage) ? (
+                    {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl) ? (
                       <div className="relative">
                         <img
-                          src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage}
+                          src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl}
                           alt="Closing frame"
                           className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        {generatedFrameImages?.closing?.imageUrl && !closingFrame.uploadedImage && (
+                        {(generatedFrameImages?.closing?.imageUrl || session?.closingFrameConfig?.uploadedImageUrl) && !closingFrame.uploadedImage && (
                           <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
@@ -521,7 +563,7 @@ export default function ScriptStep({
                           <p className="text-sm text-gray-600 mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
                         )}
                         {!closingFrame.description && !closingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Closing frame enabled — script will include narration & visual direction</p>
+                          <p className="text-sm text-gray-400 italic">Closing frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -548,65 +590,118 @@ export default function ScriptStep({
         )}
       </div>
 
-      {/* Right Side - AI Edit */}
+      {/* Right Side - AI Edit or Bridge Status */}
       <div className="w-full lg:w-80 flex flex-col bg-gray-50 p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">AI Script Editor</h3>
-
-        {!isGenerated ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-            <Sparkles className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm text-center">
-              Generate a script first to use the AI editor
-            </p>
-          </div>
-        ) : isApproved ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-            <Check className="w-12 h-12 mb-3 text-green-500" />
-            <p className="text-sm text-center">
-              Script approved! Proceed to generation settings.
-            </p>
-          </div>
+        {phase === "bridges" ? (
+          <>
+            <h3 className="font-semibold text-gray-900 mb-4">Bridge Frame Status</h3>
+            {(() => {
+              const bridges = (scriptData?.sections || []).filter(s => s.source === "bridge");
+              const completed = bridges.filter(s => s.bridgeStatus === "completed").length;
+              const failed = bridges.filter(s => s.bridgeStatus === "failed").length;
+              const pending = bridges.filter(s => s.bridgeStatus === "pending").length;
+              return (
+                <div className="space-y-4">
+                  <div className="p-3 bg-white rounded-lg border">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Progress</div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-600">Completed</span>
+                        <span className="font-medium">{completed}/{bridges.length}</span>
+                      </div>
+                      {failed > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-red-600">Failed</span>
+                          <span className="font-medium">{failed}</span>
+                        </div>
+                      )}
+                      {pending > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-yellow-600">Pending</span>
+                          <span className="font-medium">{pending}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {failed > 0 && (
+                    <Button
+                      onClick={() => retryBridgeFrames && retryBridgeFrames()}
+                      disabled={loading}
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      Retry All Failed ({failed})
+                    </Button>
+                  )}
+                  <div className="p-3 bg-purple-100 rounded-lg border border-purple-200">
+                    <p className="text-xs text-purple-800">
+                      <strong>Tip:</strong> You can retry individual bridge frames, or upload your own image as a replacement.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
         ) : (
           <>
-            <p className="text-sm text-gray-600 mb-4">
-              Describe changes you want to make and AI will update the script.
-            </p>
+            <h3 className="font-semibold text-gray-900 mb-4">AI Script Editor</h3>
 
-            <Textarea
-              value={editRequest}
-              onChange={(e) => setEditRequest(e.target.value)}
-              placeholder="e.g., Make the opening more dramatic, shorten section 3, add more emotion to the closing..."
-              className="flex-1 min-h-[120px] bg-white"
-            />
+            {!isGenerated ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+                <Sparkles className="w-12 h-12 mb-3 opacity-50" />
+                <p className="text-sm text-center">
+                  Generate a script first to use the AI editor
+                </p>
+              </div>
+            ) : isApproved ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+                <Check className="w-12 h-12 mb-3 text-green-500" />
+                <p className="text-sm text-center">
+                  Script approved! Proceed to generation settings.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-4">
+                  Describe changes you want to make and AI will update the script.
+                </p>
 
-            <Button
-              onClick={editScriptWithAI}
-              disabled={!editRequest.trim() || loading}
-              className="mt-4 text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                  />
-                  Updating...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Send className="w-4 h-4" />
-                  Apply Changes
-                </span>
-              )}
-            </Button>
+                <Textarea
+                  value={editRequest}
+                  onChange={(e) => setEditRequest(e.target.value)}
+                  placeholder="e.g., Make the opening more dramatic, shorten section 3, add more emotion to the closing..."
+                  className="flex-1 min-h-[120px] bg-white"
+                />
 
-            <div className="mt-6 p-3 bg-purple-100 rounded-lg border border-purple-200">
-              <p className="text-xs text-purple-800">
-                <strong>Tip:</strong> You can also click the edit icon on any section to make direct changes.
-              </p>
-            </div>
+                <Button
+                  onClick={editScriptWithAI}
+                  disabled={!editRequest.trim() || loading}
+                  className="mt-4 text-white border-0"
+                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                      />
+                      Updating...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Apply Changes
+                    </span>
+                  )}
+                </Button>
+
+                <div className="mt-6 p-3 bg-purple-100 rounded-lg border border-purple-200">
+                  <p className="text-xs text-purple-800">
+                    <strong>Tip:</strong> You can also click the edit icon on any section to make direct changes.
+                  </p>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
