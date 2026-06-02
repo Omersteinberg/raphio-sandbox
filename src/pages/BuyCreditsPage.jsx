@@ -26,7 +26,7 @@ const C = {
 
 const TIERS = [
   {
-    id: 'free', stripeId: null, label: 'Free', price: 0, credits: 10,
+    id: 'free', stripeId: null, label: 'Free', price: 0, credits: 3,
     save: null, icon: Sparkles,
     features: [
       { text: '1 short video (≤15s)',    ok: true },
@@ -39,10 +39,10 @@ const TIERS = [
     cta: 'Start Free', popular: false,
   },
   {
-    id: 'starter', stripeId: 9, label: 'Starter', price: 9, credits: 30,
-    save: 'Save 10%', icon: Zap,
+    id: 'starter', stripeId: 6, label: 'Starter', price: 29, credits: 6,
+    save: null, icon: Zap,
     features: [
-      { text: 'Up to 3 short videos (≤15s)', ok: true },
+      { text: '2 short videos (≤15s)',        ok: true },
       { text: 'Watermarked exports',          ok: true },
       { text: 'Watermark-free exports',       ok: false },
       { text: 'Commercial use',               ok: false },
@@ -52,10 +52,10 @@ const TIERS = [
     cta: 'Buy Starter', popular: false,
   },
   {
-    id: 'creator', stripeId: 19, label: 'Creator', price: 19, credits: 75,
-    save: 'Save 15%', icon: Layers,
+    id: 'creator', stripeId: 12, label: 'Creator', price: 55, credits: 12,
+    save: 'Save 8%', icon: Layers,
     features: [
-      { text: 'Up to 6 videos (≤30s)',  ok: true },
+      { text: '2 medium videos (≤30s)',  ok: true },
       { text: 'Watermark-free exports', ok: true },
       { text: 'Commercial use',         ok: true },
       { text: 'All styles unlocked',    ok: true },
@@ -65,10 +65,10 @@ const TIERS = [
     cta: 'Buy Creator Pack', popular: true,
   },
   {
-    id: 'studio', stripeId: 39, label: 'Studio', price: 39, credits: 175,
-    save: 'Save 25%', icon: Crown,
+    id: 'studio', stripeId: 24, label: 'Studio', price: 99, credits: 24,
+    save: 'Save 17%', icon: Crown,
     features: [
-      { text: 'Up to 8 full videos (≤60s)', ok: true },
+      { text: '2 long videos (≤60s)',        ok: true },
       { text: 'Watermark-free exports',      ok: true },
       { text: 'Commercial use',              ok: true },
       { text: 'All styles unlocked',         ok: true },
@@ -80,9 +80,9 @@ const TIERS = [
 ];
 
 const COST_TABLE = [
-  { label: 'Up to 15s', credits: 8 },
-  { label: '16s – 30s', credits: 12 },
-  { label: '31s – 60s', credits: 20 },
+  { label: 'Up to 15s', clips: 3, credits: 3 },
+  { label: '16s – 30s', clips: 6, credits: 6 },
+  { label: '31s – 60s', clips: 12, credits: 12 },
 ];
 
 const TRUST = [
@@ -372,11 +372,12 @@ export default function BuyCreditsPage() {
                 <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
                 <p className="text-xs font-semibold" style={{ color: C.charcoal }}>credits</p>
                 <p className="text-xs mt-0.5" style={{ color: C.muted }}>{row.label}</p>
+                <p className="text-xs mt-0.5" style={{ color: C.muted }}>({row.clips} clips)</p>
               </div>
             ))}
           </div>
           <p className="text-xs text-center mt-3" style={{ color: C.muted }}>
-            Shorter videos cost fewer credits — you stay in control.
+            1 credit per clip (~5s) — shorter videos cost less.
           </p>
         </motion.div>
 
@@ -385,7 +386,7 @@ export default function BuyCreditsPage() {
           className="text-center py-4 rounded-2xl"
           style={{ background: C.faint, border: `1px solid ${C.cardBorder}` }}>
           <p className="text-sm font-semibold mb-1" style={{ color: C.charcoal }}>Not sure yet?</p>
-          <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 10 free credits — no card needed.</p>
+          <p className="text-xs mb-3" style={{ color: C.muted }}>Start with free credits to explore the platform — no card needed.</p>
           <button onClick={() => navigate('/create')}
             className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
             style={{ color: C.terra }}>

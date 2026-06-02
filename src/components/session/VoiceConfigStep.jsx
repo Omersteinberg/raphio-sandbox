@@ -59,7 +59,7 @@ export default function VoiceConfigStep({
             {backgroundMusic && <li>Background music will be generated</li>}
             <li>Final video will be assembled automatically</li>
           </ul>
-          <p className="text-gray-400 text-xs mt-3">Cost: {clipCount} credits</p>
+          <p className="text-gray-400 text-xs mt-3">Cost: {clipCount} credits ({clipCount} clips × $5)</p>
         </div>
 
         {/* Generate Button */}

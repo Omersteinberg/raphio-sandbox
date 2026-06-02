@@ -93,7 +93,7 @@ export default function ImagesStep({
 
         {!isUploaded && (
           <p className="text-xs text-gray-500 mb-4">
-            Up to {MAX_IMAGES} images per video · 10 credits
+            Up to {MAX_IMAGES} images per video · 1 credit per clip
             {" · "}
             <span className={`font-semibold ${atCap ? "text-purple-600" : "text-gray-700"}`}>
               {images?.length ?? 0} / {MAX_IMAGES}
