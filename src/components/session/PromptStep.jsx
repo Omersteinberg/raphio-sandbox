@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,13 @@ const SLOT_LABELS = {
   birthday: ['Opening Moment','Memory 1','Memory 2','Memory 3','Memory 4','Memory 5','Memory 6','Memory 7','Memory 8','Closing Message'],
   product_showcase: ['Hero Shot','Feature 1','Feature 2','Feature 3','Feature 4','Lifestyle','Testimonial','Price & CTA','Scene 9','Closing'],
 };
+
+const DURATION_OPTIONS = [
+  { value: 15, label: '~15s', desc: 'Quick clip' },
+  { value: 30, label: '~30s', desc: 'Short' },
+  { value: 45, label: '~45s', desc: 'Standard' },
+  { value: 60, label: '~60s', desc: 'Extended' },
+];
 
 const STYLE_ICONS = {
   realistic: "\uD83D\uDCF7",
@@ -135,6 +142,9 @@ export default function PromptStep({
   // Bridge toggle
   enableBridges,
   setEnableBridges,
+  // Duration
+  targetDuration,
+  setTargetDuration,
   // Pipeline mode props
   pipelineMode,
   onModeChange,
@@ -587,7 +597,7 @@ export default function PromptStep({
 
                     {/* Live counter */}
                     <p className="text-xs mb-4" style={{ color: "#9B8FA8" }}>
-                      Up to {MAX_IMAGES} images per video · 10 credits
+                      Up to {MAX_IMAGES} images per video · 1 credit per clip
                       {" · "}
                       <span
                         className="font-semibold"
@@ -637,6 +647,38 @@ export default function PromptStep({
               ))}
             </div>
           </div>
+
+          {/* Duration Selection */}
+          {setTargetDuration && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold mb-3" style={{ color: "#2D2235" }}>
+                <Clock className="w-4 h-4 inline mr-1" />
+                Video length
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {DURATION_OPTIONS.map((opt) => (
+                  <motion.button
+                    key={opt.value}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setTargetDuration(opt.value)}
+                    className="p-3 rounded-xl border-2 text-center transition-all"
+                    style={
+                      targetDuration === opt.value
+                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.06)" }
+                        : { borderColor: "rgba(240,234,255,0.8)", background: "rgba(255,255,255,0.6)" }
+                    }
+                  >
+                    <span className="font-bold block text-lg" style={{ color: "#2D2235" }}>{opt.label}</span>
+                    <span className="text-xs" style={{ color: "#9B8FA8" }}>{opt.desc}</span>
+                  </motion.button>
+                ))}
+              </div>
+              <p className="text-xs mt-2" style={{ color: "#9B8FA8" }}>
+                Actual duration depends on your style and content — this is a target
+              </p>
+            </div>
+          )}
 
           {/* AI Bridge Frames toggle (image mode only) */}
           {!isReferencesMode && setEnableBridges && (
