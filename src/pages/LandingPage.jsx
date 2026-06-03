@@ -988,7 +988,7 @@ export default function LandingPage() {
               <motion.h1 initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.7,delay:0.1,ease:[0.22,1,0.36,1] }}
                 className="display leading-none mb-8"
                 style={{ fontSize:'clamp(52px,7vw,72px)', color:C.dark ,lineHeight: 1.05 }}>
-                Turn your photos into videos —{' '}
+                Turn your photos into videos  {' '}
                 <span style={{ color:C.terra }}>Instantly.</span>
               </motion.h1>
 
@@ -1075,7 +1075,7 @@ export default function LandingPage() {
             style={{ fontSize: 'clamp(32px,4.5vw,70px)', letterSpacing: '0.01em', lineHeight: 1.15, color: C.dark }}
             mutedColor="rgba(28,25,23,0.15)"
           >
-            If you have photos and a story, Raphio does the rest — turning everyday moments into videos worth sharing.
+            If you have photos and a story, Raphio does the rest - turning everyday moments into videos worth sharing.
           </ScrollRevealText>
           <div style={{ marginTop: 40, height: 2, width:164, borderRadius: 99, background: C.terra, margin:' 40px auto 0'}}/>
         </div>
