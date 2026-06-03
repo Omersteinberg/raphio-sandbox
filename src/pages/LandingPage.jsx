@@ -972,23 +972,27 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section id="hero" className="min-h-screen flex items-center" style={{ background: C.bg }}>
-        <div className="max-w-7xl mx-auto px-6 w-full py-12">
+      <section id="hero" className="min-h-screen flex items-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FFFDFB 0%, #FDF2E9 45%, #EBE4DC 100%)' }}>
+        <div className="max-w-7xl mx-auto px-6 w-full py-12 relative">
+          
+          {/* Sparkle 3: Positioned explicitly to the left of the hero text column */}
+          <svg 
+            aria-hidden="true" 
+            viewBox="0 0 20 20" 
+            fill="none" 
+            style={{ position: 'absolute', top: '8%', left: '-2.2%', width: 12, height: 12, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
+          >
+            <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+          </svg>
+
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
             {/* Left */}
             <div>
-              <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6 text-xs font-bold uppercase tracking-widest"
-                style={{ background:'rgba(193,68,14,0.08)', color:C.terra, border:`1px solid rgba(193,68,14,0.15)` }}>
-                <span style={{ width:6,height:6,borderRadius:'50%',background:C.terra,display:'inline-block' }} />
-                AI Video Creator
-              </motion.div>
-
               <motion.h1 initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.7,delay:0.1,ease:[0.22,1,0.36,1] }}
                 className="display leading-none mb-8"
                 style={{ fontSize:'clamp(52px,7vw,72px)', color:C.dark ,lineHeight: 1.05 }}>
-                Turn your photos into videos  {' '}
+                Turn your photos into videos   {' '}
                 <span style={{ color:C.terra }}>Instantly.</span>
               </motion.h1>
 
@@ -1010,14 +1014,66 @@ export default function LandingPage() {
                 </button>
                 <span className="text-sm" style={{ color:'#6B5A52' }}>Free to try · Ready in minutes</span>
               </motion.div>
+
+              {/* Social proof */}
+              <motion.div
+                initial={{ opacity:0, y:14 }}
+                animate={{ opacity:1, y:0 }}
+                transition={{ duration:0.4, delay:0.52 }}
+                className="flex items-center gap-3 mt-8 relative"
+              >
+                {/* Sparkle 1: Positioned comfortably further to the left of the avatar cluster */}
+                <svg 
+                  aria-hidden="true" 
+                  viewBox="0 0 20 20" 
+                  fill="none" 
+                  style={{ position: 'absolute', top: '10%', left: '-32px', transform: 'translateY(-50%)', width: 15, height: 15, color: C.terra, opacity: 0.35, pointerEvents: 'none' }}
+                >
+                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+                </svg>
+
+                <div className="flex items-center">
+                  {['Felix','Mia','Jordan','Priya'].map((seed, i) => (
+                    <img
+                      key={seed}
+                      src={`https://api.dicebear.com/9.x/avataaars/png?seed=${seed}&size=60`}
+                      alt="Creator avatar"
+                      style={{
+                        width:32,
+                        height:32,
+                        borderRadius:'50%',
+                        border:`2.5px solid ${C.white}`,
+                        marginLeft: i === 0 ? 0 : -10,
+                        boxShadow:'0 1px 4px rgba(28,25,23,0.14)',
+                        flexShrink:0,
+                        objectFit:'cover',
+                        background:C.bgAlt,
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm" style={{ color:'#6B5A52', lineHeight:1.4 }}>
+                  Join{' '}<span style={{ fontWeight:700, color:C.dark }}>5,000+</span> creators already making amazing videos
+                </p>
+              </motion.div>
             </div>
 
-            {/* Right: Mockup Interface + Upgrade 3 Floating Element */}
-            <motion.div className="hidden lg:block" style={{ height: 360 }}
+            {/* Right: Mockup Interface + Floating elements */}
+            <motion.div className="hidden lg:block relative" style={{ height: 360 }}
               initial={{ opacity:0, y:28 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.8, delay:0.2, ease:[0.22,1,0.36,1] }}>
               <div style={{ position: 'relative', height: '100%' }}>
                 <MockupUI />
                 
+                {/* Sparkle 2: Nested inline on the right side, slightly inward toward the center right edge of the interface viewport */}
+                <svg 
+                  aria-hidden="true" 
+                  viewBox="0 0 20 20" 
+                  fill="none" 
+                  style={{ position: 'absolute', top: '22px', right: '-8%', width: 16, height: 16, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
+                >
+                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+                </svg>
+
                 {/* Upgrade 3: Dynamic Independent Floating Logic */}
                 <motion.div 
                   initial={{ opacity:0, y:10 }}
