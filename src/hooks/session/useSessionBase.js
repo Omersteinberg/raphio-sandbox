@@ -43,6 +43,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   // ── Form state ─────────────────────────────────────────────────────
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
+  const [targetDuration, setTargetDuration] = useState(30);
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -460,6 +461,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setUserPrompt,
     style,
     setStyle,
+    targetDuration,
+    setTargetDuration,
     voiceId,
     setVoiceId,
     videoModel,

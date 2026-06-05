@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
-import { MAX_IMAGES, VIDEO_COST } from "@/lib/limits";
+import { MAX_IMAGES, CREDITS_PER_CLIP } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Session stages matching backend
@@ -71,6 +71,7 @@ export function useSession() {
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
   const imageDuration = 5; // seconds per image
+  const [targetDuration, setTargetDuration] = useState(30);
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -337,8 +338,7 @@ export function useSession() {
       return;
     }
 
-    if (credits != null && credits < VIDEO_COST) {
-      console.log("[useSession] Credits insufficient at start — saving pending and redirecting");
+    if (credits != null && credits < CREDITS_PER_CLIP) {
       try {
         // Convert File objects to base64 strings for IndexedDB serialization
         const imagesToSave = await Promise.all(
@@ -364,7 +364,7 @@ export function useSession() {
       } catch (err) {
         console.warn("[useSession] Failed to save pending session:", err);
       }
-      toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
+      toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video — your work is saved.`);
       navigate("/buy-credits");
       return;
     }
@@ -383,6 +383,7 @@ export function useSession() {
         imageDuration,
         voiceId,
         enableBridges,
+        targetDuration,
       };
       console.log("[useSession] Request payload:", payload);
 
@@ -577,7 +578,7 @@ export function useSession() {
         } catch (saveErr) {
           console.warn("[useSession] Failed to save pending on 402:", saveErr);
         }
-        toast.info(`You need ${VIDEO_COST} credits to generate a video — your work is saved.`);
+        toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video — your work is saved.`);
         navigate('/buy-credits');
       } else {
         toast.error(err.response?.data?.error || "Failed to start session");
@@ -1317,6 +1318,8 @@ export function useSession() {
     style,
     setStyle,
     imageDuration,
+    targetDuration,
+    setTargetDuration,
     voiceId,
     setVoiceId,
     videoModel,

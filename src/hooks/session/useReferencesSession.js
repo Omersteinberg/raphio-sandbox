@@ -4,7 +4,7 @@ import * as sessionService from "@/services/session";
 import * as referenceApi from "@/services/reference";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
-import { VIDEO_COST } from "@/lib/limits";
+import { CREDITS_PER_CLIP } from "@/lib/limits";
 
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
@@ -40,7 +40,7 @@ export function useReferencesSession() {
     sessionId, setSessionId, session, setSession,
     direction, setDirection, loading, setLoading,
     error, setError,
-    userPrompt, style, voiceId, videoModel, backgroundMusic,
+    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic,
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
@@ -139,8 +139,8 @@ export function useReferencesSession() {
       }
     }
 
-    if (credits != null && credits < VIDEO_COST) {
-      toast.info(`You need ${VIDEO_COST} credits to generate a video.`);
+    if (credits != null && credits < CREDITS_PER_CLIP) {
+      toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video.`);
       navigate("/buy-credits");
       return;
     }
@@ -159,6 +159,7 @@ export function useReferencesSession() {
         pipelineMode: "references",
         voiceId,
         imageDuration: 5,
+        targetDuration,
       });
       setScriptProgress(10);
       setSessionId(newSession.id);
@@ -243,7 +244,7 @@ export function useReferencesSession() {
       setStep(0);
       setError(err.message);
       if (err.response?.status === 402) {
-        toast.info(`You need ${VIDEO_COST} credits to generate a video.`);
+        toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video.`);
         navigate("/buy-credits");
       } else {
         toast.error(err.response?.data?.error || "Failed to start references session");

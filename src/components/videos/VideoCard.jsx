@@ -1,166 +1,154 @@
 import { motion } from "framer-motion";
-import { Video, Clock } from "lucide-react";
+import { Play, Clock } from "lucide-react";
+import { STYLE_OPTIONS } from "@/constants/styles";
 
-const STAGE_LABELS = {
-  PROMPT_ENTERED: "Prompt Created",
-  IMAGES_UPLOADED: "Images Uploaded",
-  IMAGES_ANALYZED: "Images Analyzed",
-  SCRIPT_GENERATED: "Script Ready",
-  SCRIPT_APPROVED: "Script Approved",
-  FRAMES_CONFIGURED: "Frames Configured",
-  GENERATING: "Generating",
-  EDITING: "Editing",
+const C = {
+  dark:    '#2D2235',
+  terra:   '#C1440E',
+  muted:   '#6B5E7B',
+  border:  'rgba(45,34,53,0.09)',
 };
 
-const PLACEHOLDER_GRADIENTS = [
-  "linear-gradient(135deg, #FFF0E6, #F0EAFF)",
-  "linear-gradient(135deg, #EDE9FE, #DBEAFE)",
-  "linear-gradient(135deg, #DBEAFE, #FFF0E6)",
-  "linear-gradient(135deg, #F0EAFF, #FCE7F3)",
-  "linear-gradient(135deg, #FCE7F3, #FFF0E6)",
-];
-
-function getTitle(session) {
-  return (
-    session.video?.title ||
-    session.scriptData?.title ||
-    (session.userPrompt?.length > 60
-      ? session.userPrompt.slice(0, 60) + "..."
-      : session.userPrompt) ||
-    "Untitled Video"
-  );
-}
-
+// Formatting helper for the dynamic operational timestamp
 function getRelativeTime(dateString) {
-  const now = new Date();
+  if (!dateString) return '';
+  const now  = new Date();
   const date = new Date(dateString);
-  const diffMs = now - date;
+  const diffMs   = now - date;
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "Just now";
+  if (diffMins < 1)  return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-function getDuration(session) {
-  const sections = session.video?.sections;
-  if (!sections?.length) return null;
-  const total = sections.reduce((sum, s) => sum + (s.clipDuration || 0), 0);
-  if (total === 0) return null;
-  const mins = Math.floor(total / 60);
-  const secs = Math.round(total % 60);
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-}
-
-function getClipProgress(session) {
-  const sections = session.video?.sections;
-  if (!sections?.length) return null;
-  const completed = sections.filter((s) => s.status === "COMPLETED").length;
-  return `${completed}/${sections.length} clips`;
-}
-
-function getStageLabel(session) {
-  const label = STAGE_LABELS[session.stage] || session.stage;
-  if (session.stage === "GENERATING") {
-    const progress = getClipProgress(session);
-    return progress ? `Generating ${progress}` : label;
-  }
-  return label;
-}
-
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+  const diffH = Math.floor(diffMins / 60);
+  if (diffH < 24)    return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 30)    return `${diffD}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export default function VideoCard({ session, onClick }) {
   const thumbnail = session.images?.[0]?.imageUrl;
-  const title = getTitle(session);
-  const duration = getDuration(session);
-  const isInProgress = !["COMPLETED", "EDITING"].includes(session.stage);
-  const placeholderGradient = PLACEHOLDER_GRADIENTS[hashCode(session.id || "x") % PLACEHOLDER_GRADIENTS.length];
+  const title = session.video?.title || session.scriptData?.title || "Untitled Video";
+  
+  // Dynamic duration format tracker
+  const durationStr = session.video?.duration 
+    ? `${Math.floor(session.video.duration / 60)}:${String(session.video.duration % 60).padStart(2, '0')}` 
+    : "0:16";
+
+  // Use updatedAt if it differs from creation, otherwise fall back to createdAt
+  const displayDate = session.updatedAt || session.createdAt;
+
+  // Retrieve isolated clean style name (e.g., "Realistic", "Animated")
+  const activeStyleObject = STYLE_OPTIONS.find(s => s.id === session.style);
+  const styleLabel = activeStyleObject ? activeStyleObject.name : session.style;
 
   return (
     <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.2 }}
       onClick={onClick}
-      className="cursor-pointer rounded-2xl border border-white/60 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-      style={{ background: "rgba(255,255,255,0.7)" }}
+      whileHover={{ 
+        y: -5,
+        scale: 1.01,
+        transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+      }}
+      style={{
+        borderRadius: 16,
+        overflow: 'hidden',
+        background: '#FFFFFF',
+        border: `1px solid ${C.border}`,
+        cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(45,34,53,0.02)',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = '0 12px 24px rgba(45,34,53,0.06)';
+        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+        const overlay = e.currentTarget.querySelector('.play-overlay');
+        if (overlay) overlay.style.opacity = '1';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(45,34,53,0.02)';
+        e.currentTarget.style.borderColor = C.border;
+        const overlay = e.currentTarget.querySelector('.play-overlay');
+        if (overlay) overlay.style.opacity = '0';
+      }}
     >
-      {/* Thumbnail */}
-      <div className="relative aspect-video">
+      {/* ── VISUAL THUMBNAIL FRAME (Standard 16:9) ── */}
+      <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', position: 'relative', background: '#F5EFE9' }}>
         {thumbnail ? (
-          <img
-            src={thumbnail}
+          <img 
+            src={thumbnail} 
             alt={title}
-            className="w-full h-full object-cover"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
-          <div
-            className="w-full h-full flex flex-col items-center justify-center gap-2 px-4"
-            style={{ background: placeholderGradient }}
-          >
-            <Video className="w-8 h-8" style={{ color: "#B8A9C9" }} />
-            <span
-              className="text-xs font-semibold text-center truncate max-w-full"
-              style={{ color: "#8B7BA0" }}
-            >
-              {title}
-            </span>
-          </div>
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #EDE8E2, #F5EFE9)' }} />
         )}
 
-        {/* Stage badge for in-progress */}
-        {isInProgress && (
-          <div
-            className="absolute top-2 left-2 px-2.5 py-1 rounded-full text-xs font-semibold text-white"
-            style={{ background: "rgba(45,34,53,0.7)", backdropFilter: "blur(4px)" }}
-          >
-            {getStageLabel(session)}
+        {/* Play Icon hover mask layer */}
+        <div 
+          className="play-overlay"
+          style={{ 
+            position: 'absolute', inset: 0, background: 'rgba(45,34,53,0.12)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            opacity: 0, transition: 'opacity 0.2s ease', zIndex: 2 
+          }}
+        >
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(45,34,53,0.15)' }}>
+            <Play style={{ width: 12, height: 12, color: C.terra, fill: C.terra, marginLeft: 2 }} />
           </div>
-        )}
+        </div>
 
-        {/* Duration badge for completed */}
-        {duration && !isInProgress && (
-          <div
-            className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full text-xs font-semibold text-white flex items-center gap-1"
-            style={{ background: "rgba(45,34,53,0.7)", backdropFilter: "blur(4px)" }}
-          >
-            <Clock className="w-3 h-3" />
-            {duration}
-          </div>
-        )}
+        {/* ── TIMESTAMPS OVERLAY PILL (Bottom Right) ── */}
+        <div style={{
+          position: 'absolute',
+          bottom: 10,
+          right: 10,
+          background: 'rgba(45, 34, 53, 0.72)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          borderRadius: 6,
+          padding: '2px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          zIndex: 3,
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+        }}>
+          <Clock style={{ width: 11, height: 11, color: '#FFFFFF' }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
+            {durationStr}
+          </span>
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="p-4">
-        <h3 className="text-sm font-bold truncate" style={{ color: "#2D2235" }}>
+      {/* ── METADATA INFO BLOCK ── */}
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '6px', flexGrow: 1, justifyContent: 'center' }}>
+        
+        <h4 style={{ fontSize: 14, fontWeight: 700, color: C.dark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0, letterSpacing: '-0.01em' }}>
           {title}
-        </h3>
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-xs" style={{ color: "#9B8FA8" }}>
-            {getRelativeTime(session.createdAt)}
-          </span>
-          {session.style && (
-            <>
-              <span className="text-xs" style={{ color: "#D4CDE0" }}>·</span>
-              <span
-                className="text-xs font-semibold capitalize"
-                style={{ color: "#F97066" }}
-              >
-                {session.style}
-              </span>
-            </>
+        </h4>
+        
+        {/* Unified Inline Subtext Metadata Meta Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {styleLabel && (
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.terra, textTransform: 'capitalize' }}>
+              {styleLabel}
+            </span>
+          )}
+          
+          {styleLabel && displayDate && (
+            <span style={{ fontSize: 12, color: 'rgba(45,34,53,0.25)', fontWeight: 500 }}>·</span>
+          )}
+
+          {displayDate && (
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>
+              Updated {getRelativeTime(displayDate)}
+            </span>
           )}
         </div>
+
       </div>
     </motion.div>
   );

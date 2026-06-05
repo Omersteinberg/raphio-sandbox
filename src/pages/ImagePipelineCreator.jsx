@@ -32,6 +32,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setUserPrompt,
     style,
     setStyle,
+    targetDuration,
+    setTargetDuration,
     startSession,
     styleOptions,
     enableBridges,
@@ -169,6 +171,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setUserPrompt={setUserPrompt}
           style={style}
           setStyle={setStyle}
+          targetDuration={targetDuration}
+          setTargetDuration={setTargetDuration}
           images={images}
           addImages={addImages}
           removeImage={removeImage}
@@ -382,14 +386,15 @@ export default function ImagePipelineCreator({ onModeChange }) {
         </AnimatePresence>
       </div>
 
-      {/* Loading overlay — step 0 handled by ScriptLoadingScreen inside renderStep */}
+      {/* Loading overlay — steps 0/1 handled by ScriptLoadingScreen */}
       {loading && step !== generatingStep && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
-            step === 1 ? "Generating script..."
-            : enableBridges && step === 2 ? "Generating bridge images..."
-            : step === framesStep ? "Saving settings..."
-            : "Processing..."
+            enableBridges && step === 2
+              ? "Generating bridge images..."
+              : step === framesStep
+              ? "Saving settings..."
+              : "Processing..."
           }
           progress={null}
         />
