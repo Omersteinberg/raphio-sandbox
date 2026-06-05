@@ -928,8 +928,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen font-figtree" style={{ background: C.bg }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap');
-        .display { font-family: 'Syne', sans-serif; font-weight: 800; }
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
+        .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
 
       {/* Navbar */}
@@ -947,9 +947,9 @@ export default function LandingPage() {
               {[['How it works','how-it-works'],['Pricing','pricing']].map(([label, id]) => (
                 <button key={id} onClick={() => scrollTo(id)}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                  style={{ color: C.muted, background: 'transparent' }}
+                  style={{ color: C.dark, background: 'transparent' }}
                   onMouseEnter={e => { e.currentTarget.style.background='rgba(193,68,14,0.06)'; e.currentTarget.style.color=C.terra; }}
-                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.muted; }}
+                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.dark; }}
                 >{label}</button>
               ))}
             </nav>
@@ -972,51 +972,108 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section id="hero" className="min-h-screen flex items-center pt-14" style={{ background: C.bg }}>
-        <div className="max-w-6xl mx-auto px-6 w-full py-20">
+      <section id="hero" className="min-h-screen flex items-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FFFDFB 0%, #FDF2E9 45%, #EBE4DC 100%)' }}>
+        <div className="max-w-7xl mx-auto px-6 w-full py-12 relative">
+          
+          {/* Sparkle 3: Positioned explicitly to the left of the hero text column */}
+          <svg 
+            aria-hidden="true" 
+            viewBox="0 0 20 20" 
+            fill="none" 
+            style={{ position: 'absolute', top: '8%', left: '-2.2%', width: 12, height: 12, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
+          >
+            <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+          </svg>
+
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
             {/* Left */}
             <div>
-              <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-xs font-bold uppercase tracking-widest"
-                style={{ background:'rgba(193,68,14,0.08)', color:C.terra, border:`1px solid rgba(193,68,14,0.15)` }}>
-                <span style={{ width:6,height:6,borderRadius:'50%',background:C.terra,display:'inline-block' }} />
-                AI Video Creator
-              </motion.div>
-
               <motion.h1 initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.7,delay:0.1,ease:[0.22,1,0.36,1] }}
-                className="display leading-none mb-6"
-                style={{ fontSize:'clamp(52px,7vw,88px)', color:C.dark, letterSpacing:'-0.02em' }}>
-                Your ideas,<br/>
-                <span style={{ color:C.terra }}>on screen.</span>
+                className="display leading-none mb-8"
+                style={{ fontSize:'clamp(52px,7vw,72px)', color:C.dark ,lineHeight: 1.05 }}>
+                Turn your photos into videos   {' '}
+                <span style={{ color:C.terra }}>Instantly.</span>
               </motion.h1>
 
               <motion.p initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.5,delay:0.25 }}
-                className="text-lg leading-relaxed mb-10 max-w-sm" style={{ fontSize:'19px' ,color:C.muted }}>
-                Upload your images, describe what you want, and Raphio does the rest.
-                <br></br>
-                No timeline or editing skills needed
+                className="text-lg leading-relaxed mb-12 max-w-md" style={{ fontSize:'19px', color:'#6B5A52' }}>
+                Upload your images, describe what you want, and Raphio handles the rest. No editing skills needed.
               </motion.p>
 
               <motion.div initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4,delay:0.38 }}
                 className="flex items-center gap-4">
                 <button onClick={() => navigate('/create')}
-                  className="flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-bold text-white transition-all duration-300"
-                  style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)` }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0) scale(1)'; }}
-                >Create your video →</button>
-                <span className="text-sm" style={{ color:C.muted }}>Free to try · Ready in minutes</span>
+                  className="flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-bold text-white"
+                  style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)`, transition:'box-shadow 0.3s ease, transform 0.3s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0)'; }}
+                >
+                  Create your video
+                  <ArrowRight style={{ width:16, height:16 }} />
+                </button>
+                <span className="text-sm" style={{ color:'#6B5A52' }}>Free to try · Ready in minutes</span>
+              </motion.div>
+
+              {/* Social proof */}
+              <motion.div
+                initial={{ opacity:0, y:14 }}
+                animate={{ opacity:1, y:0 }}
+                transition={{ duration:0.4, delay:0.52 }}
+                className="flex items-center gap-3 mt-8 relative"
+              >
+                {/* Sparkle 1: Positioned comfortably further to the left of the avatar cluster */}
+                <svg 
+                  aria-hidden="true" 
+                  viewBox="0 0 20 20" 
+                  fill="none" 
+                  style={{ position: 'absolute', top: '10%', left: '-32px', transform: 'translateY(-50%)', width: 15, height: 15, color: C.terra, opacity: 0.35, pointerEvents: 'none' }}
+                >
+                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+                </svg>
+
+                <div className="flex items-center">
+                  {['Felix','Mia','Jordan','Priya'].map((seed, i) => (
+                    <img
+                      key={seed}
+                      src={`https://api.dicebear.com/9.x/avataaars/png?seed=${seed}&size=60`}
+                      alt="Creator avatar"
+                      style={{
+                        width:32,
+                        height:32,
+                        borderRadius:'50%',
+                        border:`2.5px solid ${C.white}`,
+                        marginLeft: i === 0 ? 0 : -10,
+                        boxShadow:'0 1px 4px rgba(28,25,23,0.14)',
+                        flexShrink:0,
+                        objectFit:'cover',
+                        background:C.bgAlt,
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm" style={{ color:'#6B5A52', lineHeight:1.4 }}>
+                  Join{' '}<span style={{ fontWeight:700, color:C.dark }}>5,000+</span> creators already making amazing videos
+                </p>
               </motion.div>
             </div>
 
-            {/* Right: Mockup Interface + Upgrade 3 Floating Element */}
-            <motion.div className="hidden lg:block" style={{ height: 360 }}
+            {/* Right: Mockup Interface + Floating elements */}
+            <motion.div className="hidden lg:block relative" style={{ height: 360 }}
               initial={{ opacity:0, y:28 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.8, delay:0.2, ease:[0.22,1,0.36,1] }}>
               <div style={{ position: 'relative', height: '100%' }}>
                 <MockupUI />
                 
+                {/* Sparkle 2: Nested inline on the right side, slightly inward toward the center right edge of the interface viewport */}
+                <svg 
+                  aria-hidden="true" 
+                  viewBox="0 0 20 20" 
+                  fill="none" 
+                  style={{ position: 'absolute', top: '22px', right: '-8%', width: 16, height: 16, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
+                >
+                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+                </svg>
+
                 {/* Upgrade 3: Dynamic Independent Floating Logic */}
                 <motion.div 
                   initial={{ opacity:0, y:10 }}
@@ -1071,10 +1128,10 @@ export default function LandingPage() {
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center'}}>
           <ScrollRevealText
             className="display"
-            style={{ fontSize: 'clamp(32px,4.5vw,60px)', letterSpacing: '-0.02em', lineHeight: 1.15, color: C.dark }}
+            style={{ fontSize: 'clamp(32px,4.5vw,70px)', letterSpacing: '0.01em', lineHeight: 1.15, color: C.dark }}
             mutedColor="rgba(28,25,23,0.15)"
           >
-            If you have photos and a story, Raphio does the rest — turning everyday moments into videos worth sharing.
+            If you have photos and a story, Raphio does the rest - turning everyday moments into videos worth sharing.
           </ScrollRevealText>
           <div style={{ marginTop: 40, height: 2, width:164, borderRadius: 99, background: C.terra, margin:' 40px auto 0'}}/>
         </div>
@@ -1294,7 +1351,7 @@ export default function LandingPage() {
       <section className="py-28 px-6" style={{ background: C.dark }}>
         <div className="max-w-4xl mx-auto text-center">
           <motion.div initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.6 }}>
-            <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'-0.02em', lineHeight:1 }}>
+            <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'0.01em', lineHeight:1 }}>
               Ready to make<br/>your first video?
             </h2>
             <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>It's completely free to start. No account needed.</p>
