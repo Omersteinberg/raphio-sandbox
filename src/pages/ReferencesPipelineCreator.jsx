@@ -40,6 +40,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     setUserPrompt,
     style,
     setStyle,
+    targetDuration,
+    setTargetDuration,
     startReferencesSession,
 
     // References state
@@ -143,6 +145,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             setUserPrompt={setUserPrompt}
             style={style}
             setStyle={setStyle}
+            targetDuration={targetDuration}
+            setTargetDuration={setTargetDuration}
             onStart={startReferencesSession}
             loading={loading}
             error={error}

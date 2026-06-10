@@ -32,6 +32,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setUserPrompt,
     style,
     setStyle,
+    targetDuration,
+    setTargetDuration,
     startSession,
     styleOptions,
     enableBridges,
@@ -169,6 +171,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setUserPrompt={setUserPrompt}
           style={style}
           setStyle={setStyle}
+          targetDuration={targetDuration}
+          setTargetDuration={setTargetDuration}
           images={images}
           addImages={addImages}
           removeImage={removeImage}
