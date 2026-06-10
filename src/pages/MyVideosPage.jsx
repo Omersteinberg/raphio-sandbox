@@ -13,7 +13,7 @@ import VideoCard from "@/components/videos/VideoCard";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const C = {
-  bg:      '#FBF7F4',
+  bg:      'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)',
   dark:    '#2D2235',
   terra:   '#C1440E',
   terraLt: '#E8632A',

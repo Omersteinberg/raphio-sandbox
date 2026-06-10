@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock, Layers, Grid } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock, Layers, Grid, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -239,78 +239,159 @@ export default function PromptStep({
     : userPrompt?.trim() && images?.length > 0;
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#FAF8F6]">
+    <div className="w-full h-full overflow-y-auto" style={{ background: 'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)' }}>
       <div className="min-h-full flex flex-col items-center justify-start px-6 py-12 md:py-16 pb-28">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-2xl space-y-7"
+          className="w-full max-w-4xl space-y-7"
         >
-          {/* Header Module */}
-          <div className="text-center space-y-2.5 mb-2">
-            <div
-              className="inline-flex items-center justify-center w-14 h-14 rounded-2xl shadow-sm border border-orange-100"
-              style={{ background: "linear-gradient(135deg, #FFF5EE, #F5EEFF)" }}
-            >
-              <Sparkles className="w-6 h-6 text-[#F97066]" />
+          {/* Header */}
+          <div className="text-center mb-2">
+            {/* Layered icon */}
+            <div className="relative inline-flex items-center justify-center mb-5">
+              <div
+                className="absolute rounded-3xl"
+                style={{ inset: '-10px', background: 'rgba(193,68,14,0.08)', filter: 'blur(18px)' }}
+              />
+              <div
+                className="relative flex items-center justify-center w-[72px] h-[72px] rounded-[22px]"
+                style={{
+                  background: 'linear-gradient(145deg, #FFF6EF 0%, #FAF0EA 100%)',
+                  boxShadow: '0 0 0 1px rgba(193,68,14,0.12), 0 6px 6px rgba(193,68,14,0.18), inset 0 1px 0 rgba(255,255,255,0.95)',
+                }}
+              >
+                <ImageIcon style={{ width: 30, height: 30, color: '#C1440E' }} />
+                <div
+                  className="absolute flex items-center justify-center"
+                  style={{
+                    bottom: -9, right: -9, width: 30, height: 30, borderRadius: 11,
+                    background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                    boxShadow: '0 2px 8px rgba(193,68,14,0.45), 0 0 0 2.5px #F5F0EB',
+                  }}
+                >
+                  <Sparkles style={{ width: 16, height: 16, color: '#fff' }} />
+                </div>
+              </div>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-[#2D2235]">
-              {isReferencesMode ? "Studio Blueprint Builder" : "Create Your Video"}
-            </h1>
-            <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed">
-              {isReferencesMode
-                ? "Define your custom visual props and settings, then reveal the full storyline"
-                : "Tell us what your video should be about and map out your scene pictures"}
-            </p>
+
+            {!isReferencesMode ? (
+              <div className="space-y-2.5">
+                <h1
+                  className="font-black tracking-tight leading-none"
+                  style={{ fontSize: 'clamp(2.3rem, 5vw, 2rem)', color: '#1C1917' }}
+                >
+                  Create your{' '}
+                  <span style={{ color: '#C1440E' }}>video.</span>
+                </h1>
+                <p className="font-medium leading-relaxed" style={{ fontSize: 15, color: '#6B5A52', paddingTop: '5px' }}>
+                  Tell us what your video should be about, and map out your scene pictures.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <h1
+                  className="font-black tracking-tight leading-none"
+                  style={{ fontSize: 'clamp(2.3rem, 5vw, 2rem)', color: '#1C1917' }}
+                >
+                  Studio Blueprint{' '}
+                  <span style={{ color: '#C1440E' }}>Builder.</span>
+                </h1>
+                <p className="font-medium leading-relaxed" style={{ fontSize: 15, color: '#6B5A52', paddingTop: '5px' }}>
+                  Define your visual props and settings, then reveal the full storyline.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Pipeline Segment Mode Toggle */}
+          {/* Pipeline Mode Toggle */}
           {onModeChange && (
-            <div className="flex p-1.5 rounded-2xl bg-stone-200/50 backdrop-blur-md border border-stone-300/30 shadow-inner">
+            <div
+              className="flex p-1 rounded-full"
+              style={{ background: '#EAE4DC', boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)' }}
+            >
               {[
-                { id: 'image', label: 'Image-Based Storyboard' },
-                { id: 'references', label: 'Visual Character References' },
-              ].map((mode) => (
-                <button
-                  key={mode.id}
-                  onClick={() => onModeChange(mode.id)}
-                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 ease-out"
-                  style={
-                    pipelineMode === mode.id
-                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
-                      : { color: "#6B5E7B" }
-                  }
-                >
-                  {mode.label}
-                </button>
-              ))}
+                { id: 'image',      label: 'Storyboard mode',     Icon: Film },
+                { id: 'references', label: 'Character mode',  Icon: Users    },
+              ].map((mode) => {
+                const isActive = pipelineMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    onClick={() => onModeChange(mode.id)}
+                    className="relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-full text-xs font-bold tracking-wide"
+                    style={{ color: isActive ? '#FFFAF7' : '#7A6A62', transition: 'color 0.18s ease', background: 'transparent' }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = '#2D1F16'; e.currentTarget.style.background = 'rgba(193,68,14,0.07)'; } }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'transparent'; } }}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="tabPill"
+                        className="absolute inset-0 rounded-full"
+                        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 10px rgba(193,68,14,0.30)' }}
+                        transition={{ type: 'tween', duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                      />
+                    )}
+                    <mode.Icon style={{ width: 15, height: 15, flexShrink: 0, position: 'relative', zIndex: 1 }} />
+                    <span style={{ position: 'relative', zIndex: 1 }}>{mode.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Card Module 1: Prompt Input Area */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+          {/* Prompt Input Card */}
+          <div
+            className="rounded-3xl p-6 space-y-4"
+            style={{
+              background: '#FFFAF7',
+              boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
+            }}
+          >
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                Core Storyline & Prompts
+              <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#9A8070' }}>
+                Direction
               </label>
               <button
                 onClick={() => setShowPromptGuide(true)}
-                className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-all bg-stone-50 hover:bg-stone-100 border border-stone-200 text-[#F97066]"
+                className="flex items-center gap-1.5 font-bold rounded-full transition-all duration-200"
+                style={{ fontSize: 11, padding: '5px 12px', background: 'rgba(193,68,14,0.06)', color: '#C1440E', border: '1px solid rgba(193,68,14,0.12)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.11)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.06)'; }}
               >
-                <HelpCircle className="w-3.5 h-3.5" />
-                Prompt Guide
+                <HelpCircle style={{ width: 11, height: 11 }} />
+                Tips
               </button>
             </div>
-            <Textarea
-              value={userPrompt}
-              onChange={(e) => {
-                console.log("[PromptStep] Prompt changed:", e.target.value.substring(0, 30));
-                setUserPrompt(e.target.value);
-              }}
-              placeholder="e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
-              className="w-full min-h-[130px] rounded-2xl border-stone-200 focus:border-orange-300 focus:ring-orange-200/40 resize-none text-sm p-4 bg-stone-50/30 placeholder:text-stone-400/80 leading-relaxed transition-all"
-            />
+            <div
+              className="rounded-2xl transition-all duration-200"
+              style={{ background: '#F5F0EB', border: '1.5px solid rgba(193,68,14,0.10)' }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.07)'; }}
+              onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+            >
+              <Textarea
+                value={userPrompt}
+                onChange={(e) => {
+                  console.log("[PromptStep] Prompt changed:", e.target.value.substring(0, 30));
+                  setUserPrompt(e.target.value);
+                }}
+                placeholder="e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
+                className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
+                style={{ color: '#1C1917' }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium" style={{ fontSize: 11, color: '#9A8070' }}>
+                More detail → better results
+              </span>
+              <span
+                className="font-bold tabular-nums"
+                style={{ fontSize: 11, color: (userPrompt?.length ?? 0) > 400 ? '#C1440E' : '#B09A8A' }}
+              >
+                {userPrompt?.length ?? 0}
+              </span>
+            </div>
           </div>
 
           {/* References Mode Pipeline Subsections */}
@@ -908,7 +989,7 @@ export default function PromptStep({
             >
               <div className="flex items-center justify-between pb-3.5 border-b border-stone-100 mb-4">
                 <h2 className="text-base font-black text-stone-800 uppercase tracking-wider">
-                  How to Write a Great Prompt
+                  {isReferencesMode ? "Writing a great character prompt" : "Writing a great prompt"}
                 </h2>
                 <button
                   onClick={() => setShowPromptGuide(false)}
@@ -918,29 +999,55 @@ export default function PromptStep({
                 </button>
               </div>
 
-              <div className="space-y-5 text-xs text-[#6B5E7B] leading-relaxed">
-                <div className="space-y-1">
-                  <h3 className="font-extrabold text-stone-800">Tell us the story, not just the topic</h3>
-                  <p><span className="font-bold text-red-500">Weak:</span> "A video about coffee"</p>
-                  <p><span className="font-bold text-orange-500">Better:</span> "A barista crafts a latte from bean to cup in a cozy morning cafe"</p>
-                  <p><span className="font-bold text-emerald-600">Best:</span> "Follow a barista through her morning routine — grinding fresh beans, steaming milk, and pouring latte art for her first customer of the day"</p>
-                </div>
+              {isReferencesMode ? (
+                <div className="space-y-5 text-xs text-[#6B5E7B] leading-relaxed">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-stone-800">Tell us the story, not just the appearance</h3>
+                    <p><span className="font-bold text-red-500">Weak:</span> "A woman with red hair"</p>
+                    <p><span className="font-bold text-orange-500">Better:</span> "A confident woman in her 30s with short red hair and sharp green eyes, wearing a tailored black blazer"</p>
+                    <p><span className="font-bold text-emerald-600">Best:</span> "A confident woman in her 30s with short copper-red hair, sharp green eyes and faint freckles — wearing a fitted black blazer over a white shirt, silver ring on her right hand. Moves with quiet authority."</p>
+                  </div>
 
-                <div className="space-y-2">
-                  <h3 className="font-extrabold text-stone-800">Include these key ingredients</h3>
-                  <div className="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl border border-stone-100 text-[11px] font-medium">
-                    <div><span className="font-bold text-orange-500">Who:</span> Main characters (1-2 max)</div>
-                    <div><span className="font-bold text-orange-500">Where:</span> The setting or location</div>
-                    <div><span className="font-bold text-orange-500">Action:</span> Narrative progression arc</div>
-                    <div><span className="font-bold text-orange-500">Mood:</span> Warm, dramatic, energetic</div>
+                  <div className="space-y-2">
+                    <h3 className="font-extrabold text-stone-800">Include these key ingredients</h3>
+                    <div className="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl border border-stone-100 text-[11px] font-medium">
+                      <div><span className="font-bold text-orange-500">Who:</span> Age, build, defining features</div>
+                      <div><span className="font-bold text-orange-500">Wear:</span> Clothing, accessories, details</div>
+                      <div><span className="font-bold text-orange-500">Mood:</span> Personality, energy, expression</div>
+                      <div><span className="font-bold text-orange-500">Where:</span> The environment they exist in</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-stone-800">Keep it specific and physical</h3>
+                    <p>Describe what a camera would actually see — hair colour, clothing texture, posture, expression. Avoid abstract personality traits like "kind" or "mysterious" unless paired with something visual that shows it.</p>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-5 text-xs text-[#6B5E7B] leading-relaxed">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-stone-800">Tell us the story, not just the topic</h3>
+                    <p><span className="font-bold text-red-500">Weak:</span> "A video about coffee"</p>
+                    <p><span className="font-bold text-orange-500">Better:</span> "A barista crafts a latte from bean to cup in a cozy morning cafe"</p>
+                    <p><span className="font-bold text-emerald-600">Best:</span> "Follow a barista through her morning routine — grinding fresh beans, steaming milk, and pouring latte art for her first customer of the day"</p>
+                  </div>
 
-                <div className="space-y-1">
-                  <h3 className="font-extrabold text-stone-800">Keep it visual and grounded</h3>
-                  <p>Describe concrete physical behaviors and scenes a real camera could actually capture rather than abstract concepts or floating themes.</p>
+                  <div className="space-y-2">
+                    <h3 className="font-extrabold text-stone-800">Include these key ingredients</h3>
+                    <div className="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl border border-stone-100 text-[11px] font-medium">
+                      <div><span className="font-bold text-orange-500">Who:</span> Main characters (1-2 max)</div>
+                      <div><span className="font-bold text-orange-500">Where:</span> The setting or location</div>
+                      <div><span className="font-bold text-orange-500">Action:</span> Narrative progression arc</div>
+                      <div><span className="font-bold text-orange-500">Mood:</span> Warm, dramatic, energetic</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-stone-800">Keep it visual and grounded</h3>
+                    <p>Describe concrete physical behaviors and scenes a real camera could actually capture rather than abstract concepts or floating themes.</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           </motion.div>
         )}

@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useReferencesSession } from "@/hooks/session/useReferencesSession";
+import { loadPending } from "@/lib/pendingSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -94,6 +96,28 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     insufficientCredits,
     dismissInsufficientCredits,
   } = session;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadPending("references");
+        if (cancelled || !saved) return;
+        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
+        if (saved.style) setStyle(saved.style);
+        if (saved.references) {
+          setReferences({
+            characters: saved.references.characters || [],
+            settings: saved.references.settings || [],
+          });
+        }
+      } catch (err) {
+        console.warn("[ReferencesPipelineCreator] rehydrate failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? 1000 : -1000, opacity: 0 }),
@@ -227,7 +251,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
   return (
     <div
       className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
+      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
     >
       {showProgressBar && (
         <div

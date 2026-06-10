@@ -5,6 +5,7 @@ import * as referenceApi from "@/services/reference";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { VIDEO_COST } from "@/lib/limits";
+import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
@@ -107,6 +108,35 @@ export function useReferencesSession() {
     }
   }, [session]);
 
+  // ── Persist draft while on step 0 (before session starts) ─────────
+  useEffect(() => {
+    if (sessionId || step !== 0) return;
+
+    const hasDraft = Boolean(userPrompt?.trim()) ||
+      references.characters.some(c => c.name.trim()) ||
+      references.settings.some(s => s.name.trim());
+
+    if (!hasDraft) return;
+
+    savePending("references", {
+      userPrompt,
+      style,
+      references: {
+        characters: references.characters.map(c => ({
+          name: c.name,
+          description: c.description,
+          useUpload: c.useUpload,
+        })),
+        settings: references.settings.map(s => ({
+          name: s.name,
+          description: s.description,
+          useUpload: s.useUpload,
+        })),
+      },
+    }).catch(console.warn);
+
+  }, [userPrompt, style, references, sessionId, step]);
+
   // ── Start references session ───────────────────────────────────────
   const startReferencesSession = useCallback(async () => {
     console.log("[useReferencesSession] startReferencesSession called");
@@ -163,6 +193,7 @@ export function useReferencesSession() {
       setScriptProgress(10);
       setSessionId(newSession.id);
       setSession(newSession);
+      try { await clearPending("references"); } catch (e) { console.warn(e); }
 
       // Step 2: Add all references (characters + settings)
       const validChars = references.characters.filter(c => c.name.trim() && c.description.trim());

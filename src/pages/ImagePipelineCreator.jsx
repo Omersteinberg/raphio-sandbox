@@ -300,7 +300,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
   return (
     <div
       className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
+      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
     >
       {/* Progress Bar */}
       {showProgressBar && (
