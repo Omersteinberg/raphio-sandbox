@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock, Layers, Grid, Users } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,14 @@ const STYLE_ICONS = {
   animated: "🎨",
   cinematic: "🎬",
   surreal: "✨",
+};
+
+const CHIP_CONFIG = {
+  general:          { label: 'General Blueprint', Icon: Layers     },
+  business_ad:      { label: 'Business Ad',       Icon: Briefcase  },
+  social_content:   { label: 'Social Clip',       Icon: Smartphone },
+  birthday:         { label: 'Memory Event',      Icon: Heart      },
+  product_showcase: { label: 'Product Showcase',  Icon: Tag        },
 };
 
 function ReferenceInput({ item, index, type, onChange, onRemove }) {
@@ -345,29 +353,70 @@ export default function PromptStep({
           <div
             className="rounded-3xl p-6 space-y-4"
             style={{
-              background: '#FFFAF7',
+              background: '#ffffff',
               boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
             }}
           >
             <div className="flex items-center justify-between">
-              <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#9A8070' }}>
-                Direction
-              </label>
-              <button
-                onClick={() => setShowPromptGuide(true)}
-                className="flex items-center gap-1.5 font-bold rounded-full transition-all duration-200"
-                style={{ fontSize: 11, padding: '5px 12px', background: 'rgba(193,68,14,0.06)', color: '#C1440E', border: '1px solid rgba(193,68,14,0.12)' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.11)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.06)'; }}
-              >
-                <HelpCircle style={{ width: 11, height: 11 }} />
-                Tips
-              </button>
+              <div className="flex items-center gap-2">
+                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
+                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
+                  Direction
+                </label>
+              </div>
+                <button
+                  onClick={() => setShowPromptGuide(true)}
+                  className="flex items-center gap-1.5 rounded-full"
+                  style={{
+                    fontSize: 12,
+                    padding: '6px 14px',
+                    background: 'rgba(193,68,14,0.06)',
+                    color: '#C1440E',
+                    border: '1px solid rgba(193,68,14,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    fontWeight: 700,
+                    letterSpacing: '0.02em',
+                    boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
+                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
+                    e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
+
+                    const icon = e.currentTarget.querySelector('.tips-icon');
+                    if (icon) {
+                      icon.style.transform = 'rotate(-10deg) scale(1.08)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                    e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.02)';
+
+                    const icon = e.currentTarget.querySelector('.tips-icon');
+                    if (icon) {
+                      icon.style.transform = 'rotate(0deg) scale(1)';
+                    }
+                  }}
+                >
+                  <Lightbulb
+                    className="tips-icon"
+                    style={{
+                      width: 14,
+                      height: 14,
+                      strokeWidth: 3,
+                      transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}
+                  />
+                  Tips
+                </button>
             </div>
             <div
-              className="rounded-2xl transition-all duration-200"
-              style={{ background: '#F5F0EB', border: '1.5px solid rgba(193,68,14,0.10)' }}
-              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.07)'; }}
+              className="relative rounded-2xl"
+              style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.15), 0 4px 20px rgba(193,68,14,0.08), 0 0 0 4px rgba(193,68,14,0.06)'; }}
               onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
               <Textarea
@@ -378,18 +427,18 @@ export default function PromptStep({
                 }}
                 placeholder="e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
                 className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                style={{ color: '#1C1917' }}
+                style={{ color: '#1C1917', paddingBottom: '36px', outline: 'none' }}
               />
+              <span
+                style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}
+              >
+                {userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0} words
+              </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-medium" style={{ fontSize: 11, color: '#9A8070' }}>
+              <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
+                <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
                 More detail → better results
-              </span>
-              <span
-                className="font-bold tabular-nums"
-                style={{ fontSize: 11, color: (userPrompt?.length ?? 0) > 400 ? '#C1440E' : '#B09A8A' }}
-              >
-                {userPrompt?.length ?? 0}
               </span>
             </div>
           </div>
@@ -509,32 +558,36 @@ export default function PromptStep({
           {/* Image Upload Pipeline Section (image mode only) */}
           {!isReferencesMode && (
             <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-5">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                  Select Storyboard Intent Blueprint
-                </label>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>2</span>
+                  <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
+                    Select Storyboard Intent Blueprint
+                  </label>
+                </div>
                 <div className="flex gap-2 flex-wrap">
-                  {Object.keys(SLOT_LABELS).map((key) => (
+                  {Object.entries(CHIP_CONFIG).map(([key, { label, Icon }]) => (
                     <button
                       key={key}
                       onClick={() => setTemplate(key)}
-                      className="text-xs px-3.5 py-2 rounded-xl border transition-all duration-200 font-bold tracking-wide"
+                      className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl transition-all duration-200 font-bold tracking-wide"
                       style={
                         template === key
                           ? {
-                              background: "linear-gradient(90deg, #FF7E67 0%, #FF9E44 100%)",
-                              color: "#fff",
-                              borderColor: "transparent",
-                              boxShadow: "0 2px 10px rgba(255, 126, 103, 0.25)",
+                              background: 'linear-gradient(135deg, #F97066, #FB923C)',
+                              color: '#fff',
+                              border: 'none',
+                              boxShadow: '0 2px 10px rgba(249,112,102,0.25)',
                             }
                           : {
-                              background: "#FDFCFF",
-                              color: "#6B5E7B",
-                              borderColor: "#E3DCF7",
+                              background: '#faf8f5',
+                              color: '#57534e',
+                              border: '1.5px solid #ede8e0',
                             }
                       }
                     >
-                      {key === "general" ? "General Blueprint" : key === "business_ad" ? "Business Ad" : key === "social_content" ? "Social Clip" : key === "birthday" ? "Memory Event" : "Product Showcase"}
+                      <Icon style={{ width: 13, height: 13, flexShrink: 0 }} />
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -562,14 +615,42 @@ export default function PromptStep({
                     onClick={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
-                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-12 px-6 transition-all border-[#C8B8FF] bg-[#FAF9FF] hover:border-orange-400 hover:bg-orange-50/20"
-                  >
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-50 border border-orange-100 shadow-xs">
-                      <Upload className="w-5 h-5 text-[#F97066]" />
-                    </div>
+                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-12 px-6"
+                    style={{ 
+                      borderColor: 'rgba(193,68,14,0.10)', 
+                      background: '#FBFAF8', 
+                      transition: 'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease' 
+                    }}
+                    onMouseEnter={e => { 
+                      e.currentTarget.style.background = '#FFF9F5';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
+                    }}
+                    onMouseLeave={e => { 
+                      e.currentTarget.style.background = '#FBFAF8';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)';
+                    }}
+                    onDragEnter={e => {
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.6)';
+                      e.currentTarget.style.transform = 'scale(1.01)';
+                    }}
+                    onDragLeave={e => {
+                      e.currentTarget.style.background = '#FBFAF8';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    >
+                    <motion.div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 16px rgba(193,68,14,0.30)' }}
+                      whileHover={{ y: -4, scale: 1.08, boxShadow: '0 8px 24px rgba(193,68,14,0.40)' }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    >
+                      <Upload className="w-6 h-6 text-white" />
+                    </motion.div>
                     <div className="text-center space-y-1">
-                      <p className="font-bold text-sm text-stone-800">Drop continuous scene framework images or tap to explore</p>
-                      <p className="text-xs text-stone-400">Supports JPEG/PNG assets up to {MAX_IMAGES} linear progression blocks</p>
+                      <p className="font-bold text-sm text-stone-800">Drop your scene photos here</p>
+                      <p className="text-xs text-stone-400">Click to browse  ·  JPEG or PNG  ·  Up to {MAX_IMAGES} images</p>
                     </div>
                   </motion.div>
                 )}
@@ -650,10 +731,13 @@ export default function PromptStep({
 
           {/* Aesthetics Style Selection Grid Card Module */}
           <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-              <Palette className="w-4 h-4 inline mr-1.5 text-stone-400 align-text-bottom" />
-              Pick Rendering Style Engine
-            </label>
+            <div className="flex items-center gap-2">
+              <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>{isReferencesMode ? '2' : '3'}</span>
+              <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
+                <Palette className="w-4 h-4 text-stone-400" />
+                Pick Rendering Style Engine
+              </label>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
                 <button
