@@ -29,7 +29,21 @@ const STYLE_ICONS = {
   surreal: "✨",
 };
 
-function ReferenceInput({ item, index, type, onChange, onRemove }) {
+const REF_TYPE_OPTIONS = [
+  { value: 'character', label: 'Character / Subject', color: 'orange' },
+  { value: 'setting', label: 'Background / Setting', color: 'purple' },
+  { value: 'logo', label: 'Logo / Brand Mark', color: 'blue' },
+  { value: 'product', label: 'Product', color: 'emerald' },
+];
+
+const REF_TYPE_COLORS = {
+  character: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' },
+  setting: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
+  logo: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
+  product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+};
+
+function ReferenceInput({ item, index, onChange, onRemove }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -41,6 +55,9 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
     }
   };
 
+  const isLogo = item.type === 'logo';
+  const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
+
   return (
     <div className="group/ref relative border border-stone-200/80 rounded-2xl p-5 bg-white shadow-sm transition-all duration-300 hover:shadow-md hover:border-stone-300">
       {/* Remove button */}
@@ -51,13 +68,33 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
         ×
       </button>
 
+      {/* Type selector */}
+      <div className="mb-3">
+        <select
+          value={item.type}
+          onChange={(e) => {
+            const newType = e.target.value;
+            const updates = { ...item, type: newType };
+            if (newType === 'logo') {
+              updates.useUpload = true;
+            }
+            onChange(index, updates);
+          }}
+          className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-700 focus:outline-none focus:border-orange-400 transition-colors cursor-pointer"
+        >
+          {REF_TYPE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Name */}
       <div className="mb-3">
         <input
           type="text"
           value={item.name}
           onChange={(e) => onChange(index, { ...item, name: e.target.value })}
-          placeholder={`${type === 'character' ? 'Prop / Asset' : 'Background / Environment'} name`}
+          placeholder={`${typeInfo.label} name`}
           className="w-full bg-transparent border-b border-stone-200 pb-1.5 text-sm font-bold text-stone-800 focus:outline-none focus:border-orange-400 placeholder-stone-400 transition-colors"
         />
       </div>
@@ -66,34 +103,40 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
       <textarea
         value={item.description}
         onChange={(e) => onChange(index, { ...item, description: e.target.value })}
-        placeholder={`Describe this ${type === 'character' ? 'prop' : 'background'} context in detail (required)...`}
+        placeholder={isLogo ? 'Describe how this logo should appear in scenes (e.g., "on the truck door", "on the storefront sign")...' : `Describe this ${typeInfo.label.toLowerCase()} in detail (required)...`}
         rows={2}
         className="w-full mb-4 bg-stone-50/60 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all"
       />
 
-      {/* Upload / AI Generate toggle */}
-      <div className="flex items-center gap-2 mb-3 bg-stone-100/80 p-1 rounded-xl border border-stone-200/40">
-        <button
-          onClick={() => onChange(index, { ...item, useUpload: true })}
-          className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-all ${
-            item.useUpload
-              ? 'bg-white text-orange-600 shadow-sm'
-              : 'text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          Upload Reference
-        </button>
-        <button
-          onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
-          className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-all ${
-            !item.useUpload
-              ? 'bg-white text-purple-600 shadow-sm'
-              : 'text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          AI Conceptualize
-        </button>
-      </div>
+      {/* Upload / AI Generate toggle — logos are upload-only */}
+      {isLogo ? (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 rounded-xl border border-blue-100">
+          <span className="text-[11px] font-bold text-blue-600">Upload only — logos are preserved exactly</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 mb-3 bg-stone-100/80 p-1 rounded-xl border border-stone-200/40">
+          <button
+            onClick={() => onChange(index, { ...item, useUpload: true })}
+            className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-all ${
+              item.useUpload
+                ? 'bg-white text-orange-600 shadow-sm'
+                : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            Upload Reference
+          </button>
+          <button
+            onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
+            className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-all ${
+              !item.useUpload
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            AI Conceptualize
+          </button>
+        </div>
+      )}
 
       {/* File picker or AI label */}
       {item.useUpload ? (
@@ -150,7 +193,7 @@ export default function PromptStep({
   setTargetDuration,
   pipelineMode,
   onModeChange,
-  references = { characters: [], settings: [] },
+  references = [],
   onReferencesChange,
   error,
 }) {
@@ -235,7 +278,7 @@ export default function PromptStep({
   };
 
   const canStart = isReferencesMode
-    ? userPrompt?.trim() && style && references.characters.some(c => c.name?.trim() && c.description?.trim())
+    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
     : userPrompt?.trim() && images?.length > 0;
 
   return (
@@ -313,115 +356,58 @@ export default function PromptStep({
             />
           </div>
 
-          {/* References Mode Pipeline Subsections */}
+          {/* References Mode — Unified References Section */}
           {isReferencesMode && (
-            <div className="space-y-6">
-              {/* Props Track Block */}
-              <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                      Studio Props & Subjects
-                    </label>
-                    <div className="group relative">
-                      <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
-                        Props are anchor components meant to remain highly stable across all generated cuts—like characters, key branding, or specific focus objects.
-                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
-                      </div>
+            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+                    References
+                  </label>
+                  <div className="group relative">
+                    <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                      Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly — no AI restyling.
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                     </div>
                   </div>
-                  {references.characters.length < 4 && (
-                    <button
-                      onClick={() => {
-                        onReferencesChange({
-                          ...references,
-                          characters: [
-                            ...references.characters,
-                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                          ],
-                        });
-                      }}
-                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-orange-50 text-[#F97066] border border-orange-100 hover:bg-orange-100/60 transition-all"
-                    >
-                      + Add Target Subject ({references.characters.length}/4)
-                    </button>
-                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {references.characters.map((char, idx) => (
-                    <ReferenceInput
-                      key={idx}
-                      item={char}
-                      index={idx}
-                      type="character"
-                      onChange={(i, updated) => {
-                        const chars = [...references.characters];
-                        chars[i] = updated;
-                        onReferencesChange({ ...references, characters: chars });
-                      }}
-                      onRemove={(i) => {
-                        const chars = references.characters.filter((_, j) => j !== i);
-                        onReferencesChange({ ...references, characters: chars });
-                      }}
-                    />
-                  ))}
-                </div>
-                {references.characters.length === 0 && (
-                  <div className="text-center py-6 border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
-                    <p className="text-xs font-bold text-stone-400">Add at least one key target prop or character element to unlock parameters</p>
-                  </div>
+                {references.length < 8 && (
+                  <button
+                    onClick={() => {
+                      onReferencesChange([
+                        ...references,
+                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                      ]);
+                    }}
+                    className="text-xs font-bold px-3 py-1.5 rounded-full bg-orange-50 text-[#F97066] border border-orange-100 hover:bg-orange-100/60 transition-all"
+                  >
+                    + Add Reference ({references.length}/8)
+                  </button>
                 )}
               </div>
-
-              {/* Background Environment Track Block */}
-              <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                    Environment Backgrounds
-                  </label>
-                  {references.settings.length < 2 && (
-                    <button
-                      onClick={() => {
-                        onReferencesChange({
-                          ...references,
-                          settings: [
-                            ...references.settings,
-                            { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                          ],
-                        });
-                      }}
-                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100/60 transition-all"
-                    >
-                      + Add Backdrop Workspace ({references.settings.length}/2)
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {references.settings.map((setting, idx) => (
-                    <ReferenceInput
-                      key={idx}
-                      item={setting}
-                      index={idx}
-                      type="setting"
-                      onChange={(i, updated) => {
-                        const sets = [...references.settings];
-                        sets[i] = updated;
-                        onReferencesChange({ ...references, settings: sets });
-                      }}
-                      onRemove={(i) => {
-                        const sets = references.settings.filter((_, j) => j !== i);
-                        onReferencesChange({ ...references, settings: sets });
-                      }}
-                    />
-                  ))}
-                </div>
-                {references.settings.length === 0 && (
-                  <div className="text-center py-6 border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
-                    <p className="text-xs font-bold text-stone-400">(Optional) Insert background settings blueprints for locked location structures</p>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {references.map((ref, idx) => (
+                  <ReferenceInput
+                    key={idx}
+                    item={ref}
+                    index={idx}
+                    onChange={(i, updated) => {
+                      const updated_refs = [...references];
+                      updated_refs[i] = updated;
+                      onReferencesChange(updated_refs);
+                    }}
+                    onRemove={(i) => {
+                      onReferencesChange(references.filter((_, j) => j !== i));
+                    }}
+                  />
+                ))}
               </div>
+              {references.length === 0 && (
+                <div className="text-center py-6 border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
+                  <p className="text-xs font-bold text-stone-400">Add at least one reference (character, setting, logo, or product) to get started</p>
+                </div>
+              )}
             </div>
           )}
 

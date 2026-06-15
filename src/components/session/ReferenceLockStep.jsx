@@ -98,7 +98,7 @@ export default function ReferenceLockStep({
     );
   }
 
-  const allRefs = [...(referenceData.characters || []), ...(referenceData.settings || [])];
+  const allRefs = [...(referenceData.characters || []), ...(referenceData.settings || []), ...(referenceData.logos || [])];
   const allLocked = allRefs.every(r => r.lockedUrl);
 
   return (
@@ -111,14 +111,14 @@ export default function ReferenceLockStep({
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Approve Your References</h2>
           <p className="text-gray-500">
-            Review how your props and backgrounds look in the chosen style. Approve to continue or regenerate with feedback.
+            Review how your references look in the chosen style. Logos are preserved exactly. Approve to continue or regenerate with feedback.
           </p>
         </div>
 
         {/* Props */}
         {referenceData.characters?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Props</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Characters & Subjects</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.characters.map((char) => (
                 <ReferenceCard
@@ -144,6 +144,40 @@ export default function ReferenceLockStep({
                   isLoading={lockLoading.has('__all__') || lockLoading.has(setting.id)}
                   onRegenerate={onRegenerate}
                 />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Logos */}
+        {referenceData.logos?.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Logos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {referenceData.logos.map((logo) => (
+                <div key={logo.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{logo.name}</h4>
+                      <p className="text-sm text-gray-500 mt-1">{logo.description}</p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+                      Preserved Exactly
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-gray-500">Original (locked)</span>
+                    <div className="border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
+                      {logo.originalUrl ? (
+                        <img src={logo.originalUrl} alt={logo.name} className="w-full aspect-square object-contain" />
+                      ) : (
+                        <div className="w-full aspect-square flex items-center justify-center text-gray-400 text-sm">
+                          No image
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

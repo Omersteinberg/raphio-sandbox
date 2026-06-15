@@ -51,10 +51,7 @@ export function useReferencesSession() {
   } = base;
 
   // ── References-specific state ──────────────────────────────────────
-  const [references, setReferences] = useState({
-    characters: [],
-    settings: [],
-  });
+  const [references, setReferences] = useState([]);
   const [referenceData, setReferenceData] = useState(null);
   const [sceneFrames, setSceneFrames] = useState([]);
   const [lockLoading, setLockLoading] = useState(new Set());
@@ -116,25 +113,17 @@ export function useReferencesSession() {
       return;
     }
 
-    // Validate at least one character
-    const chars = references.characters.filter(c => c.name.trim() && c.description.trim());
-    if (chars.length === 0) {
-      toast.error("Please add at least one character with name and description");
+    // Validate at least one reference with name and description
+    const validRefs = references.filter(r => r.name.trim() && r.description.trim());
+    if (validRefs.length === 0) {
+      toast.error("Please add at least one reference with name and description");
       return;
     }
 
-    // Validate all characters have descriptions
-    for (const char of references.characters) {
-      if (char.name.trim() && !char.description.trim()) {
-        toast.error(`Please add a description for ${char.name}`);
-        return;
-      }
-    }
-
-    // Validate settings have descriptions
-    for (const setting of references.settings) {
-      if (setting.name.trim() && !setting.description.trim()) {
-        toast.error(`Please add a description for ${setting.name}`);
+    // Validate all named references have descriptions
+    for (const ref of references) {
+      if (ref.name.trim() && !ref.description.trim()) {
+        toast.error(`Please add a description for ${ref.name}`);
         return;
       }
     }
@@ -165,50 +154,30 @@ export function useReferencesSession() {
       setSessionId(newSession.id);
       setSession(newSession);
 
-      // Step 2: Add all references (characters + settings)
-      const validChars = references.characters.filter(c => c.name.trim() && c.description.trim());
-      const validSettings = references.settings.filter(s => s.name.trim() && s.description.trim());
-      const totalRefs = validChars.length + validSettings.length;
+      // Step 2: Add all references
+      const totalRefs = validRefs.length;
       let refsDone = 0;
 
-      for (const char of validChars) {
-        console.log(`[useReferencesSession] Adding character: ${char.name}`);
+      const collectionMap = { character: 'characters', setting: 'settings', logo: 'logos', product: 'characters' };
+
+      for (const ref of validRefs) {
+        console.log(`[useReferencesSession] Adding ${ref.type}: ${ref.name}`);
+        const descSuffix = ref.type === 'character' ? '. Do not generate any background, use a plain solid color background only.' : '';
         await referenceApi.addReference(newSession.id, {
-          type: 'character',
-          name: char.name,
-          description: `${char.description}. Do not generate any background, use a plain solid color background only.`,
-          imageFile: char.useUpload ? char.referenceFile : null,
+          type: ref.type,
+          name: ref.name,
+          description: `${ref.description}${descSuffix}`,
+          imageFile: ref.useUpload ? ref.referenceFile : null,
         });
 
-        // If no file was uploaded, generate the image via AI
-        if (!char.useUpload || !char.referenceFile) {
+        // Logos are auto-locked, no AI generation needed. For others, generate if no file uploaded.
+        if (ref.type !== 'logo' && (!ref.useUpload || !ref.referenceFile)) {
           const refreshed = await sessionService.getSession(newSession.id);
           const refData = refreshed.referenceData;
-          const lastChar = refData.characters[refData.characters.length - 1];
-          if (lastChar && !lastChar.originalUrl) {
-            await referenceApi.generateReferenceImage(newSession.id, lastChar.id);
-          }
-        }
-
-        refsDone++;
-        setScriptProgress(10 + Math.round((refsDone / totalRefs) * 40));
-      }
-
-      for (const setting of validSettings) {
-        console.log(`[useReferencesSession] Adding setting: ${setting.name}`);
-        await referenceApi.addReference(newSession.id, {
-          type: 'setting',
-          name: setting.name,
-          description: setting.description,
-          imageFile: setting.useUpload ? setting.referenceFile : null,
-        });
-
-        if (!setting.useUpload || !setting.referenceFile) {
-          const refreshed = await sessionService.getSession(newSession.id);
-          const refData = refreshed.referenceData;
-          const lastSetting = refData.settings[refData.settings.length - 1];
-          if (lastSetting && !lastSetting.originalUrl) {
-            await referenceApi.generateReferenceImage(newSession.id, lastSetting.id);
+          const collection = refData[collectionMap[ref.type]] || [];
+          const lastRef = collection[collection.length - 1];
+          if (lastRef && !lastRef.originalUrl) {
+            await referenceApi.generateReferenceImage(newSession.id, lastRef.id);
           }
         }
 
@@ -452,7 +421,7 @@ export function useReferencesSession() {
   const reset = useCallback(() => {
     resetBase();
     setStep(0);
-    setReferences({ characters: [], settings: [] });
+    setReferences([]);
     setReferenceData(null);
     setSceneFrames([]);
     setLockLoading(new Set());
