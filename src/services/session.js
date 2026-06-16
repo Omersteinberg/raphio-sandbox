@@ -79,6 +79,22 @@ export async function uploadImages(sessionId, files) {
 }
 
 /**
+ * Upload an opening/closing frame image. Unlike uploadImages, this does NOT
+ * add the file to the session's content-image pool.
+ * @returns {{ imageUrl: string }}
+ */
+export async function uploadFrameImage(sessionId, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/frame-image`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data;
+}
+
+/**
  * Analyze uploaded images
  */
 export async function analyzeImages(sessionId) {

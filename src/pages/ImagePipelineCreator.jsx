@@ -69,6 +69,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setBackgroundMusic,
     configureFrames,
     startGeneration,
+    generationError,
 
     // Result step
     finalVideoUrl,
@@ -259,6 +260,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           scriptData={scriptData}
           openingFrame={openingFrame}
           closingFrame={closingFrame}
+          generationError={generationError}
+          onRegenerate={startGeneration}
         />
       );
     }
