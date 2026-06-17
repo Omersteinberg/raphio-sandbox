@@ -6,7 +6,7 @@ const API_BASE = `${BASE}/video`;
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode, enableBridges, targetDuration }) {
+export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
@@ -16,6 +16,7 @@ export async function startSession({ userPrompt, style, imageDuration, voiceId, 
     pipelineMode: pipelineMode || 'image',
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
+    ...(aspectRatio ? { aspectRatio } : {}),
   };
   
   console.log("[sessionService] POST", url);

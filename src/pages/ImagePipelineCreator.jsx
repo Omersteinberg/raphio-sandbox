@@ -34,6 +34,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setStyle,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     startSession,
     styleOptions,
     enableBridges,
@@ -174,6 +176,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setStyle={setStyle}
           targetDuration={targetDuration}
           setTargetDuration={setTargetDuration}
+          aspectRatio={aspectRatio}
+          setAspectRatio={setAspectRatio}
           images={images}
           addImages={addImages}
           removeImage={removeImage}

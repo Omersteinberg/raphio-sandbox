@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
+import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
 
 const SLOT_LABELS = {
@@ -191,6 +192,8 @@ export default function PromptStep({
   setEnableBridges,
   targetDuration,
   setTargetDuration,
+  aspectRatio,
+  setAspectRatio,
   pipelineMode,
   onModeChange,
   references = [],
@@ -610,6 +613,36 @@ export default function PromptStep({
               <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
                 Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
               </p>
+            </div>
+          )}
+
+          {/* Output Format / Aspect Ratio Selection */}
+          {setAspectRatio && (
+            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+                <Film className="w-4 h-4 inline mr-1.5 text-stone-400 align-text-bottom" />
+                Output Format
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {ASPECT_RATIO_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAspectRatio(opt.id)}
+                    className="p-4 rounded-2xl border-2 text-left transition-all duration-200 bg-white flex items-center gap-3"
+                    style={
+                      (aspectRatio || '16:9') === opt.id
+                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.04)" }
+                        : { borderColor: "rgba(240,234,255,0.8)" }
+                    }
+                  >
+                    <span className="text-2xl leading-none">{opt.icon}</span>
+                    <span className="space-y-0.5">
+                      <span className="font-black text-xs block text-stone-800">{opt.name}</span>
+                      <span className="text-[10px] text-stone-400 block">{opt.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

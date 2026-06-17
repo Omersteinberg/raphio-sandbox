@@ -40,7 +40,7 @@ export function useReferencesSession() {
     sessionId, setSessionId, session, setSession,
     direction, setDirection, loading, setLoading,
     error, setError,
-    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic,
+    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic, aspectRatio,
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
@@ -149,6 +149,7 @@ export function useReferencesSession() {
         voiceId,
         imageDuration: 5,
         targetDuration,
+        aspectRatio,
       });
       setScriptProgress(10);
       setSessionId(newSession.id);
@@ -221,7 +222,7 @@ export function useReferencesSession() {
     } finally {
       setLoading(false);
     }
-  }, [userPrompt, style, voiceId, references, navigate, credits]);
+  }, [userPrompt, style, voiceId, references, navigate, credits, aspectRatio]);
 
   // ── Approve all references ─────────────────────────────────────────
   const approveAllReferences = useCallback(async () => {

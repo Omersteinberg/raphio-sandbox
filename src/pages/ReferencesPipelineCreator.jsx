@@ -40,6 +40,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     setStyle,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     startReferencesSession,
 
     // References state
@@ -123,6 +125,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             setStyle={setStyle}
             targetDuration={targetDuration}
             setTargetDuration={setTargetDuration}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
             onStart={startReferencesSession}
             loading={loading}
             error={error}

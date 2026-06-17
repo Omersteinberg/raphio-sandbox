@@ -72,6 +72,7 @@ export function useSession() {
   const [style, setStyle] = useState("realistic");
   const imageDuration = 5; // seconds per image
   const [targetDuration, setTargetDuration] = useState(30);
+  const [aspectRatio, setAspectRatio] = useState("16:9");
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -186,6 +187,7 @@ export function useSession() {
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
             if (data.style) setStyle(data.style);
+            if (data.aspectRatio) setAspectRatio(data.aspectRatio);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
             if (data.enableBridges != null) setEnableBridges(data.enableBridges);
@@ -389,6 +391,7 @@ export function useSession() {
         voiceId,
         enableBridges,
         targetDuration,
+        aspectRatio,
       };
       console.log("[useSession] Request payload:", payload);
 
@@ -582,7 +585,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, targetDuration, credits, navigate]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, targetDuration, aspectRatio, credits, navigate]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -1291,6 +1294,8 @@ export function useSession() {
     imageDuration,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     voiceId,
     setVoiceId,
     videoModel,

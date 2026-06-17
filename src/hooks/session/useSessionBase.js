@@ -44,6 +44,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
   const [targetDuration, setTargetDuration] = useState(30);
+  const [aspectRatio, setAspectRatio] = useState("16:9");
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -81,6 +82,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
             if (data.style) setStyle(data.style);
+            if (data.aspectRatio) setAspectRatio(data.aspectRatio);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
             if (data.scriptData) setScriptData(data.scriptData);
@@ -431,6 +433,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setDirection(0);
     setUserPrompt("");
     setStyle("cinematic");
+    setAspectRatio("16:9");
     setVoiceId("adam");
     setVideoModel("KLING");
     setBackgroundMusic(true);
@@ -463,6 +466,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setStyle,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     voiceId,
     setVoiceId,
     videoModel,
