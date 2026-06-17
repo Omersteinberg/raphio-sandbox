@@ -363,68 +363,116 @@ export function useSession() {
     setScriptProgress(1);
 
     try {
-      // Step 1: Create the session
-      console.log("[useSession] Calling sessionService.startSession...");
-      setScriptProgress(5);
-      const payload = {
-        userPrompt,
-        style,
-        imageDuration,
-        voiceId,
-        enableBridges,
-        targetDuration,
-      };
-      console.log("[useSession] Request payload:", payload);
+      let targetSessionId;
 
-      const newSession = await sessionService.startSession(payload);
+      // Resuming a session that already has images uploaded on the backend
+      // (e.g. the user left and came back after image upload/analysis
+      // succeeded but script generation hadn't run yet). Images restored from
+      // a resumed session have no `.file` data to re-upload, so reuse the
+      // existing session and its already-uploaded images instead of creating
+      // a new session and posting empty files.
+      const isResuming = Boolean(sessionId && session?.images?.length > 0);
 
-      console.log("[useSession] Session created successfully:", newSession);
-      setScriptProgress(15);
+      if (isResuming) {
+        console.log("[useSession] Resuming existing session:", sessionId);
+        targetSessionId = sessionId;
+        setScriptProgress(35);
 
-      setSessionId(newSession.id);
-      setSession(newSession);
+        if (session.imageAnalysis) {
+          console.log("[useSession] Images already analyzed, skipping analysis/restyle");
+          setImageAnalysis(session.imageAnalysis);
+          setScriptProgress(70);
+        } else {
+          console.log("[useSession] Starting image analysis...");
+          setScriptProgress(40);
+          const sessionAfterAnalysis = await sessionService.analyzeImages(targetSessionId);
+          console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
+          setSession(sessionAfterAnalysis);
+          setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
+          setScriptProgress(55);
 
-      try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
-
-      // Step 2: Upload the images that were already selected
-      console.log("[useSession] Uploading images to session...");
-      setScriptProgress(20);
-      const files = images.map((img) => img.file);
-      const sessionAfterUpload = await sessionService.uploadImages(newSession.id, files);
-      console.log("[useSession] Images uploaded:", sessionAfterUpload);
-      setSession(sessionAfterUpload);
-      setScriptProgress(35);
-
-      // Step 3: Start image analysis
-      console.log("[useSession] Starting image analysis...");
-      setScriptProgress(40);
-      const sessionAfterAnalysis = await sessionService.analyzeImages(newSession.id);
-      console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
-      setSession(sessionAfterAnalysis);
-      setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
-      setScriptProgress(55);
-
-      // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
-      // finish. /analyze submits the jobs and returns immediately, so we have
-      // to poll before generating the script — otherwise the script would be
-      // built from the pre-restyle (e.g. photo) images.
-      console.log("[useSession] Waiting for restyle jobs to complete...");
-      const restyleResult = await sessionService.pollRestyleUntilDone(newSession.id, {
-        onProgress: (status) => {
-          console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
-          // Map restyle progress into the 55-70 band of the overall progress bar.
-          if (status.total > 0) {
-            const settled = status.complete + status.skipped + status.failed;
-            const ratio = settled / status.total;
-            setScriptProgress(55 + Math.round(ratio * 15));
+          console.log("[useSession] Waiting for restyle jobs to complete...");
+          const restyleResult = await sessionService.pollRestyleUntilDone(targetSessionId, {
+            onProgress: (status) => {
+              console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
+              if (status.total > 0) {
+                const settled = status.complete + status.skipped + status.failed;
+                const ratio = settled / status.total;
+                setScriptProgress(55 + Math.round(ratio * 15));
+              }
+            },
+          });
+          console.log("[useSession] Restyle complete:", restyleResult);
+          if (restyleResult.failed > 0) {
+            toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
           }
-        },
-      });
-      console.log("[useSession] Restyle complete:", restyleResult);
-      if (restyleResult.failed > 0) {
-        toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+          setScriptProgress(70);
+        }
+      } else {
+        // Step 1: Create the session
+        console.log("[useSession] Calling sessionService.startSession...");
+        setScriptProgress(5);
+        const payload = {
+          userPrompt,
+          style,
+          imageDuration,
+          voiceId,
+          enableBridges,
+          targetDuration,
+        };
+        console.log("[useSession] Request payload:", payload);
+
+        const newSession = await sessionService.startSession(payload);
+
+        console.log("[useSession] Session created successfully:", newSession);
+        setScriptProgress(15);
+
+        targetSessionId = newSession.id;
+        setSessionId(targetSessionId);
+        setSession(newSession);
+
+        try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+
+        // Step 2: Upload the images that were already selected
+        console.log("[useSession] Uploading images to session...");
+        setScriptProgress(20);
+        const files = images.map((img) => img.file);
+        const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files);
+        console.log("[useSession] Images uploaded:", sessionAfterUpload);
+        setSession(sessionAfterUpload);
+        setScriptProgress(35);
+
+        // Step 3: Start image analysis
+        console.log("[useSession] Starting image analysis...");
+        setScriptProgress(40);
+        const sessionAfterAnalysis = await sessionService.analyzeImages(targetSessionId);
+        console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
+        setSession(sessionAfterAnalysis);
+        setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
+        setScriptProgress(55);
+
+        // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
+        // finish. /analyze submits the jobs and returns immediately, so we have
+        // to poll before generating the script — otherwise the script would be
+        // built from the pre-restyle (e.g. photo) images.
+        console.log("[useSession] Waiting for restyle jobs to complete...");
+        const restyleResult = await sessionService.pollRestyleUntilDone(targetSessionId, {
+          onProgress: (status) => {
+            console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
+            // Map restyle progress into the 55-70 band of the overall progress bar.
+            if (status.total > 0) {
+              const settled = status.complete + status.skipped + status.failed;
+              const ratio = settled / status.total;
+              setScriptProgress(55 + Math.round(ratio * 15));
+            }
+          },
+        });
+        console.log("[useSession] Restyle complete:", restyleResult);
+        if (restyleResult.failed > 0) {
+          toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+        }
+        setScriptProgress(70);
       }
-      setScriptProgress(70);
 
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
       // This way the AI can analyze the generated frame images too
@@ -435,7 +483,7 @@ export function useSession() {
       // OPENING frame: gather user-supplied input. If user supplied nothing,
       // omit the field so the backend auto-figures-out from script context.
       if (openingFrame?.useUpload && openingFrame?.uploadedFile) {
-        const uploadResult = await sessionService.uploadImages(newSession.id, [openingFrame.uploadedFile]);
+        const uploadResult = await sessionService.uploadImages(targetSessionId, [openingFrame.uploadedFile]);
         if (uploadResult.images?.length > 0) {
           const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
           frameOptions.opening = "user_image";
@@ -447,7 +495,7 @@ export function useSession() {
         console.log("[useSession] Generating AI opening frame with CUSTOM PROMPT:", openingFrame.customPrompt);
         try {
           const frameResult = await sessionService.generateFrameImage(
-            newSession.id,
+            targetSessionId,
             "opening",
             openingFrame.customPrompt,
             openingFrame.description || ""
@@ -476,7 +524,7 @@ export function useSession() {
 
       // CLOSING frame: same shape as opening.
       if (closingFrame?.useUpload && closingFrame?.uploadedFile) {
-        const uploadResult = await sessionService.uploadImages(newSession.id, [closingFrame.uploadedFile]);
+        const uploadResult = await sessionService.uploadImages(targetSessionId, [closingFrame.uploadedFile]);
         if (uploadResult.images?.length > 0) {
           const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
           frameOptions.closing = "user_image";
@@ -488,7 +536,7 @@ export function useSession() {
         console.log("[useSession] Generating AI closing frame image…");
         try {
           const frameResult = await sessionService.generateFrameImage(
-            newSession.id,
+            targetSessionId,
             "closing",
             closingFrame.customPrompt,
             closingFrame.description || ""
@@ -522,7 +570,7 @@ export function useSession() {
       console.log("[useSession] Generating script...");
       console.log("[useSession] Frame options:", frameOptions);
       setScriptProgress(75);
-      const sessionAfterScript = await sessionService.generateOutline(newSession.id, frameOptions);
+      const sessionAfterScript = await sessionService.generateOutline(targetSessionId, frameOptions);
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
@@ -572,7 +620,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {

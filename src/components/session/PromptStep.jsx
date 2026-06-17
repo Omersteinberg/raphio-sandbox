@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Clock, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -22,11 +22,15 @@ const DURATION_OPTIONS = [
   { value: 60, label: '~60s', desc: 'Extended' },
 ];
 
-const STYLE_ICONS = {
-  realistic: "📷",
-  animated: "🎨",
-  cinematic: "🎬",
-  surreal: "✨",
+const STYLE_ICON_MAP = {
+  realistic: Camera,
+  animated: Palette,
+  cinematic: Clapperboard,
+  surreal: Wand2,
+  anime: Drama,
+  comic_book: Zap,
+  watercolor: Droplet,
+  '3d_render': Box,
 };
 
 const CHIP_CONFIG = {
@@ -472,7 +476,7 @@ export default function PromptStep({
                           ],
                         });
                       }}
-                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-orange-50 text-[#F97066] border border-orange-100 hover:bg-orange-100/60 transition-all"
+                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-orange-50 text-[#C1440E] border border-orange-100 hover:bg-orange-100/60 transition-all"
                     >
                       + Add Target Subject ({references.characters.length}/4)
                     </button>
@@ -566,30 +570,35 @@ export default function PromptStep({
                   </label>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {Object.entries(CHIP_CONFIG).map(([key, { label, Icon }]) => (
-                    <button
-                      key={key}
-                      onClick={() => setTemplate(key)}
-                      className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl transition-all duration-200 font-bold tracking-wide"
-                      style={
-                        template === key
-                          ? {
-                              background: 'linear-gradient(135deg, #F97066, #FB923C)',
-                              color: '#fff',
-                              border: 'none',
-                              boxShadow: '0 2px 10px rgba(249,112,102,0.25)',
-                            }
-                          : {
-                              background: '#faf8f5',
-                              color: '#57534e',
-                              border: '1.5px solid #ede8e0',
-                            }
-                      }
-                    >
-                      <Icon style={{ width: 13, height: 13, flexShrink: 0 }} />
-                      {label}
-                    </button>
-                  ))}
+                  {Object.entries(CHIP_CONFIG).map(([key, { label, Icon }]) => {
+                    const isActive = template === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setTemplate(key)}
+                        className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-full transition-all duration-200 font-bold tracking-wide"
+                        style={
+                          isActive
+                            ? {
+                                background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                                color: '#fff',
+                                border: '1.5px solid transparent',
+                                boxShadow: '0 2px 10px rgba(193,68,14,0.25)',
+                              }
+                            : {
+                                background: '#FBFAF8',
+                                color: '#6B5A52',
+                                border: '1.5px solid rgba(193,68,14,0.10)',
+                              }
+                        }
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)'; }}
+                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; }}
+                      >
+                        <Icon style={{ width: 13, height: 13, flexShrink: 0 }} />
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -695,9 +704,14 @@ export default function PromptStep({
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                            className="absolute top-1 right-1 w-4.5 h-4.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-md"
+                            aria-label="Remove image"
+                            className="absolute top-1 right-1 w-6 h-6 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
+                            style={{ background: '#C1440E' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#A8380C'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#C1440E'}
+
                           >
-                            <X className="w-2.5 h-2.5" />
+                            <X className="w-3 h-3" strokeWidth={2.5} />
                           </button>
                         </motion.div>
                       ))}
@@ -733,58 +747,117 @@ export default function PromptStep({
           <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
             <div className="flex items-center gap-2">
               <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>{isReferencesMode ? '2' : '3'}</span>
-              <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
-                <Palette className="w-4 h-4 text-stone-400" />
+              <label className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
                 Pick Rendering Style Engine
               </label>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setStyle(option.id)}
-                  className="p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] bg-white group"
-                  style={
-                    style === option.id
-                      ? { borderColor: "#F97066", background: "rgba(249,112,102,0.03)", boxShadow: "0 4px 12px rgba(249,112,102,0.05)" }
-                      : { borderColor: "#F2EDFF", background: "#FCFAFF" }
-                  }
-                >
-                  <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
-                    {option.icon || STYLE_ICONS[option.id] || "🎬"}
-                  </span>
-                  <div className="space-y-0.5">
-                    <span className="font-black text-xs block text-stone-800">{option.name}</span>
-                    <span className="text-[10px] text-stone-400 block line-clamp-1">{option.description}</span>
-                  </div>
-                </button>
-              ))}
+              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => {
+                const isSelected = style === option.id;
+                const StyleIcon = STYLE_ICON_MAP[option.id] || Sparkles;
+                return (
+                  <motion.button
+                    key={option.id}
+                    onClick={() => setStyle(option.id)}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className="relative p-4 rounded-2xl border-2 text-left flex flex-col gap-2.5 min-h-[124px]"
+                    style={
+                      isSelected
+                        ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.07) 0%, rgba(232,96,60,0.04) 100%)", boxShadow: "0 4px 16px rgba(193,68,14,0.14)" }
+                        : { borderColor: "rgba(193,68,14,0.08)", background: "#FBFAF8" }
+                    }
+                  >
+                    {isSelected && (
+                      <motion.span
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                        className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
+                      >
+                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                      </motion.span>
+                    )}
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200"
+                      style={
+                        isSelected
+                          ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                          : { background: "rgba(193,68,14,0.06)" }
+                      }
+                    >
+                      <StyleIcon style={{ width: 18, height: 18, color: isSelected ? "#fff" : "#C1440E" }} strokeWidth={2} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="font-extrabold text-xs block" style={{ color: "#1C1917" }}>{option.name}</span>
+                      <span className="text-[10px] block leading-snug line-clamp-2" style={{ color: "#9c8f85" }}>{option.description}</span>
+                    </div>
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
           {/* Target Duration Configuration Output Module */}
           {setTargetDuration && (
             <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-              <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                <Clock className="w-4 h-4 inline mr-1.5 text-stone-400 align-text-bottom" />
-                Target Clip Target Duration
-              </label>
+              <div className="flex items-center gap-2">
+                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>{isReferencesMode ? '3' : '4'}</span>
+                <label className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
+                  Target Clip Duration
+                </label>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {DURATION_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setTargetDuration(opt.value)}
-                    className="p-3.5 rounded-2xl border-2 text-center transition-all duration-200 bg-white"
-                    style={
-                      targetDuration === opt.value
-                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.04)", fontWeight: "bold" }
-                        : { borderColor: "rgba(240,234,255,0.8)" }
-                    }
-                  >
-                    <span className="font-black block text-base text-stone-800">{opt.label}</span>
-                    <span className="text-[10px] text-stone-400 block mt-0.5">{opt.desc}</span>
-                  </button>
-                ))}
+                {DURATION_OPTIONS.map((opt, idx) => {
+                  const isSelected = targetDuration === opt.value;
+                  const level = idx + 1;
+                  return (
+                    <motion.button
+                      key={opt.value}
+                      onClick={() => setTargetDuration(opt.value)}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2"
+                      style={
+                        isSelected
+                          ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.07) 0%, rgba(232,96,60,0.04) 100%)", boxShadow: "0 4px 16px rgba(193,68,14,0.14)" }
+                          : { borderColor: "rgba(193,68,14,0.08)", background: "#FBFAF8" }
+                      }
+                    >
+                      {isSelected && (
+                        <motion.span
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                          className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
+                        >
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        </motion.span>
+                      )}
+                      <div className="flex items-end gap-1 h-5">
+                        {[1, 2, 3, 4].map((bar) => (
+                          <span
+                            key={bar}
+                            className="rounded-full transition-colors duration-200"
+                            style={{
+                              width: 4,
+                              height: 6 + bar * 3,
+                              background: bar <= level
+                                ? (isSelected ? "linear-gradient(180deg, #C1440E, #E8603C)" : "rgba(193,68,14,0.30)")
+                                : "rgba(193,68,14,0.10)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="font-black block text-base" style={{ color: "#1C1917" }}>{opt.label}</span>
+                      <span className="text-[10px] block" style={{ color: "#9c8f85" }}>{opt.desc}</span>
+                    </motion.button>
+                  );
+                })}
               </div>
               <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
                 Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
@@ -797,27 +870,36 @@ export default function PromptStep({
             <div className="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
               <button
                 onClick={() => setEnableBridges(!enableBridges)}
-                className="w-full flex items-center gap-3.5 p-5 transition-colors bg-white hover:bg-stone-50/50 text-left"
+                aria-pressed={enableBridges}
+                className="w-full flex items-center justify-between gap-4 p-5 transition-colors bg-white hover:bg-stone-50/50 text-left"
               >
-                <div
-                  className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                  style={
-                    enableBridges
-                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", borderColor: "#F97066" }
-                      : { background: "transparent", borderColor: "#D4CDE0" }
-                  }
-                >
-                  {enableBridges && (
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                    style={
+                      enableBridges
+                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                        : { background: "rgba(193,68,14,0.06)" }
+                    }
+                  >
+                    <Wand2 style={{ width: 18, height: 18, color: enableBridges ? "#fff" : "#C1440E" }} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
+                    <span className="text-xs text-stone-400 block leading-relaxed">
+                      Generate extra AI frames between your images for smoother cuts
+                    </span>
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <span className="font-extrabold text-sm block text-stone-800">Interpolate AI Bridge Frames</span>
-                  <span className="text-xs text-stone-400 block">
-                    Instructs the processor to output calculated transition context assets between static script cards
-                  </span>
+                <div
+                  className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                  style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
+                >
+                  <motion.span
+                    className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                    animate={{ left: enableBridges ? 26 : 4 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
                 </div>
               </button>
             </div>
@@ -831,7 +913,7 @@ export default function PromptStep({
                 className="w-full flex items-center justify-between p-5 transition-colors bg-white hover:bg-stone-50/50"
               >
                 <div className="flex items-center gap-2.5">
-                  <Film className="w-4 h-4 text-[#F97066]" />
+                  <Film className="w-4 h-4 text-[#C1440E]" />
                   <span className="text-sm font-extrabold text-stone-800">Opening & Closing Frames Configuration</span>
                   <span className="text-xs text-stone-400 font-bold">(Optional)</span>
                 </div>
@@ -880,14 +962,14 @@ export default function PromptStep({
                             <button
                               onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
                               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-bold text-xs transition-all"
-                              style={!openingFrame.useUpload ? { background: "#fff", color: "#F97066", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
+                              style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
                             >
                               <Wand2 className="w-3.5 h-3.5" /> AI Engine Design
                             </button>
                             <button
                               onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
                               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-bold text-xs transition-all"
-                              style={openingFrame.useUpload ? { background: "#fff", color: "#F97066", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
+                              style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
                             >
                               <Upload className="w-3.5 h-3.5" /> Asset File Upload
                             </button>
@@ -950,14 +1032,14 @@ export default function PromptStep({
                             <button
                               onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
                               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-bold text-xs transition-all"
-                              style={!closingFrame.useUpload ? { background: "#fff", color: "#F97066", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
+                              style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
                             >
                               <Wand2 className="w-3.5 h-3.5" /> AI Engine Design
                             </button>
                             <button
                               onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
                               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-bold text-xs transition-all"
-                              style={closingFrame.useUpload ? { background: "#fff", color: "#F97066", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
+                              style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } : { color: "#6B5E7B" }}
                             >
                               <Upload className="w-3.5 h-3.5" /> Asset File Upload
                             </button>
@@ -1019,7 +1101,7 @@ export default function PromptStep({
               onClick={handleStart}
               disabled={!canStart || loading}
               className="w-full text-white py-7 text-base font-bold rounded-2xl border-0 shadow-xl shadow-orange-200/40 hover:scale-[1.005] hover:shadow-orange-200/60 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
-              style={{ background: canStart && !loading ? "linear-gradient(135deg, #F97066, #FB923C)" : "#D4CDE0" }}
+              style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2 tracking-wide font-black uppercase">
@@ -1164,7 +1246,7 @@ export default function PromptStep({
                 <Button
                   onClick={() => setShowImageOrderGuide(false)}
                   className="w-full text-white font-bold py-2.5 rounded-xl"
-                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                  style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
                 >
                   Confirm Configuration Order
                 </Button>
