@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check, Play, Square } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check, Play, Square, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,39 @@ const CHIP_CONFIG = {
   birthday:         { label: 'Memory Event',      Icon: Heart      },
   product_showcase: { label: 'Product Showcase',  Icon: Tag        },
 };
+
+const PROMPT_DICTIONARY = [
+  {
+    id: 'shot',
+    label: 'Shot Type',
+    Icon: Film,
+    terms: ['close-up', 'extreme close-up', 'wide shot', 'aerial shot', 'over-the-shoulder', 'POV shot', 'tracking shot', 'Dutch angle', "bird's-eye view", "worm's-eye view"],
+  },
+  {
+    id: 'motion',
+    label: 'Camera Motion',
+    Icon: Camera,
+    terms: ['slow pan', 'dolly in', 'dolly out', 'handheld', 'slow zoom', 'orbit', 'push in', 'pull back', 'crane shot', 'static wide'],
+  },
+  {
+    id: 'lighting',
+    label: 'Lighting',
+    Icon: Zap,
+    terms: ['golden hour', 'soft diffused', 'dramatic shadows', 'backlit', 'rim lighting', 'neon glow', 'candlelit', 'volumetric light', 'silhouette', 'overcast'],
+  },
+  {
+    id: 'mood',
+    label: 'Mood',
+    Icon: Sparkles,
+    terms: ['cinematic', 'nostalgic', 'dramatic', 'serene', 'energetic', 'mysterious', 'warm & cozy', 'epic', 'melancholic', 'triumphant'],
+  },
+  {
+    id: 'style',
+    label: 'Visual Style',
+    Icon: Palette,
+    terms: ['film grain', 'hyper-real', 'muted tones', 'high contrast', 'bokeh', 'vivid colors', 'anamorphic', 'shallow depth of field', 'desaturated', 'HDR'],
+  },
+];
 
 function ReferenceInput({ item, index, type, onChange, onRemove }) {
   const handleFileChange = (e) => {
@@ -267,6 +300,8 @@ export default function PromptStep({
   const [closingEnabled, setClosingEnabled] = useState(false);
   const [showPromptGuide, setShowPromptGuide] = useState(false);
   const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
+  const [showDictionary, setShowDictionary] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('shot');
   const [template, setTemplate] = useState('general');
   const [targetSlot, setTargetSlot] = useState(null);
   const [dragSlot, setDragSlot] = useState(null);
@@ -333,6 +368,11 @@ export default function PromptStep({
 
   const handleDragOver = (e) => {
     e.preventDefault();
+  };
+
+  const appendTerm = (term) => {
+    const current = userPrompt?.trim() || '';
+    setUserPrompt(current ? `${current}, ${term}` : term);
   };
 
   const handleStart = () => {
@@ -462,54 +502,75 @@ export default function PromptStep({
                   Direction
                 </label>
               </div>
-                <button
-                  onClick={() => setShowPromptGuide(true)}
-                  className="flex items-center gap-1.5 rounded-full"
-                  style={{
-                    fontSize: 12,
-                    padding: '6px 14px',
-                    background: 'rgba(193,68,14,0.06)',
-                    color: '#C1440E',
-                    border: '1px solid rgba(193,68,14,0.15)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                    fontWeight: 700,
-                    letterSpacing: '0.02em',
-                    boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
-                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
-                    e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
-
-                    const icon = e.currentTarget.querySelector('.tips-icon');
-                    if (icon) {
-                      icon.style.transform = 'rotate(-10deg) scale(1.08)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
-                    e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.02)';
-
-                    const icon = e.currentTarget.querySelector('.tips-icon');
-                    if (icon) {
-                      icon.style.transform = 'rotate(0deg) scale(1)';
-                    }
-                  }}
-                >
-                  <Lightbulb
-                    className="tips-icon"
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowDictionary(d => !d)}
+                    className="flex items-center gap-1.5 rounded-full"
                     style={{
-                      width: 14,
-                      height: 14,
-                      strokeWidth: 3,
-                      transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                      fontSize: 12,
+                      padding: '6px 14px',
+                      background: showDictionary ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.06)',
+                      color: showDictionary ? '#fff' : '#C1440E',
+                      border: showDictionary ? '1px solid transparent' : '1px solid rgba(193,68,14,0.15)',
+                      fontWeight: 700,
+                      letterSpacing: '0.02em',
+                      boxShadow: showDictionary ? '0 2px 10px rgba(193,68,14,0.28)' : '0 2px 8px rgba(193,68,14,0.02)',
+                      transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}
-                  />
-                  Tips
-                </button>
+                    onMouseEnter={e => {
+                      if (!showDictionary) {
+                        e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
+                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!showDictionary) {
+                        e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                      }
+                    }}
+                  >
+                    <BookOpen style={{ width: 13, height: 13, strokeWidth: 2.5 }} />
+                    Dictionary
+                  </button>
+                  <button
+                    onClick={() => setShowPromptGuide(true)}
+                    className="flex items-center gap-1.5 rounded-full"
+                    style={{
+                      fontSize: 12,
+                      padding: '6px 14px',
+                      background: 'rgba(193,68,14,0.06)',
+                      color: '#C1440E',
+                      border: '1px solid rgba(193,68,14,0.15)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      fontWeight: 700,
+                      letterSpacing: '0.02em',
+                      boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
+                      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
+                      const icon = e.currentTarget.querySelector('.tips-icon');
+                      if (icon) icon.style.transform = 'rotate(-10deg) scale(1.08)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.02)';
+                      const icon = e.currentTarget.querySelector('.tips-icon');
+                      if (icon) icon.style.transform = 'rotate(0deg) scale(1)';
+                    }}
+                  >
+                    <Lightbulb
+                      className="tips-icon"
+                      style={{ width: 14, height: 14, strokeWidth: 3, transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    />
+                    Tips
+                  </button>
+                </div>
             </div>
             <div
               className="relative rounded-2xl"
@@ -533,6 +594,88 @@ export default function PromptStep({
                 {userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0} words
               </span>
             </div>
+            {/* Prompt Dictionary Panel */}
+            <AnimatePresence>
+              {showDictionary && (
+                <motion.div
+                  key="dict-panel"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ type: 'spring', stiffness: 340, damping: 30, mass: 0.8 }}
+                  className="overflow-hidden"
+                >
+                  <div
+                    className="rounded-2xl p-4 space-y-3"
+                    style={{ background: '#F5EFE6', border: '1px solid rgba(193,68,14,0.10)' }}
+                  >
+                    {/* Category tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {PROMPT_DICTIONARY.map(({ id, label, Icon }) => (
+                        <motion.button
+                          key={id}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setActiveCategory(id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer"
+                          style={activeCategory === id
+                            ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.30)', border: '1px solid transparent' }
+                            : { background: 'rgba(255,255,255,0.7)', color: '#6B5E7B', border: '1px solid rgba(193,68,14,0.14)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
+                          }
+                        >
+                          <Icon style={{ width: 11, height: 11 }} />
+                          {label}
+                        </motion.button>
+                      ))}
+                    </div>
+
+                    {/* Term chips */}
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={activeCategory}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.14, ease: 'easeOut' }}
+                        className="flex flex-wrap gap-1.5"
+                      >
+                        {PROMPT_DICTIONARY.find(c => c.id === activeCategory)?.terms.map(term => (
+                          <motion.button
+                            key={term}
+                            whileTap={{ scale: 0.94 }}
+                            onClick={() => appendTerm(term)}
+                            className="px-3 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer"
+                            style={{
+                              background: '#fff',
+                              color: '#6B5E7B',
+                              border: '1.5px solid rgba(193,68,14,0.14)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                              transition: 'background 0.15s ease, border-color 0.15s ease, color 0.15s ease',
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = 'rgba(193,68,14,0.07)';
+                              e.currentTarget.style.borderColor = 'rgba(193,68,14,0.38)';
+                              e.currentTarget.style.color = '#C1440E';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#fff';
+                              e.currentTarget.style.borderColor = 'rgba(193,68,14,0.14)';
+                              e.currentTarget.style.color = '#6B5E7B';
+                            }}
+                          >
+                            {term}
+                          </motion.button>
+                        ))}
+                      </motion.div>
+                    </AnimatePresence>
+
+                    <p style={{ fontSize: 10, color: '#9B8FA8', fontWeight: 500 }}>
+                      Click any term to append it to your prompt
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
                 <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
