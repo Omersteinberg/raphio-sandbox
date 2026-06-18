@@ -34,6 +34,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setStyle,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     startSession,
     styleOptions,
     enableBridges,
@@ -69,6 +71,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     setBackgroundMusic,
     configureFrames,
     startGeneration,
+    generationError,
 
     // Result step
     finalVideoUrl,
@@ -173,6 +176,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setStyle={setStyle}
           targetDuration={targetDuration}
           setTargetDuration={setTargetDuration}
+          aspectRatio={aspectRatio}
+          setAspectRatio={setAspectRatio}
           images={images}
           addImages={addImages}
           removeImage={removeImage}
@@ -259,6 +264,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
           scriptData={scriptData}
           openingFrame={openingFrame}
           closingFrame={closingFrame}
+          generationError={generationError}
+          onRegenerate={startGeneration}
         />
       );
     }

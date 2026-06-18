@@ -6,7 +6,7 @@ const API_BASE = `${BASE}/video`;
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode, enableBridges, targetDuration }) {
+export async function startSession({ userPrompt, style, imageDuration, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
@@ -16,6 +16,7 @@ export async function startSession({ userPrompt, style, imageDuration, voiceId, 
     pipelineMode: pipelineMode || 'image',
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
+    ...(aspectRatio ? { aspectRatio } : {}),
   };
   
   console.log("[sessionService] POST", url);
@@ -72,6 +73,22 @@ export async function uploadImages(sessionId, files) {
 
   const response = await axios.post(
     `${API_BASE}/${sessionId}/images`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data;
+}
+
+/**
+ * Upload an opening/closing frame image. Unlike uploadImages, this does NOT
+ * add the file to the session's content-image pool.
+ * @returns {{ imageUrl: string }}
+ */
+export async function uploadFrameImage(sessionId, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/frame-image`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } }
   );

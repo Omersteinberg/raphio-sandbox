@@ -2,8 +2,14 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValueEvent } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2,} from "lucide-react";
-import { Infinity, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
+import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import brainImg from '../assets/brain.png';
+import adamImg from '../assets/Adam.png';
+import scene1Img from '../assets/scene-1.png';
+import scene2Img from '../assets/scene-2.png';
+import scene3Img from '../assets/scene-3.jpg';
+import scene4Img from '../assets/scene-4.png';
+import scene5Img from '../assets/scene-5.png';
 
 const C = {
   bg:      '#F5F0EB',
@@ -473,11 +479,11 @@ function DescribeVisual() {
 // ── Step 2: Scattered photo grid ──────────────────────────────────
 function PhotoGridVisual() {
     const cards = [
-      { img:'scene-1.png', fallback:'#ffe2c6', label:'Scene 1', check:'#C1440E', rot:-2   },
-      { img:'scene-2.png', fallback:'#fd996a', label:'Scene 2', check:'#5CB85C', rot:2.5  },
-      { img:'scene-3.jpg', fallback:'#eed6b7', label:'Scene 3', check:'#5CB85C', rot:-1.5 },
-      { img:'scene-4.png', fallback:'#ffceae', label:'Scene 4', check:'#5CB85C', rot:1.5  },
-      { img:'scene-5.png', fallback:'#fde2c9', label:'Scene 5', check:'#5CB85C', rot:-2   },
+      { img: scene1Img, fallback:'#ffe2c6', label:'Scene 1', check:'#C1440E', rot:-2   },
+      { img: scene2Img, fallback:'#fd996a', label:'Scene 2', check:'#5CB85C', rot:2.5  },
+      { img: scene3Img, fallback:'#eed6b7', label:'Scene 3', check:'#5CB85C', rot:-1.5 },
+      { img: scene4Img, fallback:'#ffceae', label:'Scene 4', check:'#5CB85C', rot:1.5  },
+      { img: scene5Img, fallback:'#fde2c9', label:'Scene 5', check:'#5CB85C', rot:-2   },
     ];
 
   return (
@@ -538,7 +544,7 @@ function PhotoGridVisual() {
               ── PHOTO IMAGES ──
             */}
             <img
-              src={`/src/assets/${card.img}`}
+              src={card.img}
               alt={card.label}
               style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
               onError={e => { e.currentTarget.style.display = 'none'; }}
@@ -662,7 +668,7 @@ function AvatarExportVisual() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <img
-              src="/src/assets/Adam.png"
+              src={adamImg}
               alt="Adam — AI voice avatar"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
               onError={e => {
@@ -734,7 +740,7 @@ function AvatarExportVisual() {
           background: '#100C0A',
         }}>
           <img
-            src="/src/assets/scene-5.png"
+            src={scene5Img}
             alt="Video preview thumbnail"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             onError={e => { e.currentTarget.style.display = 'none'; }}
@@ -1155,7 +1161,7 @@ export default function LandingPage() {
           {/* Trust strip */}
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {[
-              { icon: Infinity,    text: 'Credits never expire' },
+              { icon: InfinityIcon, text: 'Credits never expire' },
               { icon: ShieldCheck, text: '30-day money back on Starter' },
               { icon: Clock,       text: 'No subscription required' },
             ].map((t) => {

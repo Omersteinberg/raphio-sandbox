@@ -72,6 +72,7 @@ export function useSession() {
   const [style, setStyle] = useState("realistic");
   const imageDuration = 5; // seconds per image
   const [targetDuration, setTargetDuration] = useState(30);
+  const [aspectRatio, setAspectRatio] = useState("16:9");
   const [voiceId, setVoiceId] = useState("adam");
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(true);
@@ -115,6 +116,7 @@ export function useSession() {
   const [generationProgress, setGenerationProgress] = useState(null);
   const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
+  const [generationError, setGenerationError] = useState(null);
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
@@ -185,6 +187,7 @@ export function useSession() {
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
             if (data.style) setStyle(data.style);
+            if (data.aspectRatio) setAspectRatio(data.aspectRatio);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
             if (data.enableBridges != null) setEnableBridges(data.enableBridges);
@@ -290,10 +293,25 @@ export function useSession() {
     let pollInterval;
 
     const generatingStep = enableBridges ? 4 : 3;
-    if (sessionId && step === generatingStep) {
+    if (sessionId && step === generatingStep && !generationError) {
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
+
+          // Generation failed — surface the error, stop polling, let the user retry.
+          // Do NOT setSession here: the backend resets the stage to SCRIPT_APPROVED
+          // on failure, which would bounce the user off the generating screen before
+          // they see the error. generationError keeps them here with the message
+          // and a Regenerate button.
+          if (updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED") {
+            clearInterval(pollInterval);
+            const msg = updatedSession.video?.progressData?.error || "Video generation failed. Please try again.";
+            setGenerationError(msg);
+            refreshCredits();
+            toast.error(msg);
+            return;
+          }
+
           setSession(updatedSession);
 
           if (updatedSession.stage === "COMPLETED") {
@@ -311,7 +329,7 @@ export function useSession() {
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [sessionId, step]);
+  }, [sessionId, step, generationError, enableBridges]);
 
   // Start session with prompt
   const startSession = useCallback(async () => {
@@ -717,18 +735,11 @@ export function useSession() {
     // Opening frame
     if (openingFrame.enabled) {
       if (openingFrame.useUpload && openingFrame.uploadedFile) {
-        // Upload the image first to get URL
         if (sessionId) {
-          const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.opening = "user_image";
-            frameOptions.openingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.opening = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-          }
+          const { imageUrl: uploadedUrl } = await sessionService.uploadFrameImage(sessionId, openingFrame.uploadedFile);
+          frameOptions.opening = "user_image";
+          frameOptions.openingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.opening = { imageUrl: uploadedUrl, prompt: null };
         }
       } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
         // AI Generate mode — generate an image using the user's custom prompt
@@ -762,25 +773,16 @@ export function useSession() {
       if (openingFrame.description) {
         frameOptions.openingDescription = openingFrame.description;
       }
-    } else {
-      frameOptions.opening = "none";
     }
 
     // Closing frame
     if (closingFrame.enabled) {
       if (closingFrame.useUpload && closingFrame.uploadedFile) {
-        // Upload the image first to get URL
         if (sessionId) {
-          const uploadResult = await sessionService.uploadImages(sessionId, [closingFrame.uploadedFile]);
-          if (uploadResult.images?.length > 0) {
-            const uploadedUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-            frameOptions.closing = "user_image";
-            frameOptions.closingImageUrl = uploadedUrl;
-            newGeneratedFrameImages.closing = {
-              imageUrl: uploadedUrl,
-              prompt: null,
-            };
-          }
+          const { imageUrl: uploadedUrl } = await sessionService.uploadFrameImage(sessionId, closingFrame.uploadedFile);
+          frameOptions.closing = "user_image";
+          frameOptions.closingImageUrl = uploadedUrl;
+          newGeneratedFrameImages.closing = { imageUrl: uploadedUrl, prompt: null };
         }
       } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
         // AI Generate mode — generate an image using the user's custom prompt
@@ -814,8 +816,6 @@ export function useSession() {
       if (closingFrame.description) {
         frameOptions.closingDescription = closingFrame.description;
       }
-    } else {
-      frameOptions.closing = "none";
     }
 
     // Update generated frame images state
@@ -909,8 +909,7 @@ export function useSession() {
       const updatedSession = await sessionService.approveScript(sessionId);
       console.log("[useSession] approveScript response:", updatedSession);
       console.log("[useSession] New stage:", updatedSession?.stage);
-      console.log("[useSession] Expected step from stage:", STAGE_TO_STEP[updatedSession?.stage]);
-      
+
       setSession(updatedSession);
       toast.success("Script approved!");
     } catch (err) {
@@ -1012,21 +1011,14 @@ export function useSession() {
 
       if (openingFrame.enabled && openingFrame.useUpload && openingFrame.uploadedFile) {
         console.log("[useSession] Uploading opening frame image...");
-        const formData = new FormData();
-        formData.append("images", openingFrame.uploadedFile);
-        // Upload as session image and get URL
-        const uploadResult = await sessionService.uploadImages(sessionId, [openingFrame.uploadedFile]);
-        if (uploadResult.images?.length > 0) {
-          openingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-        }
+        const { imageUrl } = await sessionService.uploadFrameImage(sessionId, openingFrame.uploadedFile);
+        openingImageUrl = imageUrl;
       }
 
       if (closingFrame.enabled && closingFrame.useUpload && closingFrame.uploadedFile) {
         console.log("[useSession] Uploading closing frame image...");
-        const uploadResult = await sessionService.uploadImages(sessionId, [closingFrame.uploadedFile]);
-        if (uploadResult.images?.length > 0) {
-          closingImageUrl = uploadResult.images[uploadResult.images.length - 1].imageUrl;
-        }
+        const { imageUrl } = await sessionService.uploadFrameImage(sessionId, closingFrame.uploadedFile);
+        closingImageUrl = imageUrl;
       }
 
       const frameConfig = {
@@ -1076,6 +1068,9 @@ export function useSession() {
       console.log("[useSession] No sessionId, aborting startGeneration");
       return;
     }
+
+    // Clear any prior failure so the generating screen shows progress and polling resumes
+    setGenerationError(null);
 
     // Immediately transition to GeneratingStep so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
@@ -1352,6 +1347,8 @@ export function useSession() {
     imageDuration,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     voiceId,
     setVoiceId,
     videoModel,
@@ -1383,6 +1380,7 @@ export function useSession() {
 
     // Generation
     generationProgress,
+    generationError,
     finalVideoUrl,
     scriptProgress,
     insufficientCredits,

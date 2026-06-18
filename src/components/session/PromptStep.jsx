@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check, Play, Square, BookOpen } from "lucide-react";
+import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check, Play, Square, BookOpen, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
+import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
 
 const SLOT_LABELS = {
@@ -32,6 +33,7 @@ const STYLE_ICON_MAP = {
   watercolor: Droplet,
   '3d_render': Box,
 };
+
 
 const CHIP_CONFIG = {
   general:          { label: 'General Blueprint', Icon: Layers     },
@@ -74,6 +76,20 @@ const PROMPT_DICTIONARY = [
   },
 ];
 
+const REF_TYPE_OPTIONS = [
+  { value: 'character', label: 'Character / Subject', color: 'orange' },
+  { value: 'setting', label: 'Background / Setting', color: 'purple' },
+  { value: 'logo', label: 'Logo / Brand Mark', color: 'blue' },
+  { value: 'product', label: 'Product', color: 'emerald' },
+];
+
+const REF_TYPE_COLORS = {
+  character: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' },
+  setting: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
+  logo: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
+  product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+};
+
 function ReferenceInput({ item, index, type, onChange, onRemove }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -90,6 +106,9 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
   const accent = isCharacter ? '#C1440E' : '#E8603C';
   const accentRgb = isCharacter ? '193,68,14' : '232,96,60';
   const gradientEnd = isCharacter ? '#E8603C' : '#FB923C';
+
+  const isLogo = item.type === 'logo';
+  const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
 
   return (
     <motion.div
@@ -133,6 +152,26 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
       </div>
 
       <div className="p-4 space-y-3">
+
+        {/* Type selector */}
+        <div>
+          <select
+            value={item.type}
+            onChange={(e) => {
+              const newType = e.target.value;
+              const updates = { ...item, type: newType };
+              if (newType === 'logo') updates.useUpload = true;
+              onChange(index, updates);
+            }}
+            className="w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
+            style={{ background: '#FBFAF8', border: `1.5px solid rgba(${accentRgb},0.12)`, color: '#1C1917' }}
+          >
+            {REF_TYPE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Name field */}
         <div
           className="rounded-xl"
@@ -163,9 +202,12 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
           <textarea
             value={item.description}
             onChange={(e) => onChange(index, { ...item, description: e.target.value })}
-            placeholder={isCharacter
-              ? 'Describe exactly how this looks across all scenes...'
-              : 'Describe the lighting, mood, and visual feel of this space...'
+            placeholder={
+              isLogo
+                ? 'Describe how this logo should appear in scenes (e.g., "on the truck door")...'
+                : isCharacter
+                  ? 'Describe exactly how this looks across all scenes...'
+                  : 'Describe the lighting, mood, and visual feel of this space...'
             }
             rows={2}
             className="w-full bg-transparent px-3 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none resize-none rounded-xl"
@@ -173,35 +215,46 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
         </div>
 
         {/* Source toggle */}
-        <div
-          className="flex items-center gap-1.5 p-1 rounded-xl"
-          style={{ background: `rgba(${accentRgb},0.04)`, border: `1.5px solid rgba(${accentRgb},0.10)` }}
-        >
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onChange(index, { ...item, useUpload: true })}
-            aria-pressed={item.useUpload}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
-            style={item.useUpload
-              ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-              : { color: '#9B8FA8' }
-            }
+        {isLogo ? (
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl"
+            style={{ background: 'rgba(59,130,246,0.06)', border: '1.5px solid rgba(59,130,246,0.12)' }}
           >
-            <Upload className="w-3 h-3" /> Upload Reference
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
-            aria-pressed={!item.useUpload}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
-            style={!item.useUpload
-              ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-              : { color: '#9B8FA8' }
-            }
+            <span className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>
+              Upload only — logos are preserved exactly
+            </span>
+          </div>
+        ) : (
+          <div
+            className="flex items-center gap-1.5 p-1 rounded-xl"
+            style={{ background: `rgba(${accentRgb},0.04)`, border: `1.5px solid rgba(${accentRgb},0.10)` }}
           >
-            <Wand2 className="w-3 h-3" /> AI Generate
-          </motion.button>
-        </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onChange(index, { ...item, useUpload: true })}
+              aria-pressed={item.useUpload}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+              style={item.useUpload
+                ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
+                : { color: '#9B8FA8' }
+              }
+            >
+              <Upload className="w-3 h-3" /> Upload Reference
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onChange(index, { ...item, useUpload: false, referenceFile: null, referenceImage: null })}
+              aria-pressed={!item.useUpload}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+              style={!item.useUpload
+                ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
+                : { color: '#9B8FA8' }
+              }
+            >
+              <Wand2 className="w-3 h-3" /> AI Generate
+            </motion.button>
+          </div>
+        )}
 
         {/* Upload zone or AI state */}
         <AnimatePresence mode="wait">
@@ -287,7 +340,7 @@ export default function PromptStep({
   setTargetDuration,
   pipelineMode,
   onModeChange,
-  references = { characters: [], settings: [] },
+  references = [],
   onReferencesChange,
   error,
 }) {
@@ -381,7 +434,7 @@ export default function PromptStep({
   };
 
   const canStart = isReferencesMode
-    ? userPrompt?.trim() && style && references.characters.some(c => c.name?.trim() && c.description?.trim())
+    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
     : userPrompt?.trim() && images?.length > 0;
 
   return (
@@ -496,11 +549,7 @@ export default function PromptStep({
             }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
-                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
-                  Direction
-                </label>
+              </label>
               </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -549,7 +598,11 @@ export default function PromptStep({
                       boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
                       transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}
-                    onMouseEnter={e => {
+                    onMouseEnter={e => {              <div className="flex items-center gap-2">
+                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
+                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
+                  Direction
+  
                       e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
                       e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
                       e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
@@ -684,227 +737,73 @@ export default function PromptStep({
             </div>
           </div>
 
-          {/* References Mode Pipeline Subsections */}
+
+          {/* References Mode — Unified References Section */}
           {isReferencesMode && (
-            <div className="space-y-5">
-
-              {/* Studio Props & Subjects */}
-              <div
-                className="rounded-3xl overflow-hidden border"
-                style={{ borderColor: 'rgba(193,68,14,0.14)', borderLeftWidth: 3, borderLeftColor: '#C1440E', background: '#fff', boxShadow: '0 2px 12px rgba(193,68,14,0.05)' }}
-              >
-                {/* Section header */}
-                <div
-                  className="flex items-center justify-between px-6 py-4"
-                  style={{ background: 'rgba(193,68,14,0.025)', borderBottom: '1px solid rgba(193,68,14,0.07)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
-                    >
-                      <Users className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-extrabold" style={{ color: '#2D2235' }}>Studio Props & Subjects</span>
-                        <div className="group relative">
-                          <HelpCircle className="w-3.5 h-3.5 cursor-help" style={{ color: '#9B8FA8' }} />
-                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
-                            Props are anchor elements that stay visually consistent across all cuts — characters, branding, or key focus objects.
-                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[11px] mt-0.5" style={{ color: '#9B8FA8' }}>Subjects held stable across every generated cut</p>
+            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+                    References
+                  </label>
+                  <div className="group relative">
+                    <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                      Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly — no AI restyling.
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                      style={{ background: 'rgba(193,68,14,0.07)', color: '#C1440E' }}
-                    >
-                      {references.characters.length}/4
-                    </div>
-                    {references.characters.length < 4 && (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          onReferencesChange({
-                            ...references,
-                            characters: [
-                              ...references.characters,
-                              { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                            ],
-                          });
-                        }}
-                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full text-white transition-all"
-                        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 8px rgba(193,68,14,0.30)' }}
-                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add Subject
-                      </motion.button>
-                    )}
-                  </div>
                 </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  <AnimatePresence mode="popLayout">
-                    {references.characters.length === 0 ? (
-                      <motion.div
-                        key="chars-empty"
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        className="flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
-                        style={{ borderColor: 'rgba(193,68,14,0.15)', background: 'rgba(193,68,14,0.015)' }}
-                      >
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                          style={{ background: 'rgba(193,68,14,0.06)' }}
-                        >
-                          <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
-                        </div>
-                        <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No subjects added yet</p>
-                        <p className="text-[11px]" style={{ color: '#9B8FA8' }}>Add at least one prop or character to anchor your scene</p>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="chars-grid"
-                        layout
-                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                      >
-                        <AnimatePresence>
-                          {references.characters.map((char, idx) => (
-                            <ReferenceInput
-                              key={idx}
-                              item={char}
-                              index={idx}
-                              type="character"
-                              onChange={(i, updated) => {
-                                const chars = [...references.characters];
-                                chars[i] = updated;
-                                onReferencesChange({ ...references, characters: chars });
-                              }}
-                              onRemove={(i) => {
-                                const chars = references.characters.filter((_, j) => j !== i);
-                                onReferencesChange({ ...references, characters: chars });
-                              }}
-                            />
-                          ))}
-                        </AnimatePresence>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                {references.length < 8 && (
+                  <button
+                    onClick={() => {
+                      onReferencesChange([
+                        ...references,
+                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                      ]);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full text-white transition-all"
+                    style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 8px rgba(193,68,14,0.30)' }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Reference ({references.length}/8)
+                  </button>
+                )}
               </div>
-
-              {/* Environment Backgrounds */}
-              <div
-                className="rounded-3xl overflow-hidden border"
-                style={{ borderColor: 'rgba(232,96,60,0.14)', borderLeftWidth: 3, borderLeftColor: '#E8603C', background: '#fff', boxShadow: '0 2px 12px rgba(232,96,60,0.05)' }}
-              >
-                {/* Section header */}
-                <div
-                  className="flex items-center justify-between px-6 py-4"
-                  style={{ background: 'rgba(232,96,60,0.025)', borderBottom: '1px solid rgba(232,96,60,0.07)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #E8603C, #FB923C)' }}
-                    >
-                      <Camera className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <span className="text-sm font-extrabold" style={{ color: '#2D2235' }}>Environment Backgrounds</span>
-                      <p className="text-[11px] mt-0.5" style={{ color: '#9B8FA8' }}>Location blueprints for locked spatial structure</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                      style={{ background: 'rgba(232,96,60,0.07)', color: '#E8603C' }}
-                    >
-                      {references.settings.length}/2
-                    </div>
-                    {references.settings.length < 2 && (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          onReferencesChange({
-                            ...references,
-                            settings: [
-                              ...references.settings,
-                              { name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                            ],
-                          });
-                        }}
-                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full text-white transition-all"
-                        style={{ background: 'linear-gradient(135deg, #E8603C, #FB923C)', boxShadow: '0 2px 8px rgba(232,96,60,0.30)' }}
-                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(232,96,60,0.42)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(232,96,60,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add Background
-                      </motion.button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  <AnimatePresence mode="popLayout">
-                    {references.settings.length === 0 ? (
-                      <motion.div
-                        key="settings-empty"
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        className="flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
-                        style={{ borderColor: 'rgba(232,96,60,0.15)', background: 'rgba(232,96,60,0.015)' }}
-                      >
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                          style={{ background: 'rgba(232,96,60,0.06)' }}
-                        >
-                          <Camera className="w-5 h-5" style={{ color: '#E8603C', opacity: 0.5 }} />
-                        </div>
-                        <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No backgrounds defined</p>
-                        <p className="text-[11px]" style={{ color: '#9B8FA8' }}>Optional — add environment blueprints for locked spatial structure</p>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="settings-grid"
-                        layout
-                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                      >
-                        <AnimatePresence>
-                          {references.settings.map((setting, idx) => (
-                            <ReferenceInput
-                              key={idx}
-                              item={setting}
-                              index={idx}
-                              type="setting"
-                              onChange={(i, updated) => {
-                                const sets = [...references.settings];
-                                sets[i] = updated;
-                                onReferencesChange({ ...references, settings: sets });
-                              }}
-                              onRemove={(i) => {
-                                const sets = references.settings.filter((_, j) => j !== i);
-                                onReferencesChange({ ...references, settings: sets });
-                              }}
-                            />
-                          ))}
-                        </AnimatePresence>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {references.map((ref, idx) => (
+                  <ReferenceInput
+                    key={idx}
+                    item={ref}
+                    index={idx}
+                    type={ref.type}
+                    onChange={(i, updated) => {
+                      const updated_refs = [...references];
+                      updated_refs[i] = updated;
+                      onReferencesChange(updated_refs);
+                    }}
+                    onRemove={(i) => {
+                      onReferencesChange(references.filter((_, j) => j !== i));
+                    }}
+                  />
+                ))}
               </div>
-
+              {references.length === 0 && (
+                <div
+                  className="flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
+                  style={{ borderColor: 'rgba(193,68,14,0.15)', background: 'rgba(193,68,14,0.015)' }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                    style={{ background: 'rgba(193,68,14,0.06)' }}
+                  >
+                    <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
+                  </div>
+                  <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No references added yet</p>
+                  <p className="text-[11px]" style={{ color: '#9B8FA8' }}>Add a character, setting, logo, or product to get started</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1104,6 +1003,29 @@ export default function PromptStep({
               </label>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setStyle(option.id)}
+                  className="p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] bg-white group"
+                  style={
+                    style === option.id
+                      ? { borderColor: "#F97066", background: "rgba(249,112,102,0.03)", boxShadow: "0 4px 12px rgba(249,112,102,0.05)" }
+                      : { borderColor: "#F2EDFF", background: "#FCFAFF" }
+                  }
+                >
+                  <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
+                    {option.icon || STYLE_ICONS[option.id] || "🎬"}
+                  </span>
+                  <div className="space-y-0.5">
+                    <span className="font-black text-xs block text-stone-800">{option.name}</span>
+                    <span className="text-[10px] text-stone-400 block line-clamp-1">{option.description}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
               {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => {
                 const isSelected = style === option.id;
                 const StyleIcon = STYLE_ICON_MAP[option.id] || Sparkles;
@@ -1214,6 +1136,36 @@ export default function PromptStep({
               <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
                 Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
               </p>
+            </div>
+          )}
+
+          {/* Output Format / Aspect Ratio Selection */}
+          {setAspectRatio && (
+            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+                <Film className="w-4 h-4 inline mr-1.5 text-stone-400 align-text-bottom" />
+                Output Format
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {ASPECT_RATIO_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAspectRatio(opt.id)}
+                    className="p-4 rounded-2xl border-2 text-left transition-all duration-200 bg-white flex items-center gap-3"
+                    style={
+                      (aspectRatio || '16:9') === opt.id
+                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.04)" }
+                        : { borderColor: "rgba(240,234,255,0.8)" }
+                    }
+                  >
+                    <span className="text-2xl leading-none">{opt.icon}</span>
+                    <span className="space-y-0.5">
+                      <span className="font-black text-xs block text-stone-800">{opt.name}</span>
+                      <span className="text-[10px] text-stone-400 block">{opt.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

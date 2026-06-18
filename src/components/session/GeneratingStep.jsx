@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
 
-export default function GeneratingStep({ session, scriptData, openingFrame, closingFrame }) {
+export default function GeneratingStep({ session, scriptData, openingFrame, closingFrame, generationError, onRegenerate }) {
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
@@ -109,6 +109,42 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
     (session?.video?.finalVideoUrl ? 15 : 0)
   );
   const progress = Math.max(simulatedProgress, realProgress);
+
+  // Failure state — generation failed; show the error and let the user regenerate.
+  const failed = !!generationError || progressData.stage === "FAILED" || session?.video?.status === "FAILED";
+  const errorMessage = generationError || progressData.error || "Something went wrong while generating your video.";
+
+  if (failed) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-lg text-center"
+        >
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
+            <Film className="w-10 h-10 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Generation Failed</h1>
+          <p className="text-gray-600 mb-4">We couldn't finish generating your video.</p>
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200 text-left mb-6">
+            <p className="text-sm text-red-800 break-words">{errorMessage}</p>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Your credits were refunded. You can try generating again.
+          </p>
+          <button
+            onClick={onRegenerate}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
+            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+          >
+            <Film className="w-5 h-5" />
+            Regenerate Video
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-8">

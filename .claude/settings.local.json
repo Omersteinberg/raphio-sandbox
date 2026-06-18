@@ -18,13 +18,9 @@
       "WebFetch(domain:deepinfra.com)",
       "WebFetch(domain:www.together.ai)",
       "WebFetch(domain:blog.segmind.com)",
-<<<<<<< HEAD
-      "Bash(python skills/ui-ux-pro-max/scripts/search.py \"SaaS video creation dashboard welcome hero\" --design-system -p \"Raphio\" -f markdown)"
-=======
       "Bash(npx vite *)",
       "Bash(Select-Object -First 30)",
       "PowerShell(npx vite build --logLevel error 2>&1)"
->>>>>>> d53e659dac7e740865bf36ac8a7f5225687cc9fd
     ]
   }
 }
