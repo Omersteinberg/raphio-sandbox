@@ -549,9 +549,13 @@ export default function PromptStep({
             }}
           >
             <div className="flex items-center justify-between">
-              </label>
+              <div className="flex items-center gap-2">
+                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
+                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
+                  Direction
+                </label>
               </div>
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowDictionary(d => !d)}
                     className="flex items-center gap-1.5 rounded-full"
@@ -598,11 +602,7 @@ export default function PromptStep({
                       boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
                       transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}
-                    onMouseEnter={e => {              <div className="flex items-center gap-2">
-                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
-                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
-                  Direction
-  
+                    onMouseEnter={e => {
                       e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
                       e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
                       e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
@@ -1023,54 +1023,6 @@ export default function PromptStep({
                   </div>
                 </button>
               ))}
-            </div>
-          </div>
-
-              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => {
-                const isSelected = style === option.id;
-                const StyleIcon = STYLE_ICON_MAP[option.id] || Sparkles;
-                return (
-                  <motion.button
-                    key={option.id}
-                    onClick={() => setStyle(option.id)}
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                    className="relative p-4 rounded-2xl border-2 text-left flex flex-col gap-2.5 min-h-[124px]"
-                    style={
-                      isSelected
-                        ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.07) 0%, rgba(232,96,60,0.04) 100%)", boxShadow: "0 4px 16px rgba(193,68,14,0.14)" }
-                        : { borderColor: "rgba(193,68,14,0.08)", background: "#FBFAF8" }
-                    }
-                  >
-                    {isSelected && (
-                      <motion.span
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                        className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
-                      >
-                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                      </motion.span>
-                    )}
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200"
-                      style={
-                        isSelected
-                          ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
-                          : { background: "rgba(193,68,14,0.06)" }
-                      }
-                    >
-                      <StyleIcon style={{ width: 18, height: 18, color: isSelected ? "#fff" : "#C1440E" }} strokeWidth={2} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="font-extrabold text-xs block" style={{ color: "#1C1917" }}>{option.name}</span>
-                      <span className="text-[10px] block leading-snug line-clamp-2" style={{ color: "#9c8f85" }}>{option.description}</span>
-                    </div>
-                  </motion.button>
-                );
-              })}
             </div>
           </div>
 
