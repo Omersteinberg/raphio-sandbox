@@ -338,6 +338,8 @@ export default function PromptStep({
   setEnableBridges,
   targetDuration,
   setTargetDuration,
+  aspectRatio,
+  setAspectRatio,
   pipelineMode,
   onModeChange,
   references = [],
@@ -1015,7 +1017,7 @@ export default function PromptStep({
                   }
                 >
                   <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
-                    {option.icon || STYLE_ICONS[option.id] || "🎬"}
+                    {option.icon || "🎬"}
                   </span>
                   <div className="space-y-0.5">
                     <span className="font-black text-xs block text-stone-800">{option.name}</span>

@@ -62,10 +62,12 @@ export function useReferencesSession() {
   onSessionLoadedRef.current = (data) => {
     if (data.referenceData) {
       setReferenceData(data.referenceData);
-      setReferences({
-        characters: data.referenceData.characters || [],
-        settings: data.referenceData.settings || [],
-      });
+      const allRefs = [
+        ...(data.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+        ...(data.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+        ...(data.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+      ];
+      setReferences(allRefs);
     }
     if (data.sceneFrames?.length) {
       setSceneFrames(data.sceneFrames);
@@ -85,10 +87,12 @@ export function useReferencesSession() {
 
       if (session.referenceData) {
         setReferenceData(session.referenceData);
-        setReferences({
-          characters: session.referenceData.characters || [],
-          settings: session.referenceData.settings || [],
-        });
+        const allRefs = [
+          ...(session.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+          ...(session.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+          ...(session.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+        ];
+        setReferences(allRefs);
       }
       if (session.scriptData) {
         setScriptData(session.scriptData);
@@ -109,27 +113,21 @@ export function useReferencesSession() {
   useEffect(() => {
     if (sessionId || step !== 0) return;
 
+    const refsArray = Array.isArray(references) ? references : [];
     const hasDraft = Boolean(userPrompt?.trim()) ||
-      references.characters.some(c => c.name.trim()) ||
-      references.settings.some(s => s.name.trim());
+      refsArray.some(r => r.name?.trim());
 
     if (!hasDraft) return;
 
     savePending("references", {
       userPrompt,
       style,
-      references: {
-        characters: references.characters.map(c => ({
-          name: c.name,
-          description: c.description,
-          useUpload: c.useUpload,
-        })),
-        settings: references.settings.map(s => ({
-          name: s.name,
-          description: s.description,
-          useUpload: s.useUpload,
-        })),
-      },
+      references: refsArray.map(r => ({
+        type: r.type || 'character',
+        name: r.name,
+        description: r.description,
+        useUpload: r.useUpload,
+      })),
     }).catch(console.warn);
 
   }, [userPrompt, style, references, sessionId, step]);

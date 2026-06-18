@@ -110,10 +110,13 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         if (saved.userPrompt) setUserPrompt(saved.userPrompt);
         if (saved.style) setStyle(saved.style);
         if (saved.references) {
-          setReferences({
-            characters: saved.references.characters || [],
-            settings: saved.references.settings || [],
-          });
+          const refs = Array.isArray(saved.references)
+            ? saved.references
+            : [
+                ...(saved.references.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+                ...(saved.references.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+              ];
+          setReferences(refs);
         }
       } catch (err) {
         console.warn("[ReferencesPipelineCreator] rehydrate failed:", err);
