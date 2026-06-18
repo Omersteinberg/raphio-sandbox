@@ -22,6 +22,9 @@ const C = {
   white:   '#FFFAF7',
 };
 
+// ── Hero video ──────────────────────────────────────────────────────
+const HERO_VIDEO_URL = 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/202606181832.mp4';
+
 function PricingButton({ tier, onClick }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -122,157 +125,22 @@ function ScrollWord({ word, scrollYProgress, start, end, targetColor, mutedColor
   );
 }
 
-// ── App mockup UI (With Upgrade 2 Video Simulation) ────────────────
-function MockupUI() {
-  const scenes = ['Opening shot', 'The craft', 'First customers'];
-  const canvasRef = useRef(null);
-
-  // Upgrade 2: Generative canvas rendering engine to simulate real-time rendering logic
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let frame = 0;
-    let animationId;
-
-    const render = () => {
-      frame++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Render subtle procedural horizontal pan tracking logic
-      ctx.fillStyle = 'rgba(193, 68, 14, 0.04)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Procedural scan lines grid
-      ctx.strokeStyle = 'rgba(28, 25, 23, 0.02)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < canvas.height; i += 8) {
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(canvas.width, i);
-        ctx.stroke();
-      }
-
-      // Live cinematic focus reticle math
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radius = 40 + Math.sin(frame * 0.03) * 3;
-      
-      ctx.strokeStyle = 'rgba(193, 68, 14, 0.15)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // UI corner accents
-      ctx.strokeStyle = 'rgba(28, 25, 23, 0.2)';
-      ctx.lineWidth = 2;
-      const len = 10;
-      const pad = 12;
-      
-      // Top Left
-      ctx.beginPath(); ctx.moveTo(pad, pad + len); ctx.lineTo(pad, pad); ctx.lineTo(pad + len, pad); ctx.stroke();
-      // Bottom Right
-      ctx.beginPath(); ctx.moveTo(canvas.width - pad, canvas.height - pad - len); ctx.lineTo(canvas.width - pad, canvas.height - pad); ctx.lineTo(canvas.width - pad - len, canvas.height - pad); ctx.stroke();
-
-      animationId = requestAnimationFrame(render);
-    };
-
-    render();
-    return () => cancelAnimationFrame(animationId);
-  }, []);
-
-  return (
-    <div style={{
-      background: C.white, borderRadius: 16, overflow: 'hidden',
-      border: `1px solid ${C.faint}`, width: '100%', height: '100%',
-      display: 'flex', flexDirection: 'column',
-      boxShadow: '0 24px 64px rgba(28,25,23,0.14)',
-    }}>
-      {/* Title bar */}
-      <div style={{ background: C.bgAlt, borderBottom: `1px solid ${C.faint}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['#E8603C','#E8A030','#5CB85C'].map(c => <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />)}
-        </div>
-        <div style={{ flex: 1, background: C.faint, borderRadius: 6, padding: '3px 10px', fontSize: 11, color: C.muted, textAlign: 'center' }}>
-          raphio.ai/create
-        </div>
-      </div>
-      {/* Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Scenes */}
-        <div style={{ width: '38%', padding: 12, borderRight: `1px solid ${C.faint}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, marginBottom: 4 }}>Scenes</p>
-          {scenes.map((s, i) => (
-            <div key={s} style={{ padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
-              background: i === 0 ? 'rgba(193,68,14,0.09)' : C.bgAlt,
-              color: i === 0 ? C.terra : C.muted,
-              border: i === 0 ? '1px solid rgba(193,68,14,0.18)' : '1px solid transparent',
-            }}>
-              {i === 0 ? <Play style={{ width: 10, height: 10, color: C.terra }} /> : <div style={{ width: 10, height: 10, borderRadius: 3, background: C.faint }} />}
-              {s}
-            </div>
-          ))}
-          <div style={{ marginTop: 'auto' }}>
-            <div style={{ height: 3, borderRadius: 99, background: C.faint, overflow: 'hidden' }}>
-              <motion.div style={{ height: '100%', borderRadius: 99, background: `linear-gradient(90deg, ${C.terra}, ${C.terraLt})` }}
-                initial={{ width: '0%' }} animate={{ width: '38%' }} transition={{ delay: 0.6, duration: 1.2, ease: 'easeOut' }} />
-            </div>
-            <p style={{ fontSize: 10, marginTop: 4, color: C.muted }}>0:03 / 0:08</p>
-          </div>
-        </div>
-        {/* Preview Container */}
-        <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ flex: 1, borderRadius: 10, background: C.bgAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-            <canvas ref={canvasRef} width={240} height={180} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }}>
-              <defs><pattern id="s" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="10" stroke={C.dark} strokeWidth="1.5"/>
-              </pattern></defs>
-              <rect width="100%" height="100%" fill="url(#s)"/>
-            </svg>
-            <motion.div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.terra}, ${C.terraLt})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px rgba(193,68,14,0.35)`, zIndex: 1 }}
-              animate={{ scale: [1, 1.06, 1] }} transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}>
-              <Play style={{ width: 14, height: 14, color: '#fff', marginLeft: 2 }} />
-            </motion.div>
-          </div>
-          <div style={{ padding: '8px 10px', borderRadius: 10, background: C.bgAlt, border: `1px solid ${C.faint}`, fontSize: 10, color: C.muted, fontStyle: 'italic', lineHeight: 1.5 }}>
-            "The aroma of freshly baked bread fills the air as warm light floods through the windows..."
-          </div>
-        </div>
-      </div>
-      {/* Status bar */}
-      <div style={{ background: C.bgAlt, borderTop: `1px solid ${C.faint}`, padding: '7px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <motion.div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5CB85C' }}
-            animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.4 }} />
-          <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}>Generating script...</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Mic style={{ width: 10, height: 10, color: C.terra }} />
-          <span style={{ fontSize: 10, color: C.muted }}>Adam · EN</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Steps data ────────────────────────────────────────────────────
 const STEPS = [
   {
-    num: '01', label: 'Describe', title: 'Tell Raphio your idea',
+    num: '01', label: 'Describe', tab: 'Write your idea', title: 'Write your idea',
     icon: Wand2,
-    body: 'One sentence or twenty — Raphio writes a structured, scene-by-scene script automatically. No briefs, no templates.',
+    body: "Type what you want your video to be about — one sentence or a full paragraph. Think of it like texting a friend. You're in control of the story.",
   },
   {
-    num: '02', label: 'Add visuals', title: 'Upload your images',
+    num: '02', label: 'Add visuals', tab: 'Upload photos', title: 'Upload your photos',
     icon: Upload,
-    body: 'Drop in your photos or generate new ones with AI. Each image gets matched to the right scene — automatically aligned to your script.',
+    body: 'Drop in photos from your phone or computer. Raphio matches each photo to the right moment in your video automatically — no sorting needed.',
   },
   {
-    num: '03', label: 'Export', title: 'Choose a voice & go',
+    num: '03', label: 'Export', tab: 'Download', title: 'Pick a voice, download your video',
     icon: Mic,
-    body: 'Pick from 36+ natural-sounding voices. Hit generate — your finished video is ready to download or share in minutes.',
+    body: 'Choose from 36+ natural-sounding voices, hit generate, and your finished video is ready in minutes. Download it or share the link directly.',
   },
 ];
 
@@ -849,7 +717,7 @@ function HowItWorks() {
                   transition: 'all 0.22s ease',
                 }}>
                 <span style={{ fontSize: 12, color: active === i ? 'rgba(255,255,255,0.6)' : C.muted }}>{s.num}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: active === i ? '#fff' : C.dark }}>{s.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: active === i ? '#fff' : C.dark }}>{s.tab}</span>
               </button>
             ))}
           </div>
@@ -870,14 +738,14 @@ function HowItWorks() {
                   boxShadow: active === i ? '0 4px 16px rgba(28,25,23,0.05)' : 'none', transition: 'all 0.25s',
                 }}>
                 <div style={{ position: 'relative' }}>
-                  <span className="display" style={{ fontSize: 28, lineHeight: 1, color: active === i ? C.terra : C.faint, transition: 'color 0.25s' }}>{s.num}</span>
+                  <span className="display" style={{ fontSize: active === i ? 42 : 32, lineHeight: 1, color: active === i ? C.terra : C.faint, transition: 'color 0.25s, font-size 0.25s' }}>{s.num}</span>
                   {active === i && (
                     <motion.div layoutId="pip" style={{ position: 'absolute', bottom: -3, left: 0, right: 0, height: 2, borderRadius: 99, background: C.terra }} />
                   )}
                 </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: active === i ? C.dark : C.muted, lineHeight: 1.2, transition: 'color 0.25s' }}>{s.label}</p>
-                  <p style={{ fontSize: 11, color: C.muted, marginTop: 2, opacity: active === i ? 1 : 0.5 }}>
+                  <p style={{ fontSize: active === i ? 18 : 15, fontWeight: active === i ? 800 : 600, color: active === i ? C.dark : C.muted, lineHeight: 1.2, transition: 'color 0.25s, font-size 0.25s' }}>{s.label}</p>
+                  <p style={{ fontSize: 13, fontWeight: active === i ? 600 : 500, color: active === i ? C.terra : C.muted, marginTop: 2, opacity: active === i ? 1 : 0.55 }}>
                     {active === i ? 'Active' : 'Jump to step'}
                   </p>
                 </div>
@@ -947,15 +815,15 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <button onClick={() => scrollTo('hero')} className="hover:opacity-80 transition-opacity">
-              <img src="/Logo.svg" alt="Raphio" className="h-7" />
+              <img src={scrolled ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
             </button>
             <nav className="hidden sm:flex items-center gap-1">
               {[['How it works','how-it-works'],['Pricing','pricing']].map(([label, id]) => (
                 <button key={id} onClick={() => scrollTo(id)}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                  style={{ color: C.dark, background: 'transparent' }}
-                  onMouseEnter={e => { e.currentTarget.style.background='rgba(193,68,14,0.06)'; e.currentTarget.style.color=C.terra; }}
-                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.dark; }}
+                  style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = scrolled ? 'rgba(193,68,14,0.06)' : 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = scrolled ? C.terra : '#FFD9C7'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; }}
                 >{label}</button>
               ))}
             </nav>
@@ -963,156 +831,87 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <button onClick={() => navigate('/login')}
               className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
-              style={{ color: C.dark, background: 'transparent' }}
-              onMouseEnter={e => { e.currentTarget.style.background='rgba(193,68,14,0.06)'; e.currentTarget.style.color=C.terra; }}
-              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.dark; }}
+              style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.background = scrolled ? 'rgba(193,68,14,0.06)' : 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = scrolled ? C.terra : '#FFD9C7'; }}
+              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; }}
             >Log in</button>
             <button onClick={() => navigate('/create')}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all"
-              style={{ background: C.white, color: C.terra, border: `1.5px solid ${C.terra}` }}
+              style={{
+                background: scrolled ? C.white : 'transparent',
+                color: scrolled ? C.terra : '#FFFAF7',
+                border: `1.5px solid ${scrolled ? C.terra : 'rgba(255,250,247,0.55)'}`,
+              }}
               onMouseEnter={e => { e.currentTarget.style.background=`linear-gradient(135deg,${C.terra},${C.terraLt})`; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.boxShadow=`0 4px 16px rgba(193,68,14,0.30)`; }}
-              onMouseLeave={e => { e.currentTarget.style.background=C.white; e.currentTarget.style.color=C.terra; e.currentTarget.style.borderColor=C.terra; e.currentTarget.style.boxShadow='none'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = scrolled ? C.white : 'transparent'; e.currentTarget.style.color = scrolled ? C.terra : '#FFFAF7'; e.currentTarget.style.borderColor = scrolled ? C.terra : 'rgba(255,250,247,0.55)'; e.currentTarget.style.boxShadow='none'; }}
             >Get started <ArrowRight className="w-3.5 h-3.5" /></button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section id="hero" className="min-h-screen flex items-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FFFDFB 0%, #FDF2E9 45%, #EBE4DC 100%)' }}>
-        <div className="max-w-7xl mx-auto px-6 w-full py-12 relative">
-          
-          {/* Sparkle 3: Positioned explicitly to the left of the hero text column */}
-          <svg 
-            aria-hidden="true" 
-            viewBox="0 0 20 20" 
-            fill="none" 
-            style={{ position: 'absolute', top: '8%', left: '-2.2%', width: 12, height: 12, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
+      {/* Hero — fullscreen cinematic video */}
+      <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100vh', minHeight: 600, background: '#0A0908' }}>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          src={HERO_VIDEO_URL}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
+        {/* Dark overlay for headline legibility — tuned so the footage still reads as vivid underneath */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.30) 45%, rgba(10,9,8,0.62) 100%)' }}
+        />
+
+        {/* Headline content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease: [0.22,1,0.36,1] }}
+            className="display leading-none max-w-4xl"
+            style={{ fontSize: 'clamp(38px,6vw,72px)', color: '#FFFAF7', letterSpacing: '-0.01em', lineHeight: 1.08, textShadow: '0 4px 28px rgba(0,0,0,0.4)' }}
           >
-            <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
-          </svg>
+            Turn your photos into a video{' '}
+            <span style={{ color: C.terra }}>— instantly.</span>
+          </motion.h1>
 
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <motion.p
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.26 }}
+            className="mt-5 max-w-lg text-lg leading-relaxed"
+            style={{ color: 'rgba(255,250,247,0.84)' }}
+          >
+            Upload your photos, describe what you want, and Raphio handles the rest. No editing skills needed.
+          </motion.p>
 
-            {/* Left */}
-            <div>
-              <motion.h1 initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.7,delay:0.1,ease:[0.22,1,0.36,1] }}
-                className="display leading-none mb-8"
-                style={{ fontSize:'clamp(52px,7vw,72px)', color:C.dark ,lineHeight: 1.05 }}>
-                Turn your photos into videos   {' '}
-                <span style={{ color:C.terra }}>Instantly.</span>
-              </motion.h1>
-
-              <motion.p initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.5,delay:0.25 }}
-                className="text-lg leading-relaxed mb-12 max-w-md" style={{ fontSize:'19px', color:'#6B5A52' }}>
-                Upload your images, describe what you want, and Raphio handles the rest. No editing skills needed.
-              </motion.p>
-
-              <motion.div initial={{ opacity:0,y:14 }} animate={{ opacity:1,y:0 }} transition={{ duration:0.4,delay:0.38 }}
-                className="flex items-center gap-4">
-                <button onClick={() => navigate('/create')}
-                  className="flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-bold text-white"
-                  style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 20px rgba(193,68,14,0.30)`, transition:'box-shadow 0.3s ease, transform 0.3s ease' }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 32px rgba(193,68,14,0.48)`; e.currentTarget.style.transform='translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 20px rgba(193,68,14,0.30)`; e.currentTarget.style.transform='translateY(0)'; }}
-                >
-                  Create your video
-                  <ArrowRight style={{ width:16, height:16 }} />
-                </button>
-                <span className="text-sm" style={{ color:'#6B5A52' }}>Free to try · Ready in minutes</span>
-              </motion.div>
-
-              {/* Social proof */}
-              <motion.div
-                initial={{ opacity:0, y:14 }}
-                animate={{ opacity:1, y:0 }}
-                transition={{ duration:0.4, delay:0.52 }}
-                className="flex items-center gap-3 mt-8 relative"
-              >
-                {/* Sparkle 1: Positioned comfortably further to the left of the avatar cluster */}
-                <svg 
-                  aria-hidden="true" 
-                  viewBox="0 0 20 20" 
-                  fill="none" 
-                  style={{ position: 'absolute', top: '10%', left: '-32px', transform: 'translateY(-50%)', width: 15, height: 15, color: C.terra, opacity: 0.35, pointerEvents: 'none' }}
-                >
-                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
-                </svg>
-
-                <div className="flex items-center">
-                  {['Felix','Mia','Jordan','Priya'].map((seed, i) => (
-                    <img
-                      key={seed}
-                      src={`https://api.dicebear.com/9.x/avataaars/png?seed=${seed}&size=60`}
-                      alt="Creator avatar"
-                      style={{
-                        width:32,
-                        height:32,
-                        borderRadius:'50%',
-                        border:`2.5px solid ${C.white}`,
-                        marginLeft: i === 0 ? 0 : -10,
-                        boxShadow:'0 1px 4px rgba(28,25,23,0.14)',
-                        flexShrink:0,
-                        objectFit:'cover',
-                        background:C.bgAlt,
-                      }}
-                    />
-                  ))}
-                </div>
-                <p className="text-sm" style={{ color:'#6B5A52', lineHeight:1.4 }}>
-                  Join{' '}<span style={{ fontWeight:700, color:C.dark }}>5,000+</span> creators already making amazing videos
-                </p>
-              </motion.div>
-            </div>
-
-            {/* Right: Mockup Interface + Floating elements */}
-            <motion.div className="hidden lg:block relative" style={{ height: 360 }}
-              initial={{ opacity:0, y:28 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.8, delay:0.2, ease:[0.22,1,0.36,1] }}>
-              <div style={{ position: 'relative', height: '100%' }}>
-                <MockupUI />
-                
-                {/* Sparkle 2: Nested inline on the right side, slightly inward toward the center right edge of the interface viewport */}
-                <svg 
-                  aria-hidden="true" 
-                  viewBox="0 0 20 20" 
-                  fill="none" 
-                  style={{ position: 'absolute', top: '22px', right: '-8%', width: 16, height: 16, color: C.terra, opacity: 0.30, pointerEvents: 'none' }}
-                >
-                  <path d="M10,0 L14,6 L20,10 L14,14 L10,20 L6,14 L0,10 L6,6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
-                </svg>
-
-                {/* Upgrade 3: Dynamic Independent Floating Logic */}
-                <motion.div 
-                  initial={{ opacity:0, y:10 }}
-                  animate={{ 
-                    opacity: 1, 
-                    y: [0, -8, 0],
-                  }} 
-                  transition={{ 
-                    opacity: { delay: 0.8, duration: 0.4 },
-                    y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
-                  }}
-                  style={{ 
-                    position:'absolute', 
-                    bottom:-16, 
-                    left:-24, 
-                    display:'flex', 
-                    alignItems:'center', 
-                    gap:8, 
-                    padding:'10px 16px', 
-                    borderRadius:12, 
-                    background:C.white, 
-                    border:`1px solid ${C.faint}`, 
-                    boxShadow:'0 12px 32px rgba(28,25,23,0.08)' 
-                  }}
-                >
-                  <Sparkles style={{ width:14, height:14, color:C.terra }} />
-                  <span style={{ fontSize:12, fontWeight:700, color:C.dark }}>Script ready in 12s</span>
-                </motion.div>
-              </div>
-            </motion.div>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}
+            className="mt-9 flex flex-col items-center gap-3"
+          >
+            <button
+              onClick={() => navigate('/login')}
+              className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
+              style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 24px rgba(193,68,14,0.35)' }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(193,68,14,0.35)'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
+            >
+              Try it free
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium" style={{ color: 'rgba(255,250,247,0.58)' }}>No credit card needed · Ready in minutes</span>
+          </motion.div>
         </div>
       </section>
+
+      {/* Hero footnote — stays on the hero's dark background so it flows
+          straight into the stats strip instead of breaking to a new color */}
+      <div className="py-6 px-6 text-center" style={{ background: '#0A0908' }}>
+        <p className="text-sm font-semibold" style={{ color: 'rgba(245,240,235,0.55)' }}>
+          All videos above were made with Raphio — real outputs, no post-production
+        </p>
+      </div>
 
       {/* Stats strip */}
       <div style={{ background: C.dark }}>
