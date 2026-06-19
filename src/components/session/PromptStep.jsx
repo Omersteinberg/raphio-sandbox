@@ -1,6 +1,11 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2, ChevronDown, ChevronUp, GripVertical, HelpCircle, Plus, Layers, Grid, Users, Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Clapperboard, Drama, Droplet, Box, Zap, Check, Play, Square, BookOpen, Clock } from "lucide-react";
+import {
+  Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
+  ChevronDown, ChevronUp, HelpCircle, Plus, Layers, Grid, Users,
+  Briefcase, Smartphone, Heart, Tag, Lightbulb, Camera, Drama,
+  Droplet, Box, Zap, Check, Play, Square, BookOpen,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -9,11 +14,11 @@ import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
 
 const SLOT_LABELS = {
-  general: ['Opening Scene','Main Hook','Scene 3','Scene 4','Scene 5','Scene 6','Scene 7','Scene 8','Scene 9','Call to Action'],
-  business_ad: ['Hook','Problem','Solution','Product Demo','Social Proof','Testimonial','Scene 7','Scene 8','Scene 9','Call to Action'],
-  social_content: ['Hook','Scene 2','Scene 3','Scene 4','Scene 5','Scene 6','Scene 7','Scene 8','Scene 9','Outro'],
-  birthday: ['Opening Moment','Memory 1','Memory 2','Memory 3','Memory 4','Memory 5','Memory 6','Memory 7','Memory 8','Closing Message'],
-  product_showcase: ['Hero Shot','Feature 1','Feature 2','Feature 3','Feature 4','Lifestyle','Testimonial','Price & CTA','Scene 9','Closing'],
+  general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
+  business_ad: ['Opening shot', 'The problem', 'The solution', 'Product in action', 'Happy customers', 'Testimonial', 'Scene 7', 'Scene 8', 'Scene 9', 'Call to action'],
+  social_content: ['Opening shot', 'Scene 2', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
+  birthday: ['Opening moment', 'Memory 1', 'Memory 2', 'Memory 3', 'Memory 4', 'Memory 5', 'Memory 6', 'Memory 7', 'Memory 8', 'Closing message'],
+  product_showcase: ['Main shot', 'Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Lifestyle shot', 'Testimonial', 'Price & call to action', 'Scene 9', 'Ending'],
 };
 
 const DURATION_OPTIONS = [
@@ -26,7 +31,7 @@ const DURATION_OPTIONS = [
 const STYLE_ICON_MAP = {
   realistic: Camera,
   animated: Palette,
-  cinematic: Clapperboard,
+  cinematic: Film,
   surreal: Wand2,
   anime: Drama,
   comic_book: Zap,
@@ -34,13 +39,26 @@ const STYLE_ICON_MAP = {
   '3d_render': Box,
 };
 
-
 const CHIP_CONFIG = {
-  general:          { label: 'General Blueprint', Icon: Layers     },
-  business_ad:      { label: 'Business Ad',       Icon: Briefcase  },
-  social_content:   { label: 'Social Clip',       Icon: Smartphone },
-  birthday:         { label: 'Memory Event',      Icon: Heart      },
-  product_showcase: { label: 'Product Showcase',  Icon: Tag        },
+  general:          { label: 'General',         Icon: Layers,     blurb: 'Works for any kind of video' },
+  business_ad:      { label: 'Business Ad',      Icon: Briefcase,  blurb: 'Promote a product or service' },
+  social_content:   { label: 'Social Clip',      Icon: Smartphone, blurb: 'Short & snappy for social media' },
+  birthday:         { label: 'Memory Event',     Icon: Heart,      blurb: 'Celebrate a special moment' },
+  product_showcase: { label: 'Product Showcase', Icon: Tag,        blurb: 'Highlight a product in detail' },
+};
+
+const EXAMPLE_PROMPTS = [
+  'A travel montage from my holiday photos',
+  'A product showcase for my business',
+  'A birthday memory reel for someone special',
+  'A gym transformation video',
+  'A real estate walkthrough of my property',
+];
+
+// Pixel dimensions for the literal landscape/portrait rectangle previews
+const RATIO_BOX = {
+  '16:9': { w: 52, h: 29 },
+  '9:16': { w: 29, h: 52 },
 };
 
 const PROMPT_DICTIONARY = [
@@ -88,6 +106,28 @@ const REF_TYPE_COLORS = {
   setting: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
   logo: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
   product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+};
+
+// ── Shared step badge — used by every section header in the new flow ──
+function StepBadge({ n }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full flex-shrink-0 font-black"
+      style={{
+        width: 30, height: 30, fontSize: 14,
+        background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+        color: '#fff',
+        boxShadow: '0 3px 10px rgba(193,68,14,0.28)',
+      }}
+    >
+      {n}
+    </span>
+  );
+}
+
+const CARD_SHADOW = {
+  background: '#ffffff',
+  boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
 function ReferenceInput({ item, index, type, onChange, onRemove }) {
@@ -360,6 +400,7 @@ export default function PromptStep({
   const [template, setTemplate] = useState('general');
   const [targetSlot, setTargetSlot] = useState(null);
   const [dragSlot, setDragSlot] = useState(null);
+  const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
 
@@ -439,82 +480,64 @@ export default function PromptStep({
     ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
     : userPrompt?.trim() && images?.length > 0;
 
+  const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
+  const totalSteps = isReferencesMode ? 4 : 6;
+  const showStickySubmit = scrolledPastHero && wordCount >= 5;
+
   return (
-    <div className="w-full h-full overflow-y-auto" style={{ background: 'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)' }}>
-      <div className="min-h-full flex flex-col items-center justify-start px-6 py-12 md:py-16 pb-28">
+    <div
+      className="w-full h-full overflow-y-auto relative"
+      style={{ background: '#F5F0EB' }}
+      onScroll={(e) => setScrolledPastHero(e.currentTarget.scrollTop > 240)}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
+        .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
+      `}</style>
+      <div className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6 py-12 md:py-16 pb-32">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-4xl space-y-7"
+          className="w-full max-w-3xl space-y-5"
         >
-          {/* Header */}
-          <div className="text-center mb-2">
-            {/* Layered icon */}
-            <div className="relative inline-flex items-center justify-center mb-5">
-              <div
-                className="absolute rounded-3xl"
-                style={{ inset: '-10px', background: 'rgba(193,68,14,0.08)', filter: 'blur(18px)' }}
-              />
-              <div
-                className="relative flex items-center justify-center w-[72px] h-[72px] rounded-[22px]"
-                style={{
-                  background: 'linear-gradient(145deg, #FFF6EF 0%, #FAF0EA 100%)',
-                  boxShadow: '0 0 0 1px rgba(193,68,14,0.12), 0 6px 6px rgba(193,68,14,0.18), inset 0 1px 0 rgba(255,255,255,0.95)',
-                }}
-              >
-                <ImageIcon style={{ width: 30, height: 30, color: '#C1440E' }} />
-                <div
-                  className="absolute flex items-center justify-center"
-                  style={{
-                    bottom: -9, right: -9, width: 30, height: 30, borderRadius: 11,
-                    background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                    boxShadow: '0 2px 8px rgba(193,68,14,0.45), 0 0 0 2.5px #F5F0EB',
-                  }}
-                >
-                  <Sparkles style={{ width: 16, height: 16, color: '#fff' }} />
-                </div>
-              </div>
-            </div>
-
-            {!isReferencesMode ? (
-              <div className="space-y-2.5">
-                <h1
-                  className="font-black tracking-tight leading-none"
-                  style={{ fontSize: 'clamp(2.3rem, 5vw, 2rem)', color: '#1C1917' }}
-                >
-                  Create your{' '}
-                  <span style={{ color: '#C1440E' }}>video.</span>
-                </h1>
-                <p className="font-medium leading-relaxed" style={{ fontSize: 15, color: '#6B5A52', paddingTop: '5px' }}>
-                  Tell us what your video should be about, and map out your scene pictures.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                <h1
-                  className="font-black tracking-tight leading-none"
-                  style={{ fontSize: 'clamp(2.3rem, 5vw, 2rem)', color: '#1C1917' }}
-                >
-                  Studio Blueprint{' '}
-                  <span style={{ color: '#C1440E' }}>Builder.</span>
-                </h1>
-                <p className="font-medium leading-relaxed" style={{ fontSize: 15, color: '#6B5A52', paddingTop: '5px' }}>
-                  Define your visual props and settings, then reveal the full storyline.
-                </p>
-              </div>
-            )}
+          {/* Hero headline */}
+          <div className="text-center mb-1">
+            <h1 className="display" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: '#1C1917', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
+              {isReferencesMode ? 'Studio Blueprint Builder' : 'Your story. Your video.'}
+            </h1>
+            <p className="mt-2 text-sm font-medium" style={{ color: '#9C8F85' }}>
+              {isReferencesMode
+                ? 'Define your visual props and settings, then reveal the full storyline.'
+                : 'Tell Raphio what you want — it handles everything else.'}
+            </p>
           </div>
 
-          {/* Pipeline Mode Toggle */}
+          {/* Step progress indicator */}
+          <div className="flex items-center justify-center gap-2.5">
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalSteps }).map((_, i) => (
+                <span
+                  key={i}
+                  className="rounded-full"
+                  style={{ width: 18, height: 4, background: 'linear-gradient(135deg, #C1440E, #E8603C)', opacity: 0.85 }}
+                />
+              ))}
+            </div>
+            <span className="text-[11px] font-bold" style={{ color: '#9C8F85' }}>
+              {totalSteps} steps to your video
+            </span>
+          </div>
+
+          {/* Mode toggle */}
           {onModeChange && (
             <div
               className="flex p-1 rounded-full"
               style={{ background: '#EAE4DC', boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)' }}
             >
               {[
-                { id: 'image',      label: 'Storyboard mode',     Icon: Film },
-                { id: 'references', label: 'Character mode',  Icon: Users    },
+                { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
+                { id: 'references', label: 'Generate with AI', Icon: Wand2     },
               ].map((mode) => {
                 const isActive = pipelineMode === mode.id;
                 return (
@@ -542,91 +565,39 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Prompt Input Card */}
-          <div
-            className="rounded-3xl p-6 space-y-4"
-            style={{
-              background: '#ffffff',
-              boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>1</span>
-                <label className="block font-black uppercase" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#1C1917' }}>
-                  Direction
-                </label>
+          {/* Step 1 — Prompt / Direction */}
+          <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <StepBadge n={1} />
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  {isReferencesMode ? 'Direction' : "What's your video about?"}
+                </h2>
               </div>
-              <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowDictionary(d => !d)}
-                    className="flex items-center gap-1.5 rounded-full"
-                    style={{
-                      fontSize: 12,
-                      padding: '6px 14px',
-                      background: showDictionary ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.06)',
-                      color: showDictionary ? '#fff' : '#C1440E',
-                      border: showDictionary ? '1px solid transparent' : '1px solid rgba(193,68,14,0.15)',
-                      fontWeight: 700,
-                      letterSpacing: '0.02em',
-                      boxShadow: showDictionary ? '0 2px 10px rgba(193,68,14,0.28)' : '0 2px 8px rgba(193,68,14,0.02)',
-                      transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
-                    }}
-                    onMouseEnter={e => {
-                      if (!showDictionary) {
-                        e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
-                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!showDictionary) {
-                        e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
-                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
-                      }
-                    }}
-                  >
-                    <BookOpen style={{ width: 13, height: 13, strokeWidth: 2.5 }} />
-                    Dictionary
-                  </button>
-                  <button
-                    onClick={() => setShowPromptGuide(true)}
-                    className="flex items-center gap-1.5 rounded-full"
-                    style={{
-                      fontSize: 12,
-                      padding: '6px 14px',
-                      background: 'rgba(193,68,14,0.06)',
-                      color: '#C1440E',
-                      border: '1px solid rgba(193,68,14,0.15)',
-                      backdropFilter: 'blur(8px)',
-                      WebkitBackdropFilter: 'blur(8px)',
-                      fontWeight: 700,
-                      letterSpacing: '0.02em',
-                      boxShadow: '0 2px 8px rgba(193,68,14,0.02)',
-                      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = 'rgba(193,68,14,0.10)';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(193,68,14,0.05)';
-                      const icon = e.currentTarget.querySelector('.tips-icon');
-                      if (icon) icon.style.transform = 'rotate(-10deg) scale(1.08)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.02)';
-                      const icon = e.currentTarget.querySelector('.tips-icon');
-                      if (icon) icon.style.transform = 'rotate(0deg) scale(1)';
-                    }}
-                  >
-                    <Lightbulb
-                      className="tips-icon"
-                      style={{ width: 14, height: 14, strokeWidth: 3, transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                    />
-                    Tips
-                  </button>
-                </div>
+              <div className="flex items-center gap-3 flex-shrink-0 pt-1.5">
+                <button
+                  onClick={() => setShowDictionary(d => !d)}
+                  className="flex items-center gap-1 text-xs font-bold transition-colors"
+                  style={{ color: showDictionary ? '#C1440E' : '#9C8F85' }}
+                  onMouseEnter={e => { if (!showDictionary) e.currentTarget.style.color = '#C1440E'; }}
+                  onMouseLeave={e => { if (!showDictionary) e.currentTarget.style.color = '#9C8F85'; }}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Dictionary
+                </button>
+                <button
+                  onClick={() => setShowPromptGuide(true)}
+                  className="flex items-center gap-1 text-xs font-bold transition-colors"
+                  style={{ color: '#9C8F85' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Tips
+                </button>
+              </div>
             </div>
+
             <div
               className="relative rounded-2xl"
               style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
@@ -639,16 +610,44 @@ export default function PromptStep({
                   console.log("[PromptStep] Prompt changed:", e.target.value.substring(0, 30));
                   setUserPrompt(e.target.value);
                 }}
-                placeholder="e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
+                placeholder={isReferencesMode
+                  ? "e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
+                  : "e.g. A highlights reel from our product launch, upbeat and professional..."}
                 className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
                 style={{ color: '#1C1917', paddingBottom: '36px', outline: 'none' }}
               />
               <span
                 style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}
               >
-                {userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0} words
+                {wordCount} words
               </span>
             </div>
+
+            {/* Example prompt chips */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9C8F85' }}>
+                Need inspiration? Try one of these:
+              </p>
+              <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1 -mx-1 px-1">
+                {EXAMPLE_PROMPTS.map((prompt) => {
+                  const isChipActive = userPrompt === prompt;
+                  return (
+                    <button
+                      key={prompt}
+                      onClick={() => setUserPrompt(prompt)}
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all"
+                      style={isChipActive
+                        ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                        : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.30)' }
+                      }
+                    >
+                      {prompt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Prompt Dictionary Panel */}
             <AnimatePresence>
               {showDictionary && (
@@ -731,16 +730,13 @@ export default function PromptStep({
               )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
-                <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
-                More detail → better results
-              </span>
-            </div>
+            <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
+              <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
+              More detail → better results
+            </span>
           </div>
 
-
-          {/* References Mode — Unified References Section */}
+          {/* References Mode — Unified References Section (untouched; redesigned in a separate task) */}
           {isReferencesMode && (
             <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -809,47 +805,66 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Image Upload Pipeline Section (image mode only) */}
+          {/* Step 2 — What type of video is this? (image mode only) */}
           {!isReferencesMode && (
-            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-5">
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>2</span>
-                  <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
-                    Select Storyboard Intent Blueprint
-                  </label>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {Object.entries(CHIP_CONFIG).map(([key, { label, Icon }]) => {
-                    const isActive = template === key;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setTemplate(key)}
-                        className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-full transition-all duration-200 font-bold tracking-wide"
-                        style={
-                          isActive
-                            ? {
-                                background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                                color: '#fff',
-                                border: '1.5px solid transparent',
-                                boxShadow: '0 2px 10px rgba(193,68,14,0.25)',
-                              }
-                            : {
-                                background: '#FBFAF8',
-                                color: '#6B5A52',
-                                border: '1.5px solid rgba(193,68,14,0.10)',
-                              }
-                        }
-                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)'; }}
-                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; }}
+            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+              <div className="flex items-center gap-3">
+                <StepBadge n={2} />
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  What type of video is this?
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {Object.entries(CHIP_CONFIG).map(([key, { label, Icon, blurb }]) => {
+                  const isActive = template === key;
+                  return (
+                    <motion.button
+                      key={key}
+                      onClick={() => setTemplate(key)}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 25 }}
+                      className="relative flex flex-col items-center text-center gap-2 p-4 rounded-2xl border-2"
+                      style={
+                        isActive
+                          ? { borderColor: '#C1440E', background: 'linear-gradient(160deg, rgba(193,68,14,0.08) 0%, rgba(232,96,60,0.03) 100%)', boxShadow: '0 4px 14px rgba(193,68,14,0.16)' }
+                          : { borderColor: 'rgba(193,68,14,0.10)', background: '#FBFAF8' }
+                      }
+                    >
+                      {isActive && (
+                        <motion.span
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 6px rgba(193,68,14,0.35)' }}
+                        >
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        </motion.span>
+                      )}
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200"
+                        style={isActive ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)' } : { background: 'rgba(193,68,14,0.07)' }}
                       >
-                        <Icon style={{ width: 13, height: 13, flexShrink: 0 }} />
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                        <Icon style={{ width: 20, height: 20, color: isActive ? '#fff' : '#C1440E' }} />
+                      </div>
+                      <span className="font-extrabold text-xs" style={{ color: '#1C1917' }}>{label}</span>
+                      <span className="text-[10px] leading-snug" style={{ color: '#9C8F85' }}>{blurb}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Upload your photos (image mode only) */}
+          {!isReferencesMode && (
+            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+              <div className="flex items-center gap-3">
+                <StepBadge n={3} />
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  Upload your photos
+                </h2>
               </div>
 
               {/* Hidden file input track anchor */}
@@ -864,7 +879,6 @@ export default function PromptStep({
               />
 
               <AnimatePresence mode="wait">
-                {/* Empty State Loop Dropzone Grid */}
                 {(images?.length ?? 0) === 0 && (
                   <motion.div
                     key="dropzone"
@@ -874,19 +888,19 @@ export default function PromptStep({
                     onClick={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
-                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-12 px-6"
-                    style={{ 
-                      borderColor: 'rgba(193,68,14,0.10)', 
-                      background: '#FBFAF8', 
-                      transition: 'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease' 
+                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-14 px-6"
+                    style={{
+                      borderColor: 'rgba(193,68,14,0.12)',
+                      background: '#FBFAF8',
+                      transition: 'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease'
                     }}
-                    onMouseEnter={e => { 
+                    onMouseEnter={e => {
                       e.currentTarget.style.background = '#FFF9F5';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.25)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)';
                     }}
-                    onMouseLeave={e => { 
+                    onMouseLeave={e => {
                       e.currentTarget.style.background = '#FBFAF8';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.12)';
                     }}
                     onDragEnter={e => {
                       e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
@@ -895,40 +909,38 @@ export default function PromptStep({
                     }}
                     onDragLeave={e => {
                       e.currentTarget.style.background = '#FBFAF8';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)';
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.12)';
                       e.currentTarget.style.transform = 'scale(1)';
                     }}
-                    >
+                  >
                     <motion.div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                      style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 16px rgba(193,68,14,0.30)' }}
-                      whileHover={{ y: -4, scale: 1.08, boxShadow: '0 8px 24px rgba(193,68,14,0.40)' }}
+                      className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 6px 18px rgba(193,68,14,0.30)' }}
+                      whileHover={{ y: -4, scale: 1.08, boxShadow: '0 10px 26px rgba(193,68,14,0.40)' }}
                       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                     >
-                      <Upload className="w-6 h-6 text-white" />
+                      <Upload className="w-7 h-7 text-white" />
                     </motion.div>
                     <div className="text-center space-y-1">
-                      <p className="font-bold text-sm text-stone-800">Drop your scene photos here</p>
-                      <p className="text-xs text-stone-400">Click to browse  ·  JPEG or PNG  ·  Up to {MAX_IMAGES} images</p>
+                      <p className="font-bold text-sm" style={{ color: '#1C1917' }}>Drag your photos here</p>
+                      <p className="text-xs" style={{ color: '#9C8F85' }}>or click to browse · JPEG or PNG · up to {MAX_IMAGES} photos</p>
                     </div>
                   </motion.div>
                 )}
 
-                {/* Populated Frame Flow Segment Tracks */}
                 {(images?.length ?? 0) > 0 && (
                   <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                    <div className="flex items-center justify-between text-xs font-bold border-b border-stone-100 pb-2.5">
-                      <p className="text-orange-600 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <p className="flex items-center gap-1.5" style={{ color: '#C1440E' }}>
                         <Grid className="w-3.5 h-3.5" />
-                        {images.length} Sequential segment sequence tracks mapped
+                        {images.length} photo{images.length === 1 ? '' : 's'} added
                       </p>
                       {images.length >= 2 && (
-                        <p className="text-stone-400 font-medium">Slide modules horizontally to arrange timing chronology</p>
+                        <p style={{ color: '#9C8F85' }} className="font-medium">Drag to reorder</p>
                       )}
                     </div>
 
-                    {/* Timeline Grid Track Structure Block */}
-                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                       {images.map((img, index) => (
                         <motion.div
                           key={index}
@@ -942,31 +954,32 @@ export default function PromptStep({
                             if (dragSlot !== null && dragSlot !== index) reorderImages(dragSlot, index);
                             setDragSlot(null);
                           }}
-                          className={`relative group aspect-square rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border border-stone-200 bg-stone-50 transition-all duration-150 shadow-xs ${
-                            dragSlot === index ? "opacity-30 scale-95 shadow-none border-dashed" : "hover:border-orange-400 hover:shadow"
-                          }`}
+                          className="cursor-grab active:cursor-grabbing"
                         >
-                          <img src={img.preview} alt={slotLabels[index]} className="w-full h-full object-cover pointer-events-none" />
-                          <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1.5 py-1 text-center backdrop-blur-[1px]">
-                            <p className="text-[9px] font-bold text-white uppercase tracking-wider truncate">
-                              {slotLabels[index]}
-                            </p>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                            aria-label="Remove image"
-                            className="absolute top-1 right-1 w-6 h-6 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
-                            style={{ background: '#C1440E' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#A8380C'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#C1440E'}
-
+                          <div
+                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-150 ${
+                              dragSlot === index ? "opacity-30 scale-95 border-dashed border-stone-300" : "border-transparent hover:border-orange-300"
+                            }`}
+                            style={{ background: '#FBFAF8' }}
                           >
-                            <X className="w-3 h-3" strokeWidth={2.5} />
-                          </button>
+                            <img src={img.preview} alt={slotLabels[index]} className="w-full h-full object-cover pointer-events-none" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                              aria-label="Remove image"
+                              className="absolute top-1.5 right-1.5 w-6 h-6 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
+                              style={{ background: '#C1440E' }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#A8380C'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#C1440E'}
+                            >
+                              <X className="w-3 h-3" strokeWidth={2.5} />
+                            </button>
+                          </div>
+                          <p className="text-[10px] font-bold text-center mt-1.5 truncate" style={{ color: '#6B5A52' }}>
+                            {slotLabels[index]}
+                          </p>
                         </motion.div>
                       ))}
 
-                      {/* Continuous Sequence Append Container */}
                       {!atCap && (
                         <button
                           onClick={() => fileInputRef.current?.click()}
@@ -978,15 +991,14 @@ export default function PromptStep({
                           onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)'; e.currentTarget.style.background = '#FBFAF8'; }}
                         >
                           <Plus className="w-5 h-5 mb-0.5" style={{ color: '#C1440E', opacity: 0.5 }} />
-                          <span className="text-[10px] font-bold text-stone-500">Insert Card</span>
+                          <span className="text-[10px] font-bold text-stone-500">Add more</span>
                         </button>
                       )}
                     </div>
 
-                    {/* Metrics Loop Footer Layout */}
-                    <div className="flex items-center justify-between text-xs pt-1 text-stone-400 font-medium">
-                      <span>Maximum sequence depth boundary: {MAX_IMAGES} slots</span>
-                      <span className="font-mono font-bold bg-stone-100 border border-stone-200/80 px-2.5 py-0.5 rounded-lg text-stone-700">
+                    <div className="flex items-center justify-between text-xs pt-1" style={{ color: '#9C8F85' }}>
+                      <span>Up to {MAX_IMAGES} photos</span>
+                      <span className="font-mono font-bold px-2.5 py-0.5 rounded-lg" style={{ background: '#FBFAF8', color: '#6B5A52' }}>
                         {images.length} / {MAX_IMAGES}
                       </span>
                     </div>
@@ -996,46 +1008,89 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Aesthetics Style Selection Grid Card Module */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-            <div className="flex items-center gap-2">
-              <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>{isReferencesMode ? '2' : '3'}</span>
-              <label className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
-                Pick Rendering Style Engine
-              </label>
+          {/* Step — How should it look? (style selector, shared by both modes) */}
+          <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+            <div className="flex items-center gap-3">
+              <StepBadge n={isReferencesMode ? 2 : 4} />
+              <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                How should it look?
+              </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setStyle(option.id)}
-                  className="p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] bg-white group"
-                  style={
-                    style === option.id
-                      ? { borderColor: "#F97066", background: "rgba(249,112,102,0.03)", boxShadow: "0 4px 12px rgba(249,112,102,0.05)" }
-                      : { borderColor: "#F2EDFF", background: "#FCFAFF" }
-                  }
-                >
-                  <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
-                    {option.icon || "🎬"}
-                  </span>
-                  <div className="space-y-0.5">
-                    <span className="font-black text-xs block text-stone-800">{option.name}</span>
-                    <span className="text-[10px] text-stone-400 block line-clamp-1">{option.description}</span>
-                  </div>
-                </button>
-              ))}
+              {(isReferencesMode ? STYLE_OPTIONS : styleOptions).map((option) => {
+                const isSelected = style === option.id;
+
+                if (isReferencesMode) {
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setStyle(option.id)}
+                      className="p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] bg-white group"
+                      style={
+                        isSelected
+                          ? { borderColor: "#C1440E", background: "rgba(193,68,14,0.03)", boxShadow: "0 4px 12px rgba(193,68,14,0.08)" }
+                          : { borderColor: "rgba(193,68,14,0.10)", background: "#FBFAF8" }
+                      }
+                    >
+                      <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
+                        {option.icon || "🎬"}
+                      </span>
+                      <div className="space-y-0.5">
+                        <span className="font-black text-xs block text-stone-800">{option.name}</span>
+                        <span className="text-[10px] text-stone-400 block line-clamp-1">{option.description}</span>
+                      </div>
+                    </button>
+                  );
+                }
+
+                const StyleIcon = STYLE_ICON_MAP[option.id] || Sparkles;
+                return (
+                  <motion.button
+                    key={option.id}
+                    onClick={() => setStyle(option.id)}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 25 }}
+                    className="relative flex flex-col items-center text-center gap-2 p-4 rounded-2xl border-2 min-h-[124px] justify-center"
+                    style={
+                      isSelected
+                        ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.08) 0%, rgba(232,96,60,0.03) 100%)", boxShadow: "0 4px 14px rgba(193,68,14,0.16)" }
+                        : { borderColor: "rgba(193,68,14,0.10)", background: "#FBFAF8" }
+                    }
+                  >
+                    {isSelected && (
+                      <motion.span
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                        className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
+                      >
+                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                      </motion.span>
+                    )}
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200"
+                      style={isSelected ? { background: "linear-gradient(135deg, #C1440E, #E8603C)" } : { background: "rgba(193,68,14,0.07)" }}
+                    >
+                      <StyleIcon style={{ width: 20, height: 20, color: isSelected ? "#fff" : "#C1440E" }} />
+                    </div>
+                    <span className="font-extrabold text-xs" style={{ color: "#1C1917" }}>{option.name}</span>
+                    <span className="text-[10px] leading-snug line-clamp-2" style={{ color: "#9C8F85" }}>{option.description}</span>
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Target Duration Configuration Output Module */}
+          {/* Step — How long? (duration, shared by both modes) */}
           {setTargetDuration && (
-            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-              <div className="flex items-center gap-2">
-                <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'#C1440E', color:'#fff', fontSize:10, fontWeight:800, flexShrink:0 }}>{isReferencesMode ? '3' : '4'}</span>
-                <label className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1C1917' }}>
-                  Target Clip Duration
-                </label>
+            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+              <div className="flex items-center gap-3">
+                <StepBadge n={isReferencesMode ? 3 : 5} />
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  How long?
+                </h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {DURATION_OPTIONS.map((opt, idx) => {
@@ -1083,115 +1138,102 @@ export default function PromptStep({
                       </div>
                       <span className="font-black block text-base" style={{ color: "#1C1917" }}>{opt.label}</span>
                       <span className="text-[10px] block" style={{ color: "#9c8f85" }}>{opt.desc}</span>
+                      {opt.value === 30 && (
+                        <span
+                          className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide whitespace-nowrap"
+                          style={{ background: '#1C1917', color: '#FFFAF7' }}
+                        >
+                          Popular
+                        </span>
+                      )}
                     </motion.button>
                   );
                 })}
               </div>
-              <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
-                Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
+              <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#9c8f85' }}>
+                Most first-time creators pick ~30s — long enough to tell a story, short enough to hold attention.
               </p>
             </div>
           )}
 
-          {/* Output Format / Aspect Ratio Selection */}
+          {/* Step — Where will you post it? (aspect ratio, shared by both modes) */}
           {setAspectRatio && (
-            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-              <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                <Film className="w-4 h-4 inline mr-1.5 text-stone-400 align-text-bottom" />
-                Output Format
-              </label>
+            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+              <div className="flex items-center gap-3">
+                <StepBadge n={isReferencesMode ? 4 : 6} />
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  Where will you post it?
+                </h2>
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                {ASPECT_RATIO_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setAspectRatio(opt.id)}
-                    className="p-4 rounded-2xl border-2 text-left transition-all duration-200 bg-white flex items-center gap-3"
-                    style={
-                      (aspectRatio || '16:9') === opt.id
-                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.04)" }
-                        : { borderColor: "rgba(240,234,255,0.8)" }
-                    }
-                  >
-                    <span className="text-2xl leading-none">{opt.icon}</span>
-                    <span className="space-y-0.5">
-                      <span className="font-black text-xs block text-stone-800">{opt.name}</span>
-                      <span className="text-[10px] text-stone-400 block">{opt.description}</span>
-                    </span>
-                  </button>
-                ))}
+                {ASPECT_RATIO_OPTIONS.map((opt) => {
+                  const isSelected = (aspectRatio || '16:9') === opt.id;
+                  const box = RATIO_BOX[opt.id] || { w: 44, h: 44 };
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setAspectRatio(opt.id)}
+                      className="p-4 rounded-2xl border-2 text-left transition-all duration-200 bg-white flex items-center gap-4"
+                      style={
+                        isSelected
+                          ? { borderColor: "#C1440E", background: "rgba(193,68,14,0.04)", boxShadow: "0 4px 12px rgba(193,68,14,0.10)" }
+                          : { borderColor: "rgba(193,68,14,0.10)" }
+                      }
+                    >
+                      <span
+                        className="flex items-center justify-center flex-shrink-0 rounded-md"
+                        style={{
+                          width: 56, height: 56,
+                        }}
+                      >
+                        <span
+                          className="rounded-sm"
+                          style={{
+                            width: box.w,
+                            height: box.h,
+                            background: isSelected ? "linear-gradient(135deg, #C1440E, #E8603C)" : "rgba(193,68,14,0.14)",
+                            border: isSelected ? "none" : "1.5px solid rgba(193,68,14,0.30)",
+                          }}
+                        />
+                      </span>
+                      <span className="space-y-0.5">
+                        <span className="font-black text-xs block text-stone-800">{opt.name}</span>
+                        <span className="text-[10px] text-stone-400 block">{opt.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* AI Bridge Scene Frame Tracking Toggle */}
-          {!isReferencesMode && setEnableBridges && (
-            <div className="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
-              <button
-                onClick={() => setEnableBridges(!enableBridges)}
-                aria-pressed={enableBridges}
-                className="w-full flex items-center justify-between gap-4 p-5 transition-colors bg-white hover:bg-stone-50/50 text-left"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                    style={
-                      enableBridges
-                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
-                        : { background: "rgba(193,68,14,0.06)" }
-                    }
-                  >
-                    <Wand2 style={{ width: 18, height: 18, color: enableBridges ? "#fff" : "#C1440E" }} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
-                    <span className="text-xs text-stone-400 block leading-relaxed">
-                      Generate extra AI frames between your images for smoother cuts
-                    </span>
-                  </div>
-                </div>
-                <div
-                  className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                  style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
-                >
-                  <motion.span
-                    className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
-                    animate={{ left: enableBridges ? 26 : 4 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Intro & Outro Frames */}
+          {/* Step 7 — Optional extras (image mode only, collapsed by default) */}
           {!isReferencesMode && (
-            <div className="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
-              {/* Collapsible header — shows configured badge when cards are active */}
+            <div className="rounded-3xl overflow-hidden" style={CARD_SHADOW}>
               <motion.button
                 onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
                 whileTap={{ scale: 0.99 }}
-                className="w-full flex items-center justify-between p-5 transition-colors bg-white hover:bg-stone-50/50 cursor-pointer"
+                className="w-full flex items-center justify-between p-6 sm:p-7 transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                    style={{ background: frameConfigExpanded ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
-                  >
-                    <Film className="w-3.5 h-3.5" style={{ color: frameConfigExpanded ? '#fff' : '#C1440E' }} />
+                <div className="flex items-center gap-3">
+                  <StepBadge n={7} />
+                  <div className="text-left">
+                    <h2 className="font-black" style={{ fontSize: 'clamp(1.1rem, 2.2vw, 1.3rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                      Optional extras
+                    </h2>
+                    {(enableBridges || openingEnabled || closingEnabled) ? (
+                      <p className="text-[11px] font-bold mt-0.5" style={{ color: '#C1440E' }}>
+                        {[enableBridges && 'Smooth transitions', openingEnabled && 'Intro', closingEnabled && 'Outro'].filter(Boolean).join(' + ')} on
+                      </p>
+                    ) : (
+                      <p className="text-[11px] font-semibold mt-0.5" style={{ color: '#9C8F85' }}>Most people skip this</p>
+                    )}
                   </div>
-                  <span className="text-sm font-extrabold text-stone-800">Intro & Outro Frames</span>
-                  {(openingEnabled || closingEnabled) ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(193,68,14,0.10)', color: '#C1440E' }}>
-                      {[openingEnabled && 'Intro', closingEnabled && 'Outro'].filter(Boolean).join(' + ')}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-stone-400 font-semibold">(Optional)</span>
-                  )}
                 </div>
                 {frameConfigExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-stone-400" />
+                  <ChevronUp className="w-5 h-5 flex-shrink-0" style={{ color: '#9C8F85' }} />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-stone-400" />
+                  <ChevronDown className="w-5 h-5 flex-shrink-0" style={{ color: '#9C8F85' }} />
                 )}
               </motion.button>
 
@@ -1204,19 +1246,53 @@ export default function PromptStep({
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     className="overflow-hidden border-t border-stone-100"
                   >
-                    <motion.div
-                      className="p-5 space-y-3 text-xs"
-                      initial="hidden"
-                      animate="visible"
-                      variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.06 } } }}
-                    >
-                      <p className="text-stone-400 font-medium leading-relaxed">
+                    <div className="p-5 sm:p-6 space-y-4">
+
+                      {/* Smooth Scene Transitions toggle */}
+                      {setEnableBridges && (
+                        <button
+                          onClick={() => setEnableBridges(!enableBridges)}
+                          aria-pressed={enableBridges}
+                          className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-colors text-left"
+                          style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                              style={
+                                enableBridges
+                                  ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                                  : { background: "rgba(193,68,14,0.06)" }
+                              }
+                            >
+                              <Wand2 style={{ width: 16, height: 16, color: enableBridges ? "#fff" : "#C1440E" }} />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
+                              <span className="text-xs text-stone-400 block leading-relaxed">
+                                Generate extra AI frames between your images for smoother cuts
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                            style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
+                          >
+                            <motion.span
+                              className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                              animate={{ left: enableBridges ? 26 : 4 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          </div>
+                        </button>
+                      )}
+
+                      <p className="text-stone-400 font-medium leading-relaxed text-xs">
                         Add a branded intro or outro screen around your video. Toggle either one on to configure it.
                       </p>
 
                       {/* Opening Frame card */}
-                      <motion.div
-                        variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 26 } } }}
+                      <div
                         className="rounded-2xl border overflow-hidden"
                         style={{ borderColor: openingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: openingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
                       >
@@ -1366,11 +1442,10 @@ export default function PromptStep({
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </motion.div>
+                      </div>
 
                       {/* Closing Frame card */}
-                      <motion.div
-                        variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 26 } } }}
+                      <div
                         className="rounded-2xl border overflow-hidden"
                         style={{ borderColor: closingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: closingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
                       >
@@ -1520,15 +1595,15 @@ export default function PromptStep({
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </motion.div>
-                    </motion.div>
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           )}
 
-          {/* Centralized Notification Error Canvas Card */}
+          {/* Error message */}
           {error && (
             <div
               className="px-4 py-3.5 rounded-2xl text-sm font-bold border shadow-xs"
@@ -1538,7 +1613,7 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Core Creation Submission Trigger Assembly */}
+          {/* Step 8 — Submit */}
           <div className="space-y-3 pt-2">
             <Button
               onClick={handleStart}
@@ -1547,36 +1622,72 @@ export default function PromptStep({
               style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
             >
               {loading ? (
-                <span className="flex items-center gap-2 tracking-wide font-black uppercase">
+                <span className="flex items-center gap-2 tracking-wide font-black">
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                     className="w-4.5 h-4.5 border-2 border-white border-t-transparent rounded-full"
                   />
-                  Assembling Rendering Elements...
+                  Creating your video...
                 </span>
               ) : (
-                <span className="flex items-center gap-2 font-black tracking-wider text-sm uppercase">
-                  <Sparkles className="w-4.5 h-4.5 animate-pulse" />
-                  Compile Video Stack
-                  {!canStart && (
-                    <span className="text-xs font-normal opacity-85 lowercase">
-                      ({!userPrompt?.trim() ? "add prompt text" : "add clip assets"})
-                    </span>
-                  )}
+                <span className="flex items-center gap-2 font-black text-base">
+                  Create my video
+                  <span aria-hidden="true">→</span>
                 </span>
               )}
             </Button>
-            <p className="text-center text-xs text-[#9B8FA8] font-bold">
+            <p className="text-center text-xs font-bold" style={{ color: '#9C8F85' }}>
               {isReferencesMode
                 ? "Add your characters and describe your video to get started"
-                : "Upload your scene images and describe your video to get started"}
+                : "Usually ready in 30–60 seconds"}
             </p>
           </div>
         </motion.div>
       </div>
 
-      {/* CORE GUIDE INFORMATION OVERLAY DRAWER MODAL SLATE */}
+      {/* Persistent sticky submit — appears once the user has started typing and scrolled past the hero */}
+      <AnimatePresence>
+        {showStickySubmit && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6"
+            style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))', paddingTop: 14 }}
+          >
+            <div
+              className="absolute inset-0 -z-10"
+              style={{ background: 'linear-gradient(180deg, rgba(245,240,235,0) 0%, rgba(245,240,235,0.9) 35%, rgba(245,240,235,0.98) 100%)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            />
+            <Button
+              onClick={handleStart}
+              disabled={!canStart || loading}
+              className="w-full sm:max-w-[480px] sm:mx-auto sm:flex text-white py-6 text-sm font-bold rounded-2xl border-0 shadow-xl shadow-orange-200/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2 tracking-wide font-black">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                  />
+                  Creating your video...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2 font-black">
+                  Create my video
+                  <span aria-hidden="true">→</span>
+                </span>
+              )}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Prompt Guide Modal */}
       <AnimatePresence>
         {showPromptGuide && (
           <motion.div
@@ -1662,7 +1773,7 @@ export default function PromptStep({
         )}
       </AnimatePresence>
 
-      {/* TIMELINE GUIDE CONTEXT ANCHOR DRAWER MODAL SLATE */}
+      {/* Image Order Guide Modal */}
       <AnimatePresence>
         {showImageOrderGuide && (
           <motion.div
