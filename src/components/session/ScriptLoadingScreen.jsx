@@ -16,7 +16,8 @@ function getStatus(range, progress) {
   return "pending";
 }
 
-export default function ScriptLoadingScreen({ progress = 0 }) {
+export default function ScriptLoadingScreen({ progress = 0, subSteps }) {
+  const steps = subSteps ?? SUB_STEPS;
   const [displayed, setDisplayed] = useState(0);
   const displayedRef = useRef(0);
   const rafRef = useRef(null);
@@ -51,28 +52,28 @@ export default function ScriptLoadingScreen({ progress = 0 }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
       className="absolute inset-0 z-40 flex flex-col items-center justify-center p-8"
-      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
+      style={{ background: "#F5F0EB" }}
     >
       {/* Spinning icon */}
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
         className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+        style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
       >
         <Sparkles className="w-7 h-7 text-white" />
       </motion.div>
 
-      <h2 className="text-xl font-bold mb-1" style={{ color: "#2D2235" }}>
+      <h2 className="text-xl font-bold mb-1" style={{ color: "#1C1917" }}>
         Creating your video
       </h2>
-      <p className="text-sm mb-8" style={{ color: "#9B8FA8" }}>
+      <p className="text-sm mb-8" style={{ color: "#9C8F85" }}>
         This usually takes 30–60 seconds
       </p>
 
       {/* Sub-steps list */}
       <div className="flex flex-col gap-3 w-full max-w-xs mb-8">
-        {SUB_STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const status = getStatus(s.range, dp);
           return (
             <motion.div
@@ -89,7 +90,7 @@ export default function ScriptLoadingScreen({ progress = 0 }) {
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 380, damping: 18 }}
                     className="w-5 h-5 rounded-full flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                    style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
                   >
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
                       <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -101,20 +102,20 @@ export default function ScriptLoadingScreen({ progress = 0 }) {
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                     className="w-4 h-4 rounded-full border-2"
-                    style={{ borderColor: "#F97066", borderTopColor: "transparent" }}
+                    style={{ borderColor: "#C1440E", borderTopColor: "transparent" }}
                   />
                 )}
                 {status === "pending" && (
-                  <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: "#E0D7FF" }} />
+                  <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: "rgba(193,68,14,0.12)" }} />
                 )}
               </div>
 
               <span
                 className="text-sm font-medium"
                 style={{
-                  color: status === "active" ? "#2D2235"
-                    : status === "done" ? "#9B8FA8"
-                    : "#C4BADC",
+                  color: status === "active" ? "#1C1917"
+                    : status === "done" ? "#9C8F85"
+                    : "#C8BFB5",
                 }}
               >
                 {s.label}
@@ -126,15 +127,15 @@ export default function ScriptLoadingScreen({ progress = 0 }) {
 
       {/* Progress bar */}
       <div className="w-full max-w-xs">
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#F0EAFF" }}>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(193,68,14,0.10)" }}>
           <motion.div
             className="h-full rounded-full"
-            style={{ background: "linear-gradient(90deg, #F97066, #FB923C)" }}
+            style={{ background: "linear-gradient(90deg, #C1440E, #E8603C)" }}
             animate={{ width: `${dp}%` }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           />
         </div>
-        <p className="text-xs text-center mt-2 font-medium" style={{ color: "#9B8FA8" }}>
+        <p className="text-xs text-center mt-2 font-medium" style={{ color: "#9C8F85" }}>
           {dp}%
         </p>
       </div>

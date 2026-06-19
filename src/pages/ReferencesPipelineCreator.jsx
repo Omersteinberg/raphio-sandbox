@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
+import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import { useReferencesSession } from "@/hooks/session/useReferencesSession";
 import { loadPending } from "@/lib/pendingSession";
 
@@ -259,6 +260,14 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
   const progressSteps = STEP_NAMES.slice(1, 5);
   const progressIndex = step - 1;
 
+  const REFERENCES_SUB_STEPS = [
+    { id: "session",    label: "Setting up your session",    range: [0, 15]  },
+    { id: "references", label: "Locking in your references", range: [15, 40] },
+    { id: "characters", label: "Building your characters",   range: [40, 65] },
+    { id: "scenes",     label: "Designing your scenes",       range: [65, 85] },
+    { id: "script",     label: "Generating script",          range: [85, 100] },
+  ];
+
   return (
     <div
       className="h-full flex flex-col font-figtree"
@@ -333,20 +342,21 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         </AnimatePresence>
       </div>
 
-      {loading && step !== 5 && (
+      {loading && step !== 5 && step === 0 && (
+        <ScriptLoadingScreen
+          progress={scriptProgress}
+          subSteps={REFERENCES_SUB_STEPS}
+        />
+      )}
+      {loading && step !== 5 && step !== 0 && (
         <MergeLoadingOverlay
           text={
-            step === 0
-              ? "Processing references..."
-              : step === 1
-              ? "Processing..."
-              : step === 2
-              ? "Generating script..."
-              : step === 3
-              ? "Generating frames..."
-              : "Processing..."
+            step === 1 ? "Processing references..."
+            : step === 2 ? "Generating script..."
+            : step === 3 ? "Generating frames..."
+            : "Processing..."
           }
-          progress={step === 0 ? scriptProgress : null}
+          progress={null}
         />
       )}
 
