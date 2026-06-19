@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
+import DurationEstimate from "./DurationEstimate";
 
 const SLOT_LABELS = {
   general: ['Opening Scene','Main Hook','Scene 3','Scene 4','Scene 5','Scene 6','Scene 7','Scene 8','Scene 9','Call to Action'],
@@ -178,7 +179,6 @@ export default function PromptStep({
   setStyle,
   images,
   addImages,
-  setImages,
   removeImage,
   reorderImages,
   onStart,
@@ -317,6 +317,7 @@ export default function PromptStep({
               {[
                 { id: 'image', label: 'Image-Based Storyboard' },
                 { id: 'references', label: 'Visual Character References' },
+                { id: 'intro', label: 'Brand Intro' },
               ].map((mode) => (
                 <button
                   key={mode.id}
@@ -610,9 +611,24 @@ export default function PromptStep({
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
-                Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
-              </p>
+              {isReferencesMode ? (
+                <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
+                  Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
+                </p>
+              ) : (
+                <DurationEstimate
+                  imageCount={images?.length ?? 0}
+                  targetDuration={targetDuration}
+                  enableBridges={enableBridges}
+                  onSetDuration={(v) => setTargetDuration?.(v)}
+                  onToggleAiFill={(v) => setEnableBridges?.(v)}
+                  onUploadMore={() => fileInputRef.current?.click()}
+                  onRemoveImages={(n) => {
+                    const len = images?.length ?? 0;
+                    for (let i = 0; i < n; i++) removeImage(len - 1 - i);
+                  }}
+                />
+              )}
             </div>
           )}
 

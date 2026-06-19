@@ -9,7 +9,7 @@ import { CREDITS_PER_CLIP } from "@/lib/limits";
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
   REF_PROMPT_ENTERED: 0,
-  REF_REFERENCES_ADDED: 0,
+  REF_REFERENCES_ADDED: 1,
   REF_REFERENCES_LOCKED: 1,
   REF_SCRIPT_GENERATED: 2,
   REF_SCRIPT_APPROVED: 3,
@@ -61,10 +61,6 @@ export function useReferencesSession() {
   onSessionLoadedRef.current = (data) => {
     if (data.referenceData) {
       setReferenceData(data.referenceData);
-      setReferences({
-        characters: data.referenceData.characters || [],
-        settings: data.referenceData.settings || [],
-      });
     }
     if (data.sceneFrames?.length) {
       setSceneFrames(data.sceneFrames);
@@ -84,10 +80,6 @@ export function useReferencesSession() {
 
       if (session.referenceData) {
         setReferenceData(session.referenceData);
-        setReferences({
-          characters: session.referenceData.characters || [],
-          settings: session.referenceData.settings || [],
-        });
       }
       if (session.scriptData) {
         setScriptData(session.scriptData);

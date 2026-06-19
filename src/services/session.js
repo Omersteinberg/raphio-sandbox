@@ -63,6 +63,22 @@ export async function listSessions({ stage, status, limit, offset } = {}) {
 }
 
 /**
+ * Estimate resulting video length from image count vs. target duration.
+ * Stateless — safe to call before a session exists (while the user is still
+ * choosing images/duration on the prompt screen).
+ * @returns {{ status: string, estimatedDuration: number, message: string, options: Array }}
+ */
+export async function estimateDuration({ imageCount, targetDuration, videoModel, enableBridges }) {
+  const response = await axios.post(`${API_BASE}/estimate-duration`, {
+    imageCount,
+    ...(targetDuration != null ? { targetDuration } : {}),
+    ...(videoModel ? { videoModel } : {}),
+    enableBridges: Boolean(enableBridges),
+  });
+  return response.data;
+}
+
+/**
  * Upload images to session
  */
 export async function uploadImages(sessionId, files) {
@@ -76,6 +92,57 @@ export async function uploadImages(sessionId, files) {
     formData,
     { headers: { "Content-Type": "multipart/form-data" } }
   );
+  return response.data;
+}
+
+/**
+ * Upload a logo for the intro pipeline.
+ * @returns {{ logoUrl: string }}
+ */
+export async function uploadLogo(sessionId, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `${API_BASE}/${sessionId}/logo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data;
+}
+
+/**
+ * Save the intro business brief.
+ * @returns {{ introData: object }}
+ */
+export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style }) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/intro-brief`, {
+    businessName,
+    description,
+    targetAudience,
+    style,
+  });
+  return response.data;
+}
+
+/**
+ * Generate (or revise) the intro montage+narration script.
+ * @param {string} sessionId
+ * @param {object} [opts] - { editRequest } natural-language revision request
+ * @returns updated session (stage INTRO_SCRIPT_GENERATED)
+ */
+export async function generateIntroScript(sessionId, { editRequest } = {}) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest });
+  return response.data;
+}
+
+/**
+ * Save edits to the intro script (montage plan + narration + voice).
+ * @returns updated session
+ */
+export async function updateIntroScript(sessionId, { businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId }) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/intro-script`, {
+    businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId,
+  });
   return response.data;
 }
 
