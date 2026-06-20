@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
+import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import { useReferencesSession } from "@/hooks/session/useReferencesSession";
+import { loadPending } from "@/lib/pendingSession";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -40,6 +43,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     setStyle,
     targetDuration,
     setTargetDuration,
+    aspectRatio,
+    setAspectRatio,
     startReferencesSession,
 
     // References state
@@ -97,6 +102,31 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     dismissInsufficientCredits,
   } = session;
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadPending("references");
+        if (cancelled || !saved) return;
+        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
+        if (saved.style) setStyle(saved.style);
+        if (saved.references) {
+          const refs = Array.isArray(saved.references)
+            ? saved.references
+            : [
+                ...(saved.references.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+                ...(saved.references.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+              ];
+          setReferences(refs);
+        }
+      } catch (err) {
+        console.warn("[ReferencesPipelineCreator] rehydrate failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? 1000 : -1000, opacity: 0 }),
     center: { zIndex: 1, x: 0, opacity: 1 },
@@ -123,6 +153,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             setStyle={setStyle}
             targetDuration={targetDuration}
             setTargetDuration={setTargetDuration}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
             onStart={startReferencesSession}
             loading={loading}
             error={error}
@@ -228,10 +260,18 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
   const progressSteps = STEP_NAMES.slice(1, 5);
   const progressIndex = step - 1;
 
+  const REFERENCES_SUB_STEPS = [
+    { id: "session",    label: "Setting up your session",    range: [0, 15]  },
+    { id: "references", label: "Locking in your references", range: [15, 40] },
+    { id: "characters", label: "Building your characters",   range: [40, 65] },
+    { id: "scenes",     label: "Designing your scenes",       range: [65, 85] },
+    { id: "script",     label: "Generating script",          range: [85, 100] },
+  ];
+
   return (
     <div
       className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}
+      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
     >
       {showProgressBar && (
         <div
@@ -302,20 +342,21 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         </AnimatePresence>
       </div>
 
-      {loading && step !== 5 && (
+      {loading && step !== 5 && step === 0 && (
+        <ScriptLoadingScreen
+          progress={scriptProgress}
+          subSteps={REFERENCES_SUB_STEPS}
+        />
+      )}
+      {loading && step !== 5 && step !== 0 && (
         <MergeLoadingOverlay
           text={
-            step === 0
-              ? "Processing references..."
-              : step === 1
-              ? "Processing..."
-              : step === 2
-              ? "Generating script..."
-              : step === 3
-              ? "Generating frames..."
-              : "Processing..."
+            step === 1 ? "Processing references..."
+            : step === 2 ? "Generating script..."
+            : step === 3 ? "Generating frames..."
+            : "Processing..."
           }
-          progress={step === 0 ? scriptProgress : null}
+          progress={null}
         />
       )}
 

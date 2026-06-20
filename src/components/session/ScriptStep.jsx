@@ -49,6 +49,10 @@ export default function ScriptStep({
   const openingSection = allSections.find((s) => s.sectionType === "OPENING");
   const closingSection = allSections.find((s) => s.sectionType === "CLOSING");
   const contentSections = allSections.filter((s) => s.sectionType !== "OPENING" && s.sectionType !== "CLOSING");
+  // Opening/closing frames are OPTIONAL — only show a card when the script actually
+  // has that section OR the user explicitly supplied one (upload / custom prompt).
+  const hasOpening = !!(openingSection || openingFrame?.useUpload || openingFrame?.customPrompt || generatedFrameImages?.opening?.imageUrl || session?.openingFrameConfig?.uploadedImageUrl);
+  const hasClosing = !!(closingSection || closingFrame?.useUpload || closingFrame?.customPrompt || generatedFrameImages?.closing?.imageUrl || session?.closingFrameConfig?.uploadedImageUrl);
   console.log("[ScriptStep] allSections:", allSections.length, "contentSections:", contentSections.length, "sections:", allSections);
   
   // Get the real indices in the original array for editing
@@ -189,8 +193,8 @@ export default function ScriptStep({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-4">
-            {/* Opening Frame - shown above content sections (hidden for references pipeline) */}
-            {!isReferencesPipeline && (
+            {/* Opening Frame - optional; shown only when the script has one (hidden for references pipeline) */}
+            {!isReferencesPipeline && hasOpening && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -452,8 +456,8 @@ export default function ScriptStep({
 
             {/* Frame Configuration Section removed - now in PromptStep */}
 
-            {/* Closing Frame - shown below content sections (hidden for references pipeline) */}
-            {!isReferencesPipeline && (
+            {/* Closing Frame - optional; shown only when the script has one (hidden for references pipeline) */}
+            {!isReferencesPipeline && hasClosing && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -5,6 +5,7 @@ import * as referenceApi from "@/services/reference";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { CREDITS_PER_CLIP } from "@/lib/limits";
+import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
@@ -40,7 +41,7 @@ export function useReferencesSession() {
     sessionId, setSessionId, session, setSession,
     direction, setDirection, loading, setLoading,
     error, setError,
-    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic,
+    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic, aspectRatio,
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
@@ -51,10 +52,7 @@ export function useReferencesSession() {
   } = base;
 
   // ── References-specific state ──────────────────────────────────────
-  const [references, setReferences] = useState({
-    characters: [],
-    settings: [],
-  });
+  const [references, setReferences] = useState([]);
   const [referenceData, setReferenceData] = useState(null);
   const [sceneFrames, setSceneFrames] = useState([]);
   const [lockLoading, setLockLoading] = useState(new Set());
@@ -64,10 +62,12 @@ export function useReferencesSession() {
   onSessionLoadedRef.current = (data) => {
     if (data.referenceData) {
       setReferenceData(data.referenceData);
-      setReferences({
-        characters: data.referenceData.characters || [],
-        settings: data.referenceData.settings || [],
-      });
+      const allRefs = [
+        ...(data.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+        ...(data.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+        ...(data.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+      ];
+      setReferences(allRefs);
     }
     if (data.sceneFrames?.length) {
       setSceneFrames(data.sceneFrames);
@@ -87,10 +87,12 @@ export function useReferencesSession() {
 
       if (session.referenceData) {
         setReferenceData(session.referenceData);
-        setReferences({
-          characters: session.referenceData.characters || [],
-          settings: session.referenceData.settings || [],
-        });
+        const allRefs = [
+          ...(session.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
+          ...(session.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+          ...(session.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+        ];
+        setReferences(allRefs);
       }
       if (session.scriptData) {
         setScriptData(session.scriptData);
@@ -107,6 +109,29 @@ export function useReferencesSession() {
     }
   }, [session]);
 
+  // ── Persist draft while on step 0 (before session starts) ─────────
+  useEffect(() => {
+    if (sessionId || step !== 0) return;
+
+    const refsArray = Array.isArray(references) ? references : [];
+    const hasDraft = Boolean(userPrompt?.trim()) ||
+      refsArray.some(r => r.name?.trim());
+
+    if (!hasDraft) return;
+
+    savePending("references", {
+      userPrompt,
+      style,
+      references: refsArray.map(r => ({
+        type: r.type || 'character',
+        name: r.name,
+        description: r.description,
+        useUpload: r.useUpload,
+      })),
+    }).catch(console.warn);
+
+  }, [userPrompt, style, references, sessionId, step]);
+
   // ── Start references session ───────────────────────────────────────
   const startReferencesSession = useCallback(async () => {
     console.log("[useReferencesSession] startReferencesSession called");
@@ -116,25 +141,17 @@ export function useReferencesSession() {
       return;
     }
 
-    // Validate at least one character
-    const chars = references.characters.filter(c => c.name.trim() && c.description.trim());
-    if (chars.length === 0) {
-      toast.error("Please add at least one character with name and description");
+    // Validate at least one reference with name and description
+    const validRefs = references.filter(r => r.name.trim() && r.description.trim());
+    if (validRefs.length === 0) {
+      toast.error("Please add at least one reference with name and description");
       return;
     }
 
-    // Validate all characters have descriptions
-    for (const char of references.characters) {
-      if (char.name.trim() && !char.description.trim()) {
-        toast.error(`Please add a description for ${char.name}`);
-        return;
-      }
-    }
-
-    // Validate settings have descriptions
-    for (const setting of references.settings) {
-      if (setting.name.trim() && !setting.description.trim()) {
-        toast.error(`Please add a description for ${setting.name}`);
+    // Validate all named references have descriptions
+    for (const ref of references) {
+      if (ref.name.trim() && !ref.description.trim()) {
+        toast.error(`Please add a description for ${ref.name}`);
         return;
       }
     }
@@ -160,55 +177,37 @@ export function useReferencesSession() {
         voiceId,
         imageDuration: 5,
         targetDuration,
+        aspectRatio,
       });
       setScriptProgress(10);
       setSessionId(newSession.id);
       setSession(newSession);
+      try { await clearPending("references"); } catch (e) { console.warn(e); }
 
-      // Step 2: Add all references (characters + settings)
-      const validChars = references.characters.filter(c => c.name.trim() && c.description.trim());
-      const validSettings = references.settings.filter(s => s.name.trim() && s.description.trim());
-      const totalRefs = validChars.length + validSettings.length;
+      // Step 2: Add all references
+      const totalRefs = validRefs.length;
       let refsDone = 0;
 
-      for (const char of validChars) {
-        console.log(`[useReferencesSession] Adding character: ${char.name}`);
+      const collectionMap = { character: 'characters', setting: 'settings', logo: 'logos', product: 'characters' };
+
+      for (const ref of validRefs) {
+        console.log(`[useReferencesSession] Adding ${ref.type}: ${ref.name}`);
+        const descSuffix = ref.type === 'character' ? '. Do not generate any background, use a plain solid color background only.' : '';
         await referenceApi.addReference(newSession.id, {
-          type: 'character',
-          name: char.name,
-          description: `${char.description}. Do not generate any background, use a plain solid color background only.`,
-          imageFile: char.useUpload ? char.referenceFile : null,
+          type: ref.type,
+          name: ref.name,
+          description: `${ref.description}${descSuffix}`,
+          imageFile: ref.useUpload ? ref.referenceFile : null,
         });
 
-        // If no file was uploaded, generate the image via AI
-        if (!char.useUpload || !char.referenceFile) {
+        // Logos are auto-locked, no AI generation needed. For others, generate if no file uploaded.
+        if (ref.type !== 'logo' && (!ref.useUpload || !ref.referenceFile)) {
           const refreshed = await sessionService.getSession(newSession.id);
           const refData = refreshed.referenceData;
-          const lastChar = refData.characters[refData.characters.length - 1];
-          if (lastChar && !lastChar.originalUrl) {
-            await referenceApi.generateReferenceImage(newSession.id, lastChar.id);
-          }
-        }
-
-        refsDone++;
-        setScriptProgress(10 + Math.round((refsDone / totalRefs) * 40));
-      }
-
-      for (const setting of validSettings) {
-        console.log(`[useReferencesSession] Adding setting: ${setting.name}`);
-        await referenceApi.addReference(newSession.id, {
-          type: 'setting',
-          name: setting.name,
-          description: setting.description,
-          imageFile: setting.useUpload ? setting.referenceFile : null,
-        });
-
-        if (!setting.useUpload || !setting.referenceFile) {
-          const refreshed = await sessionService.getSession(newSession.id);
-          const refData = refreshed.referenceData;
-          const lastSetting = refData.settings[refData.settings.length - 1];
-          if (lastSetting && !lastSetting.originalUrl) {
-            await referenceApi.generateReferenceImage(newSession.id, lastSetting.id);
+          const collection = refData[collectionMap[ref.type]] || [];
+          const lastRef = collection[collection.length - 1];
+          if (lastRef && !lastRef.originalUrl) {
+            await referenceApi.generateReferenceImage(newSession.id, lastRef.id);
           }
         }
 
@@ -252,7 +251,7 @@ export function useReferencesSession() {
     } finally {
       setLoading(false);
     }
-  }, [userPrompt, style, voiceId, references, navigate, credits]);
+  }, [userPrompt, style, voiceId, references, navigate, credits, aspectRatio]);
 
   // ── Approve all references ─────────────────────────────────────────
   const approveAllReferences = useCallback(async () => {
@@ -452,7 +451,7 @@ export function useReferencesSession() {
   const reset = useCallback(() => {
     resetBase();
     setStep(0);
-    setReferences({ characters: [], settings: [] });
+    setReferences([]);
     setReferenceData(null);
     setSceneFrames([]);
     setLockLoading(new Set());
