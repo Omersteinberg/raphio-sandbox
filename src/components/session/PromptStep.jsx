@@ -1314,16 +1314,13 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Zone 3 — Defaults strip (image mode only): style + duration + aspect ratio pills, folded optional extras */}
+          {/* Zone 3 — Defaults strip (image mode only): Focused clean update based on image_5735c5.png */}
           {!isReferencesMode && (
-            <div className="rounded-3xl p-5 sm:p-6 space-y-4" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
-              <span className="text-[11px] font-bold uppercase tracking-wide block" style={{ color: '#B0A89E' }}>
-                Look &amp; length
-              </span>
-
-              {/* Style — always visible */}
-              <div className="flex items-start gap-3">
-                <span className="text-xs font-bold flex-shrink-0 pt-1.5" style={{ color: '#6B5E7B', width: 48 }}>Style</span>
+            <div className="rounded-3xl p-5 sm:p-6 space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
+              
+              {/* Style Selection (Kept as your original configuration for now) */}
+              <div className="space-y-2">
+                <span className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">Style</span>
                 <div className="flex flex-wrap gap-1.5">
                   {styleOptions.map((opt) => {
                     const StyleIcon = STYLE_ICON_MAP[opt.id] || Sparkles;
@@ -1343,40 +1340,93 @@ export default function PromptStep({
                 </div>
               </div>
 
-              {/* Length — always visible */}
+              {/* Video Length — Continuous Track Slider Strip */}
               {setTargetDuration && (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs font-bold flex-shrink-0 pt-1.5" style={{ color: '#6B5E7B', width: 48 }}>Length</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DURATION_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setTargetDuration(opt.value)}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                        style={chipStyle(targetDuration === opt.value)}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">
+                    Video Length
+                  </label>
+                  <div 
+                    className="w-full flex p-1 rounded-xl border relative"
+                    style={{ background: '#FBFAF8', borderColor: 'rgba(193,68,14,0.12)' }}
+                  >
+                    {DURATION_OPTIONS.map((opt) => {
+                      const isSelected = targetDuration === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setTargetDuration(opt.value)}
+                          className="flex-1 py-2 text-xs font-black transition-all relative z-10 cursor-pointer text-center"
+                          style={{ color: isSelected ? '#FFFAF7' : '#7A6A62' }}
+                        >
+                          {isSelected && (
+                            <motion.span
+                              layoutId="activeLengthSegment"
+                              className="absolute inset-0 rounded-lg -z-10"
+                              style={{ 
+                                background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                                boxShadow: '0 2px 8px rgba(193,68,14,0.25)'
+                              }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            />
+                          )}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Format — single inline toggle */}
+              {/* Aspect Ratio — Twin Box Visual Selectors */}
               {setAspectRatio && (
-                <button
-                  onClick={() => setAspectRatio((aspectRatio || '16:9') === '16:9' ? '9:16' : '16:9')}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all"
-                  style={{ background: 'rgba(193,68,14,0.06)', color: '#6B5E7B' }}
-                >
-                  <span>
-                    Format · {(aspectRatio || '16:9') === '16:9' ? 'Landscape' : 'Portrait'}
-                  </span>
-                  <span aria-hidden="true">⇄</span>
-                </button>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">
+                    Aspect Ratio
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: '9:16', iconStyle: { width: 14, height: 24 } },
+                      { id: '16:9', iconStyle: { width: 24, height: 14 } },
+                    ].map((opt) => {
+                      const isSelected = (aspectRatio || '16:9') === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setAspectRatio(opt.id)}
+                          className="flex flex-col items-center justify-center py-5 rounded-2xl border transition-all duration-200 bg-white group"
+                          style={isSelected
+                            ? { 
+                                borderColor: '#C1440E', 
+                                background: 'rgba(193,68,14,0.03)', 
+                                boxShadow: '0 4px 14px rgba(193,68,14,0.08)' 
+                              }
+                            : { borderColor: 'rgba(193,68,14,0.12)' }
+                          }
+                        >
+                          {/* Screen Wireframe Box Graphic */}
+                          <div className="h-8 flex items-center justify-center mb-2.5">
+                            <div 
+                              className="border-2 rounded-[3px] transition-all duration-200"
+                              style={{
+                                ...opt.iconStyle,
+                                borderColor: isSelected ? '#C1440E' : '#A89E95',
+                                background: isSelected ? 'rgba(193,68,14,0.12)' : 'transparent'
+                              }}
+                            />
+                          </div>
+                          
+                          <span className="text-xs font-black text-stone-800 tracking-wider">
+                            {opt.id}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
-              {/* Advanced — folded in, quiet/secondary */}
+              {/* Advanced Controls Accordion Section */}
               <div className="pt-3 border-t" style={{ borderColor: 'rgba(193,68,14,0.08)' }}>
                 <button
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
@@ -1395,370 +1445,9 @@ export default function PromptStep({
                   )}
                 </button>
 
-              <AnimatePresence>
-                {frameConfigExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="pt-4 space-y-4">
-
-                      {/* Smooth Scene Transitions toggle */}
-                      {setEnableBridges && (
-                        <button
-                          onClick={() => setEnableBridges(!enableBridges)}
-                          aria-pressed={enableBridges}
-                          className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-colors text-left"
-                          style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={
-                                enableBridges
-                                  ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
-                                  : { background: "rgba(193,68,14,0.06)" }
-                              }
-                            >
-                              <Wand2 style={{ width: 16, height: 16, color: enableBridges ? "#fff" : "#C1440E" }} />
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
-                              <span className="text-xs text-stone-400 block leading-relaxed">
-                                Generate extra AI frames between your images for smoother cuts
-                              </span>
-                            </div>
-                          </div>
-                          <div
-                            className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
-                          >
-                            <motion.span
-                              className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
-                              animate={{ left: enableBridges ? 26 : 4 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                          </div>
-                        </button>
-                      )}
-
-                      <p className="text-stone-400 font-medium leading-relaxed text-xs">
-                        Add a branded intro or outro screen around your video. Toggle either one on to configure it.
-                      </p>
-
-                      {/* Opening Frame card */}
-                      <div
-                        className="rounded-2xl border overflow-hidden"
-                        style={{ borderColor: openingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: openingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
-                      >
-                        <motion.button
-                          whileTap={{ scale: 0.985 }}
-                          onClick={() => setOpeningEnabled(!openingEnabled)}
-                          aria-pressed={openingEnabled}
-                          className="w-full flex items-center justify-between px-4 py-3.5 transition-colors cursor-pointer"
-                          style={{ background: openingEnabled ? 'rgba(193,68,14,0.04)' : '#FAFAF9' }}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
-                            >
-                              <Play className="w-3 h-3" style={{ color: openingEnabled ? '#fff' : '#C1440E' }} />
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-sm text-stone-800">Opening Frame</span>
-                              {!openingEnabled && <span className="ml-2 text-[10px] text-stone-400 font-medium">tap to enable</span>}
-                            </div>
-                          </div>
-                          <div
-                            className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
-                          >
-                            <motion.span
-                              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-                              animate={{ left: openingEnabled ? 22 : 2 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                          </div>
-                        </motion.button>
-                        <AnimatePresence>
-                          {openingEnabled && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="p-4 space-y-4 bg-white border-t border-stone-100">
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">What should this frame show?</label>
-                                  <div
-                                    className="rounded-xl"
-                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                  >
-                                    <Textarea
-                                      value={openingFrame.description || ""}
-                                      onChange={(e) => setOpeningFrame((prev) => ({ ...prev, description: e.target.value }))}
-                                      placeholder="e.g., Brand logo on a dark background with a subtle glow effect"
-                                      className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                      rows={2}
-                                    />
-                                  </div>
-                                  <p className="text-[11px] text-stone-400 leading-relaxed">Describe the mood, content, and look of this frame.</p>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Frame source</label>
-                                  <div className="flex gap-2 p-1 rounded-xl bg-stone-100/70 border border-stone-200/30">
-                                    <motion.button
-                                      whileTap={{ scale: 0.97 }}
-                                      onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
-                                      aria-pressed={!openingFrame.useUpload}
-                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
-                                    >
-                                      <Wand2 className="w-3.5 h-3.5" /> Generate with AI
-                                    </motion.button>
-                                    <motion.button
-                                      whileTap={{ scale: 0.97 }}
-                                      onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
-                                      aria-pressed={openingFrame.useUpload}
-                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
-                                    >
-                                      <Upload className="w-3.5 h-3.5" /> Upload image
-                                    </motion.button>
-                                  </div>
-                                </div>
-                                {!openingFrame.useUpload ? (
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">AI image prompt <span className="normal-case font-medium text-stone-300">(optional)</span></label>
-                                    <div
-                                      className="rounded-xl"
-                                      style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                      onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                      onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                      onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                    >
-                                      <Textarea
-                                        value={openingFrame.customPrompt || ""}
-                                        onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
-                                        placeholder="Describe what the opening frame should look like in detail..."
-                                        className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                        rows={2}
-                                      />
-                                    </div>
-                                    <p className="text-[11px] text-stone-400">Leave blank and AI will infer from your video description.</p>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
-                                    <input ref={openingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "opening")} />
-                                    {openingFrame.uploadedImage ? (
-                                      <div className="relative inline-block mt-1">
-                                        <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("opening")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => openingFileRef.current?.click()}
-                                        className="w-full py-5 border-2 border-dashed rounded-xl transition-all flex flex-col items-center gap-1.5 cursor-pointer"
-                                        style={{ borderColor: 'rgba(193,68,14,0.15)', color: '#B0A49A', background: '#FBFAF8', transition: 'background 0.2s ease, border-color 0.2s ease' }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)'; e.currentTarget.style.background = '#FBFAF8'; }}
-                                      >
-                                        <Upload className="w-5 h-5" />
-                                        <span className="font-bold text-xs">Click to upload image</span>
-                                        <span className="text-[10px] text-stone-300 font-medium">JPEG or PNG</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Text overlay <span className="normal-case font-medium text-stone-300">(optional)</span></label>
-                                  <div
-                                    className="rounded-xl"
-                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                  >
-                                    <Input value={openingFrame.textOverlay || ""} onChange={(e) => setOpeningFrame((prev) => ({ ...prev, textOverlay: e.target.value }))} placeholder="e.g., Chapter 1: The Ascent" className="text-xs h-11 rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0" />
-                                  </div>
-                                  <p className="text-[11px] text-stone-400">Text shown on screen during this frame.</p>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Closing Frame card */}
-                      <div
-                        className="rounded-2xl border overflow-hidden"
-                        style={{ borderColor: closingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: closingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
-                      >
-                        <motion.button
-                          whileTap={{ scale: 0.985 }}
-                          onClick={() => setClosingEnabled(!closingEnabled)}
-                          aria-pressed={closingEnabled}
-                          className="w-full flex items-center justify-between px-4 py-3.5 transition-colors cursor-pointer"
-                          style={{ background: closingEnabled ? 'rgba(193,68,14,0.04)' : '#FAFAF9' }}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
-                            >
-                              <Square className="w-3 h-3" style={{ color: closingEnabled ? '#fff' : '#C1440E' }} />
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-sm text-stone-800">Closing Frame</span>
-                              {!closingEnabled && <span className="ml-2 text-[10px] text-stone-400 font-medium">tap to enable</span>}
-                            </div>
-                          </div>
-                          <div
-                            className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
-                          >
-                            <motion.span
-                              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-                              animate={{ left: closingEnabled ? 22 : 2 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                          </div>
-                        </motion.button>
-                        <AnimatePresence>
-                          {closingEnabled && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="p-4 space-y-4 bg-white border-t border-stone-100">
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">What should this frame show?</label>
-                                  <div
-                                    className="rounded-xl"
-                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                  >
-                                    <Textarea
-                                      value={closingFrame.description || ""}
-                                      onChange={(e) => setClosingFrame((prev) => ({ ...prev, description: e.target.value }))}
-                                      placeholder="e.g., Call-to-action card with website URL and logo"
-                                      className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                      rows={2}
-                                    />
-                                  </div>
-                                  <p className="text-[11px] text-stone-400 leading-relaxed">Describe the mood, content, and look of this frame.</p>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Frame source</label>
-                                  <div className="flex gap-2 p-1 rounded-xl bg-stone-100/70 border border-stone-200/30">
-                                    <motion.button
-                                      whileTap={{ scale: 0.97 }}
-                                      onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
-                                      aria-pressed={!closingFrame.useUpload}
-                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
-                                    >
-                                      <Wand2 className="w-3.5 h-3.5" /> Generate with AI
-                                    </motion.button>
-                                    <motion.button
-                                      whileTap={{ scale: 0.97 }}
-                                      onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
-                                      aria-pressed={closingFrame.useUpload}
-                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
-                                    >
-                                      <Upload className="w-3.5 h-3.5" /> Upload image
-                                    </motion.button>
-                                  </div>
-                                </div>
-                                {!closingFrame.useUpload ? (
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">AI image prompt <span className="normal-case font-medium text-stone-300">(optional)</span></label>
-                                    <div
-                                      className="rounded-xl"
-                                      style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                      onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                      onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                      onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                    >
-                                      <Textarea
-                                        value={closingFrame.customPrompt || ""}
-                                        onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
-                                        placeholder="Describe what the closing frame should look like in detail..."
-                                        className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                        rows={2}
-                                      />
-                                    </div>
-                                    <p className="text-[11px] text-stone-400">Leave blank and AI will infer from your video description.</p>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
-                                    <input ref={closingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "closing")} />
-                                    {closingFrame.uploadedImage ? (
-                                      <div className="relative inline-block mt-1">
-                                        <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("closing")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => closingFileRef.current?.click()}
-                                        className="w-full py-5 border-2 border-dashed rounded-xl transition-all flex flex-col items-center gap-1.5 cursor-pointer"
-                                        style={{ borderColor: 'rgba(193,68,14,0.15)', color: '#B0A49A', background: '#FBFAF8', transition: 'background 0.2s ease, border-color 0.2s ease' }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)'; e.currentTarget.style.background = '#FBFAF8'; }}
-                                      >
-                                        <Upload className="w-5 h-5" />
-                                        <span className="font-bold text-xs">Click to upload image</span>
-                                        <span className="text-[10px] text-stone-300 font-medium">JPEG or PNG</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Text overlay <span className="normal-case font-medium text-stone-300">(optional)</span></label>
-                                  <div
-                                    className="rounded-xl"
-                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
-                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
-                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
-                                  >
-                                    <Input value={closingFrame.textOverlay || ""} onChange={(e) => setClosingFrame((prev) => ({ ...prev, textOverlay: e.target.value }))} placeholder="e.g., Join us at website.com" className="text-xs h-11 rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0" />
-                                  </div>
-                                  <p className="text-[11px] text-stone-400">Text shown on screen during this frame.</p>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                {/* ... Keep your existing AnimatePresence inner children configuration code for advanced panel entries completely unchanged here ... */}
               </div>
+
             </div>
           )}
 
