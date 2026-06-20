@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
+import DurationEstimate from "./DurationEstimate";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -391,7 +392,6 @@ export default function PromptStep({
   setStyle,
   images,
   addImages,
-  setImages,
   removeImage,
   reorderImages,
   onStart,
@@ -585,32 +585,22 @@ export default function PromptStep({
               style={{ background: '#EAE4DC', boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)' }}
             >
               {[
-                { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
-                { id: 'references', label: 'Generate with AI', Icon: Wand2     },
-              ].map((mode) => {
-                const isActive = pipelineMode === mode.id;
-                return (
-                  <button
-                    key={mode.id}
-                    onClick={() => onModeChange(mode.id)}
-                    className="relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-full text-xs font-bold tracking-wide"
-                    style={{ color: isActive ? '#FFFAF7' : '#7A6A62', transition: 'color 0.18s ease', background: 'transparent' }}
-                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = '#2D1F16'; e.currentTarget.style.background = 'rgba(193,68,14,0.07)'; } }}
-                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'transparent'; } }}
-                  >
-                    {isActive && (
-                      <motion.span
-                        layoutId="tabPill"
-                        className="absolute inset-0 rounded-full"
-                        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 10px rgba(193,68,14,0.30)' }}
-                        transition={{ type: 'tween', duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                      />
-                    )}
-                    <mode.Icon style={{ width: 15, height: 15, flexShrink: 0, position: 'relative', zIndex: 1 }} />
-                    <span style={{ position: 'relative', zIndex: 1 }}>{mode.label}</span>
-                  </button>
-                );
-              })}
+                { id: 'image', label: 'Image-Based Storyboard' },
+                { id: 'references', label: 'Visual Character References' },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => onModeChange(mode.id)}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 ease-out"
+                  style={
+                    pipelineMode === mode.id
+                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
+                      : { color: "#6B5E7B" }
+                  }
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -1200,65 +1190,24 @@ export default function PromptStep({
                 </h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {DURATION_OPTIONS.map((opt, idx) => {
-                  const isSelected = targetDuration === opt.value;
-                  const level = idx + 1;
-                  return (
-                    <motion.button
-                      key={opt.value}
-                      onClick={() => setTargetDuration(opt.value)}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                      className="relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2"
-                      style={
-                        isSelected
-                          ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.07) 0%, rgba(232,96,60,0.04) 100%)", boxShadow: "0 4px 16px rgba(193,68,14,0.14)" }
-                          : { borderColor: "rgba(193,68,14,0.08)", background: "#FBFAF8" }
-                      }
-                    >
-                      {isSelected && (
-                        <motion.span
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                          className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
-                        >
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </motion.span>
-                      )}
-                      <div className="flex items-end gap-1 h-5">
-                        {[1, 2, 3, 4].map((bar) => (
-                          <span
-                            key={bar}
-                            className="rounded-full transition-colors duration-200"
-                            style={{
-                              width: 4,
-                              height: 6 + bar * 3,
-                              background: bar <= level
-                                ? (isSelected ? "linear-gradient(180deg, #C1440E, #E8603C)" : "rgba(193,68,14,0.30)")
-                                : "rgba(193,68,14,0.10)",
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <span className="font-black block text-base" style={{ color: "#1C1917" }}>{opt.label}</span>
-                      <span className="text-[10px] block" style={{ color: "#9c8f85" }}>{opt.desc}</span>
-                      {opt.value === 30 && (
-                        <span
-                          className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide whitespace-nowrap"
-                          style={{ background: '#1C1917', color: '#FFFAF7' }}
-                        >
-                          Popular
-                        </span>
-                      )}
-                    </motion.button>
-                  );
-                })}
+                {DURATION_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTargetDuration(opt.value)}
+                    className="p-3.5 rounded-2xl border-2 text-center transition-all duration-200 bg-white"
+                    style={
+                      targetDuration === opt.value
+                        ? { borderColor: "#F97066", background: "rgba(249,112,102,0.04)", fontWeight: "bold" }
+                        : { borderColor: "rgba(240,234,255,0.8)" }
+                    }
+                  >
+                    <span className="font-black block text-base text-stone-800">{opt.label}</span>
+                    <span className="text-[10px] text-stone-400 block mt-0.5">{opt.desc}</span>
+                  </button>
+                ))}
               </div>
-              <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#9c8f85' }}>
-                Most first-time creators pick ~30s — long enough to tell a story, short enough to hold attention.
+              <p className="text-[11px] font-medium text-stone-400/90 leading-relaxed">
+                Actual cinematic duration calculates dynamically based on segment volume requirements—this sets the baseline threshold.
               </p>
             </div>
           )}

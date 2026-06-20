@@ -116,7 +116,7 @@ export default function ResultStep({
           </Button>
 
           <Button
-            onClick={() => navigate("/create")}
+            onClick={reset}
             variant="outline"
             className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
           >
