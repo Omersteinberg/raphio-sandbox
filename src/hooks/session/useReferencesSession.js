@@ -10,7 +10,7 @@ import { savePending, clearPending } from "@/lib/pendingSession";
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
   REF_PROMPT_ENTERED: 0,
-  REF_REFERENCES_ADDED: 0,
+  REF_REFERENCES_ADDED: 1,
   REF_REFERENCES_LOCKED: 1,
   REF_SCRIPT_GENERATED: 2,
   REF_SCRIPT_APPROVED: 3,

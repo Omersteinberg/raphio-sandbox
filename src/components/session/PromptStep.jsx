@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
+import DurationEstimate from "./DurationEstimate";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -390,7 +391,6 @@ export default function PromptStep({
   style,
   setStyle,
   images,
-  setImages,
   addImages,
   removeImage,
   reorderImages,
@@ -589,6 +589,7 @@ export default function PromptStep({
               {[
                 { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
                 { id: 'references', label: 'Generate with AI', Icon: Wand2     },
+                { id: 'intro',      label: 'Brand Intro',      Icon: Play      },
               ].map((mode) => {
                 const isActive = pipelineMode === mode.id;
                 return (
@@ -1193,7 +1194,7 @@ export default function PromptStep({
           )}
 
           {/* Step — How long? (duration, references mode only — image mode uses the defaults strip below) */}
-          {isReferencesMode && setTargetDuration && (
+          {setTargetDuration && (
             <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
               <div className="flex items-center gap-3">
                 <StepBadge n={3} />
@@ -1259,9 +1260,24 @@ export default function PromptStep({
                   );
                 })}
               </div>
-              <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#9c8f85' }}>
-                Most first-time creators pick ~30s — long enough to tell a story, short enough to hold attention.
-              </p>
+              {isReferencesMode ? (
+                <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#9c8f85' }}>
+                  Most first-time creators pick ~30s — long enough to tell a story, short enough to hold attention.
+                </p>
+              ) : (
+                <DurationEstimate
+                  imageCount={images?.length ?? 0}
+                  targetDuration={targetDuration}
+                  enableBridges={enableBridges}
+                  onSetDuration={(v) => setTargetDuration?.(v)}
+                  onToggleAiFill={(v) => setEnableBridges?.(v)}
+                  onUploadMore={() => fileInputRef.current?.click()}
+                  onRemoveImages={(n) => {
+                    const len = images?.length ?? 0;
+                    for (let i = 0; i < n; i++) removeImage(len - 1 - i);
+                  }}
+                />
+              )}
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
+import IntroPipelineCreator from "./IntroPipelineCreator";
 
 export default function Creator() {
   const [pipelineMode, setPipelineMode] = useState(() => {
@@ -14,6 +15,9 @@ export default function Creator() {
 
   if (pipelineMode === "references") {
     return <ReferencesPipelineCreator onModeChange={handleModeChange} />;
+  }
+  if (pipelineMode === "intro") {
+    return <IntroPipelineCreator onModeChange={handleModeChange} />;
   }
   return <ImagePipelineCreator onModeChange={handleModeChange} />;
 }
