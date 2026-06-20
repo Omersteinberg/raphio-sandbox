@@ -95,7 +95,7 @@ export default function VideoDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-full font-montserrat flex items-center justify-center" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
+      <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading video...</p>
@@ -106,7 +106,7 @@ export default function VideoDetailPage() {
 
   if (error || !session) {
     return (
-      <div className="min-h-full font-montserrat flex items-center justify-center" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
+      <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
         <div className="text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Video Not Found</h1>
@@ -115,7 +115,7 @@ export default function VideoDetailPage() {
           </p>
           <Button
             onClick={handleCreateOwn}
-            className="bg-secondary hover:bg-secondary/90 text-white"
+            className="bg-primary hover:bg-primary/90 text-white"
           >
             Create Your Own Video
             <ArrowRight className="ml-2 w-4 h-4" />
@@ -128,7 +128,7 @@ export default function VideoDetailPage() {
   // Video still generating
   if (session.stage === "GENERATING") {
     return (
-      <div className="min-h-full font-montserrat flex items-center justify-center" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
+      <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
         <div className="text-center max-w-md">
           <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -150,7 +150,7 @@ export default function VideoDetailPage() {
   }
 
   return (
-    <div className="min-h-full font-montserrat" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
+    <div className="min-h-full font-figtree" style={{ background: "var(--gradient-app)" }}>
       {/* Main Content */}
       <main className="py-8 pb-12 px-6">
         <div className="max-w-4xl mx-auto">
@@ -215,7 +215,7 @@ export default function VideoDetailPage() {
             </p>
             <Button
               onClick={handleCreateOwn}
-              className="bg-secondary hover:bg-secondary/90 text-white px-8"
+              className="bg-primary hover:bg-primary/90 text-white px-8"
             >
               Create Video
               <ArrowRight className="ml-2 w-4 h-4" />

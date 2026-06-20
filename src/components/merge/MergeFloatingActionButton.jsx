@@ -24,7 +24,7 @@ export default function MergeFloatingActionButton({
   return (
     <Button
       className={cn(
-        "rounded-full flex items-center justify-center bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-purple-600 hover:border-purple-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+        "rounded-full flex items-center justify-center bg-surface shadow-lg border border-border text-ink-muted hover:bg-surface-alt hover:text-terra hover:border-terra/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed",
         className
       )}
       style={{ width: buttonSizePx, height: buttonSizePx, padding: `${paddingPx}px` }}

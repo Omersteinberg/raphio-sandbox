@@ -107,13 +107,13 @@ export default function ScriptStep({
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
       {/* Left Side - Script Sections */}
-      <div className="flex-1 flex flex-col p-6 border-r border-gray-100 overflow-hidden">
+      <div className="flex-1 flex flex-col p-6 border-r border-border overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-ink">
               {phase === "bridges" ? "Review Bridge Frames" : (scriptData?.title || "Video Script")}
             </h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-muted">
               {phase === "bridges"
                 ? `Review generated bridge images • ${(scriptData?.sections || []).filter(s => s.source === "bridge").length} bridge frames`
                 : isGenerated ? `${allSections.length} sections • ${totalDuration}s estimated` : "Generate a script from your prompt"}
@@ -126,7 +126,7 @@ export default function ScriptStep({
                   onClick={approveScript}
                   disabled={loading}
                   className="text-white"
-                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                  style={{ background: "var(--gradient-brand)" }}
                 >
                   <Check className="w-4 h-4 mr-2" />
                   {loading ? "Approving..." : "Approve Script"}
@@ -135,7 +135,7 @@ export default function ScriptStep({
                 <Button
                   onClick={approveOutline}
                   disabled={loading}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className="bg-terra hover:bg-terra-dark text-white"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {loading
@@ -160,11 +160,11 @@ export default function ScriptStep({
         {!isGenerated ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="text-center mb-6">
-              <FileText className="w-16 h-16 text-purple-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <FileText className="w-16 h-16 text-terra/50 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-ink mb-2">
                 Ready to Generate Script
               </h3>
-              <p className="text-gray-600 max-w-md">
+              <p className="text-ink-muted max-w-md">
                 Based on your prompt and image analysis, we'll create a complete video script with narration and visual descriptions.
               </p>
             </div>
@@ -172,7 +172,7 @@ export default function ScriptStep({
               onClick={generateScript}
               disabled={loading}
               className="text-white border-0 px-8 py-6 text-lg"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -210,10 +210,10 @@ export default function ScriptStep({
                         <img
                           src={generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl}
                           alt="Opening frame"
-                          className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-32 h-32 object-cover rounded-lg border border-border shadow-sm"
                         />
                         {(generatedFrameImages?.opening?.imageUrl || session?.openingFrameConfig?.uploadedImageUrl) && !openingFrame.uploadedImage && (
-                          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+                          <span className="absolute -top-2 -right-2 bg-terra text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
                         )}
@@ -231,12 +231,12 @@ export default function ScriptStep({
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">OPENING</span>
                         {openingFrame.useUpload ? (
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
+                          <span className="text-xs text-ink-muted flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
                         ) : openingFrame.customPrompt ? (
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
+                          <span className="text-xs text-ink-muted flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
                         ) : null}
                         {openingSection && (
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                          <span className="text-sm text-ink-muted flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {openingSection.suggestedDuration || 5}s
                           </span>
@@ -256,7 +256,7 @@ export default function ScriptStep({
                     {editingSection === "opening" && openingSection ? (
                       <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Narration</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Narration</label>
                           <Textarea
                             value={openingSection.narrationText || ""}
                             onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "narrationText", e.target.value)}
@@ -265,7 +265,7 @@ export default function ScriptStep({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Visual Description</label>
                           <Textarea
                             value={openingSection.visualDescription || ""}
                             onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "visualDescription", e.target.value)}
@@ -274,7 +274,7 @@ export default function ScriptStep({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Duration (seconds)</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
                           <Input
                             type="number"
                             value={openingSection.suggestedDuration || 5}
@@ -287,9 +287,9 @@ export default function ScriptStep({
                       </div>
                     ) : openingSection ? (
                       <>
-                        <p className="text-gray-900 mb-2">{openingSection.narrationText}</p>
+                        <p className="text-ink mb-2">{openingSection.narrationText}</p>
                         {openingSection.visualDescription && (
-                          <p className="text-sm text-gray-500 italic">
+                          <p className="text-sm text-ink-muted italic">
                             Visual: {openingSection.visualDescription}
                           </p>
                         )}
@@ -297,13 +297,13 @@ export default function ScriptStep({
                     ) : (
                       <>
                         {openingFrame.description && (
-                          <p className="text-sm text-gray-700 mb-1"><span className="font-medium">Context:</span> {openingFrame.description}</p>
+                          <p className="text-sm text-ink/80 mb-1"><span className="font-medium">Context:</span> {openingFrame.description}</p>
                         )}
                         {openingFrame.textOverlay && (
-                          <p className="text-sm text-gray-600"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
+                          <p className="text-sm text-ink-muted"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
                         )}
                         {!openingFrame.description && !openingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Opening frame — script will include narration & visual direction</p>
+                          <p className="text-sm text-ink-muted italic">Opening frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -344,7 +344,7 @@ export default function ScriptStep({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: contentIndex * 0.05 }}
                   className={`bg-white rounded-lg border p-4 ${
-                    editingSection === originalIndex ? "border-purple-500" : "border-gray-200"
+                    editingSection === originalIndex ? "border-terra" : "border-border"
                   }`}
                 >
                   <div className="flex gap-4">
@@ -356,7 +356,7 @@ export default function ScriptStep({
                           <img
                             src={sectionImage}
                             alt={`Section ${contentIndex + 1}`}
-                            className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                            className="w-24 h-24 object-cover rounded-lg border border-border"
                           />
                           {!isApproved && (
                             <button
@@ -366,7 +366,7 @@ export default function ScriptStep({
                               <span className="text-white text-xs font-medium">Change</span>
                             </button>
                           )}
-                          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                          <span className="absolute -top-2 -right-2 bg-terra text-white text-xs px-1.5 py-0.5 rounded-full">
                             #{section.imageIndex + 1}
                           </span>
                         </div>
@@ -374,7 +374,7 @@ export default function ScriptStep({
                         <button
                           onClick={() => !isApproved && openImageModal(originalIndex)}
                           disabled={isApproved}
-                          className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-24 h-24 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-terra hover:text-terra transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Image className="w-6 h-6 mb-1" />
                           <span className="text-xs">Add Image</span>
@@ -387,10 +387,10 @@ export default function ScriptStep({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-terra/10 text-terra">
                             {section.sectionType || "CONTENT"}
                           </span>
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                          <span className="text-sm text-ink-muted flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {section.suggestedDuration || 5}s
                           </span>
@@ -409,7 +409,7 @@ export default function ScriptStep({
                       {editingSection === originalIndex ? (
                         <div className="space-y-3">
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Narration</label>
+                            <label className="text-xs text-ink-muted mb-1 block">Narration</label>
                             <Textarea
                               value={section.narrationText || ""}
                               onChange={(e) => handleSectionEdit(originalIndex, "narrationText", e.target.value)}
@@ -418,7 +418,7 @@ export default function ScriptStep({
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
+                            <label className="text-xs text-ink-muted mb-1 block">Visual Description</label>
                             <Textarea
                               value={section.visualDescription || ""}
                               onChange={(e) => handleSectionEdit(originalIndex, "visualDescription", e.target.value)}
@@ -427,7 +427,7 @@ export default function ScriptStep({
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">Duration (seconds)</label>
+                            <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
                             <Input
                               type="number"
                               value={section.suggestedDuration || 5}
@@ -440,9 +440,9 @@ export default function ScriptStep({
                         </div>
                       ) : (
                         <>
-                          <p className="text-gray-900 mb-2">{section.narrationText}</p>
+                          <p className="text-ink mb-2">{section.narrationText}</p>
                           {section.visualDescription && (
-                            <p className="text-sm text-gray-500 italic">
+                            <p className="text-sm text-ink-muted italic">
                               Visual: {section.visualDescription}
                             </p>
                           )}
@@ -474,10 +474,10 @@ export default function ScriptStep({
                         <img
                           src={generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl}
                           alt="Closing frame"
-                          className="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-32 h-32 object-cover rounded-lg border border-border shadow-sm"
                         />
                         {(generatedFrameImages?.closing?.imageUrl || session?.closingFrameConfig?.uploadedImageUrl) && !closingFrame.uploadedImage && (
-                          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+                          <span className="absolute -top-2 -right-2 bg-terra text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
                             <Sparkles className="w-3 h-3" /> AI
                           </span>
                         )}
@@ -495,12 +495,12 @@ export default function ScriptStep({
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">CLOSING</span>
                         {closingFrame.useUpload ? (
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
+                          <span className="text-xs text-ink-muted flex items-center gap-1"><Upload className="w-3 h-3" /> Uploaded</span>
                         ) : closingFrame.customPrompt ? (
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
+                          <span className="text-xs text-ink-muted flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generated</span>
                         ) : null}
                         {closingSection && (
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                          <span className="text-sm text-ink-muted flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {closingSection.suggestedDuration || 5}s
                           </span>
@@ -520,7 +520,7 @@ export default function ScriptStep({
                     {editingSection === "closing" && closingSection ? (
                       <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Narration</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Narration</label>
                           <Textarea
                             value={closingSection.narrationText || ""}
                             onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "narrationText", e.target.value)}
@@ -529,7 +529,7 @@ export default function ScriptStep({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Visual Description</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Visual Description</label>
                           <Textarea
                             value={closingSection.visualDescription || ""}
                             onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "visualDescription", e.target.value)}
@@ -538,7 +538,7 @@ export default function ScriptStep({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Duration (seconds)</label>
+                          <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
                           <Input
                             type="number"
                             value={closingSection.suggestedDuration || 5}
@@ -551,9 +551,9 @@ export default function ScriptStep({
                       </div>
                     ) : closingSection ? (
                       <>
-                        <p className="text-gray-900 mb-2">{closingSection.narrationText}</p>
+                        <p className="text-ink mb-2">{closingSection.narrationText}</p>
                         {closingSection.visualDescription && (
-                          <p className="text-sm text-gray-500 italic">
+                          <p className="text-sm text-ink-muted italic">
                             Visual: {closingSection.visualDescription}
                           </p>
                         )}
@@ -561,13 +561,13 @@ export default function ScriptStep({
                     ) : (
                       <>
                         {closingFrame.description && (
-                          <p className="text-sm text-gray-700 mb-1"><span className="font-medium">Context:</span> {closingFrame.description}</p>
+                          <p className="text-sm text-ink/80 mb-1"><span className="font-medium">Context:</span> {closingFrame.description}</p>
                         )}
                         {closingFrame.textOverlay && (
-                          <p className="text-sm text-gray-600 mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
+                          <p className="text-sm text-ink-muted mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
                         )}
                         {!closingFrame.description && !closingFrame.textOverlay && (
-                          <p className="text-sm text-gray-400 italic">Closing frame — script will include narration & visual direction</p>
+                          <p className="text-sm text-ink-muted italic">Closing frame — script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -583,7 +583,7 @@ export default function ScriptStep({
             <Button
               onClick={onNext}
               className="w-full text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               <span className="flex items-center gap-2">
                 Continue to Generation Settings
@@ -595,10 +595,10 @@ export default function ScriptStep({
       </div>
 
       {/* Right Side - AI Edit or Bridge Status */}
-      <div className="w-full lg:w-80 flex flex-col bg-gray-50 p-6">
+      <div className="w-full lg:w-80 flex flex-col bg-surface-alt p-6">
         {phase === "bridges" ? (
           <>
-            <h3 className="font-semibold text-gray-900 mb-4">Bridge Frame Status</h3>
+            <h3 className="font-semibold text-ink mb-4">Bridge Frame Status</h3>
             {(() => {
               const bridges = (scriptData?.sections || []).filter(s => s.source === "bridge");
               const completed = bridges.filter(s => s.bridgeStatus === "completed").length;
@@ -607,7 +607,7 @@ export default function ScriptStep({
               return (
                 <div className="space-y-4">
                   <div className="p-3 bg-white rounded-lg border">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Progress</div>
+                    <div className="text-sm font-medium text-ink/80 mb-2">Progress</div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="text-green-600">Completed</span>
@@ -636,8 +636,8 @@ export default function ScriptStep({
                       Retry All Failed ({failed})
                     </Button>
                   )}
-                  <div className="p-3 bg-purple-100 rounded-lg border border-purple-200">
-                    <p className="text-xs text-purple-800">
+                  <div className="p-3 bg-terra/10 rounded-lg border border-terra/30">
+                    <p className="text-xs text-terra">
                       <strong>Tip:</strong> You can retry individual bridge frames, or upload your own image as a replacement.
                     </p>
                   </div>
@@ -647,17 +647,17 @@ export default function ScriptStep({
           </>
         ) : (
           <>
-            <h3 className="font-semibold text-gray-900 mb-4">AI Script Editor</h3>
+            <h3 className="font-semibold text-ink mb-4">AI Script Editor</h3>
 
             {!isGenerated ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              <div className="flex-1 flex flex-col items-center justify-center text-ink-muted">
                 <Sparkles className="w-12 h-12 mb-3 opacity-50" />
                 <p className="text-sm text-center">
                   Generate a script first to use the AI editor
                 </p>
               </div>
             ) : isApproved ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              <div className="flex-1 flex flex-col items-center justify-center text-ink-muted">
                 <Check className="w-12 h-12 mb-3 text-green-500" />
                 <p className="text-sm text-center">
                   Script approved! Proceed to generation settings.
@@ -665,7 +665,7 @@ export default function ScriptStep({
               </div>
             ) : (
               <>
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-ink-muted mb-4">
                   Describe changes you want to make and AI will update the script.
                 </p>
 
@@ -680,7 +680,7 @@ export default function ScriptStep({
                   onClick={editScriptWithAI}
                   disabled={!editRequest.trim() || loading}
                   className="mt-4 text-white border-0"
-                  style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+                  style={{ background: "var(--gradient-brand)" }}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -699,8 +699,8 @@ export default function ScriptStep({
                   )}
                 </Button>
 
-                <div className="mt-6 p-3 bg-purple-100 rounded-lg border border-purple-200">
-                  <p className="text-xs text-purple-800">
+                <div className="mt-6 p-3 bg-terra/10 rounded-lg border border-terra/30">
+                  <p className="text-xs text-terra">
                     <strong>Tip:</strong> You can also click the edit icon on any section to make direct changes.
                   </p>
                 </div>
@@ -728,16 +728,16 @@ export default function ScriptStep({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Select Image for Section</h3>
+                <h3 className="text-lg font-semibold text-ink">Select Image for Section</h3>
                 <button
                   onClick={() => setImageModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-ink-muted hover:text-ink-muted"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-ink-muted mb-4">
                 Choose which image to use for this section of your video.
               </p>
 
@@ -752,8 +752,8 @@ export default function ScriptStep({
                         onClick={() => handleImageSelect(imgIndex)}
                         className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                           isSelected
-                            ? "border-purple-500 ring-2 ring-purple-200"
-                            : "border-gray-200 hover:border-purple-300"
+                            ? "border-terra ring-2 ring-terra/30"
+                            : "border-border hover:border-terra/40"
                         }`}
                       >
                         <img
@@ -765,7 +765,7 @@ export default function ScriptStep({
                           #{imgIndex + 1}
                         </div>
                         {isSelected && (
-                          <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-terra/20 flex items-center justify-center">
                             <Check className="w-8 h-8 text-white drop-shadow-lg" />
                           </div>
                         )}
@@ -775,14 +775,14 @@ export default function ScriptStep({
                 </div>
 
                 {sessionImages.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-ink-muted">
                     <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>No images available</p>
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-3">
+              <div className="mt-4 pt-4 border-t border-border flex justify-end gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setImageModalOpen(false)}

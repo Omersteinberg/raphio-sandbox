@@ -26,15 +26,15 @@ export default function InsufficientCreditsModal({ required, available, onClose 
             <AlertTriangle className="w-5 h-5" />
             <h3 className="text-lg font-semibold">Insufficient Credits</h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-ink-muted hover:text-ink">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-gray-600 mb-2">
+        <p className="text-ink-muted mb-2">
           This action requires <strong>{required}</strong> credit{required !== 1 ? 's' : ''}, but you only have <strong>{available}</strong>.
         </p>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-ink-muted mb-6">
           Purchase more credits to continue.
         </p>
 

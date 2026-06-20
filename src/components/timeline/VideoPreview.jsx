@@ -170,7 +170,7 @@ export default function VideoPreview({
           className="max-w-full max-h-full object-contain opacity-50"
         />
       ) : (
-        <div className="text-gray-600 flex flex-col items-center gap-2">
+        <div className="text-muted-foreground flex flex-col items-center gap-2">
           <Film className="w-16 h-16" />
           <span className="text-sm">No video at current position</span>
         </div>

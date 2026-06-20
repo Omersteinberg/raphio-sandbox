@@ -76,10 +76,10 @@ export default function ClipEditModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Edit Clip</h3>
+          <h3 className="text-lg font-semibold text-ink">Edit Clip</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-ink-muted hover:text-ink-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -103,7 +103,7 @@ export default function ClipEditModal({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-600">
+                <div className="w-full h-full flex items-center justify-center text-ink-muted">
                   <Film className="w-8 h-8" />
                 </div>
               )}
@@ -112,11 +112,11 @@ export default function ClipEditModal({
             {/* Source Image */}
             {clip.imageUrl && (
               <div className="relative">
-                <p className="text-xs text-gray-500 mb-1">Source Image</p>
+                <p className="text-xs text-ink-muted mb-1">Source Image</p>
                 <img
                   src={clip.imageUrl}
                   alt="Source"
-                  className="w-full aspect-video object-cover rounded-lg border border-gray-200"
+                  className="w-full aspect-video object-cover rounded-lg border border-border"
                 />
               </div>
             )}
@@ -130,15 +130,15 @@ export default function ClipEditModal({
                   ? "bg-green-100 text-green-800"
                   : clip.sectionType === "CLOSING"
                   ? "bg-orange-100 text-orange-800"
-                  : "bg-purple-100 text-purple-800"
+                  : "bg-terra/10 text-terra"
               }`}>
                 {clip.sectionType}
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-ink-muted">
                 Duration: {clip.clipDuration || 5}s
               </span>
               {clip.regenerationCount > 0 && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-ink-muted">
                   Regenerated {clip.regenerationCount}x
                 </span>
               )}
@@ -159,7 +159,7 @@ export default function ClipEditModal({
           {/* Narration Text */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <label className="text-sm font-medium text-ink/80 flex items-center gap-2">
                 <Mic className="w-4 h-4" />
                 Narration Text
               </label>
@@ -191,7 +191,7 @@ export default function ClipEditModal({
 
           {/* Visual Description */}
           <div>
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2 mb-1">
+            <label className="text-sm font-medium text-ink/80 flex items-center gap-2 mb-1">
               <Image className="w-4 h-4" />
               Visual Description
             </label>
@@ -205,9 +205,9 @@ export default function ClipEditModal({
           </div>
 
           {/* AI Generation Prompt */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-surface-alt rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <label className="text-sm font-medium text-ink/80 flex items-center gap-2">
                 <Film className="w-4 h-4" />
                 Video Generation Prompt
               </label>
@@ -219,14 +219,14 @@ export default function ClipEditModal({
               rows={3}
               className="text-sm bg-white"
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-ink-muted mt-2">
               This prompt will be sent to the AI model to regenerate the video clip.
             </p>
             <Button
               onClick={handleRegenerate}
               disabled={regenerating || loading}
               className="mt-3 text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {regenerating ? (
                 <span className="flex items-center gap-2">
@@ -244,14 +244,14 @@ export default function ClipEditModal({
         </div>
 
         {/* Actions */}
-        <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
+        <div className="mt-6 pt-4 border-t border-border flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving || loading || !hasChanges}
-            className="bg-gray-900 hover:bg-gray-800 text-white"
+            className="bg-terra hover:bg-terra-dark text-white"
           >
             {saving ? (
               <span className="flex items-center gap-2">

@@ -431,8 +431,6 @@ export default function PromptStep({
   const [template, setTemplate] = useState('general');
   const [targetSlot, setTargetSlot] = useState(null);
   const [dragSlot, setDragSlot] = useState(null);
-  const [showPromptGuide, setShowPromptGuide] = useState(false);
-  const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
   const ctaRef = useRef(null);

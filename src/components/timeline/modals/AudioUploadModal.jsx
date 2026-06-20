@@ -49,7 +49,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
         onClick={onClose}
       >
         <motion.div
-          className="bg-gray-800 rounded-lg w-full max-w-md p-6"
+          className="bg-card rounded-lg w-full max-w-md p-6"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -60,7 +60,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
             <h3 className="text-lg font-semibold text-white">Upload Audio</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -70,10 +70,10 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragOver
-                ? "border-purple-500 bg-purple-500/10"
+                ? "border-terra bg-terra/10"
                 : file
                 ? "border-green-500 bg-green-500/10"
-                : "border-gray-600 hover:border-gray-500"
+                : "border-border hover:border-border"
             }`}
             onDragOver={(e) => {
               e.preventDefault();
@@ -95,17 +95,17 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
               <div className="space-y-2">
                 <Music className="w-12 h-12 mx-auto text-green-400" />
                 <p className="text-white font-medium">{file.name}</p>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                <p className="text-gray-300">
+                <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
+                <p className="text-foreground">
                   Drop an audio file here or click to browse
                 </p>
-                <p className="text-sm text-gray-500">MP3, WAV, or OGG</p>
+                <p className="text-sm text-muted-foreground">MP3, WAV, or OGG</p>
               </div>
             )}
           </div>
@@ -115,7 +115,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
             <Button
               variant="ghost"
               onClick={onClose}
-              className="text-gray-300"
+              className="text-foreground"
             >
               Cancel
             </Button>
@@ -123,7 +123,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
               onClick={handleUpload}
               disabled={!file || uploading}
               className="text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {uploading ? (
                 <>

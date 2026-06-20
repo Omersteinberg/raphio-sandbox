@@ -53,7 +53,7 @@ export default function ItemEditModal({
         onClick={onClose}
       >
         <motion.div
-          className="bg-gray-800 rounded-lg w-full max-w-md p-6"
+          className="bg-card rounded-lg w-full max-w-md p-6"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -63,7 +63,7 @@ export default function ItemEditModal({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {isVideo ? (
-                <Film className="w-5 h-5 text-purple-400" />
+                <Film className="w-5 h-5 text-terra" />
               ) : (
                 <Music className="w-5 h-5 text-blue-400" />
               )}
@@ -71,16 +71,16 @@ export default function ItemEditModal({
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Item info */}
-          <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
+          <div className="bg-muted/50 rounded-lg p-3 mb-4">
             <p className="text-sm text-white truncate">{label}</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Duration: {item.duration.toFixed(1)}s | Start: {item.startTime.toFixed(1)}s
             </p>
           </div>
@@ -89,7 +89,7 @@ export default function ItemEditModal({
           <div className="space-y-4">
             {/* Trim Start */}
             <div>
-              <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Clock className="w-4 h-4" />
                 Trim Start (seconds)
               </label>
@@ -102,7 +102,7 @@ export default function ItemEditModal({
                 onChange={(e) => setTrimStart(parseFloat(e.target.value))}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>0s</span>
                 <span className="text-white">{trimStart.toFixed(1)}s</span>
                 <span>{item.duration.toFixed(1)}s</span>
@@ -111,7 +111,7 @@ export default function ItemEditModal({
 
             {/* Trim End */}
             <div>
-              <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Clock className="w-4 h-4" />
                 Trim End (seconds)
               </label>
@@ -124,7 +124,7 @@ export default function ItemEditModal({
                 onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>{(trimStart + 0.5).toFixed(1)}s</span>
                 <span className="text-white">{trimEnd.toFixed(1)}s</span>
                 <span>{(item.duration + (item.trimStart || 0)).toFixed(1)}s</span>
@@ -133,7 +133,7 @@ export default function ItemEditModal({
 
             {/* Speed */}
             <div>
-              <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Gauge className="w-4 h-4" />
                 Speed
               </label>
@@ -146,7 +146,7 @@ export default function ItemEditModal({
                 onChange={(e) => setSpeed(parseFloat(e.target.value))}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>0.25x</span>
                 <span className="text-white">{speed}x</span>
                 <span>4x</span>
@@ -156,7 +156,7 @@ export default function ItemEditModal({
             {/* Volume (audio only) */}
             {!isVideo && (
               <div>
-                <label className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                   <Volume2 className="w-4 h-4" />
                   Volume
                 </label>
@@ -169,7 +169,7 @@ export default function ItemEditModal({
                   onChange={(e) => setVolume(parseFloat(e.target.value))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
                   <span>0%</span>
                   <span className="text-white">{Math.round(volume * 100)}%</span>
                   <span>200%</span>
@@ -180,7 +180,7 @@ export default function ItemEditModal({
 
           {/* Presets */}
           <div className="mt-4">
-            <label className="block text-sm text-gray-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Speed Presets
             </label>
             <div className="flex gap-2">
@@ -190,8 +190,8 @@ export default function ItemEditModal({
                   onClick={() => setSpeed(preset)}
                   className={`px-3 py-1 rounded text-sm ${
                     speed === preset
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      ? "bg-terra text-white"
+                      : "bg-muted text-foreground hover:bg-muted"
                   }`}
                 >
                   {preset}x
@@ -205,7 +205,7 @@ export default function ItemEditModal({
             <Button
               variant="ghost"
               onClick={onClose}
-              className="text-gray-300"
+              className="text-foreground"
             >
               Cancel
             </Button>
@@ -213,7 +213,7 @@ export default function ItemEditModal({
               onClick={handleSave}
               disabled={saving}
               className="text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {saving ? (
                 <>

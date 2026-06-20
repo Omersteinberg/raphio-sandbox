@@ -153,7 +153,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   if (timeline.loading && !timeline.timeline) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-background">
+      <div className="editor-dark w-full h-full flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Loading timeline...</p>
@@ -163,9 +163,9 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-background text-foreground" ref={containerRef}>
+    <div className="editor-dark w-full h-full flex flex-col bg-background text-foreground" ref={containerRef}>
       {/* Header */}
-      <div className="bg-white border-b border-border px-4 py-3 flex items-center justify-between">
+      <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -203,7 +203,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           <Button
             onClick={handleExport}
             disabled={exporting || timeline.loading}
-            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {exporting ? (
               <>
@@ -223,7 +223,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Assets */}
-        <div className="w-64 bg-white border-r border-border overflow-y-auto">
+        <div className="w-64 bg-card border-r border-border overflow-y-auto">
           <AssetPanel
             sections={timeline.sections}
             audioAssets={timeline.audioAssets}
@@ -326,7 +326,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
       {/* Saving indicator */}
       {timeline.saving && (
-        <div className="fixed bottom-4 right-4 bg-white text-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg border border-border">
+        <div className="fixed bottom-4 right-4 bg-card text-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg border border-border">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
           Saving...
         </div>

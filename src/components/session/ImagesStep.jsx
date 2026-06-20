@@ -45,11 +45,11 @@ export default function ImagesStep({
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
       {/* Left Side - Image Upload */}
-      <div className="flex-1 flex flex-col p-6 border-r border-gray-100">
+      <div className="flex-1 flex flex-col p-6 border-r border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Upload Images</h2>
-            <p className="text-sm text-gray-600">Add images for your video scenes</p>
+            <h2 className="text-xl font-semibold text-ink">Upload Images</h2>
+            <p className="text-sm text-ink-muted">Add images for your video scenes</p>
           </div>
           {images.length > 0 && !isUploaded && (
             <Button
@@ -81,21 +81,21 @@ export default function ImagesStep({
             onDragOver={handleDragOver}
             title={atCap ? `Maximum ${MAX_IMAGES} images per video` : undefined}
             aria-disabled={atCap}
-            className={`border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-colors mb-2 ${atCap ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-purple-500 hover:bg-purple-50"}`}
+            className={`border-2 border-dashed border-border rounded-xl p-8 text-center transition-colors mb-2 ${atCap ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-terra hover:bg-terra/5"}`}
           >
-            <Upload className="w-10 h-10 text-purple-500 mx-auto mb-3" />
-            <p className="text-gray-700 font-medium">
+            <Upload className="w-10 h-10 text-terra mx-auto mb-3" />
+            <p className="text-ink/80 font-medium">
               {atCap ? `Maximum ${MAX_IMAGES} images per video` : "Drop images here or click to upload"}
             </p>
-            <p className="text-sm text-gray-500 mt-1">Supports JPEG and PNG only</p>
+            <p className="text-sm text-ink-muted mt-1">Supports JPEG and PNG only</p>
           </div>
         )}
 
         {!isUploaded && (
-          <p className="text-xs text-gray-500 mb-4">
+          <p className="text-xs text-ink-muted mb-4">
             Up to {MAX_IMAGES} images per video · 1 credit per clip
             {" · "}
-            <span className={`font-semibold ${atCap ? "text-purple-600" : "text-gray-700"}`}>
+            <span className={`font-semibold ${atCap ? "text-terra" : "text-ink/80"}`}>
               {images?.length ?? 0} / {MAX_IMAGES}
             </span>
           </p>
@@ -104,7 +104,7 @@ export default function ImagesStep({
         {/* Image Grid */}
         <div className="flex-1 overflow-y-auto">
           {images.length === 0 && !session?.images?.length ? (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+            <div className="flex flex-col items-center justify-center h-40 text-ink-muted">
               <ImageIcon className="w-12 h-12 mb-2 opacity-50" />
               <p className="text-sm">No images added yet</p>
             </div>
@@ -167,7 +167,7 @@ export default function ImagesStep({
               onClick={uploadImages}
               disabled={loading}
               className="flex-1 text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? "Uploading..." : `Upload ${images.length} Images`}
             </Button>
@@ -178,7 +178,7 @@ export default function ImagesStep({
               onClick={analyzeImages}
               disabled={loading}
               className="flex-1 text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export default function ImagesStep({
             <Button
               onClick={onNext}
               className="flex-1 text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               <span className="flex items-center gap-2">
                 Continue to Script
@@ -214,11 +214,11 @@ export default function ImagesStep({
       </div>
 
       {/* Right Side - Analysis Results */}
-      <div className="w-full lg:w-96 flex flex-col bg-gray-50 p-6 overflow-y-auto">
-        <h3 className="font-semibold text-gray-900 mb-4">Image Analysis</h3>
+      <div className="w-full lg:w-96 flex flex-col bg-surface-alt p-6 overflow-y-auto">
+        <h3 className="font-semibold text-ink mb-4">Image Analysis</h3>
 
         {!imageAnalysis ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+          <div className="flex-1 flex flex-col items-center justify-center text-ink-muted">
             <Sparkles className="w-12 h-12 mb-3 opacity-50" />
             <p className="text-sm text-center">
               Upload and analyze your images to see AI-generated insights
@@ -226,19 +226,19 @@ export default function ImagesStep({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="bg-white rounded-lg p-4 border border-border">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{imageAnalysis.imageCount}</div>
-                  <div className="text-xs text-gray-500">Images</div>
+                  <div className="text-2xl font-bold text-terra">{imageAnalysis.imageCount}</div>
+                  <div className="text-xs text-ink-muted">Images</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">{imageAnalysis.analyzedCount}</div>
-                  <div className="text-xs text-gray-500">Analyzed</div>
+                  <div className="text-xs text-ink-muted">Analyzed</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-red-600">{imageAnalysis.failedCount}</div>
-                  <div className="text-xs text-gray-500">Failed</div>
+                  <div className="text-xs text-ink-muted">Failed</div>
                 </div>
               </div>
             </div>
@@ -246,29 +246,29 @@ export default function ImagesStep({
             {imageAnalysis.aggregated && (
               <>
                 {imageAnalysis.aggregated.subjects?.length > 0 && (
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-2">Subjects</h4>
+                  <div className="bg-white rounded-lg p-4 border border-border">
+                    <h4 className="font-medium text-ink mb-2">Subjects</h4>
                     <div className="flex flex-wrap gap-2">
                       {imageAnalysis.aggregated.subjects.map((subject, i) => (
-                        <span key={i} className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">{subject}</span>
+                        <span key={i} className="bg-terra/10 text-terra text-xs px-2 py-1 rounded">{subject}</span>
                       ))}
                     </div>
                   </div>
                 )}
                 {imageAnalysis.aggregated.moods?.length > 0 && (
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-2">Moods</h4>
+                  <div className="bg-white rounded-lg p-4 border border-border">
+                    <h4 className="font-medium text-ink mb-2">Moods</h4>
                     <div className="flex flex-wrap gap-2">
                       {imageAnalysis.aggregated.moods.map((mood, i) => (
-                        <span key={i} className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">{mood}</span>
+                        <span key={i} className="bg-terra/10 text-terra text-xs px-2 py-1 rounded">{mood}</span>
                       ))}
                     </div>
                   </div>
                 )}
                 {imageAnalysis.aggregated.settings?.length > 0 && (
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-2">Settings</h4>
-                    <ul className="text-sm text-gray-600 space-y-1">
+                  <div className="bg-white rounded-lg p-4 border border-border">
+                    <h4 className="font-medium text-ink mb-2">Settings</h4>
+                    <ul className="text-sm text-ink-muted space-y-1">
                       {imageAnalysis.aggregated.settings.map((setting, i) => (
                         <li key={i}>• {setting}</li>
                       ))}

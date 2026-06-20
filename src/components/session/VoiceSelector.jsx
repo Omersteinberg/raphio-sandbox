@@ -111,8 +111,8 @@ export default function VoiceSelector({ value, onChange }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-        <span className="ml-2 text-gray-600">Loading voices...</span>
+        <Loader2 className="w-6 h-6 animate-spin text-terra" />
+        <span className="ml-2 text-ink-muted">Loading voices...</span>
       </div>
     );
   }
@@ -124,20 +124,20 @@ export default function VoiceSelector({ value, onChange }) {
 
       {/* Selected Voice Display */}
       {selectedVoice && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+        <div className="bg-terra/5 border border-terra/30 rounded-lg p-3 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-terra rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="font-medium text-purple-900">{selectedVoice.name}</p>
-                <p className="text-xs text-purple-700">{getVoiceStyleLabel(selectedVoice)}</p>
+                <p className="font-medium text-terra">{selectedVoice.name}</p>
+                <p className="text-xs text-terra">{getVoiceStyleLabel(selectedVoice)}</p>
               </div>
             </div>
             <button
               onClick={() => handlePlayPreview(selectedVoice.key)}
-              className="p-2 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+              className="p-2 rounded-full bg-terra text-white hover:bg-terra-dark transition-colors"
             >
               {loadingPreview === selectedVoice.key ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -154,7 +154,7 @@ export default function VoiceSelector({ value, onChange }) {
       {/* Search and Filter */}
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
           <Input
             type="text"
             value={searchQuery}
@@ -170,8 +170,8 @@ export default function VoiceSelector({ value, onChange }) {
               onClick={() => setGenderFilter(gender)}
               className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
                 genderFilter === gender
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-terra text-white"
+                  : "bg-surface-alt text-ink/80 hover:bg-surface-alt"
               }`}
             >
               {gender.charAt(0).toUpperCase() + gender.slice(1)}
@@ -184,7 +184,7 @@ export default function VoiceSelector({ value, onChange }) {
       <div className="max-h-64 overflow-y-auto space-y-1 pr-2">
         {Object.entries(groupedVoices).map(([gender, genderVoices]) => (
           <div key={gender}>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide py-2">
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide py-2">
               {gender === "male" ? "Male Voices" : gender === "female" ? "Female Voices" : "Other"}
             </p>
             <div className="space-y-1">
@@ -196,24 +196,24 @@ export default function VoiceSelector({ value, onChange }) {
                   onClick={() => onChange(voice.key)}
                   className={`w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition-all ${
                     value === voice.key
-                      ? "border-purple-500 bg-purple-50"
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                      ? "border-terra bg-terra/5"
+                      : "border-border bg-white hover:border-border"
                   }`}
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      value === voice.key ? "bg-purple-600" : "bg-gray-200"
+                      value === voice.key ? "bg-terra" : "bg-surface-alt"
                     }`}
                   >
                     {value === voice.key ? (
                       <Check className="w-4 h-4 text-white" />
                     ) : (
-                      <User className="w-4 h-4 text-gray-500" />
+                      <User className="w-4 h-4 text-ink-muted" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="font-medium text-gray-900 block">{voice.name}</span>
-                    <span className="text-xs text-gray-500 truncate block">
+                    <span className="font-medium text-ink block">{voice.name}</span>
+                    <span className="text-xs text-ink-muted truncate block">
                       {getVoiceSecondaryLabel(voice)}
                     </span>
                   </div>
@@ -224,8 +224,8 @@ export default function VoiceSelector({ value, onChange }) {
                     }}
                     className={`p-2 rounded-full transition-colors ${
                       playingVoice === voice.key
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-terra text-white"
+                        : "bg-surface-alt text-ink-muted hover:bg-surface-alt"
                     }`}
                   >
                     {loadingPreview === voice.key ? (
@@ -243,7 +243,7 @@ export default function VoiceSelector({ value, onChange }) {
         ))}
 
         {filteredVoices.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-ink-muted">
             <p>No voices found matching your search</p>
           </div>
         )}

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 
-const GRADIENT = "linear-gradient(135deg, #F97066, #FB923C)";
+const GRADIENT = "var(--gradient-brand)";
 
 export default function IntroBriefStep({
   logoFile,
@@ -73,7 +73,7 @@ export default function IntroBriefStep({
           {onModeChange && (
             <button
               onClick={() => onModeChange("image")}
-              className="inline-flex items-center gap-1 text-xs font-bold text-[#6B5E7B] hover:text-[#F97066] transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Other pipelines
@@ -83,7 +83,7 @@ export default function IntroBriefStep({
             className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center"
             style={{ background: "linear-gradient(135deg, #FFF5EE, #F5EEFF)" }}
           >
-            <Wand2 className="w-6 h-6 text-[#F97066]" />
+            <Wand2 className="w-6 h-6 text-[var(--terra)]" />
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#2D2235]">
             Create a Brand Intro
@@ -95,9 +95,9 @@ export default function IntroBriefStep({
         </div>
 
         {/* Logo dropzone (required) */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-          <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-            Logo <span className="text-[#F97066]">*</span>
+        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-4">
+          <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
+            Logo <span className="text-[var(--terra)]">*</span>
           </label>
           <input
             ref={logoInputRef}
@@ -111,7 +111,7 @@ export default function IntroBriefStep({
           />
           {logoPreview ? (
             <div className="relative inline-flex items-center gap-4 w-full">
-              <div className="w-24 h-24 rounded-2xl border border-stone-200 bg-stone-50/50 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="w-24 h-24 rounded-2xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
                 <img src={logoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain" />
               </div>
               <div className="flex-1 min-w-0">
@@ -133,58 +133,58 @@ export default function IntroBriefStep({
                 e.preventDefault();
                 pickLogo(Array.from(e.dataTransfer.files || [])[0]);
               }}
-              className="border-2 border-dashed border-stone-300 rounded-2xl p-8 text-center cursor-pointer hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+              className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer hover:border-terra/60 hover:bg-terra/5 transition-all"
             >
-              <Upload className="w-9 h-9 text-[#F97066] mx-auto mb-2" />
+              <Upload className="w-9 h-9 text-[var(--terra)] mx-auto mb-2" />
               <p className="text-sm font-semibold text-[#2D2235]">Drop your logo or click to upload</p>
-              <p className="text-xs text-stone-500 mt-1">PNG or JPG · transparent background works best</p>
+              <p className="text-xs text-ink-muted mt-1">PNG or JPG · transparent background works best</p>
             </div>
           )}
         </div>
 
         {/* Business brief */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-5">
+        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-5">
           <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Business name
             </label>
             <Input
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               placeholder="Raphio"
-              className="rounded-2xl border-stone-200 focus:border-orange-300 focus:ring-orange-200/40 bg-stone-50/30"
+              className="rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 bg-surface"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-              What does your business do? <span className="text-[#F97066]">*</span>
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
+              What does your business do? <span className="text-[var(--terra)]">*</span>
             </label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., An AI app that creates different kinds of marketing videos for small businesses."
-              className="w-full min-h-[110px] rounded-2xl border-stone-200 focus:border-orange-300 focus:ring-orange-200/40 resize-none bg-stone-50/30 leading-relaxed"
+              className="w-full min-h-[110px] rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 resize-none bg-surface leading-relaxed"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Target audience
             </label>
             <Input
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.target.value)}
               placeholder="small businesses & creators"
-              className="rounded-2xl border-stone-200 focus:border-orange-300 focus:ring-orange-200/40 bg-stone-50/30"
+              className="rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 bg-surface"
             />
           </div>
         </div>
 
         {/* Style + aspect ratio */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-5">
+        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-5">
           <div className="space-y-3">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Visual style
             </label>
             <div className="flex flex-wrap gap-2">
@@ -210,10 +210,10 @@ export default function IntroBriefStep({
           </div>
 
           <div className="space-y-3">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Aspect ratio
             </label>
-            <div className="flex p-1.5 rounded-2xl bg-stone-200/50 border border-stone-300/30">
+            <div className="flex p-1.5 rounded-2xl bg-surface-alt border border-border/30">
               {ASPECT_RATIO_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -234,12 +234,12 @@ export default function IntroBriefStep({
         </div>
 
         {/* Optional showcase images */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-              Showcase images <span className="text-stone-400 normal-case font-medium tracking-normal">(optional)</span>
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
+              Showcase images <span className="text-ink-muted normal-case font-medium tracking-normal">(optional)</span>
             </label>
-            <span className="text-xs text-stone-400 font-medium">{(showcaseFiles || []).length} / 4</span>
+            <span className="text-xs text-ink-muted font-medium">{(showcaseFiles || []).length} / 4</span>
           </div>
           <input
             ref={showcaseInputRef}
@@ -260,7 +260,7 @@ export default function IntroBriefStep({
                 animate={{ opacity: 1, scale: 1 }}
                 className="relative group aspect-square"
               >
-                <img src={url} alt={`Showcase ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-stone-200" />
+                <img src={url} alt={`Showcase ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-border" />
                 <button
                   onClick={() => removeShowcase(i)}
                   className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
@@ -272,14 +272,14 @@ export default function IntroBriefStep({
             {(showcaseFiles || []).length < 4 && (
               <button
                 onClick={() => showcaseInputRef.current?.click()}
-                className="aspect-square rounded-xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400 hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+                className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-terra/60 hover:bg-terra/5 transition-all"
               >
                 <ImageIcon className="w-6 h-6 mb-1" />
                 <span className="text-[10px] font-bold">Add</span>
               </button>
             )}
           </div>
-          <p className="text-xs text-stone-500">Real photos of your product, space or work to feature in the montage.</p>
+          <p className="text-xs text-ink-muted">Real photos of your product, space or work to feature in the montage.</p>
         </div>
 
         {error && (
@@ -311,7 +311,7 @@ export default function IntroBriefStep({
             </span>
           )}
         </Button>
-        <p className="text-center text-xs text-stone-400">1 credit · ~8 second intro with music</p>
+        <p className="text-center text-xs text-ink-muted">1 credit · ~8 second intro with music</p>
       </div>
     </div>
   );

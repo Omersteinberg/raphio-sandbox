@@ -27,13 +27,13 @@ export default function TimelineTest() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-white mb-6">Timeline Editor Test</h1>
+    <div className="editor-dark min-h-screen bg-background flex items-center justify-center">
+      <div className="bg-card rounded-lg p-8 max-w-md w-full">
+        <h1 className="text-2xl font-bold text-foreground mb-6">Timeline Editor Test</h1>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">
+            <label className="block text-sm text-muted-foreground mb-2">
               Session ID
             </label>
             <input
@@ -41,19 +41,19 @@ export default function TimelineTest() {
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
               placeholder="Enter session ID (e.g., cm...)"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-muted border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-terra"
             />
           </div>
 
           <button
             onClick={handleStart}
             disabled={!sessionId.trim()}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground font-medium py-3 rounded-lg transition-colors"
           >
             Open Timeline Editor
           </button>
 
-          <p className="text-xs text-gray-500 mt-4">
+          <p className="text-xs text-muted-foreground mt-4">
             Enter an existing session ID to test the timeline editor directly.
             You can find session IDs in your browser console or database.
           </p>

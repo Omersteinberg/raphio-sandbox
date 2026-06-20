@@ -120,7 +120,7 @@ export default function NarrationEditModal({
         onClick={onClose}
       >
         <motion.div
-          className="bg-gray-800 rounded-lg w-full max-w-lg p-6"
+          className="bg-card rounded-lg w-full max-w-lg p-6"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -136,7 +136,7 @@ export default function NarrationEditModal({
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -144,7 +144,7 @@ export default function NarrationEditModal({
 
           {/* Current audio playback */}
           {section?.narrationUrl && (
-            <div className="bg-gray-700/50 rounded-lg p-3 mb-4 flex items-center gap-3">
+            <div className="bg-muted/50 rounded-lg p-3 mb-4 flex items-center gap-3">
               <button
                 onClick={togglePlayback}
                 className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white"
@@ -157,7 +157,7 @@ export default function NarrationEditModal({
               </button>
               <div className="flex-1">
                 <p className="text-sm text-white">Current Narration</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Clip {(section.orderIndex || 0) + 1}
                 </p>
               </div>
@@ -168,7 +168,7 @@ export default function NarrationEditModal({
           <div className="space-y-4">
             {/* Narration Text */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-muted-foreground mb-1">
                 Narration Text
               </label>
               <textarea
@@ -176,20 +176,20 @@ export default function NarrationEditModal({
                 onChange={(e) => setNarrationText(e.target.value)}
                 placeholder="Enter the narration text..."
                 rows={4}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {narrationText.length} characters
               </p>
             </div>
 
             {/* Voice Selection */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Voice</label>
+              <label className="block text-sm text-muted-foreground mb-1">Voice</label>
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>
@@ -225,7 +225,7 @@ export default function NarrationEditModal({
               <Button
                 variant="ghost"
                 onClick={onClose}
-                className="text-gray-300"
+                className="text-foreground"
               >
                 Cancel
               </Button>

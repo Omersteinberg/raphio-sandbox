@@ -49,7 +49,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
         onClick={onClose}
       >
         <motion.div
-          className="bg-gray-800 rounded-lg w-full max-w-lg p-6"
+          className="bg-card rounded-lg w-full max-w-lg p-6"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -58,14 +58,14 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Volume2 className="w-5 h-5 text-purple-400" />
+              <Volume2 className="w-5 h-5 text-terra" />
               <h3 className="text-lg font-semibold text-white">
                 Generate Text-to-Speech
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -75,7 +75,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
           <div className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-muted-foreground mb-1">
                 Name (optional)
               </label>
               <input
@@ -83,13 +83,13 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Intro Narration"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-terra"
               />
             </div>
 
             {/* Text */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-muted-foreground mb-1">
                 Text to speak
               </label>
               <textarea
@@ -97,20 +97,20 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Enter the text you want to convert to speech..."
                 rows={4}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-terra resize-none"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {text.length} characters
               </p>
             </div>
 
             {/* Voice */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Voice</label>
+              <label className="block text-sm text-muted-foreground mb-1">Voice</label>
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-terra"
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>
@@ -126,7 +126,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
             <Button
               variant="ghost"
               onClick={onClose}
-              className="text-gray-300"
+              className="text-foreground"
             >
               Cancel
             </Button>
@@ -134,7 +134,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
               onClick={handleGenerate}
               disabled={!text.trim() || generating}
               className="text-white border-0"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {generating ? (
                 <>
