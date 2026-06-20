@@ -581,29 +581,40 @@ export default function PromptStep({
           {/* Mode toggle */}
           {onModeChange && (
             <div
-              className="flex p-1 rounded-full"
-              style={{ background: '#EAE4DC', boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)' }}
+              className="relative flex w-full p-1 rounded-full"
+              style={{
+                background: '#EAE4DC',
+                boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)',
+              }}
             >
+              {/* Sliding active indicator */}
+              <div
+                className="absolute top-1 bottom-1 rounded-full transition-all duration-300 ease-out"
+                style={{
+                  width: 'calc(50% - 4px)',
+                  left: pipelineMode === 'image' ? '4px' : 'calc(50%)',
+                  background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                  boxShadow: '0 2px 10px rgba(193,68,14,0.30)',
+                }}
+              />
               {[
-                { id: 'image', label: 'Image-Based Storyboard' },
-                { id: 'references', label: 'Visual Character References' },
+                { id: 'image', label: 'From my photos' },
+                { id: 'references', label: 'Generate with AI' },
               ].map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => onModeChange(mode.id)}
-                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 ease-out"
-                  style={
-                    pipelineMode === mode.id
-                      ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
-                      : { color: "#6B5E7B" }
-                  }
+                  className="relative flex-1 py-2.5 px-4 rounded-full text-sm font-semibold tracking-wide transition-colors duration-300 ease-out z-10"
+                  style={{
+                    color: pipelineMode === mode.id ? '#fff' : '#9C8F85',
+                    background: 'transparent',
+                  }}
                 >
                   {mode.label}
                 </button>
               ))}
             </div>
           )}
-
           {/* Zone 1 — Prompt (the hero) */}
           <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
