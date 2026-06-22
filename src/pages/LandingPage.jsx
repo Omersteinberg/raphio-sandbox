@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValueEvent } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail } from "lucide-react";
+import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail, X, MapPin } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import brainImg from '../assets/brain.png';
 import adamImg from '../assets/Adam.png';
@@ -786,6 +786,231 @@ function HowItWorks() {
   );
 }
 
+// ── "See it in action" — real output reel ────────────────────────
+const SEE_IT_ITEMS = [
+  { label: 'Travel montage', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
+  { label: 'Product showcase', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
+  { label: 'Luxury brand ad', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
+  { label: 'Food commercial', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4' },
+];
+
+function ActionVideoCard({ item, onOpen }) {
+  const containerRef = useRef(null);
+  const videoRef = useRef(null);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    const video = videoRef.current;
+    if (!el || !video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="flex-shrink-0 w-full sm:w-72">
+      <button
+        onClick={() => onOpen(item)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="relative w-full aspect-video rounded-2xl overflow-hidden block transition-transform duration-300"
+        style={{
+          background: C.white,
+          border: `1px solid ${C.faint}`,
+          boxShadow: '0 4px 18px rgba(28,25,23,0.08)',
+          transform: hovered ? 'scale(1.03)' : 'scale(1)',
+        }}
+      >
+        <video
+          ref={videoRef}
+          src={item.src}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div
+          className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+          style={{ background: 'rgba(10,9,8,0.28)', opacity: hovered ? 1 : 0 }}
+        >
+          <div className="rounded-full flex items-center justify-center" style={{ width: 52, height: 52, background: 'rgba(255,250,247,0.94)' }}>
+            <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 2 }} fill={C.terra} />
+          </div>
+        </div>
+      </button>
+      <p className="text-sm font-semibold mt-3 text-center" style={{ color: C.dark }}>{item.label}</p>
+    </div>
+  );
+}
+
+function ActionVideoModal({ item, onClose }) {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {});
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+      style={{ background: 'rgba(10,9,8,0.88)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.94, opacity: 0 }}
+        transition={{ duration: 0.22 }}
+        className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
+        style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <video
+          ref={videoRef}
+          src={item.src}
+          controls
+          autoPlay
+          playsInline
+          className="w-full h-full block"
+          style={{ background: '#000' }}
+        />
+      </motion.div>
+      <button
+        onClick={onClose}
+        aria-label="Close video"
+        className="absolute top-5 right-5 sm:top-8 sm:right-8 flex items-center justify-center rounded-full transition-colors"
+        style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </motion.div>
+  );
+}
+
+function SeeItInAction() {
+  const [activeItem, setActiveItem] = useState(null);
+
+  return (
+    <section className="py-24 px-6" style={{ background: C.bg }}>
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-12">
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>See it in action</p>
+          <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,44px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+            See what Raphio creates
+          </h2>
+          <p className="text-base mt-3" style={{ color: C.muted }}>
+            Real outputs from real prompts, no editing, no post-production.
+          </p>
+        </div>
+
+        <div className="hide-scrollbar grid grid-cols-2 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
+          {SEE_IT_ITEMS.map((item) => (
+            <ActionVideoCard key={item.label} item={item} onOpen={setActiveItem} />
+          ))}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {activeItem && (
+          <ActionVideoModal item={activeItem} onClose={() => setActiveItem(null)} />
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+// ── Contact section — Unified direct action layout ───────────────
+const CONTACT_ROWS = [
+  { icon: Mail, label: 'Email', value: 'Contact@raphio.ai', href: 'mailto:Contact@raphio.ai' },
+  { icon: MapPin, label: 'Location', value: 'Melbourne, Victoria, Australia' },
+];
+
+function ContactSection() {
+  return (
+    <section
+      id="contact"
+      className="py-20 px-6"
+      style={{ background: 'rgba(193,68,14,0.03)', borderTop: '1px solid rgba(193,68,14,0.08)' }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="max-w-2xl mx-auto text-center"
+      >
+        <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,42px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.12 }}>
+          We're based in Melbourne. We actually reply.
+        </h2>
+        <p className="text-base mt-4" style={{ color: C.muted }}>
+          No ticket queues, no chatbots. Just a small team that reads every message.
+        </p>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
+          {CONTACT_ROWS.map((item) => {
+            const Icon = item.icon;
+            const Row = item.href ? 'a' : 'div';
+            return (
+              <Row
+                key={item.label}
+                {...(item.href ? { href: item.href } : {})}
+                className="flex items-center gap-4"
+              >
+                <span
+                  className="flex items-center justify-center rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 40, background: 'rgba(193,68,14,0.10)' }}
+                >
+                  <Icon style={{ width: 17, height: 17, color: C.terra }} />
+                </span>
+                <span className="text-left">
+                  <span className="block text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{item.label}</span>
+                  <span className="block text-base font-bold" style={{ color: C.dark }}>
+                    {item.value}
+                  </span>
+                </span>
+              </Row>
+            );
+          })}
+        </div>
+
+        <div className="mt-10">
+          <a
+            href="mailto:Contact@raphio.ai"
+            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold text-white transition-all duration-300"
+            style={{
+              background: `linear-gradient(135deg,${C.terra},${C.terraLt})`,
+              boxShadow: '0 4px 16px rgba(193,68,14,0.30)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(193,68,14,0.45)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(193,68,14,0.30)'; }}
+          >
+            Get in touch
+          </a>
+        </div>
+      </motion.div>
+    </section>
+  );
+}
+
 // ── Primary View Component ───────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -804,6 +1029,8 @@ export default function LandingPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
+        .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* Navbar */}
@@ -927,6 +1154,9 @@ export default function LandingPage() {
 
       {/* How It Works Layer Component */}
       <HowItWorks />
+
+      {/* See it in action */}
+      <SeeItInAction />
 
       {/* Scroll-reveal text section */}
       <section style={{ background: C.bg, padding: '120px 24px' }}>
@@ -1152,6 +1382,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Contact / Support */}
+      <ContactSection />
+
       {/* Final CTA */}
       <section className="py-28 px-6" style={{ background: C.dark }}>
         <div className="max-w-4xl mx-auto text-center">
@@ -1168,32 +1401,6 @@ export default function LandingPage() {
             >Get Started for Free <ArrowRight className="w-4 h-4" /></button>
           </motion.div>
         </div>
-      </section>
-
-      {/* Contact / Support */}
-      <section id="contact" className="py-16 px-6" style={{ background: C.dark }}>
-        <motion.div initial={{ opacity:0,y:20 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.5 }}
-          className="max-w-md mx-auto rounded-2xl p-8 text-center"
-          style={{ background: C.white, border: '1.5px solid rgba(193,68,14,0.12)', boxShadow: '0 12px 36px rgba(0,0,0,0.28)' }}
-        >
-          <div className="inline-flex items-center justify-center rounded-full mb-4" style={{ width: 44, height: 44, background: 'rgba(193,68,14,0.08)' }}>
-            <Mail style={{ width: 20, height: 20, color: C.terra }} />
-          </div>
-          <h3 className="display mb-2" style={{ fontSize: 'clamp(20px,2.6vw,26px)', color: C.dark, letterSpacing: '-0.01em' }}>
-            Need a hand?
-          </h3>
-          <p className="text-sm mb-6" style={{ color: C.muted }}>
-            Questions about your video or your account? Our team usually replies within a few hours.
-          </p>
-          <a href="mailto:support@raphio.ai"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all duration-300"
-            style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 16px rgba(193,68,14,0.30)' }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(193,68,14,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            support@raphio.ai
-          </a>
-        </motion.div>
       </section>
 
       {/* Footer */}
