@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValueEvent } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2,} from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import brainImg from '../assets/brain.png';
 import adamImg from '../assets/Adam.png';
@@ -130,12 +130,12 @@ const STEPS = [
   {
     num: '01', label: 'Describe', tab: 'Write your idea', title: 'Write your idea',
     icon: Wand2,
-    body: "Type what you want your video to be about — one sentence or a full paragraph. Think of it like texting a friend. You're in control of the story.",
+    body: "Type what you want your video to be about, whether that's one sentence or a full paragraph. Think of it like texting a friend. You're in control of the story.",
   },
   {
     num: '02', label: 'Add visuals', tab: 'Upload photos', title: 'Upload your photos',
     icon: Upload,
-    body: 'Drop in photos from your phone or computer. Raphio matches each photo to the right moment in your video automatically — no sorting needed.',
+    body: 'Drop in photos from your phone or computer. Raphio matches each photo to the right moment in your video automatically, so there is no sorting needed.',
   },
   {
     num: '03', label: 'Export', tab: 'Download', title: 'Pick a voice, download your video',
@@ -156,7 +156,7 @@ function DescribeVisual() {
     { text: "A father takes his daughter to see the northern lights for the first time. They bond, explore, and realise the best memories come from being together.", tags: ['Heartwarming','Family'] },
     { text: "A small café opens its doors on a rainy morning. The barista crafts the perfect latte as the first customers trickle in from the cold.", tags: ['Cosy','Cinematic'] },
     { text: "A young athlete trains before dawn every day, pushing through exhaustion to reach the finish line at the championship race.", tags: ['Inspirational','Sport'] },
-    { text: "A couple road-trips along the coast with no map, no plan — just music, sunsets, and each other.", tags: ['Adventure','Romantic'] },
+    { text: "A couple road-trips along the coast with no map and no plan, just music, sunsets, and each other.", tags: ['Adventure','Romantic'] },
   ];
 
   // ── Typewriter ────────────────────────────────────────────────
@@ -537,7 +537,7 @@ function AvatarExportVisual() {
           }}>
             <img
               src={adamImg}
-              alt="Adam — AI voice avatar"
+              alt="Adam, AI voice avatar"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
               onError={e => {
                 // Fallback if image not loaded yet
@@ -665,7 +665,7 @@ function AvatarExportVisual() {
             transition={{ repeat: Infinity, duration: 1.6 }}
             style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', flexShrink: 0 }}
           />
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', flex: 1 }}>Video ready — 0:34</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', flex: 1 }}>Video ready: 0:34</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: C.terra }}>Download ↓</span>
         </div>
       </div>
@@ -818,7 +818,7 @@ export default function LandingPage() {
               <img src={scrolled ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
             </button>
             <nav className="hidden sm:flex items-center gap-1">
-              {[['How it works','how-it-works'],['Pricing','pricing']].map(([label, id]) => (
+              {[['How it works','how-it-works'],['Pricing','pricing'],['Contact','contact']].map(([label, id]) => (
                 <button key={id} onClick={() => scrollTo(id)}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
                   style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
@@ -875,7 +875,7 @@ export default function LandingPage() {
             style={{ fontSize: 'clamp(38px,6vw,72px)', color: '#FFFAF7', letterSpacing: '-0.01em', lineHeight: 1.08, textShadow: '0 4px 28px rgba(0,0,0,0.4)' }}
           >
             Turn your photos into a video{' '}
-            <span style={{ color: C.terra }}>— instantly.</span>
+            <span style={{ color: C.terra }}>instantly.</span>
           </motion.h1>
 
           <motion.p
@@ -909,7 +909,7 @@ export default function LandingPage() {
           straight into the stats strip instead of breaking to a new color */}
       <div className="py-6 px-6 text-center" style={{ background: '#0A0908' }}>
         <p className="text-sm font-semibold" style={{ color: 'rgba(245,240,235,0.55)' }}>
-          All videos above were made with Raphio — real outputs, no post-production
+          All videos above were made with Raphio. They are real outputs, with no post-production
         </p>
       </div>
 
@@ -1124,7 +1124,7 @@ export default function LandingPage() {
               Credits per video
             </p>
             <div className="flex justify-around">
-              {[{ label: 'Up to 15s', credits: 8 }, { label: '16s – 30s', credits: 12 }, { label: '31s – 60s', credits: 20 }].map((row) => (
+              {[{ label: 'Up to 15s', credits: 8 }, { label: '16s to 30s', credits: 12 }, { label: '31s to 60s', credits: 20 }].map((row) => (
                 <div key={row.label} className="text-center">
                   <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
                   <p className="text-xs font-semibold" style={{ color: '#2C2420' }}>credits</p>
@@ -1133,7 +1133,7 @@ export default function LandingPage() {
               ))}
             </div>
             <p className="text-xs text-center mt-3" style={{ color: C.muted }}>
-              Shorter videos cost fewer credits — you stay in control.
+              Shorter videos cost fewer credits, so you stay in control.
             </p>
           </div>
 
@@ -1141,7 +1141,7 @@ export default function LandingPage() {
           <div className="text-center py-4 rounded-2xl"
             style={{ background: '#F0EAE5', border: '1px solid rgba(193,68,14,0.12)' }}>
             <p className="text-sm font-semibold mb-1" style={{ color: '#2C2420' }}>Not sure yet?</p>
-            <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 10 free credits — no card needed.</p>
+            <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 10 free credits, no card needed.</p>
             <button onClick={() => navigate('/create')}
               className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
               style={{ color: C.terra }}>
@@ -1165,16 +1165,56 @@ export default function LandingPage() {
               style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 24px rgba(193,68,14,0.35)` }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 40px rgba(193,68,14,0.55)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 24px rgba(193,68,14,0.35)`; e.currentTarget.style.transform='translateY(0) scale(1)'; }}
-            >Get Started — It's Free <ArrowRight className="w-4 h-4" /></button>
+            >Get Started for Free <ArrowRight className="w-4 h-4" /></button>
           </motion.div>
         </div>
       </section>
 
+      {/* Contact / Support */}
+      <section id="contact" className="py-16 px-6" style={{ background: C.dark }}>
+        <motion.div initial={{ opacity:0,y:20 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.5 }}
+          className="max-w-md mx-auto rounded-2xl p-8 text-center"
+          style={{ background: C.white, border: '1.5px solid rgba(193,68,14,0.12)', boxShadow: '0 12px 36px rgba(0,0,0,0.28)' }}
+        >
+          <div className="inline-flex items-center justify-center rounded-full mb-4" style={{ width: 44, height: 44, background: 'rgba(193,68,14,0.08)' }}>
+            <Mail style={{ width: 20, height: 20, color: C.terra }} />
+          </div>
+          <h3 className="display mb-2" style={{ fontSize: 'clamp(20px,2.6vw,26px)', color: C.dark, letterSpacing: '-0.01em' }}>
+            Need a hand?
+          </h3>
+          <p className="text-sm mb-6" style={{ color: C.muted }}>
+            Questions about your video or your account? Our team usually replies within a few hours.
+          </p>
+          <a href="mailto:support@raphio.ai"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all duration-300"
+            style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 16px rgba(193,68,14,0.30)' }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(193,68,14,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            support@raphio.ai
+          </a>
+        </motion.div>
+      </section>
+
       {/* Footer */}
       <footer className="py-8 px-6" style={{ background: C.dark, borderTop:`1px solid rgba(245,240,235,0.07)` }}>
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <img src="/Logo-Light.svg" alt="Raphio" className="h-7 opacity-90" />
-          <p className="text-sm" style={{ color:'rgba(245,240,235,0.68)' }}>Make videos from your ideas, no experience needed.</p>
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 items-center gap-4">
+          <div className="flex justify-center sm:justify-start">
+            <img src="/Logo-Light.svg" alt="Raphio" className="h-7 opacity-90" />
+          </div>
+          <p className="text-sm text-center justify-self-center" style={{ color:'rgba(245,240,235,0.68)' }}>Make videos from your ideas, no experience needed.</p>
+          <nav className="flex items-center justify-center sm:justify-end gap-5">
+            <Link to="/privacy" className="text-sm font-semibold transition-colors"
+              style={{ color: 'rgba(245,240,235,0.68)' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#FFD9C7'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(245,240,235,0.68)'; }}
+            >Privacy Policy</Link>
+            <Link to="/terms" className="text-sm font-semibold transition-colors"
+              style={{ color: 'rgba(245,240,235,0.68)' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#FFD9C7'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(245,240,235,0.68)'; }}
+            >Terms & Conditions</Link>
+          </nav>
         </div>
       </footer>
     </div>

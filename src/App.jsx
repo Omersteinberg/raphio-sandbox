@@ -9,6 +9,8 @@ import AuthPage from "./pages/AuthPage";
 // import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
 import AppLayout from "./components/AppLayout";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
@@ -22,6 +24,8 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           {/* <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} /> */}
 

@@ -41,6 +41,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     setUserPrompt,
     style,
     setStyle,
+    styleOptions,
     targetDuration,
     setTargetDuration,
     aspectRatio,
@@ -151,6 +152,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             setUserPrompt={setUserPrompt}
             style={style}
             setStyle={setStyle}
+            styleOptions={styleOptions}
             targetDuration={targetDuration}
             setTargetDuration={setTargetDuration}
             aspectRatio={aspectRatio}

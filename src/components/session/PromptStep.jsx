@@ -39,15 +39,15 @@ const STYLE_ICON_MAP = {
   '3d_render': Box,
 };
 
-const STYLE_GRADIENT_MAP = {
-  realistic:   'linear-gradient(145deg, #2C5364, #4A90D9, #87CEEB)',
-  animated:    'linear-gradient(145deg, #FF6B9D, #FF8E53, #FFD93D)',
-  cinematic:   'linear-gradient(145deg, #0D0D0D, #3A1C1C, #C1440E)',
-  surreal:     'linear-gradient(145deg, #0F0C29, #7B2FF7, #F72585)',
-  anime:       'linear-gradient(145deg, #FC5C7D, #6A82FB, #C3CFE2)',
-  comic_book:  'linear-gradient(145deg, #F7971E, #FFD200, #F7971E)',
-  watercolor:  'linear-gradient(145deg, #a8edea, #9face6, #fed6e3)',
-  '3d_render': 'linear-gradient(145deg, #0F2027, #203A43, #78ffd6)',
+const STYLE_IMAGE_MAP = {
+  realistic:   'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/realistic_car.jpg',
+  animated:    'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/animated_car.jpg',
+  cinematic:   'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/cinematic_car.jpg',
+  surreal:     'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/surreal_car.jpg',
+  watercolor:  'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/watercolor_car.webp',
+  comic_book:  'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/cartoon_car.webp',
+  anime:       'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/anime_car.webp',
+  '3d_render': 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/3D_car.webp',
 };
 
 const STYLE_SUB_LABEL_MAP = {
@@ -609,6 +609,7 @@ export default function PromptStep({
                 boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)',
               }}
             >
+              
               {[
                 { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
                 { id: 'references', label: 'Generate with AI', Icon: Wand2     },
@@ -643,7 +644,6 @@ export default function PromptStep({
           <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                {isReferencesMode && <StepBadge n={1} />}
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? 'Direction' : "What's your video about?"}
                 </h2>
@@ -1177,356 +1177,193 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* References mode — style / duration / aspect ratio kept exactly as the original step layout */}
-          {isReferencesMode && (
-          <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
-            <div className="flex items-center gap-3">
-              <StepBadge n={2} />
-              <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
-                How should it look?
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {STYLE_OPTIONS.map((option) => {
-                const isSelected = style === option.id;
+          {/* Zone 3 — Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
+          <div className="rounded-3xl p-5 sm:p-6 space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => setStyle(option.id)}
-                    className="p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] bg-white group"
-                    style={
-                      isSelected
-                        ? { borderColor: "#C1440E", background: "rgba(193,68,14,0.03)", boxShadow: "0 4px 12px rgba(193,68,14,0.08)" }
-                        : { borderColor: "rgba(193,68,14,0.10)", background: "#FBFAF8" }
-                    }
-                  >
-                    <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform duration-200">
-                      {option.icon || "🎬"}
-                    </span>
-                    <div className="space-y-0.5">
-                      <span className="font-black text-xs block text-stone-800">{option.name}</span>
-                      <span className="text-[10px] text-stone-400 block line-clamp-1">{option.description}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          )}
-
-          {/* Step — How long? (duration, references mode only — image mode uses the defaults strip below) */}
-          {setTargetDuration && (
-            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
-              <div className="flex items-center gap-3">
-                <StepBadge n={3} />
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
-                  How long?
-                </h2>
-              </div>
+            {/* Style Selection (renders in both image and references modes) */}
+            <div className="space-y-2">
+              <span className="text-sm font-bold block text-stone-500">Style</span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {DURATION_OPTIONS.map((opt, idx) => {
-                  const isSelected = targetDuration === opt.value;
-                  const level = idx + 1;
-                  return (
-                    <motion.button
-                      key={opt.value}
-                      onClick={() => setTargetDuration(opt.value)}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                      className="relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2"
-                      style={
-                        isSelected
-                          ? { borderColor: "#C1440E", background: "linear-gradient(160deg, rgba(193,68,14,0.07) 0%, rgba(232,96,60,0.04) 100%)", boxShadow: "0 4px 16px rgba(193,68,14,0.14)" }
-                          : { borderColor: "rgba(193,68,14,0.08)", background: "#FBFAF8" }
-                      }
-                    >
-                      {isSelected && (
-                        <motion.span
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                          className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 2px 6px rgba(193,68,14,0.35)" }}
-                        >
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </motion.span>
-                      )}
-                      <div className="flex items-end gap-1 h-5">
-                        {[1, 2, 3, 4].map((bar) => (
-                          <span
-                            key={bar}
-                            className="rounded-full transition-colors duration-200"
-                            style={{
-                              width: 4,
-                              height: 6 + bar * 3,
-                              background: bar <= level
-                                ? (isSelected ? "linear-gradient(180deg, #C1440E, #E8603C)" : "rgba(193,68,14,0.30)")
-                                : "rgba(193,68,14,0.10)",
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <span className="font-black block text-base" style={{ color: "#1C1917" }}>{opt.label}</span>
-                      <span className="text-[10px] block" style={{ color: "#9c8f85" }}>{opt.desc}</span>
-                      {opt.value === 30 && (
-                        <span
-                          className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide whitespace-nowrap"
-                          style={{ background: '#1C1917', color: '#FFFAF7' }}
-                        >
-                          Popular
-                        </span>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              {isReferencesMode ? (
-                <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#9c8f85' }}>
-                  Most first-time creators pick ~30s — long enough to tell a story, short enough to hold attention.
-                </p>
-              ) : (
-                <DurationEstimate
-                  imageCount={images?.length ?? 0}
-                  targetDuration={targetDuration}
-                  enableBridges={enableBridges}
-                  onSetDuration={(v) => setTargetDuration?.(v)}
-                  onToggleAiFill={(v) => setEnableBridges?.(v)}
-                  onUploadMore={() => fileInputRef.current?.click()}
-                  onRemoveImages={(n) => {
-                    const len = images?.length ?? 0;
-                    for (let i = 0; i < n; i++) removeImage(len - 1 - i);
-                  }}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Step — Where will you post it? (aspect ratio, references mode only — image mode uses the defaults strip below) */}
-          {isReferencesMode && setAspectRatio && (
-            <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
-              <div className="flex items-center gap-3">
-                <StepBadge n={4} />
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
-                  Where will you post it?
-                </h2>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {ASPECT_RATIO_OPTIONS.map((opt) => {
-                  const isSelected = (aspectRatio || '16:9') === opt.id;
-                  const box = RATIO_BOX[opt.id] || { w: 44, h: 44 };
+                {styleOptions.map((opt) => {
+                  const isSelected = style === opt.id;
                   return (
                     <button
                       key={opt.id}
-                      onClick={() => setAspectRatio(opt.id)}
-                      className="p-4 rounded-2xl border-2 text-left transition-all duration-200 bg-white flex items-center gap-4"
-                      style={
-                        isSelected
-                          ? { borderColor: "#C1440E", background: "rgba(193,68,14,0.04)", boxShadow: "0 4px 12px rgba(193,68,14,0.10)" }
-                          : { borderColor: "rgba(193,68,14,0.10)" }
-                      }
+                      onClick={() => setStyle(opt.id)}
+                      className="relative overflow-hidden rounded-2xl transition-all duration-200 group"
+                      style={{
+                        height: 144,
+                        padding: 0,
+                        WebkitAppearance: 'none',
+                        appearance: 'none',
+                        border: isSelected ? '2.5px solid #C1440E' : '2.5px solid transparent',
+                        boxShadow: isSelected
+                          ? '0 6px 20px rgba(193,68,14,0.32), 0 0 0 3px rgba(193,68,14,0.12)'
+                          : '0 2px 8px rgba(0,0,0,0.08)',
+                        transform: isSelected ? 'translateY(-2px)' : 'translateY(0)',
+                      }}
                     >
-                      <span
-                        className="flex items-center justify-center flex-shrink-0 rounded-md"
+                      {/* Photo layer — isolated so it can zoom on hover/selected without affecting the card */}
+                      <div
+                        className="absolute inset-0 transition-transform duration-500 ease-out"
                         style={{
-                          width: 56, height: 56,
+                          background: `url(${STYLE_IMAGE_MAP[opt.id]}) center/cover no-repeat`,
+                          transform: isSelected ? 'scale(1.08)' : 'scale(1)',
                         }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.transform = 'scale(1.08)'; }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.transform = 'scale(1)'; }}
+                      />
+
+                      {/* Dark gradient overlay — kept light over most of the photo, only built up near the text */}
+                      <div
+                        className="absolute inset-0 rounded-2xl"
+                        style={{
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.25) 38%, rgba(0,0,0,0) 62%)',
+                          borderRadius: 'inherit',
+                        }}
+                      />
+
+                      {/* Selected checkmark badge */}
+                      {isSelected && (
+                        <div
+                          className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                          style={{
+                            width: 18,
+                            height: 18,
+                            background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                            boxShadow: '0 2px 6px rgba(193,68,14,0.45)',
+                          }}
+                        >
+                          <Check style={{ width: 10, height: 10, color: '#fff' }} strokeWidth={3} />
+                        </div>
+                      )}
+
+                      {/* Text — pinned to bottom left */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 px-3 pb-2.5"
                       >
                         <span
-                          className="rounded-sm"
-                          style={{
-                            width: box.w,
-                            height: box.h,
-                            background: isSelected ? "linear-gradient(135deg, #C1440E, #E8603C)" : "rgba(193,68,14,0.14)",
-                            border: isSelected ? "none" : "1.5px solid rgba(193,68,14,0.30)",
-                          }}
-                        />
-                      </span>
-                      <span className="space-y-0.5">
-                        <span className="font-black text-xs block text-stone-800">{opt.name}</span>
-                        <span className="text-[10px] text-stone-400 block">{opt.description}</span>
-                      </span>
+                          className="block font-black text-white leading-tight"
+                          style={{ fontSize: 13, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
+                        >
+                          {opt.name}
+                        </span>
+                        <span
+                          className="block font-medium text-white/60 leading-tight mt-0.5"
+                          style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                        >
+                          {STYLE_SUB_LABEL_MAP[opt.id] || opt.description}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
-          )}
 
-          {/* Zone 3 — Defaults strip (image mode only): Focused clean update based on image_5735c5.png */}
-          {!isReferencesMode && (
-            <div className="rounded-3xl p-5 sm:p-6 space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
-              
-              {/* Style Selection (Kept as your original configuration for now) */}
+            {/* Video Length — Continuous Track Slider Strip (renders in both image and references modes) */}
+            {setTargetDuration && (
               <div className="space-y-2">
-                <span className="text-sm font-bold block text-stone-500">Style</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {styleOptions.map((opt) => {
-                    const isSelected = style === opt.id;
+                <label className="text-sm font-bold block text-stone-500">
+                  Video Length
+                </label>
+                <div
+                  className="w-full flex p-1 rounded-xl border relative"
+                  style={{ background: '#F0EAE1', borderColor: 'rgba(193,68,14,0.15)' }}
+                >
+                  {DURATION_OPTIONS.map((opt) => {
+                    const isSelected = targetDuration === opt.value;
                     return (
                       <button
-                        key={opt.id}
-                        onClick={() => setStyle(opt.id)}
-                        className="relative overflow-hidden rounded-2xl transition-all duration-200 group"
-                        style={{
-                          height: 96,
-                          background: STYLE_GRADIENT_MAP[opt.id] || 'linear-gradient(135deg, #C1440E, #E8603C)',
-                          border: isSelected ? '2.5px solid #C1440E' : '2.5px solid transparent',
-                          boxShadow: isSelected
-                            ? '0 4px 16px rgba(193,68,14,0.30), 0 0 0 3px rgba(193,68,14,0.12)'
-                            : '0 2px 8px rgba(0,0,0,0.08)',
-                          transform: isSelected ? 'translateY(-2px)' : 'translateY(0)',
-                        }}
+                        key={opt.value}
+                        onClick={() => setTargetDuration(opt.value)}
+                        className="flex-1 py-2 text-xs font-black transition-all relative z-10 cursor-pointer text-center"
+                        style={{ color: isSelected ? '#FFFAF7' : '#7A6A62' }}
                       >
-                        {/* Dark gradient overlay so text is always legible */}
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background: 'linear-gradient(to top, rgba(10,6,4,0.72) 0%, rgba(10,6,4,0.18) 55%, transparent 100%)',
-                          }}
-                        />
-
-                        {/* Selected checkmark badge */}
                         {isSelected && (
-                          <div
-                            className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                          <motion.span
+                            layoutId="activeLengthSegment"
+                            className="absolute inset-0 rounded-lg -z-10"
                             style={{
-                              width: 18,
-                              height: 18,
                               background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                              boxShadow: '0 2px 6px rgba(193,68,14,0.45)',
+                              boxShadow: '0 2px 8px rgba(193,68,14,0.25)'
                             }}
-                          >
-                            <Check style={{ width: 10, height: 10, color: '#fff' }} strokeWidth={3} />
-                          </div>
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                          />
                         )}
-
-                        {/* Text — pinned to bottom left */}
-                        <div
-                          className="absolute bottom-0 left-0 right-0 px-3 pb-2.5"
-                        >
-                          <span
-                            className="block font-black text-white leading-tight"
-                            style={{ fontSize: 12 }}
-                          >
-                            {opt.name}
+                        <span className="flex flex-col items-center gap-0">
+                          <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
+                          <span style={{
+                            fontSize: 9,
+                            fontWeight: 500,
+                            color: isSelected ? 'rgba(255,255,255,0.70)' : '#9C8F85',
+                            marginTop: 1,
+                          }}>
+                            {opt.desc}
                           </span>
-                          <span
-                            className="block font-medium text-white/60 leading-tight mt-0.5"
-                            style={{ fontSize: 9 }}
-                          >
-                            {STYLE_SUB_LABEL_MAP[opt.id] || opt.description}
-                          </span>
-                        </div>
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </div>
+            )}
 
-              {/* Video Length — Continuous Track Slider Strip */}
-              {setTargetDuration && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold block text-stone-500">
-                    Video Length
-                  </label>
-                  <div
-                    className="w-full flex p-1 rounded-xl border relative"
-                    style={{ background: '#F0EAE1', borderColor: 'rgba(193,68,14,0.15)' }}
-                  >
-                    {DURATION_OPTIONS.map((opt) => {
-                      const isSelected = targetDuration === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => setTargetDuration(opt.value)}
-                          className="flex-1 py-2 text-xs font-black transition-all relative z-10 cursor-pointer text-center"
-                          style={{ color: isSelected ? '#FFFAF7' : '#7A6A62' }}
-                        >
-                          {isSelected && (
-                            <motion.span
-                              layoutId="activeLengthSegment"
-                              className="absolute inset-0 rounded-lg -z-10"
-                              style={{
-                                background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                                boxShadow: '0 2px 8px rgba(193,68,14,0.25)'
-                              }}
-                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                            />
-                          )}
-                          <span className="flex flex-col items-center gap-0">
-                            <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
-                            <span style={{
-                              fontSize: 9,
-                              fontWeight: 500,
-                              color: isSelected ? 'rgba(255,255,255,0.70)' : '#9C8F85',
-                              marginTop: 1,
-                            }}>
-                              {opt.desc}
-                            </span>
+            {/* Aspect Ratio — Twin Box Visual Selectors (renders in both image and references modes) */}
+            {setAspectRatio && (
+              <div className="space-y-2">
+                <label className="text-sm font-bold block text-stone-500">
+                  Aspect Ratio
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: '9:16', iconStyle: { width: 14, height: 24 } },
+                    { id: '16:9', iconStyle: { width: 24, height: 14 } },
+                  ].map((opt) => {
+                    const isSelected = (aspectRatio || '16:9') === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => setAspectRatio(opt.id)}
+                        className="flex flex-col items-center justify-center py-5 rounded-2xl border transition-all duration-200 bg-white group"
+                        style={isSelected
+                          ? {
+                              borderColor: '#C1440E',
+                              background: 'rgba(193,68,14,0.03)',
+                              boxShadow: '0 4px 14px rgba(193,68,14,0.08)'
+                            }
+                          : { borderColor: 'rgba(193,68,14,0.12)' }
+                        }
+                      >
+                        {/* Screen Wireframe Box Graphic */}
+                        <div className="h-8 flex items-center justify-center mb-2.5">
+                          <div
+                            className="border-2 rounded-[3px] transition-all duration-200"
+                            style={{
+                              ...opt.iconStyle,
+                              borderColor: isSelected ? '#C1440E' : '#A89E95',
+                              background: isSelected ? 'rgba(193,68,14,0.12)' : 'transparent'
+                            }}
+                          />
+                        </div>
+
+                        <span className="flex flex-col items-center gap-0.5">
+                          <span className="text-xs font-black text-stone-800 tracking-wider">
+                            {opt.id}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Aspect Ratio — Twin Box Visual Selectors */}
-              {setAspectRatio && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold block text-stone-500">
-                    Aspect Ratio
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { id: '9:16', iconStyle: { width: 14, height: 24 } },
-                      { id: '16:9', iconStyle: { width: 24, height: 14 } },
-                    ].map((opt) => {
-                      const isSelected = (aspectRatio || '16:9') === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => setAspectRatio(opt.id)}
-                          className="flex flex-col items-center justify-center py-5 rounded-2xl border transition-all duration-200 bg-white group"
-                          style={isSelected
-                            ? { 
-                                borderColor: '#C1440E', 
-                                background: 'rgba(193,68,14,0.03)', 
-                                boxShadow: '0 4px 14px rgba(193,68,14,0.08)' 
-                              }
-                            : { borderColor: 'rgba(193,68,14,0.12)' }
-                          }
-                        >
-                          {/* Screen Wireframe Box Graphic */}
-                          <div className="h-8 flex items-center justify-center mb-2.5">
-                            <div 
-                              className="border-2 rounded-[3px] transition-all duration-200"
-                              style={{
-                                ...opt.iconStyle,
-                                borderColor: isSelected ? '#C1440E' : '#A89E95',
-                                background: isSelected ? 'rgba(193,68,14,0.12)' : 'transparent'
-                              }}
-                            />
-                          </div>
-                          
-                          <span className="flex flex-col items-center gap-0.5">
-                            <span className="text-xs font-black text-stone-800 tracking-wider">
-                              {opt.id}
-                            </span>
-                            <span style={{ fontSize: 9, fontWeight: 500, color: '#9C8F85' }}>
-                              {opt.id === '9:16' ? 'Phone · Social' : 'TV · Laptop'}
-                            </span>
+                          <span style={{ fontSize: 9, fontWeight: 500, color: '#9C8F85' }}>
+                            {opt.id === '9:16' ? 'Phone · Social' : 'TV · Laptop'}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Advanced Controls Accordion Section */}
+            {/* Advanced Controls Accordion Section (image mode only) */}
+            {!isReferencesMode && (
               <div className="pt-3 border-t" style={{ borderColor: 'rgba(193,68,14,0.08)' }}>
                 <button
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
@@ -1547,9 +1384,9 @@ export default function PromptStep({
 
                 {/* ... Keep your existing AnimatePresence inner children configuration code for advanced panel entries completely unchanged here ... */}
               </div>
+            )}
 
-            </div>
-          )}
+          </div>
 
           {/* Error message */}
           {error && (

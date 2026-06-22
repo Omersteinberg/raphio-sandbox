@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import * as referenceApi from "@/services/reference";
+import { fetchStyles } from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { CREDITS_PER_CLIP } from "@/lib/limits";
@@ -57,6 +58,20 @@ export function useReferencesSession() {
   const [sceneFrames, setSceneFrames] = useState([]);
   const [lockLoading, setLockLoading] = useState(new Set());
   const [framesLoading, setFramesLoading] = useState(false);
+
+  // Style options (fetched from API; references mode supports the full style palette,
+  // unlike the image pipeline which is restricted to styles that work on real photos)
+  const [styleOptions, setStyleOptions] = useState([]);
+
+  useEffect(() => {
+    fetchStyles()
+      .then((styles) => setStyleOptions(styles))
+      .catch((err) => {
+        console.error('Failed to fetch styles:', err);
+        // Fallback to hardcoded styles if API fails
+        setStyleOptions(STYLE_OPTIONS);
+      });
+  }, []);
 
   // ── Restore state when resuming ────────────────────────────────────
   onSessionLoadedRef.current = (data) => {
@@ -476,6 +491,7 @@ export function useReferencesSession() {
     setSceneFrames,
     lockLoading,
     framesLoading,
+    styleOptions,
 
     // References-specific actions
     startReferencesSession,
