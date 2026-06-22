@@ -22,10 +22,10 @@ const SLOT_LABELS = {
 };
 
 const DURATION_OPTIONS = [
-  { value: 15, label: '~15s', desc: 'Quick clip' },
-  { value: 30, label: '~30s', desc: 'Short form' },
-  { value: 45, label: '~45s', desc: 'Standard' },
-  { value: 60, label: '~60s', desc: 'Extended' },
+  { value: 15, label: '15s', desc: 'Quick highlight' },
+  { value: 30, label: '30s', desc: 'Standard' },
+  { value: 45, label: '45s', desc: 'Extended' },
+  { value: 60, label: '60s', desc: 'Full story' },
 ];
 
 const STYLE_ICON_MAP = {
@@ -37,6 +37,28 @@ const STYLE_ICON_MAP = {
   comic_book: Zap,
   watercolor: Droplet,
   '3d_render': Box,
+};
+
+const STYLE_GRADIENT_MAP = {
+  realistic:   'linear-gradient(145deg, #2C5364, #4A90D9, #87CEEB)',
+  animated:    'linear-gradient(145deg, #FF6B9D, #FF8E53, #FFD93D)',
+  cinematic:   'linear-gradient(145deg, #0D0D0D, #3A1C1C, #C1440E)',
+  surreal:     'linear-gradient(145deg, #0F0C29, #7B2FF7, #F72585)',
+  anime:       'linear-gradient(145deg, #FC5C7D, #6A82FB, #C3CFE2)',
+  comic_book:  'linear-gradient(145deg, #F7971E, #FFD200, #F7971E)',
+  watercolor:  'linear-gradient(145deg, #a8edea, #9face6, #fed6e3)',
+  '3d_render': 'linear-gradient(145deg, #0F2027, #203A43, #78ffd6)',
+};
+
+const STYLE_SUB_LABEL_MAP = {
+  realistic:   'Natural, true-to-life',
+  animated:    'Illustrated, motion-graphic',
+  cinematic:   'Dramatic, film-grade look',
+  surreal:     'Abstract, dreamlike, artistic',
+  anime:       'Japanese animation style',
+  comic_book:  'Bold lines, vivid panels',
+  watercolor:  'Soft, painted texture',
+  '3d_render': 'Digital, rendered depth',
 };
 
 // Pixel dimensions for the literal landscape/portrait rectangle previews
@@ -1280,20 +1302,65 @@ export default function PromptStep({
               
               {/* Style Selection (Kept as your original configuration for now) */}
               <div className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">Style</span>
-                <div className="flex flex-wrap gap-1.5">
+                <span className="text-sm font-bold block text-stone-500">Style</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {styleOptions.map((opt) => {
-                    const StyleIcon = STYLE_ICON_MAP[opt.id] || Sparkles;
                     const isSelected = style === opt.id;
                     return (
                       <button
                         key={opt.id}
                         onClick={() => setStyle(opt.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                        style={chipStyle(isSelected)}
+                        className="relative overflow-hidden rounded-2xl transition-all duration-200 group"
+                        style={{
+                          height: 96,
+                          background: STYLE_GRADIENT_MAP[opt.id] || 'linear-gradient(135deg, #C1440E, #E8603C)',
+                          border: isSelected ? '2.5px solid #C1440E' : '2.5px solid transparent',
+                          boxShadow: isSelected
+                            ? '0 4px 16px rgba(193,68,14,0.30), 0 0 0 3px rgba(193,68,14,0.12)'
+                            : '0 2px 8px rgba(0,0,0,0.08)',
+                          transform: isSelected ? 'translateY(-2px)' : 'translateY(0)',
+                        }}
                       >
-                        <StyleIcon style={{ width: 12, height: 12 }} />
-                        {opt.name}
+                        {/* Dark gradient overlay so text is always legible */}
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background: 'linear-gradient(to top, rgba(10,6,4,0.72) 0%, rgba(10,6,4,0.18) 55%, transparent 100%)',
+                          }}
+                        />
+
+                        {/* Selected checkmark badge */}
+                        {isSelected && (
+                          <div
+                            className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                              boxShadow: '0 2px 6px rgba(193,68,14,0.45)',
+                            }}
+                          >
+                            <Check style={{ width: 10, height: 10, color: '#fff' }} strokeWidth={3} />
+                          </div>
+                        )}
+
+                        {/* Text — pinned to bottom left */}
+                        <div
+                          className="absolute bottom-0 left-0 right-0 px-3 pb-2.5"
+                        >
+                          <span
+                            className="block font-black text-white leading-tight"
+                            style={{ fontSize: 12 }}
+                          >
+                            {opt.name}
+                          </span>
+                          <span
+                            className="block font-medium text-white/60 leading-tight mt-0.5"
+                            style={{ fontSize: 9 }}
+                          >
+                            {STYLE_SUB_LABEL_MAP[opt.id] || opt.description}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
@@ -1303,12 +1370,12 @@ export default function PromptStep({
               {/* Video Length — Continuous Track Slider Strip */}
               {setTargetDuration && (
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">
+                  <label className="text-sm font-bold block text-stone-500">
                     Video Length
                   </label>
-                  <div 
+                  <div
                     className="w-full flex p-1 rounded-xl border relative"
-                    style={{ background: '#FBFAF8', borderColor: 'rgba(193,68,14,0.12)' }}
+                    style={{ background: '#F0EAE1', borderColor: 'rgba(193,68,14,0.15)' }}
                   >
                     {DURATION_OPTIONS.map((opt) => {
                       const isSelected = targetDuration === opt.value;
@@ -1323,14 +1390,24 @@ export default function PromptStep({
                             <motion.span
                               layoutId="activeLengthSegment"
                               className="absolute inset-0 rounded-lg -z-10"
-                              style={{ 
+                              style={{
                                 background: 'linear-gradient(135deg, #C1440E, #E8603C)',
                                 boxShadow: '0 2px 8px rgba(193,68,14,0.25)'
                               }}
                               transition={{ type: "spring", stiffness: 400, damping: 30 }}
                             />
                           )}
-                          {opt.label}
+                          <span className="flex flex-col items-center gap-0">
+                            <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
+                            <span style={{
+                              fontSize: 9,
+                              fontWeight: 500,
+                              color: isSelected ? 'rgba(255,255,255,0.70)' : '#9C8F85',
+                              marginTop: 1,
+                            }}>
+                              {opt.desc}
+                            </span>
+                          </span>
                         </button>
                       );
                     })}
@@ -1341,7 +1418,7 @@ export default function PromptStep({
               {/* Aspect Ratio — Twin Box Visual Selectors */}
               {setAspectRatio && (
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-wide block text-[#6B5E7B]">
+                  <label className="text-sm font-bold block text-stone-500">
                     Aspect Ratio
                   </label>
                   <div className="grid grid-cols-2 gap-3">
@@ -1376,8 +1453,13 @@ export default function PromptStep({
                             />
                           </div>
                           
-                          <span className="text-xs font-black text-stone-800 tracking-wider">
-                            {opt.id}
+                          <span className="flex flex-col items-center gap-0.5">
+                            <span className="text-xs font-black text-stone-800 tracking-wider">
+                              {opt.id}
+                            </span>
+                            <span style={{ fontSize: 9, fontWeight: 500, color: '#9C8F85' }}>
+                              {opt.id === '9:16' ? 'Phone · Social' : 'TV · Laptop'}
+                            </span>
                           </span>
                         </button>
                       );
