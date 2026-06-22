@@ -29,8 +29,8 @@ export default function FrameGenerationStep({
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Scene Frames</h2>
-          <p className="text-gray-500">
+          <h2 className="text-2xl font-bold text-ink mb-2">Scene Frames</h2>
+          <p className="text-ink-muted">
             Review the generated frames for your story. Regenerate any frame with feedback or approve all to continue.
           </p>
         </div>
@@ -40,7 +40,7 @@ export default function FrameGenerationStep({
           <button
             onClick={() => onGenerateFrames()}
             className="w-full text-white font-medium py-3 rounded-xl"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+            style={{ background: "var(--gradient-brand)" }}
           >
             Generate Scene Frames
           </button>
@@ -49,8 +49,8 @@ export default function FrameGenerationStep({
         {/* Loading state */}
         {framesLoading && sceneFrames.length === 0 && (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500 mx-auto mb-3"></div>
-            <p className="text-gray-500">Generating scene frames...</p>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-terra mx-auto mb-3"></div>
+            <p className="text-ink-muted">Generating scene frames...</p>
           </div>
         )}
 
@@ -62,10 +62,10 @@ export default function FrameGenerationStep({
               return (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
+                  className="border border-border rounded-xl overflow-hidden bg-white shadow-sm"
                 >
                   {/* Image */}
-                  <div className="aspect-video bg-gray-100 relative">
+                  <div className="aspect-video bg-surface-alt relative">
                     {(frame.status === 'completed' || frame.status === 'success') && (frame.imageUrl || frame.url) ? (
                       <img
                         src={frame.imageUrl || frame.url}
@@ -78,7 +78,7 @@ export default function FrameGenerationStep({
                       </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terra"></div>
                       </div>
                     )}
                     {/* Scene number badge */}
@@ -91,9 +91,9 @@ export default function FrameGenerationStep({
                   <div className="p-3 space-y-2">
                     {section && (
                       <>
-                        <p className="text-gray-800 text-sm">{section.narrationText}</p>
+                        <p className="text-ink text-sm">{section.narrationText}</p>
                         {section.visualDescription && (
-                          <p className="text-gray-400 text-xs italic">
+                          <p className="text-ink-muted text-xs italic">
                             Visual: {section.visualDescription}
                           </p>
                         )}
@@ -102,19 +102,19 @@ export default function FrameGenerationStep({
 
                     {/* Feedback + Actions */}
                     {(frame.status === 'completed' || frame.status === 'success') && (
-                      <div className="space-y-2 pt-1 border-t border-gray-100">
+                      <div className="space-y-2 pt-1 border-t border-border">
                         <input
                           type="text"
                           value={feedbackByIndex[index] || ''}
                           onChange={(e) => setFeedbackByIndex(prev => ({ ...prev, [index]: e.target.value }))}
                           placeholder="Feedback for regeneration..."
-                          className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 text-xs placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                          className="w-full bg-surface-alt border border-border rounded px-2 py-1 text-ink/80 text-xs placeholder-gray-400 focus:outline-none focus:border-terra"
                         />
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleRegenerate(index)}
                             disabled={regeneratingIndex === index}
-                            className="flex-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 rounded transition-colors disabled:opacity-50"
+                            className="flex-1 text-xs bg-surface-alt hover:bg-surface-alt text-ink/80 py-1.5 rounded transition-colors disabled:opacity-50"
                           >
                             {regeneratingIndex === index ? 'Regenerating...' : 'Regenerate'}
                           </button>

@@ -161,7 +161,7 @@ export default function EditingStep({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+      <div className="bg-white border-b border-border p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -182,15 +182,15 @@ export default function EditingStep({
             )}
           </Button>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Edit Clips</h2>
-            <p className="text-sm text-gray-500">{sections.length} clips in your video</p>
+            <h2 className="text-xl font-semibold text-ink">Edit Clips</h2>
+            <p className="text-sm text-ink-muted">{sections.length} clips in your video</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
             onClick={() => setShowTimeline(true)}
             variant="outline"
-            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+            className="border-terra text-terra hover:bg-terra/5"
           >
             <Layers className="w-4 h-4 mr-2" />
             Timeline Editor
@@ -199,7 +199,7 @@ export default function EditingStep({
             onClick={handleReassemble}
             disabled={reassembling || loading}
             className="text-white border-0"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+            style={{ background: "var(--gradient-brand)" }}
           >
             {reassembling ? (
               <span className="flex items-center gap-2">
@@ -217,9 +217,9 @@ export default function EditingStep({
       </div>
 
       {/* Clips Timeline */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-6 bg-surface-alt">
         <div className="max-w-4xl mx-auto">
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-ink-muted mb-4">
             Drag clips to reorder. Click to edit individual clips.
           </p>
 
@@ -244,18 +244,18 @@ export default function EditingStep({
                     section.status === "FAILED"
                       ? "border-red-300"
                       : section.status === "GENERATING"
-                      ? "border-purple-300"
-                      : "border-gray-200"
+                      ? "border-terra/40"
+                      : "border-border"
                   }`}
                 >
                   <div className="flex gap-4">
                     {/* Drag Handle */}
-                    <div className="flex items-center text-gray-400">
+                    <div className="flex items-center text-ink-muted">
                       <GripVertical className="w-5 h-5" />
                     </div>
 
                     {/* Clip Index */}
-                    <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-medium text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 bg-terra/10 rounded-full flex items-center justify-center text-terra font-medium text-sm">
                       {index + 1}
                     </div>
 
@@ -295,14 +295,14 @@ export default function EditingStep({
                           className="w-full h-full object-cover opacity-50"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-600">
+                        <div className="w-full h-full flex items-center justify-center text-ink-muted">
                           <Film className="w-8 h-8" />
                         </div>
                       )}
 
                       {/* Status Badge */}
                       {section.status === "GENERATING" && (
-                        <div className="absolute top-1 right-1 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded">
+                        <div className="absolute top-1 right-1 bg-terra text-white text-xs px-1.5 py-0.5 rounded">
                           Generating...
                         </div>
                       )}
@@ -321,23 +321,23 @@ export default function EditingStep({
                             ? "bg-green-100 text-green-800"
                             : section.sectionType === "CLOSING"
                             ? "bg-orange-100 text-orange-800"
-                            : "bg-purple-100 text-purple-800"
+                            : "bg-terra/10 text-terra"
                         }`}>
                           {section.sectionType}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-ink-muted">
                           {section.clipDuration || 5}s
                         </span>
                       </div>
 
                       {section.narrationText && (
-                        <p className="text-sm text-gray-900 line-clamp-2 mb-1">
+                        <p className="text-sm text-ink line-clamp-2 mb-1">
                           {section.narrationText}
                         </p>
                       )}
 
                       {section.visualDescription && (
-                        <p className="text-xs text-gray-500 line-clamp-1 italic">
+                        <p className="text-xs text-ink-muted line-clamp-1 italic">
                           Visual: {section.visualDescription}
                         </p>
                       )}
@@ -380,7 +380,7 @@ export default function EditingStep({
           </Reorder.Group>
 
           {sections.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-ink-muted">
               <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p>No clips in your video yet</p>
             </div>

@@ -358,16 +358,27 @@ export function useSession() {
 
     if (credits != null && credits < CREDITS_PER_CLIP) {
       try {
+        // Convert File objects to base64 strings for IndexedDB serialization
         const imagesToSave = await Promise.all(
           images.map((img) =>
             new Promise((resolve) => {
               const reader = new FileReader();
-              reader.onload = () => resolve({ dataUrl: reader.result, name: img.name });
+              reader.onload = () => {
+                resolve({
+                  dataUrl: reader.result, // base64 data URL
+                  name: img.name,
+                });
+              };
               reader.readAsDataURL(img.file);
             })
           )
         );
-        await savePending("image", { userPrompt, style, images: imagesToSave });
+
+        await savePending("image", {
+          userPrompt,
+          style,
+          images: imagesToSave,
+        });
       } catch (err) {
         console.warn("[useSession] Failed to save pending session:", err);
       }
@@ -625,7 +636,11 @@ export function useSession() {
       setError(err.message);
       if (err.response?.status === 402) {
         try {
-          await savePending("image", { userPrompt, style, images: images.map((img) => ({ file: img.file, name: img.name })) });
+          await savePending("image", {
+            userPrompt,
+            style,
+            images: images.map((img) => ({ file: img.file, name: img.name })),
+          });
         } catch (saveErr) {
           console.warn("[useSession] Failed to save pending on 402:", saveErr);
         }
@@ -1302,6 +1317,7 @@ export function useSession() {
   // Reset session
   const reset = useCallback(() => {
     skipResumeRef.current = true;
+
     // Cleanup image previews
     images.forEach((img) => {
       if (img.preview) URL.revokeObjectURL(img.preview);
@@ -1325,9 +1341,9 @@ export function useSession() {
     setClosingFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
     setGeneratedFrameImages({ opening: null, closing: null });
     setGenerationProgress(null);
-    setInsufficientCredits(null);
     setFinalVideoUrl(null);
     setError(null);
+    setInsufficientCredits(null);
   }, [images]);
 
   return {

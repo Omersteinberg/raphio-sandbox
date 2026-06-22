@@ -125,18 +125,18 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
           <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
             <Film className="w-10 h-10 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Generation Failed</h1>
-          <p className="text-gray-600 mb-4">We couldn't finish generating your video.</p>
+          <h1 className="text-2xl font-bold text-ink mb-2">Generation Failed</h1>
+          <p className="text-ink-muted mb-4">We couldn't finish generating your video.</p>
           <div className="p-4 bg-red-50 rounded-lg border border-red-200 text-left mb-6">
             <p className="text-sm text-red-800 break-words">{errorMessage}</p>
           </div>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-ink-muted mb-6">
             Your credits were refunded. You can try generating again.
           </p>
           <button
             onClick={onRegenerate}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+            style={{ background: "var(--gradient-brand)" }}
           >
             <Film className="w-5 h-5" />
             Regenerate Video
@@ -158,30 +158,30 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-4"
+            className="inline-flex items-center justify-center w-20 h-20 bg-terra/10 rounded-full mb-4"
           >
-            <Film className="w-10 h-10 text-purple-600" />
+            <Film className="w-10 h-10 text-terra" />
           </motion.div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-ink mb-2">
             Creating Your Video
           </h1>
-          <p className="text-gray-600">
+          <p className="text-ink-muted">
             {scriptData?.title || "Your video"} is being generated
           </p>
         </div>
 
         {/* Progress Bar */}
         <div className="mb-8">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
+          <div className="flex justify-between text-sm text-ink-muted mb-2">
             <span>Progress</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-3 bg-surface-alt rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5 }}
-              className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"
+              className="h-full bg-gradient-to-r from-terra to-terra-light rounded-full"
             />
           </div>
         </div>
@@ -202,19 +202,19 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
                 transition={{ delay: index * 0.1 }}
                 className={`flex items-center gap-4 p-4 rounded-lg border ${
                   isActive
-                    ? "border-purple-500 bg-purple-50"
+                    ? "border-terra bg-terra/5"
                     : isComplete
                     ? "border-green-200 bg-green-50"
-                    : "border-gray-200 bg-gray-50"
+                    : "border-border bg-surface-alt"
                 }`}
               >
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center ${
                     isActive
-                      ? "bg-purple-100"
+                      ? "bg-terra/10"
                       : isComplete
                       ? "bg-green-100"
-                      : "bg-gray-100"
+                      : "bg-surface-alt"
                   }`}
                 >
                   {isActive ? (
@@ -224,24 +224,24 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
                     >
                       <Loader2
                         className={`w-6 h-6 ${
-                          isActive ? "text-purple-600" : "text-gray-400"
+                          isActive ? "text-terra" : "text-ink-muted"
                         }`}
                       />
                     </motion.div>
                   ) : isComplete ? (
                     <Check className="w-6 h-6 text-green-600" />
                   ) : (
-                    <Icon className="w-6 h-6 text-gray-400" />
+                    <Icon className="w-6 h-6 text-ink-muted" />
                   )}
                 </div>
                 <div className="flex-1">
                   <h3
                     className={`font-medium ${
                       isActive
-                        ? "text-purple-900"
+                        ? "text-terra"
                         : isComplete
                         ? "text-green-900"
-                        : "text-gray-500"
+                        : "text-ink-muted"
                     }`}
                   >
                     {stage.name}
@@ -249,10 +249,10 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
                   <p
                     className={`text-sm ${
                       isActive
-                        ? "text-purple-600"
+                        ? "text-terra"
                         : isComplete
                         ? "text-green-600"
-                        : "text-gray-400"
+                        : "text-ink-muted"
                     }`}
                   >
                     {stage.description}

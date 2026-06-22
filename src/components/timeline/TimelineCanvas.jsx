@@ -467,7 +467,7 @@ export default function TimelineCanvas({
       >
         {/* Ruler */}
         <div
-          className="sticky top-0 z-20 bg-white border-b border-border"
+          className="sticky top-0 z-20 bg-card border-b border-border"
           onClick={handleRulerClick}
         >
           <TimelineRuler

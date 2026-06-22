@@ -65,10 +65,10 @@ export default function ResultStep({
           >
             <Check className="w-10 h-10 text-green-600" />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-ink mb-2">
             Your Video is Ready!
           </h1>
-          <p className="text-gray-600">
+          <p className="text-ink-muted">
             {scriptData?.title || "Your video"} has been successfully created
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function ResultStep({
             </video>
           ) : (
             <div className="w-full aspect-video flex items-center justify-center bg-gray-900">
-              <div className="text-center text-gray-400">
+              <div className="text-center text-ink-muted">
                 <Play className="w-16 h-16 mx-auto mb-2 opacity-50" />
                 <p>Video not available</p>
               </div>
@@ -100,7 +100,7 @@ export default function ResultStep({
             onClick={handleDownload}
             disabled={!finalVideoUrl}
             className="text-white border-0 flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+            style={{ background: "var(--gradient-brand)" }}
           >
             <Download className="w-4 h-4" />
             Download
@@ -109,7 +109,7 @@ export default function ResultStep({
           <Button
             onClick={enterEditingMode}
             variant="outline"
-            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+            className="border-border text-ink/80 hover:bg-surface-alt flex items-center justify-center gap-2"
           >
             <Edit3 className="w-4 h-4" />
             Edit Clips
@@ -118,7 +118,7 @@ export default function ResultStep({
           <Button
             onClick={reset}
             variant="outline"
-            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+            className="border-border text-ink/80 hover:bg-surface-alt flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Create New
@@ -126,30 +126,30 @@ export default function ResultStep({
         </div>
 
         {/* Video Stats */}
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-4">Video Details</h3>
+        <div className="bg-surface-alt rounded-lg p-6 border border-border">
+          <h3 className="font-semibold text-ink mb-4">Video Details</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Title</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-ink-muted">Title</p>
+              <p className="font-medium text-ink">
                 {scriptData?.title || "Untitled"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Style</p>
-              <p className="font-medium text-gray-900 capitalize">
+              <p className="text-sm text-ink-muted">Style</p>
+              <p className="font-medium text-ink capitalize">
                 {scriptData?.style || session?.style || "Cinematic"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Sections</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-ink-muted">Sections</p>
+              <p className="font-medium text-ink">
                 {scriptData?.sections?.length || session?.video?.sections?.length || 0}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Model</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-ink-muted">Model</p>
+              <p className="font-medium text-ink">
                 {session?.videoModel || "KLING"}
               </p>
             </div>
@@ -157,8 +157,8 @@ export default function ResultStep({
         </div>
 
         {/* Tips */}
-        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <p className="text-sm text-purple-800">
+        <div className="mt-6 p-4 bg-terra/5 rounded-lg border border-terra/30">
+          <p className="text-sm text-terra">
             <strong>Tip:</strong> Click "Edit Clips" to regenerate individual sections,
             reorder clips, or make other adjustments to your video.
           </p>

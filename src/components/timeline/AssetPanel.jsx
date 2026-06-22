@@ -159,7 +159,7 @@ export default function AssetPanel({
                 .map((section) => (
                   <div
                     key={`narration-${section.id}`}
-                    className="bg-blue-50 rounded p-2 cursor-grab hover:bg-blue-100 transition-colors group border border-blue-200"
+                    className="bg-blue-500/10 rounded p-2 cursor-grab hover:bg-blue-500/20 transition-colors group border border-blue-500/25"
                     draggable
                     onDragStart={(e) => handleNarrationDragStart(e, section)}
                   >
@@ -197,7 +197,7 @@ export default function AssetPanel({
               {audioAssets.map((asset) => (
                 <div
                   key={asset.id}
-                  className="bg-green-50 rounded p-2 cursor-grab hover:bg-green-100 transition-colors group border border-green-200"
+                  className="bg-green-500/10 rounded p-2 cursor-grab hover:bg-green-500/20 transition-colors group border border-green-500/25"
                   draggable
                   onDragStart={(e) => handleAudioDragStart(e, asset)}
                 >

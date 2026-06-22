@@ -32,7 +32,7 @@ export default function MergeLoadingOverlay({ text = "Loading...", progress = nu
         <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.15)" }}>
           <motion.div
             className="h-full rounded-full"
-            style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+            style={{ background: "var(--gradient-brand)" }}
             initial={{ width: 0 }}
             animate={{ width: `${displayProgress}%` }}
             transition={{ duration: 0.4, ease: "easeOut" }}

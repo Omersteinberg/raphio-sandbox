@@ -30,7 +30,7 @@ export default function TimelineControls({
   onDelete,
 }) {
   return (
-    <div className="bg-white border-y border-border px-4 py-2 flex items-center justify-between">
+    <div className="bg-card border-y border-border px-4 py-2 flex items-center justify-between">
       {/* Playback Controls */}
       <div className="flex items-center gap-2">
         <Button

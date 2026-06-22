@@ -5,11 +5,11 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
   const [feedback, setFeedback] = useState('');
 
   return (
-    <div className="border border-gray-200 rounded-xl p-4 bg-white">
+    <div className="border border-border rounded-xl p-4 bg-white">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className="font-semibold text-gray-900">{reference.name}</h4>
-          <p className="text-sm text-gray-500 mt-1">{reference.description}</p>
+          <h4 className="font-semibold text-ink">{reference.name}</h4>
+          <p className="text-sm text-ink-muted mt-1">{reference.description}</p>
         </div>
         <span
           className="text-xs px-2 py-1 rounded-full"
@@ -25,12 +25,12 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
       <div className="grid grid-cols-2 gap-4">
         {/* Original */}
         <div className="space-y-1">
-          <span className="text-xs font-medium text-gray-500">Original</span>
-          <div className="border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
+          <span className="text-xs font-medium text-ink-muted">Original</span>
+          <div className="border border-border rounded-lg overflow-hidden bg-surface-alt">
             {reference.originalUrl ? (
               <img src={reference.originalUrl} alt="Original" className="w-full aspect-square object-cover" />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center text-gray-400 text-sm">
+              <div className="w-full aspect-square flex items-center justify-center text-ink-muted text-sm">
                 No image
               </div>
             )}
@@ -39,18 +39,18 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
 
         {/* Restyled/Locked */}
         <div className="space-y-1">
-          <span className="text-xs font-medium text-gray-500">
+          <span className="text-xs font-medium text-ink-muted">
             {reference.needsRestyle ? 'Restyled' : 'Locked'}
           </span>
-          <div className="border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
+          <div className="border border-border rounded-lg overflow-hidden bg-surface-alt">
             {isLoading ? (
               <div className="w-full aspect-square flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terra"></div>
               </div>
             ) : reference.lockedUrl ? (
               <img src={reference.lockedUrl} alt="Locked" className="w-full aspect-square object-cover" />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center text-gray-400 text-sm">
+              <div className="w-full aspect-square flex items-center justify-center text-ink-muted text-sm">
                 Processing...
               </div>
             )}
@@ -66,14 +66,14 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="Feedback for regeneration..."
-            className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+            className="flex-1 text-sm bg-surface-alt border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-terra"
           />
           <button
             onClick={() => {
               onRegenerate(reference.id, feedback);
               setFeedback('');
             }}
-            className="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            className="text-sm px-3 py-2 bg-surface-alt hover:bg-surface-alt text-ink/80 rounded-lg transition-colors"
           >
             Regenerate
           </button>
@@ -92,7 +92,7 @@ export default function ReferenceLockStep({
 }) {
   if (!referenceData) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="flex items-center justify-center h-full text-ink-muted">
         No references to review
       </div>
     );
@@ -109,8 +109,8 @@ export default function ReferenceLockStep({
         className="max-w-5xl mx-auto space-y-6"
       >
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Approve Your References</h2>
-          <p className="text-gray-500">
+          <h2 className="text-2xl font-bold text-ink mb-2">Approve Your References</h2>
+          <p className="text-ink-muted">
             Review how your references look in the chosen style. Logos are preserved exactly. Approve to continue or regenerate with feedback.
           </p>
         </div>
@@ -118,7 +118,7 @@ export default function ReferenceLockStep({
         {/* Props */}
         {referenceData.characters?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Characters & Subjects</h3>
+            <h3 className="text-lg font-semibold text-ink mb-3">Characters & Subjects</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.characters.map((char) => (
                 <ReferenceCard
@@ -135,7 +135,7 @@ export default function ReferenceLockStep({
         {/* Backgrounds */}
         {referenceData.settings?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Backgrounds</h3>
+            <h3 className="text-lg font-semibold text-ink mb-3">Backgrounds</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.settings.map((setting) => (
                 <ReferenceCard
@@ -152,26 +152,26 @@ export default function ReferenceLockStep({
         {/* Logos */}
         {referenceData.logos?.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Logos</h3>
+            <h3 className="text-lg font-semibold text-ink mb-3">Logos</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.logos.map((logo) => (
-                <div key={logo.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+                <div key={logo.id} className="border border-border rounded-xl p-4 bg-white">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h4 className="font-semibold text-gray-900">{logo.name}</h4>
-                      <p className="text-sm text-gray-500 mt-1">{logo.description}</p>
+                      <h4 className="font-semibold text-ink">{logo.name}</h4>
+                      <p className="text-sm text-ink-muted mt-1">{logo.description}</p>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+                    <span className="text-xs px-2 py-1 rounded-full bg-terra/5 text-terra">
                       Preserved Exactly
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs font-medium text-gray-500">Original (locked)</span>
-                    <div className="border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
+                    <span className="text-xs font-medium text-ink-muted">Original (locked)</span>
+                    <div className="border border-border rounded-lg overflow-hidden bg-surface-alt">
                       {logo.originalUrl ? (
                         <img src={logo.originalUrl} alt={logo.name} className="w-full aspect-square object-contain" />
                       ) : (
-                        <div className="w-full aspect-square flex items-center justify-center text-gray-400 text-sm">
+                        <div className="w-full aspect-square flex items-center justify-center text-ink-muted text-sm">
                           No image
                         </div>
                       )}
@@ -190,7 +190,7 @@ export default function ReferenceLockStep({
               onClick={onApproveAll}
               disabled={loading}
               className="px-8 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, #F97066, #FB923C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? "Generating Script..." : "Approve All & Continue"}
             </button>

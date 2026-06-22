@@ -34,25 +34,25 @@ export default function FramesStep({
       <div className="w-full max-w-2xl px-6 py-8 space-y-4">
         {/* Header */}
         <div className="mb-2">
-          <h2 className="text-xl font-semibold text-gray-900">Ready to Generate</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-xl font-semibold text-ink">Ready to Generate</h2>
+          <p className="text-sm text-ink-muted">
             Confirm your settings and start video generation
           </p>
         </div>
 
         {/* Narration Voice Accordion */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-border overflow-hidden">
           <button
             onClick={() => toggleSection("voice")}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between p-4 hover:bg-surface-alt transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Mic className="w-4 h-4 text-purple-600" />
+              <div className="w-9 h-9 rounded-lg bg-terra/10 flex items-center justify-center">
+                <Mic className="w-4 h-4 text-terra" />
               </div>
               <div className="text-left">
-                <p className="font-medium text-gray-900">Narration Voice</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-ink">Narration Voice</p>
+                <p className="text-sm text-ink-muted">
                   {voiceId || "Default voice"}
                 </p>
               </div>
@@ -67,7 +67,7 @@ export default function FramesStep({
                 animate={{ rotate: expandedSection === "voice" ? 180 : 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-ink-muted" />
               </motion.div>
             </div>
           </button>
@@ -90,25 +90,25 @@ export default function FramesStep({
         </div>
 
         {/* Background Music Toggle */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-border overflow-hidden">
           <button
             onClick={() => setBackgroundMusic(!backgroundMusic)}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between p-4 hover:bg-surface-alt transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Music className="w-4 h-4 text-purple-600" />
+              <div className="w-9 h-9 rounded-lg bg-terra/10 flex items-center justify-center">
+                <Music className="w-4 h-4 text-terra" />
               </div>
               <div className="text-left">
-                <p className="font-medium text-gray-900">Background Music</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-ink">Background Music</p>
+                <p className="text-sm text-ink-muted">
                   {backgroundMusic ? "AI-generated instrumental music" : "No background music"}
                 </p>
               </div>
             </div>
             <div
               className={`w-11 h-6 rounded-full transition-colors ${
-                backgroundMusic ? "bg-purple-500" : "bg-gray-300"
+                backgroundMusic ? "bg-terra" : "bg-ink/20"
               } relative`}
             >
               <div
@@ -133,11 +133,11 @@ export default function FramesStep({
         </Button>
 
         {/* Info Box */}
-        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <p className="text-sm text-purple-800">
+        <div className="p-4 bg-terra/5 rounded-lg border border-terra/30">
+          <p className="text-sm text-terra">
             <strong>What happens next:</strong>
           </p>
-          <ul className="text-xs text-purple-700 mt-2 space-y-1">
+          <ul className="text-xs text-terra mt-2 space-y-1">
             {openingFrame?.enabled && <li>- Opening frame generated</li>}
             <li>- Each section converted to video clips</li>
             <li>- Narration generated with AI voice</li>

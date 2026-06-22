@@ -41,7 +41,7 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
       style={{ width }}
     >
       {/* Track label area */}
-      <div className="absolute left-0 top-0 w-20 h-full bg-white border-r border-border flex items-center justify-center">
+      <div className="absolute left-0 top-0 w-20 h-full bg-card border-r border-border flex items-center justify-center">
         <span className="text-xs text-muted-foreground">Time</span>
       </div>
 
@@ -56,7 +56,7 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
             {/* Tick line */}
             <div
               className={`absolute bottom-0 w-px ${
-                tick.isMajor ? "bg-gray-400 h-4" : "bg-gray-300 h-2"
+                tick.isMajor ? "bg-muted-foreground h-4" : "bg-border h-2"
               }`}
             />
             {/* Label */}

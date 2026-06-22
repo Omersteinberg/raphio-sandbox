@@ -332,10 +332,10 @@ export default function ImagePipelineCreator({ onModeChange }) {
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
                     style={
                       step > index
-                        ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff" }
+                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
                         : step === index
-                        ? { background: "#FFF0E6", color: "#F97066", border: "2px solid #F97066" }
-                        : { background: "#F0EAFF", color: "#9B8FA8" }
+                        ? { background: "#FFF0E6", color: "#C1440E", border: "2px solid #C1440E" }
+                        : { background: "#F0EAE5", color: "#7A6A62" }
                     }
                   >
                     {index + 1}
@@ -345,8 +345,8 @@ export default function ImagePipelineCreator({ onModeChange }) {
                       className="flex-1 h-1 mx-2 rounded-full"
                       style={{
                         background: step > index
-                          ? "linear-gradient(135deg, #F97066, #FB923C)"
-                          : "#F0EAFF",
+                          ? "linear-gradient(135deg, #C1440E, #E8603C)"
+                          : "#F0EAE5",
                       }}
                     />
                   )}
@@ -358,7 +358,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
                 <span
                   key={name}
                   className="font-medium"
-                  style={{ color: step === index ? "#F97066" : "#9B8FA8" }}
+                  style={{ color: step === index ? "#C1440E" : "#7A6A62" }}
                 >
                   {name}
                 </span>

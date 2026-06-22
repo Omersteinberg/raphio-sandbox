@@ -132,14 +132,14 @@ export default function TimelineItem({
 
       {/* Trim handles */}
       <div
-        className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-white/0 hover:bg-white/30 transition-colors"
+        className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-card/0 hover:bg-card/30 transition-colors"
         onMouseDown={(e) => {
           e.stopPropagation();
           onDragStart(item, "trim-start", e);
         }}
       />
       <div
-        className="absolute right-0 top-0 w-2 h-full cursor-ew-resize bg-white/0 hover:bg-white/30 transition-colors"
+        className="absolute right-0 top-0 w-2 h-full cursor-ew-resize bg-card/0 hover:bg-card/30 transition-colors"
         onMouseDown={(e) => {
           e.stopPropagation();
           onDragStart(item, "trim-end", e);

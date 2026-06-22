@@ -77,7 +77,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
   const showProgressBar = step > 0 && step < GENERATING_STEP;
 
   return (
-    <div className="h-full flex flex-col font-figtree" style={{ background: "linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 60%, #F8F7FF 100%)" }}>
+    <div className="h-full flex flex-col font-figtree" style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}>
       {showProgressBar && (
         <div className="px-6 py-3 border-b" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}>
           <div className="max-w-4xl mx-auto">
@@ -88,23 +88,23 @@ export default function IntroPipelineCreator({ onModeChange }) {
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
                     style={
                       step > index
-                        ? { background: "linear-gradient(135deg, #F97066, #FB923C)", color: "#fff" }
+                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
                         : step === index
-                        ? { background: "#FFF0E6", color: "#F97066", border: "2px solid #F97066" }
-                        : { background: "#F0EAFF", color: "#9B8FA8" }
+                        ? { background: "#FFF0E6", color: "#C1440E", border: "2px solid #C1440E" }
+                        : { background: "#F0EAE5", color: "#7A6A62" }
                     }
                   >
                     {index + 1}
                   </div>
                   {index < STEP_NAMES.length - 1 && (
-                    <div className="flex-1 h-1 mx-2 rounded-full" style={{ background: step > index ? "linear-gradient(135deg, #F97066, #FB923C)" : "#F0EAFF" }} />
+                    <div className="flex-1 h-1 mx-2 rounded-full" style={{ background: step > index ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#F0EAE5" }} />
                   )}
                 </div>
               ))}
             </div>
             <div className="flex justify-between text-xs">
               {STEP_NAMES.map((name, index) => (
-                <span key={name} className="font-medium" style={{ color: step === index ? "#F97066" : "#9B8FA8" }}>{name}</span>
+                <span key={name} className="font-medium" style={{ color: step === index ? "#C1440E" : "#7A6A62" }}>{name}</span>
               ))}
             </div>
           </div>

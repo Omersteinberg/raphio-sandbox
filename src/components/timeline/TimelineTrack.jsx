@@ -21,8 +21,8 @@ export default function TimelineTrack({
 }) {
   const isMusic = trackType === "AUDIO" && trackIndex === 1;
   const Icon = trackType === "VIDEO" ? Film : Music;
-  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : isMusic ? "bg-green-50" : "bg-blue-50";
-  const borderColor = trackType === "VIDEO" ? "border-primary/20" : isMusic ? "border-green-200" : "border-blue-200";
+  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : isMusic ? "bg-green-500/10" : "bg-blue-500/10";
+  const borderColor = trackType === "VIDEO" ? "border-primary/20" : isMusic ? "border-green-500/25" : "border-blue-500/25";
 
   return (
     <div
@@ -32,7 +32,7 @@ export default function TimelineTrack({
       onDragOver={onDragOver}
     >
       {/* Track Label */}
-      <div className="w-20 flex-shrink-0 bg-white border-r border-border flex items-center justify-center gap-1">
+      <div className="w-20 flex-shrink-0 bg-card border-r border-border flex items-center justify-center gap-1">
         <Icon className="w-4 h-4 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
@@ -44,7 +44,7 @@ export default function TimelineTrack({
           {Array.from({ length: Math.ceil(1000 / pixelsPerSecond) }).map((_, i) => (
             <div
               key={i}
-              className="absolute top-0 h-full w-px bg-gray-200"
+              className="absolute top-0 h-full w-px bg-border"
               style={{ left: i * pixelsPerSecond }}
             />
           ))}

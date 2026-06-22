@@ -43,6 +43,24 @@ export default {
   			info: 'hsl(var(--info))',
   			success: 'hsl(var(--success))',
   			warning: 'hsl(var(--warning))',
+  			terra: {
+  				DEFAULT: 'rgb(var(--terra-rgb) / <alpha-value>)',
+  				light: 'var(--terra-light)',
+  				dark: 'var(--terra-dark)'
+  			},
+  			cream: {
+  				DEFAULT: 'var(--cream)',
+  				alt: 'var(--cream-alt)'
+  			},
+  			surface: {
+  				DEFAULT: 'var(--surface)',
+  				alt: 'var(--surface-alt)'
+  			},
+  			ink: {
+  				DEFAULT: 'rgb(var(--ink-rgb) / <alpha-value>)',
+  				warm: 'var(--ink-warm)',
+  				muted: 'var(--muted-warm)'
+  			},
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -52,8 +70,8 @@ export default {
   			}
   		},
   		backgroundImage: {
-  			'background-gradient': 'linear-gradient(to bottom, #EEF2FF, #F9FAFB)',
-  			'cta-gradient': 'linear-gradient(135deg, #0D9668, #10B981)'
+  			'app-gradient': 'var(--gradient-app)',
+  			'brand-gradient': 'var(--gradient-brand)'
   		},
   		fontFamily: {
   			montserrat: [

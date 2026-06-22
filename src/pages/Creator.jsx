@@ -17,7 +17,7 @@ export default function Creator() {
     return <ReferencesPipelineCreator onModeChange={handleModeChange} />;
   }
   if (pipelineMode === "intro") {
-    return <IntroPipelineCreator onModeChange={setPipelineMode} />;
+    return <IntroPipelineCreator onModeChange={handleModeChange} />;
   }
-  return <ImagePipelineCreator onModeChange={setPipelineMode} />;
+  return <ImagePipelineCreator onModeChange={handleModeChange} />;
 }
