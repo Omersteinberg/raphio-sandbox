@@ -26,6 +26,17 @@ export default function AppHeader() {
   const isLow = (credits ?? 0) < 20;
   const isActive = (path) => location.pathname === path;
 
+  // Start a fresh creation. navigate('/create') is a no-op when already on
+  // /create (the route doesn't change, so the wizard keeps its session state),
+  // so force a clean reload — same intentional reset ResultStep uses.
+  const goToCreate = () => {
+    if (location.pathname === '/create') {
+      window.location.href = '/create';
+    } else {
+      navigate('/create');
+    }
+  };
+
   return (
     <header
       className="h-14 flex items-center justify-between px-5 shrink-0 z-50 relative font-figtree"
@@ -38,7 +49,7 @@ export default function AppHeader() {
       {/* Left: Logo + nav */}
       <div className="flex items-center gap-6">
         <button
-          onClick={() => navigate('/create')}
+          onClick={goToCreate}
           className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
           aria-label="Go to home"
         >
@@ -49,7 +60,7 @@ export default function AppHeader() {
 
         <nav className="flex items-center gap-1">
           <button
-            onClick={() => navigate('/create')}
+            onClick={goToCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
             style={
               isActive('/create')

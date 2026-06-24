@@ -4,6 +4,7 @@ import { Sparkles, Edit3, RefreshCw, Upload, Trash2, Clock, AlertCircle } from "
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { ACCEPTED_IMAGE_ACCEPT, validateImageFile } from "@/lib/imageValidation";
 
 export default function BridgeSectionCard({
   section,
@@ -33,10 +34,11 @@ export default function BridgeSectionCard({
   }[section.bridgeStatus] || "bg-surface-alt text-ink";
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+    const file = validateImageFile(e.target.files?.[0]);
     if (file) {
       onUploadImage(section.orderIndex, file);
     }
+    e.target.value = "";
   };
 
   return (
@@ -218,7 +220,7 @@ export default function BridgeSectionCard({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={ACCEPTED_IMAGE_ACCEPT}
                 onChange={handleFileChange}
                 className="hidden"
               />

@@ -146,7 +146,8 @@ export default function ScriptStep({
                 <Button
                   onClick={approveScript}
                   disabled={loading || hasBridgeFailures}
-                  className="bg-secondary hover:bg-secondary/90 text-white"
+                  className="text-white"
+                  style={{ background: "var(--gradient-brand)" }}
                   title={hasBridgeFailures ? "Fix failed bridge frames first" : ""}
                 >
                   <Check className="w-4 h-4 mr-2" />

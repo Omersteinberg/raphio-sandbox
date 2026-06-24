@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Upload, X, Image as ImageIcon, Trash2, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MAX_IMAGES } from "@/lib/limits";
+import { filterValidImages } from "@/lib/imageValidation";
 
 export default function ImagesStep({
   images,
@@ -21,7 +22,7 @@ export default function ImagesStep({
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
+    const files = filterValidImages(e.target.files);
     if (files.length > 0) {
       addImages(files);
     }
@@ -30,9 +31,7 @@ export default function ImagesStep({
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type === "image/jpeg" || f.type === "image/png"
-    );
+    const files = filterValidImages(e.dataTransfer.files);
     if (files.length > 0) {
       addImages(files);
     }

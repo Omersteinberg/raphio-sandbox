@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
-  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Play, Square, BookOpen,
+  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
+import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
 
 const SLOT_LABELS = {
@@ -182,7 +183,7 @@ const CARD_SHADOW = {
 
 function ReferenceInput({ item, index, type, onChange, onRemove }) {
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+    const file = validateImageFile(e.target.files?.[0]);
     if (file) {
       onChange(index, {
         ...item,
@@ -190,6 +191,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
         referenceImage: URL.createObjectURL(file),
       });
     }
+    e.target.value = "";
   };
 
   const isCharacter = type === 'character';
@@ -377,7 +379,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
                   <Upload className="w-4 h-4 mb-1.5" style={{ color: accent, opacity: 0.5 }} />
                   <span className="text-xs font-semibold text-stone-500">Click to upload reference image</span>
                   <span className="text-[10px] text-stone-400 mt-0.5">JPEG or PNG</span>
-                  <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  <input type="file" accept={ACCEPTED_IMAGE_ACCEPT} onChange={handleFileChange} className="hidden" />
                 </label>
               )}
             </motion.div>
@@ -480,8 +482,8 @@ export default function PromptStep({
   }, [images?.length]);
 
   const handleFrameFileChange = (e, frameType) => {
-    const file = e.target.files?.[0];
-    if (file && (file.type === "image/jpeg" || file.type === "image/png")) {
+    const file = validateImageFile(e.target.files?.[0]);
+    if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const setter = frameType === "opening" ? setOpeningFrame : setClosingFrame;
@@ -513,7 +515,7 @@ export default function PromptStep({
   });
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
+    const files = filterValidImages(e.target.files);
     if (files.length > 0 && targetSlot !== null) {
       const newImages = [...(images || [])];
       newImages.splice(targetSlot, 0, ...files.map(f => ({ file: f, preview: URL.createObjectURL(f) })));
@@ -612,8 +614,8 @@ export default function PromptStep({
               
               {[
                 { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
-                { id: 'references', label: 'Generate with AI', Icon: Wand2     },
-                { id: 'intro',      label: 'Brand Intro',      Icon: Play      },
+                { id: 'references', label: 'Generate with references', Icon: Wand2     },
+                // 'intro' (Brand Intro) is hidden while the pipeline is still in progress.
               ].map((mode) => {
                 const isActive = pipelineMode === mode.id;
                 return (
@@ -914,9 +916,7 @@ export default function PromptStep({
               onDrop={(e) => {
                 e.preventDefault();
                 setIsDraggingFile(false);
-                const files = Array.from(e.dataTransfer.files).filter(
-                  (f) => f.type === 'image/jpeg' || f.type === 'image/png'
-                );
+                const files = filterValidImages(e.dataTransfer.files);
                 if (files.length > 0) addImages(files);
               }}
             >

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
+import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 
 const GRADIENT = "var(--gradient-brand)";
 
@@ -54,11 +55,12 @@ export default function IntroBriefStep({
   const canStart = !!logoFile && description.trim().length > 0;
 
   const pickLogo = (file) => {
-    if (file && file.type.startsWith("image/")) setLogoFile(file);
+    const valid = validateImageFile(file);
+    if (valid) setLogoFile(valid);
   };
 
   const addShowcase = (files) => {
-    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    const imgs = filterValidImages(files);
     if (imgs.length) setShowcaseFiles([...(showcaseFiles || []), ...imgs].slice(0, 4));
   };
 
@@ -102,14 +104,14 @@ export default function IntroBriefStep({
           <input
             ref={logoInputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_IMAGE_ACCEPT}
             className="hidden"
             onChange={(e) => {
               pickLogo(e.target.files?.[0]);
               e.target.value = "";
             }}
           />
-          {logoPreview ? (
+          {logoFile && logoPreview ? (
             <div className="relative inline-flex items-center gap-4 w-full">
               <div className="w-24 h-24 rounded-2xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
                 <img src={logoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain" />
@@ -244,7 +246,7 @@ export default function IntroBriefStep({
           <input
             ref={showcaseInputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_IMAGE_ACCEPT}
             multiple
             className="hidden"
             onChange={(e) => {

@@ -123,7 +123,8 @@ export default function FramesStep({
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
-          className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 text-lg mt-6"
+          className="w-full text-white py-6 text-lg mt-6"
+          style={{ background: "var(--gradient-brand)" }}
         >
           <span className="flex items-center gap-2">
             <Zap className="w-5 h-5" />
