@@ -258,21 +258,32 @@ export function useReferencesSession() {
     if (!sessionId) return;
 
     setLoading(true);
+    setScriptProgress(0);
+
+    // Simulated climb so the rich loader's sub-steps/bar advance during the
+    // (~5 min) script generation, which reports no granular progress.
+    const progressTimer = setInterval(() => {
+      setScriptProgress((prev) => (prev >= 90 ? prev : prev + (90 - prev) * 0.04));
+    }, 600);
+
     try {
       console.log("[useReferencesSession] Approving all references...");
       await referenceApi.approveAllReferences(sessionId);
+      setScriptProgress((prev) => Math.max(prev, 30));
 
       // Generate script after approval
       console.log("[useReferencesSession] Generating script...");
       const sessionAfterScript = await sessionService.generateScript(sessionId);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
+      setScriptProgress(100);
 
       setDirection(1);
       setStep(2);
       toast.success("References approved! Review your script.");
     } catch (err) {
       console.error("[useReferencesSession] Failed to approve references:", err);
+      setScriptProgress(0);
       if (err.response?.status === 402) {
         toast.error("Insufficient credits");
         navigate("/buy-credits");
@@ -280,9 +291,10 @@ export function useReferencesSession() {
         toast.error(err.response?.data?.error || "Failed to approve references");
       }
     } finally {
+      clearInterval(progressTimer);
       setLoading(false);
     }
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, setScriptProgress]);
 
   // ── Approve script (override base to explicitly advance step) ──────
   const approveScript = useCallback(async () => {

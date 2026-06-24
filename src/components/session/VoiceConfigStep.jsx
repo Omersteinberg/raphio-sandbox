@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import VoiceSelector from './VoiceSelector';
+import { CREDITS_PER_CLIP } from '@/lib/limits';
 
 export default function VoiceConfigStep({
   voiceId,
@@ -12,6 +13,7 @@ export default function VoiceConfigStep({
   insufficientCredits,
 }) {
   const clipCount = sceneFrames?.length || 0;
+  const totalCredits = clipCount * CREDITS_PER_CLIP;
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -54,12 +56,12 @@ export default function VoiceConfigStep({
         <div className="bg-surface-alt border border-border rounded-xl p-5">
           <h3 className="text-lg font-medium text-ink mb-2">Generation Summary</h3>
           <ul className="text-ink-muted text-sm space-y-1">
-            <li>{clipCount} scene frames will be animated to video (5s each)</li>
+            <li>{clipCount} {clipCount === 1 ? 'clip' : 'clips'} will be generated from your scene frames (~5s each)</li>
             <li>Narration will be generated for all scenes</li>
             {backgroundMusic && <li>Background music will be generated</li>}
             <li>Final video will be assembled automatically</li>
           </ul>
-          <p className="text-ink-muted text-xs mt-3">Cost: {clipCount} credits ({clipCount} clips × $5)</p>
+          <p className="text-ink-muted text-xs mt-3">Cost: {totalCredits} {totalCredits === 1 ? 'credit' : 'credits'} ({clipCount} {clipCount === 1 ? 'clip' : 'clips'} × {CREDITS_PER_CLIP} credit{CREDITS_PER_CLIP === 1 ? '' : 's'})</p>
         </div>
 
         {/* Generate Button */}

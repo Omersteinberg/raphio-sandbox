@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
-export default function MergeLoadingOverlay({ text = "Loading...", progress = null }) {
+export default function MergeLoadingOverlay({ text = "Loading...", progress = null, estimate = null }) {
   const [simulated, setSimulated] = useState(0);
 
   useEffect(() => {
@@ -24,9 +24,15 @@ export default function MergeLoadingOverlay({ text = "Loading...", progress = nu
       className="absolute inset-0 flex flex-col justify-center items-center z-50 pointer-events-auto p-4"
       style={{ background: "rgba(45,34,53,0.6)", backdropFilter: "blur(8px)" }}
     >
-      <div className="text-white text-center text-xl font-bold max-w-xs leading-relaxed mb-4 font-figtree">
+      <div className="text-white text-center text-xl font-bold max-w-xs leading-relaxed mb-2 font-figtree">
         {text}
       </div>
+
+      {estimate && (
+        <div className="text-center text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.6)" }}>
+          Estimated time: {estimate}
+        </div>
+      )}
 
       <div className="w-64">
         <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.15)" }}>

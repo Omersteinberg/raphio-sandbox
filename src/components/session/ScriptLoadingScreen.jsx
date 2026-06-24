@@ -16,7 +16,7 @@ function getStatus(range, progress) {
   return "pending";
 }
 
-export default function ScriptLoadingScreen({ progress = 0, subSteps }) {
+export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate = "~5 minutes" }) {
   const steps = subSteps ?? SUB_STEPS;
   const [displayed, setDisplayed] = useState(0);
   const displayedRef = useRef(0);
@@ -68,7 +68,7 @@ export default function ScriptLoadingScreen({ progress = 0, subSteps }) {
         Creating your video
       </h2>
       <p className="text-sm mb-8" style={{ color: "#9C8F85" }}>
-        This usually takes 30–60 seconds
+        Estimated time: {estimate}
       </p>
 
       {/* Sub-steps list */}

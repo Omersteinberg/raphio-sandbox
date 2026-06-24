@@ -1,5 +1,6 @@
 import axios from './api.js';
 import { API_BASE as BASE } from '../config.js';
+import { pollJobUntilDone } from "./session.js";
 
 const API = `${BASE}/video`;
 
@@ -41,8 +42,8 @@ export async function generateReferenceImage(sessionId, refId) {
  * Restyle all references that need it
  */
 export async function restyleReferences(sessionId) {
-  const response = await axios.post(`${API}/${sessionId}/references/restyle`);
-  return response.data;
+  await axios.post(`${API}/${sessionId}/references/restyle`);
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -73,8 +74,8 @@ export async function regenerateReference(sessionId, refId, { feedback } = {}) {
  * Generate scene frames for all script sections
  */
 export async function generateSceneFrames(sessionId) {
-  const response = await axios.post(`${API}/${sessionId}/references/scene-frames`);
-  return response.data;
+  await axios.post(`${API}/${sessionId}/references/scene-frames`);
+  return await pollJobUntilDone(sessionId);
 }
 
 /**

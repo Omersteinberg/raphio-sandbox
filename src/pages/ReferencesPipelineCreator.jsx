@@ -268,6 +268,13 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     { id: "script",     label: "Generating script",          range: [85, 100] },
   ];
 
+  const SCRIPT_GEN_SUB_STEPS = [
+    { id: "approve",  label: "Approving your references", range: [0, 20]  },
+    { id: "analyze",  label: "Analyzing your images",     range: [20, 50] },
+    { id: "story",    label: "Crafting your story",        range: [50, 80] },
+    { id: "script",   label: "Generating your script",     range: [80, 100] },
+  ];
+
   return (
     <div
       className="h-full flex flex-col font-figtree"
@@ -346,15 +353,27 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         <ScriptLoadingScreen
           progress={scriptProgress}
           subSteps={REFERENCES_SUB_STEPS}
+          estimate="~5 minutes"
         />
       )}
-      {loading && step !== 5 && step !== 0 && (
+      {loading && step !== 5 && step === 1 && (
+        <ScriptLoadingScreen
+          progress={scriptProgress}
+          subSteps={SCRIPT_GEN_SUB_STEPS}
+          estimate="~5 minutes"
+        />
+      )}
+      {loading && step !== 5 && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
-            step === 1 ? "Processing references..."
-            : step === 2 ? "Generating script..."
+            step === 2 ? "Generating script..."
             : step === 3 ? "Generating frames..."
             : "Processing..."
+          }
+          estimate={
+            step === 2 ? "~1 minute"
+            : step === 3 ? "~3 minutes"
+            : null
           }
           progress={null}
         />

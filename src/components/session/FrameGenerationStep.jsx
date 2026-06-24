@@ -51,6 +51,7 @@ export default function FrameGenerationStep({
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-terra mx-auto mb-3"></div>
             <p className="text-ink-muted">Generating scene frames...</p>
+            <p className="text-ink-muted text-sm mt-1">Estimated time: ~3 minutes</p>
           </div>
         )}
 

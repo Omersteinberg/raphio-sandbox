@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, RefreshCw, Mic, Film, Image, Save, Loader2 } from "lucide-react";
+import { X, RefreshCw, Mic, Film, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -13,7 +13,6 @@ export default function ClipEditModal({
   loading,
 }) {
   const [narrationText, setNarrationText] = useState(clip.narrationText || "");
-  const [visualDescription, setVisualDescription] = useState(clip.visualDescription || "");
   const [aiPrompt, setAiPrompt] = useState(clip.aiPrompt || clip.visualDescription || "");
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -21,7 +20,7 @@ export default function ClipEditModal({
 
   const hasChanges =
     narrationText !== (clip.narrationText || "") ||
-    visualDescription !== (clip.visualDescription || "");
+    aiPrompt !== (clip.aiPrompt || clip.visualDescription || "");
 
   const handleSave = async () => {
     setSaving(true);
@@ -33,7 +32,8 @@ export default function ClipEditModal({
       }
       await onSave({
         narrationText,
-        visualDescription,
+        visualDescription: aiPrompt,
+        aiPrompt,
       });
     } finally {
       setSaving(false);
@@ -185,21 +185,6 @@ export default function ClipEditModal({
               onChange={(e) => setNarrationText(e.target.value)}
               placeholder="Enter narration text for this clip..."
               rows={3}
-              className="text-sm"
-            />
-          </div>
-
-          {/* Visual Description */}
-          <div>
-            <label className="text-sm font-medium text-ink/80 flex items-center gap-2 mb-1">
-              <Image className="w-4 h-4" />
-              Visual Description
-            </label>
-            <Textarea
-              value={visualDescription}
-              onChange={(e) => setVisualDescription(e.target.value)}
-              placeholder="Describe the visual content for this clip..."
-              rows={2}
               className="text-sm"
             />
           </div>
