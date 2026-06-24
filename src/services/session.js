@@ -131,8 +131,8 @@ export async function saveIntroBrief(sessionId, { businessName, description, tar
  * @returns updated session (stage INTRO_SCRIPT_GENERATED)
  */
 export async function generateIntroScript(sessionId, { editRequest } = {}) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest });
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202 — starts the job
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -205,6 +205,42 @@ export async function pollRestyleUntilDone(sessionId, options = {}) {
 }
 
 /**
+ * One-shot read of the current background job for a session.
+ */
+export async function getJobStatus(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/job-status`);
+  return response.data;
+}
+
+/**
+ * Poll /job-status until the background job finishes. Resolves with the job's
+ * stored result (e.g. the updated session). Throws with the backend error
+ * message if the job failed. Each poll is sub-second, so no proxy/cPanel
+ * timeout can kill it.
+ *
+ * @param {string} sessionId
+ * @param {object} [options]
+ * @param {number} [options.intervalMs=3000]
+ * @param {number} [options.timeoutMs=600000] - 10 min client cap
+ * @param {(status: object) => void} [options.onProgress]
+ */
+export async function pollJobUntilDone(sessionId, options = {}) {
+  const { intervalMs = 3000, timeoutMs = 600000, onProgress } = options;
+  const startedAt = Date.now();
+
+  while (true) {
+    const status = await getJobStatus(sessionId);
+    if (typeof onProgress === 'function') onProgress(status);
+    if (status.jobStatus === 'DONE') return status.result;
+    if (status.jobStatus === 'FAILED') throw new Error(status.jobError || 'Job failed');
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`Job polling timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/**
  * Generate a frame image (opening or closing) using DALL-E
  * @param {string} sessionId
  * @param {string} frameType - 'opening' or 'closing'
@@ -248,8 +284,8 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
  */
 export async function generateScript(sessionId, frameOptions = null) {
   const payload = frameOptions ? { frameOptions } : {};
-  const response = await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload);
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202 — starts the job
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -257,16 +293,16 @@ export async function generateScript(sessionId, frameOptions = null) {
  */
 export async function generateOutline(sessionId, frameOptions = null) {
   const payload = frameOptions ? { frameOptions } : {};
-  const response = await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload);
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202 — starts the job
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
  * Approve outline and trigger bridge frame image generation
  */
 export async function approveOutline(sessionId) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/approve-outline`);
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/approve-outline`); // 202
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -274,8 +310,8 @@ export async function approveOutline(sessionId) {
  */
 export async function retryBridgeFrames(sessionId, orderIndices) {
   const payload = orderIndices ? { orderIndices } : {};
-  const response = await axios.post(`${API_BASE}/${sessionId}/retry-bridge-frames`, payload);
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/retry-bridge-frames`, payload); // 202
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -406,13 +442,13 @@ export async function updateClip(sessionId, clipId, updates) {
  * Regenerate a single clip
  */
 export async function regenerateClip(sessionId, clipId, { prompt, model, style, imageUrl } = {}) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
+  await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
     prompt,
     model,
     style,
     imageUrl,
   });
-  return response.data;
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -448,11 +484,11 @@ export async function reorderClips(sessionId, order) {
  * Reassemble video after edits
  */
 export async function reassembleVideo(sessionId, { regenerateAudio, voiceId } = {}) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/reassemble`, {
+  await axios.post(`${API_BASE}/${sessionId}/reassemble`, {
     regenerateAudio,
     voiceId,
   });
-  return response.data;
+  return await pollJobUntilDone(sessionId);
 }
 
 /**

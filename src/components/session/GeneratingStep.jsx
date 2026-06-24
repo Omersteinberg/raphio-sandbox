@@ -1,51 +1,52 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Film, Mic, Layers, Check, Loader2, Image } from "lucide-react";
+import { Film, Mic, Layers, Music, Check, Loader2, Image } from "lucide-react";
 
-export default function GeneratingStep({ session, scriptData, openingFrame, closingFrame, generationError, onRegenerate }) {
+export default function GeneratingStep({ session, scriptData, generationError, onRegenerate }) {
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
 
-  // Frames are mandatory: always 2 extra clips (opening + closing).
-  const extraFrames = 2;
-
   // Get progress data from backend (if available)
   const progressData = session?.video?.progressData || {};
-  const currentStage = progressData.stage || "CLIPS";
-  const currentClip = progressData.currentClip || 0;
-  const totalClips = progressData.totalClips || (totalSections + extraFrames);
+  const currentStage = progressData.stage || "GENERATING";
+  // The sections array already includes any opening/closing clips, so it is the
+  // authoritative clip count (intro/outro are optional). progressData wins once
+  // the first poll lands.
+  const totalClips = progressData.totalClips || totalSections;
+  const completedClips = progressData.completedClips ?? progressData.currentClip ?? completedSections;
   const completedTTS = progressData.completedTTS || 0;
   const totalTTS = progressData.totalTTS || 0;
+  const musicState = progressData.musicState || null;
 
-  // Determine stage statuses based on progressData
-  // Order: Restyle → Clips → TTS → Assembly
-  const restyleStatus = (() => {
-    if (currentStage === "RESTYLE") return "processing";
-    if (currentStage === "CLIPS" || currentStage === "TTS" || currentStage === "ASSEMBLY") return "completed";
-    if (!session?.restyled) return "completed";
-    return "pending";
-  })();
+  const musicEnabled = musicState ? musicState !== "skipped" : !!session?.video?.backgroundMusicEnabled;
+  const isDone = !!session?.video?.finalVideoUrl;
+  const isAssembly = currentStage === "ASSEMBLY";
 
-  const clipsStatus = (() => {
-    if (completedSections >= totalClips && totalClips > 0) return "completed";
-    if (currentStage === "CLIPS") return "processing";
-    if (currentStage === "TTS" || currentStage === "ASSEMBLY") return "completed";
-    return "processing";
-  })();
+  // Clips, narration and music now run in PARALLEL, so each shows its own live
+  // status simultaneously during the generating phase; assembly comes after.
+  const after = isDone || isAssembly; // generating phase finished
+  const allClipsDone = totalClips > 0 && completedClips >= totalClips;
+  const allTtsDone = totalTTS === 0 || completedTTS >= totalTTS;
 
-  const ttsStatus = (() => {
-    if (completedTTS >= totalTTS && totalTTS > 0) return "completed";
-    if (currentStage === "TTS") return "processing";
-    if (currentStage === "ASSEMBLY") return "completed";
-    return "pending";
-  })();
+  const restyleStatus = "completed"; // restyle (if any) precedes the generating phase
+  const clipsStatus = after || allClipsDone ? "completed" : "processing";
+  const ttsStatus = after || allTtsDone ? "completed" : "processing";
+  const musicStatus = after || musicState === "done" || musicState === "failed"
+    ? "completed"
+    : "processing";
+  const assemblyStatus = isDone ? "completed" : isAssembly ? "processing" : "pending";
 
-  const assemblyStatus = (() => {
-    if (session?.video?.finalVideoUrl) return "completed";
-    if (currentStage === "ASSEMBLY") return "processing";
-    return "pending";
-  })();
+  // Estimated time: clips generate in batches of 3 (~6 min per batch), plus a
+  // small buffer for final assembly. Narration + music run in parallel with the
+  // clips, so they don't add to the estimate.
+  const CLIP_BATCH_SIZE = 3;
+  const MINUTES_PER_BATCH = 6;
+  const clipCountForEstimate = totalClips || scriptData?.sections?.length || 0;
+  const estimatedMinutes = clipCountForEstimate > 0
+    ? Math.ceil(clipCountForEstimate / CLIP_BATCH_SIZE) * MINUTES_PER_BATCH + 2
+    : null;
+  const estimatedLabel = estimatedMinutes ? `~${estimatedMinutes} minutes` : "a few minutes";
 
   const stages = [
     ...(session?.restyled ? [{
@@ -58,9 +59,7 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
     {
       id: "clips",
       name: "Creating Video Clips",
-      description: currentStage === "CLIPS" && currentClip > 0
-        ? `Generating clip ${currentClip} of ${totalClips}`
-        : `${completedSections}/${totalClips} clips complete`,
+      description: `${completedClips}/${totalClips} clips complete`,
       icon: Film,
       status: clipsStatus,
     },
@@ -73,6 +72,13 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
       icon: Mic,
       status: ttsStatus,
     },
+    ...(musicEnabled ? [{
+      id: "music",
+      name: "Generating Music",
+      description: "Composing background music for your video",
+      icon: Music,
+      status: musicStatus,
+    }] : []),
     {
       id: "assembly",
       name: "Assembling Final Video",
@@ -103,7 +109,7 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
   }, []);
 
   // Calculate overall progress (use backend progress if available)
-  const realProgress = progressData.percentage || Math.round(
+  const realProgress = progressData.percentage ?? Math.round(
     ((completedSections / Math.max(totalSections, 1)) * 70) +
     (session?.video?.narrationUrl ? 15 : 0) +
     (session?.video?.finalVideoUrl ? 15 : 0)
@@ -168,6 +174,7 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
           <p className="text-ink-muted">
             {scriptData?.title || "Your video"} is being generated
           </p>
+          <p className="text-ink-muted text-sm mt-1">Estimated time: {estimatedLabel}</p>
         </div>
 
         {/* Progress Bar */}
@@ -192,7 +199,6 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
             const Icon = stage.icon;
             const isActive = stage.status === "processing";
             const isComplete = stage.status === "completed";
-            const isPending = stage.status === "pending";
 
             return (
               <motion.div
@@ -275,7 +281,7 @@ export default function GeneratingStep({ session, scriptData, openingFrame, clos
         {/* Processing Note */}
         <div className="mt-8 p-4 bg-amber-50 rounded-lg border border-amber-200 text-center">
           <p className="text-sm text-amber-800">
-            This may take several minutes depending on your video length.
+            Hang tight while we generate your video — this can take {estimatedLabel}.
             <br />
             <strong>Do not close or reload this page.</strong> Credits will not be refunded if you leave.
           </p>
