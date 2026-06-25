@@ -16,7 +16,7 @@ function getStatus(range, progress) {
   return "pending";
 }
 
-export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate = "~5 minutes" }) {
+export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate = "~7 minutes" }) {
   const steps = subSteps ?? SUB_STEPS;
   const [displayed, setDisplayed] = useState(0);
   const displayedRef = useRef(0);

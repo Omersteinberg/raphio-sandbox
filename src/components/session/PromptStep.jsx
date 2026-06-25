@@ -455,6 +455,9 @@ export default function PromptStep({
   const [template, setTemplate] = useState('general');
   const [targetSlot, setTargetSlot] = useState(null);
   const [dragSlot, setDragSlot] = useState(null);
+  // Latest duration-vs-image-count status reported by <DurationEstimate>.
+  // `null` = pending/unknown (CTA stays blocked until an estimate resolves).
+  const [durationStatus, setDurationStatus] = useState(null);
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
   const ctaRef = useRef(null);
@@ -527,6 +530,16 @@ export default function PromptStep({
     e.target.value = "";
   };
 
+  // Remove the last N images (the duration advisory's "Remove N images" action).
+  // Delete from the highest index down so the remaining indices stay valid.
+  const handleRemoveImages = (count) => {
+    const total = images?.length ?? 0;
+    const n = Math.min(count ?? 0, total);
+    for (let i = 0; i < n; i++) {
+      removeImage(total - 1 - i);
+    }
+  };
+
   const appendTerm = (term) => {
     const current = userPrompt?.trim() || '';
     setUserPrompt(current ? `${current}, ${term}` : term);
@@ -537,9 +550,17 @@ export default function PromptStep({
     onStart();
   };
 
+  // Image pipeline: keep the CTA disabled until the duration estimate confirms the
+  // image count fits. `null` (pending) and `too_many_images` block; a resolved-safe
+  // status — or an estimate error (fail open) — allows it.
+  const durationOk =
+    durationStatus === 'exact_fit' ||
+    durationStatus === 'needs_ai_fill' ||
+    durationStatus === 'no_target' ||
+    durationStatus === 'error';
   const canStart = isReferencesMode
     ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
-    : userPrompt?.trim() && images?.length > 0;
+    : userPrompt?.trim() && images?.length > 0 && durationOk;
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
 
@@ -1382,11 +1403,387 @@ export default function PromptStep({
                   )}
                 </button>
 
-                {/* ... Keep your existing AnimatePresence inner children configuration code for advanced panel entries completely unchanged here ... */}
+              <AnimatePresence>
+                {frameConfigExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-4 space-y-4">
+
+                      {/* Smooth Scene Transitions toggle */}
+                      {setEnableBridges && (
+                        <button
+                          onClick={() => setEnableBridges(!enableBridges)}
+                          aria-pressed={enableBridges}
+                          className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-colors text-left"
+                          style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                              style={
+                                enableBridges
+                                  ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                                  : { background: "rgba(193,68,14,0.06)" }
+                              }
+                            >
+                              <Wand2 style={{ width: 16, height: 16, color: enableBridges ? "#fff" : "#C1440E" }} />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
+                              <span className="text-xs text-stone-400 block leading-relaxed">
+                                Generate extra AI frames between your images for smoother cuts
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                            style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
+                          >
+                            <motion.span
+                              className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                              animate={{ left: enableBridges ? 26 : 4 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          </div>
+                        </button>
+                      )}
+
+                      <p className="text-stone-400 font-medium leading-relaxed text-xs">
+                        Add a branded intro or outro screen around your video. Toggle either one on to configure it.
+                      </p>
+
+                      {/* Opening Frame card */}
+                      <div
+                        className="rounded-2xl border overflow-hidden"
+                        style={{ borderColor: openingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: openingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
+                      >
+                        <motion.button
+                          whileTap={{ scale: 0.985 }}
+                          onClick={() => setOpeningEnabled(!openingEnabled)}
+                          aria-pressed={openingEnabled}
+                          className="w-full flex items-center justify-between px-4 py-3.5 transition-colors cursor-pointer"
+                          style={{ background: openingEnabled ? 'rgba(193,68,14,0.04)' : '#FAFAF9' }}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                              style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                            >
+                              <Play className="w-3 h-3" style={{ color: openingEnabled ? '#fff' : '#C1440E' }} />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm text-stone-800">Opening Frame</span>
+                              {!openingEnabled && <span className="ml-2 text-[10px] text-stone-400 font-medium">tap to enable</span>}
+                            </div>
+                          </div>
+                          <div
+                            className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
+                            style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                          >
+                            <motion.span
+                              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
+                              animate={{ left: openingEnabled ? 22 : 2 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          </div>
+                        </motion.button>
+                        <AnimatePresence>
+                          {openingEnabled && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-4 space-y-4 bg-white border-t border-stone-100">
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">What should this frame show?</label>
+                                  <div
+                                    className="rounded-xl"
+                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                  >
+                                    <Textarea
+                                      value={openingFrame.description || ""}
+                                      onChange={(e) => setOpeningFrame((prev) => ({ ...prev, description: e.target.value }))}
+                                      placeholder="e.g., Brand logo on a dark background with a subtle glow effect"
+                                      className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                      rows={2}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-stone-400 leading-relaxed">Describe the mood, content, and look of this frame.</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Frame source</label>
+                                  <div className="flex gap-2 p-1 rounded-xl bg-stone-100/70 border border-stone-200/30">
+                                    <motion.button
+                                      whileTap={{ scale: 0.97 }}
+                                      onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
+                                      aria-pressed={!openingFrame.useUpload}
+                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
+                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                    >
+                                      <Wand2 className="w-3.5 h-3.5" /> Generate with AI
+                                    </motion.button>
+                                    <motion.button
+                                      whileTap={{ scale: 0.97 }}
+                                      onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
+                                      aria-pressed={openingFrame.useUpload}
+                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
+                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                    >
+                                      <Upload className="w-3.5 h-3.5" /> Upload image
+                                    </motion.button>
+                                  </div>
+                                </div>
+                                {!openingFrame.useUpload ? (
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">AI image prompt <span className="normal-case font-medium text-stone-300">(optional)</span></label>
+                                    <div
+                                      className="rounded-xl"
+                                      style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                      onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                      onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                      onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                    >
+                                      <Textarea
+                                        value={openingFrame.customPrompt || ""}
+                                        onChange={(e) => setOpeningFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
+                                        placeholder="Describe what the opening frame should look like in detail..."
+                                        className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                        rows={2}
+                                      />
+                                    </div>
+                                    <p className="text-[11px] text-stone-400">Leave blank and AI will infer from your video description.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
+                                    <input ref={openingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "opening")} />
+                                    {openingFrame.uploadedImage ? (
+                                      <div className="relative inline-block mt-1">
+                                        <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
+                                        <button onClick={() => removeFrameImage("opening")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => openingFileRef.current?.click()}
+                                        className="w-full py-5 border-2 border-dashed rounded-xl transition-all flex flex-col items-center gap-1.5 cursor-pointer"
+                                        style={{ borderColor: 'rgba(193,68,14,0.15)', color: '#B0A49A', background: '#FBFAF8', transition: 'background 0.2s ease, border-color 0.2s ease' }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)'; e.currentTarget.style.background = '#FBFAF8'; }}
+                                      >
+                                        <Upload className="w-5 h-5" />
+                                        <span className="font-bold text-xs">Click to upload image</span>
+                                        <span className="text-[10px] text-stone-300 font-medium">JPEG or PNG</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Text overlay <span className="normal-case font-medium text-stone-300">(optional)</span></label>
+                                  <div
+                                    className="rounded-xl"
+                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                  >
+                                    <Input value={openingFrame.textOverlay || ""} onChange={(e) => setOpeningFrame((prev) => ({ ...prev, textOverlay: e.target.value }))} placeholder="e.g., Chapter 1: The Ascent" className="text-xs h-11 rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0" />
+                                  </div>
+                                  <p className="text-[11px] text-stone-400">Text shown on screen during this frame.</p>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Closing Frame card */}
+                      <div
+                        className="rounded-2xl border overflow-hidden"
+                        style={{ borderColor: closingEnabled ? 'rgba(193,68,14,0.35)' : 'rgba(193,68,14,0.12)', borderLeftWidth: 3, borderLeftColor: closingEnabled ? '#C1440E' : 'rgba(193,68,14,0.15)' }}
+                      >
+                        <motion.button
+                          whileTap={{ scale: 0.985 }}
+                          onClick={() => setClosingEnabled(!closingEnabled)}
+                          aria-pressed={closingEnabled}
+                          className="w-full flex items-center justify-between px-4 py-3.5 transition-colors cursor-pointer"
+                          style={{ background: closingEnabled ? 'rgba(193,68,14,0.04)' : '#FAFAF9' }}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                              style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                            >
+                              <Square className="w-3 h-3" style={{ color: closingEnabled ? '#fff' : '#C1440E' }} />
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm text-stone-800">Closing Frame</span>
+                              {!closingEnabled && <span className="ml-2 text-[10px] text-stone-400 font-medium">tap to enable</span>}
+                            </div>
+                          </div>
+                          <div
+                            className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
+                            style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                          >
+                            <motion.span
+                              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
+                              animate={{ left: closingEnabled ? 22 : 2 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          </div>
+                        </motion.button>
+                        <AnimatePresence>
+                          {closingEnabled && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-4 space-y-4 bg-white border-t border-stone-100">
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">What should this frame show?</label>
+                                  <div
+                                    className="rounded-xl"
+                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                  >
+                                    <Textarea
+                                      value={closingFrame.description || ""}
+                                      onChange={(e) => setClosingFrame((prev) => ({ ...prev, description: e.target.value }))}
+                                      placeholder="e.g., Call-to-action card with website URL and logo"
+                                      className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                      rows={2}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-stone-400 leading-relaxed">Describe the mood, content, and look of this frame.</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Frame source</label>
+                                  <div className="flex gap-2 p-1 rounded-xl bg-stone-100/70 border border-stone-200/30">
+                                    <motion.button
+                                      whileTap={{ scale: 0.97 }}
+                                      onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
+                                      aria-pressed={!closingFrame.useUpload}
+                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
+                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                    >
+                                      <Wand2 className="w-3.5 h-3.5" /> Generate with AI
+                                    </motion.button>
+                                    <motion.button
+                                      whileTap={{ scale: 0.97 }}
+                                      onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
+                                      aria-pressed={closingFrame.useUpload}
+                                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
+                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                    >
+                                      <Upload className="w-3.5 h-3.5" /> Upload image
+                                    </motion.button>
+                                  </div>
+                                </div>
+                                {!closingFrame.useUpload ? (
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">AI image prompt <span className="normal-case font-medium text-stone-300">(optional)</span></label>
+                                    <div
+                                      className="rounded-xl"
+                                      style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                      onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                      onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                      onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                    >
+                                      <Textarea
+                                        value={closingFrame.customPrompt || ""}
+                                        onChange={(e) => setClosingFrame((prev) => ({ ...prev, customPrompt: e.target.value }))}
+                                        placeholder="Describe what the closing frame should look like in detail..."
+                                        className="text-xs rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                        rows={2}
+                                      />
+                                    </div>
+                                    <p className="text-[11px] text-stone-400">Leave blank and AI will infer from your video description.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
+                                    <input ref={closingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "closing")} />
+                                    {closingFrame.uploadedImage ? (
+                                      <div className="relative inline-block mt-1">
+                                        <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
+                                        <button onClick={() => removeFrameImage("closing")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => closingFileRef.current?.click()}
+                                        className="w-full py-5 border-2 border-dashed rounded-xl transition-all flex flex-col items-center gap-1.5 cursor-pointer"
+                                        style={{ borderColor: 'rgba(193,68,14,0.15)', color: '#B0A49A', background: '#FBFAF8', transition: 'background 0.2s ease, border-color 0.2s ease' }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)'; e.currentTarget.style.background = '#FBFAF8'; }}
+                                      >
+                                        <Upload className="w-5 h-5" />
+                                        <span className="font-bold text-xs">Click to upload image</span>
+                                        <span className="text-[10px] text-stone-300 font-medium">JPEG or PNG</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Text overlay <span className="normal-case font-medium text-stone-300">(optional)</span></label>
+                                  <div
+                                    className="rounded-xl"
+                                    style={{ border: '1.5px solid rgba(193,68,14,0.10)', background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
+                                    onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(193,68,14,0.06)'; }}
+                                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.22)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                                    onMouseLeave={e => { if (!e.currentTarget.contains(document.activeElement)) { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; } }}
+                                  >
+                                    <Input value={closingFrame.textOverlay || ""} onChange={(e) => setClosingFrame((prev) => ({ ...prev, textOverlay: e.target.value }))} placeholder="e.g., Join us at website.com" className="text-xs h-11 rounded-xl bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0" />
+                                  </div>
+                                  <p className="text-[11px] text-stone-400">Text shown on screen during this frame.</p>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               </div>
             )}
 
           </div>
+
+          {/* Duration vs. image-count advisory + CTA gate (image mode only) */}
+          {!isReferencesMode && (
+            <DurationEstimate
+              imageCount={images?.length ?? 0}
+              targetDuration={targetDuration}
+              enableBridges={enableBridges}
+              onSetDuration={setTargetDuration}
+              onToggleAiFill={setEnableBridges}
+              onUploadMore={() => fileInputRef.current?.click()}
+              onRemoveImages={handleRemoveImages}
+              onStatusChange={setDurationStatus}
+            />
+          )}
 
           {/* Error message */}
           {error && (
@@ -1425,6 +1822,8 @@ export default function PromptStep({
             <p className="text-center text-xs font-bold mt-2" style={{ color: '#9C8F85' }}>
               {isReferencesMode
                 ? "Add your characters and describe your video to get started"
+                : durationStatus === 'too_many_images'
+                ? "Remove some images or increase the length to continue"
                 : "Usually ready in 30–60 seconds"}
             </p>
           </div>

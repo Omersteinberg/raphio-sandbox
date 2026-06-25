@@ -7,6 +7,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, CREDITS_PER_CLIP } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 
+// Encode a File to a base64 data URL. We persist prompt-step photos to
+// IndexedDB as data URLs (not raw File handles) because a File restored from
+// IndexedDB after a page refresh doesn't reliably reload into a usable object
+// URL (notably in Firefox), which showed up as blank photo previews.
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 // Session stages matching backend
 const STAGES = {
   PROMPT: "PROMPT",
@@ -58,6 +71,9 @@ export function useSession() {
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const skipResumeRef = useRef(false);
+  // Cache of File -> data URL so re-saving the draft (e.g. on prompt edits)
+  // doesn't re-encode photos that haven't changed.
+  const pendingDataUrlCache = useRef(new Map());
 
   // Session state
   const [sessionId, setSessionId] = useState(null);
@@ -121,21 +137,41 @@ export function useSession() {
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
 
-  // Persist prompt-step draft when leaving /create via header navigation.
+  // Persist the prompt-step draft (prompt, style, picked photos) to IndexedDB on
+  // every change so a hard refresh — or an aborted upload — can't lose the
+  // user's photos. Saving only on unmount (the old behaviour) misses a real
+  // page refresh, which is exactly the case we need to survive. The photos are
+  // restored on mount by ImagePipelineCreator and re-sent to the backend on
+  // Create; the local copy is cleared only once the backend confirms receipt.
   useEffect(() => {
+    if (sessionId || step !== 0) return;
+
+    const hasDraft = Boolean(userPrompt?.trim()) || images.length > 0;
+    if (!hasDraft) return;
+
+    let cancelled = false;
+    (async () => {
+      // Encode photos to base64 data URLs (reusing the cache for unchanged
+      // Files) so they survive a refresh and reload into working previews.
+      const cache = pendingDataUrlCache.current;
+      const encoded = await Promise.all(
+        images.map(async (img) => {
+          let dataUrl = cache.get(img.file);
+          if (!dataUrl) {
+            dataUrl = await fileToDataUrl(img.file);
+            cache.set(img.file, dataUrl);
+          }
+          return { dataUrl, name: img.name };
+        })
+      );
+      if (cancelled) return;
+      await savePending("image", { userPrompt, style, images: encoded });
+    })().catch((err) => {
+      console.warn("[useSession] autosave pending failed:", err);
+    });
+
     return () => {
-      if (sessionId || step !== 0) return;
-
-      const hasDraft = Boolean(userPrompt?.trim()) || images.length > 0;
-      if (!hasDraft) return;
-
-      savePending("image", {
-        userPrompt,
-        style,
-        images: images.map((img) => ({ file: img.file, name: img.name })),
-      }).catch((err) => {
-        console.warn("[useSession] autosave pending failed:", err);
-      });
+      cancelled = true;
     };
   }, [sessionId, step, userPrompt, style, images]);
 
@@ -460,14 +496,34 @@ export function useSession() {
         setSessionId(targetSessionId);
         setSession(newSession);
 
-        try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
-
         // Step 2: Upload the images that were already selected
         console.log("[useSession] Uploading images to session...");
         setScriptProgress(20);
         const files = images.map((img) => img.file);
         const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files);
         console.log("[useSession] Images uploaded:", sessionAfterUpload);
+
+        // The upload connection can drop mid-transfer (a refresh, or a proxy
+        // resetting a large request), leaving zero images persisted. Verify the
+        // backend actually has them before continuing. We keep the IndexedDB
+        // copy until this check passes, so on failure the user returns to the
+        // prompt with their photos intact to retry — instead of crashing
+        // downstream with "No images to analyze".
+        if (!sessionAfterUpload.images?.length) {
+          console.warn("[useSession] Upload persisted no images — aborting before analyze");
+          setSession(null);
+          setSessionId(null);
+          setScriptProgress(0);
+          setDirection(-1);
+          setStep(0);
+          setError("Your photos didn't finish uploading. Please try again.");
+          toast.error("Your photos didn't finish uploading — please tap Create my video again.");
+          return;
+        }
+
+        // Photos are safely persisted on the backend now — drop the local copy.
+        try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+
         setSession(sessionAfterUpload);
         setScriptProgress(35);
 

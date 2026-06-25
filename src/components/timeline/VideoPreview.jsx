@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect } from "react";
 import { Film } from "lucide-react";
 
 export default function VideoPreview({
@@ -10,146 +10,91 @@ export default function VideoPreview({
   isPlaying,
   getSection,
   getAudioAsset,
+  registerVideoEl,
+  registerAudioEl,
 }) {
   const videoRef = useRef(null);
-  const audioRef = useRef(null);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState(null);
-  const [currentAudioUrl, setCurrentAudioUrl] = useState(null);
-  const [currentThumbnail, setCurrentThumbnail] = useState(null);
-  const lastAudioUrlRef = useRef(null);
+  const audioRefs = useRef({}); // keyed by audio item id — multiple play at once
   const lastVideoUrlRef = useRef(null);
+  const videoUrlState = useRef(null);
 
-  // Find the video item at current playhead position
+  // Resolve the playable URL for an audio timeline item.
+  const urlForItem = (item) => {
+    if (item.audioAssetId) return getAudioAsset(item.audioAssetId)?.url || null;
+    if (item.sectionId) return getSection(item.sectionId)?.narrationUrl || null;
+    return null;
+  };
+
+  // --- Video: single element follows the playhead ---
+  const activeVideo = items.find((item) => {
+    const end = item.startTime + item.duration;
+    return playheadPosition >= item.startTime && playheadPosition < end;
+  });
+  const activeSection = activeVideo?.sectionId ? getSection(activeVideo.sectionId) : null;
+  const currentVideoUrl = activeSection?.generatedClipUrl || null;
+  const currentThumbnail = activeSection?.imageUrl || null;
+
   useEffect(() => {
-    const videoItem = items.find((item) => {
-      const itemEnd = item.startTime + item.duration;
-      return playheadPosition >= item.startTime && playheadPosition < itemEnd;
-    });
-
-    if (videoItem && videoItem.sectionId) {
-      const section = getSection(videoItem.sectionId);
-      if (section) {
-        const newVideoUrl = section.generatedClipUrl;
-
-        // Only update video source if it actually changed
-        if (newVideoUrl !== lastVideoUrlRef.current) {
-          lastVideoUrlRef.current = newVideoUrl;
-          setCurrentVideoUrl(newVideoUrl);
-          setCurrentThumbnail(section.imageUrl);
-        }
-
-        // Sync video position
-        if (videoRef.current && section.generatedClipUrl) {
-          const relativeTime =
-            playheadPosition - videoItem.startTime + (videoItem.trimStart || 0);
-          const adjustedTime = relativeTime * (videoItem.speed || 1);
-
-          if (Math.abs(videoRef.current.currentTime - adjustedTime) > 0.3) {
-            videoRef.current.currentTime = adjustedTime;
-          }
-
-          if (isPlaying && videoRef.current.paused) {
-            videoRef.current.play().catch(() => {});
-          } else if (!isPlaying && !videoRef.current.paused) {
-            videoRef.current.pause();
-          }
-        }
-      }
-    } else {
-      if (lastVideoUrlRef.current !== null) {
-        lastVideoUrlRef.current = null;
-        setCurrentVideoUrl(null);
-      }
+    if (currentVideoUrl !== lastVideoUrlRef.current) {
+      lastVideoUrlRef.current = currentVideoUrl;
     }
-  }, [items, playheadPosition, isPlaying, getSection]);
+    const el = videoRef.current;
+    if (!el || !currentVideoUrl || !activeVideo) return;
 
-  // Find the audio item at current playhead position
+    const sourceTime = playheadPosition - activeVideo.startTime + (activeVideo.trimStart || 0);
+    if (Math.abs(el.currentTime - sourceTime) > 0.3) {
+      try { el.currentTime = sourceTime; } catch (_) {}
+    }
+    if (isPlaying && el.paused) {
+      el.play().catch(() => {});
+    } else if (!isPlaying && !el.paused) {
+      el.pause();
+    }
+  }, [currentVideoUrl, activeVideo, playheadPosition, isPlaying]);
+
+  // --- Audio: every active audio item plays simultaneously (narration + music + uploads) ---
   useEffect(() => {
-    const audioItem = audioItems.find((item) => {
-      const itemEnd = item.startTime + item.duration;
-      return playheadPosition >= item.startTime && playheadPosition < itemEnd;
+    audioItems.forEach((item) => {
+      const el = audioRefs.current[item.id];
+      if (!el) return;
+
+      const end = item.startTime + item.duration;
+      const active = playheadPosition >= item.startTime && playheadPosition < end;
+
+      if (active) {
+        const sourceTime = playheadPosition - item.startTime + (item.trimStart || 0);
+        if (Math.abs(el.currentTime - sourceTime) > 0.3) {
+          try { el.currentTime = sourceTime; } catch (_) {}
+        }
+        el.volume = item.volume ?? 1;
+        if (isPlaying && el.paused) {
+          el.play().catch(() => {});
+        } else if (!isPlaying && !el.paused) {
+          el.pause();
+        }
+      } else if (!el.paused) {
+        el.pause();
+      }
     });
-
-    if (audioItem) {
-      let url = null;
-
-      if (audioItem.audioAssetId) {
-        const asset = getAudioAsset(audioItem.audioAssetId);
-        url = asset?.url;
-      } else if (audioItem.sectionId) {
-        const section = getSection(audioItem.sectionId);
-        url = section?.narrationUrl;
-      }
-
-      // Only update audio source if URL actually changed
-      if (url !== lastAudioUrlRef.current) {
-        lastAudioUrlRef.current = url;
-        setCurrentAudioUrl(url);
-
-        // When source changes, wait for the element to load then seek
-        if (audioRef.current && url) {
-          const handleLoaded = () => {
-            const relativeTime =
-              playheadPosition - audioItem.startTime + (audioItem.trimStart || 0);
-            const adjustedTime = relativeTime * (audioItem.speed || 1);
-            audioRef.current.currentTime = adjustedTime;
-            audioRef.current.volume = audioItem.volume ?? 1;
-            if (isPlaying) {
-              audioRef.current.play().catch(() => {});
-            }
-            audioRef.current.removeEventListener("loadeddata", handleLoaded);
-          };
-          audioRef.current.addEventListener("loadeddata", handleLoaded);
-        }
-      } else if (audioRef.current && url) {
-        // Same source, just sync position
-        const relativeTime =
-          playheadPosition - audioItem.startTime + (audioItem.trimStart || 0);
-        const adjustedTime = relativeTime * (audioItem.speed || 1);
-
-        if (Math.abs(audioRef.current.currentTime - adjustedTime) > 0.3) {
-          audioRef.current.currentTime = adjustedTime;
-        }
-
-        audioRef.current.volume = audioItem.volume ?? 1;
-
-        if (isPlaying && audioRef.current.paused) {
-          audioRef.current.play().catch(() => {});
-        } else if (!isPlaying && !audioRef.current.paused) {
-          audioRef.current.pause();
-        }
-      }
-    } else {
-      // No audio item at this position - stop audio
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-      }
-      if (lastAudioUrlRef.current !== null) {
-        lastAudioUrlRef.current = null;
-        setCurrentAudioUrl(null);
-      }
-    }
   }, [audioItems, playheadPosition, isPlaying, getSection, getAudioAsset]);
 
-  // Pause all media when playback stops
+  // Pause everything when playback stops.
   useEffect(() => {
     if (!isPlaying) {
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-      }
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-      }
+      if (videoRef.current && !videoRef.current.paused) videoRef.current.pause();
+      Object.values(audioRefs.current).forEach((el) => {
+        if (el && !el.paused) el.pause();
+      });
     }
   }, [isPlaying]);
 
-  // Clean up audio on unmount
+  // Stop all media on unmount.
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
+      if (videoRef.current) videoRef.current.pause();
+      Object.values(audioRefs.current).forEach((el) => {
+        if (el) el.pause();
+      });
     };
   }, []);
 
@@ -157,11 +102,15 @@ export default function VideoPreview({
     <div className="relative w-full h-full flex items-center justify-center bg-black">
       {currentVideoUrl ? (
         <video
-          ref={videoRef}
+          ref={(el) => {
+            videoRef.current = el;
+            registerVideoEl?.(el);
+          }}
           src={currentVideoUrl}
           className="max-w-full max-h-full object-contain"
-          muted // Mute video track, use separate audio
+          muted
           playsInline
+          preload="auto"
         />
       ) : currentThumbnail ? (
         <img
@@ -176,10 +125,24 @@ export default function VideoPreview({
         </div>
       )}
 
-      {/* Hidden audio element */}
-      {currentAudioUrl && (
-        <audio ref={audioRef} src={currentAudioUrl} className="hidden" />
-      )}
+      {/* One hidden audio element per audio item so tracks mix together */}
+      {audioItems.map((item) => {
+        const url = urlForItem(item);
+        if (!url) return null;
+        return (
+          <audio
+            key={item.id}
+            ref={(el) => {
+              if (el) audioRefs.current[item.id] = el;
+              else delete audioRefs.current[item.id];
+              registerAudioEl?.(item.id, el);
+            }}
+            src={url}
+            preload="auto"
+            className="hidden"
+          />
+        );
+      })}
 
       {/* Time indicator */}
       <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">

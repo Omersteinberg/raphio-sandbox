@@ -33,6 +33,13 @@ export function useTimeline(sessionId) {
   const videoRefs = useRef({});
   const audioRefs = useRef({});
 
+  // Live media elements (registered by VideoPreview) — the playback clock reads
+  // their real currentTime so the playhead never runs ahead of the sound.
+  const videoElRef = useRef(null);
+  const audioElsRef = useRef({});
+  const audioItemsRef = useRef([]);
+  const videoItemsRef = useRef([]);
+
   // Calculate pixels per second based on zoom
   const pixelsPerSecond = PIXELS_PER_SECOND_BASE * zoomLevel;
 
@@ -281,93 +288,88 @@ export function useTimeline(sessionId) {
     }
   }, [sessionId]);
 
-  // Playback controls
+  // Keep the loop's view of items current without re-subscribing each frame.
+  audioItemsRef.current = audioItems;
+  videoItemsRef.current = videoItems;
+
+  // Playback controls. The playhead is derived from real media time (loop below),
+  // so these just move state; the loop follows the media.
   const play = useCallback(() => {
     setIsPlaying(true);
-    lastTimeRef.current = performance.now();
-
-    const animate = (currentTime) => {
-      if (!lastTimeRef.current) {
-        lastTimeRef.current = currentTime;
-      }
-
-      const deltaTime = (currentTime - lastTimeRef.current) / 1000;
-      lastTimeRef.current = currentTime;
-
-      setPlayheadPosition((prev) => {
-        const newPos = prev + deltaTime;
-        if (newPos >= duration) {
-          setIsPlaying(false);
-          return duration;
-        }
-        return newPos;
-      });
-
-      if (isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-      }
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-  }, [duration, isPlaying]);
+  }, []);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
   }, []);
 
   const stop = useCallback(() => {
-    pause();
+    setIsPlaying(false);
     setPlayheadPosition(0);
-  }, [pause]);
+  }, []);
 
   const seek = useCallback((position) => {
     setPlayheadPosition(Math.max(0, position));
   }, []);
 
-  // Clean up animation frame on unmount
+  // Media-driven playback loop — single source of truth is the playing media's
+  // own clock. The playhead follows the active media element's real currentTime,
+  // so it can never lead the sound. While media at the playhead is still spinning
+  // up, the playhead holds (no startup leap); a true gap coasts on wall-clock.
   useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
+    if (!isPlaying) return undefined;
 
-  // Playback loop
-  useEffect(() => {
-    if (isPlaying) {
-      const animate = () => {
-        const currentTime = performance.now();
-        if (!lastTimeRef.current) {
-          lastTimeRef.current = currentTime;
+    let raf;
+    let lastWall = performance.now();
+
+    const tick = () => {
+      const now = performance.now();
+      const wallDelta = (now - lastWall) / 1000;
+      lastWall = now;
+
+      setPlayheadPosition((prev) => {
+        const audioActive = audioItemsRef.current.find(
+          (i) =>
+            prev >= i.startTime &&
+            prev < i.startTime + i.duration &&
+            audioElsRef.current[i.id]
+        );
+        const videoActive = videoItemsRef.current.find(
+          (i) => prev >= i.startTime && prev < i.startTime + i.duration && videoElRef.current
+        );
+
+        const master = audioActive
+          ? { item: audioActive, el: audioElsRef.current[audioActive.id] }
+          : videoActive
+          ? { item: videoActive, el: videoElRef.current }
+          : null;
+
+        let next;
+        if (master) {
+          if (!master.el.paused && master.el.readyState >= 2) {
+            next =
+              master.item.startTime + (master.el.currentTime - (master.item.trimStart || 0));
+          } else {
+            next = prev; // media present but not playing yet — hold (no leap)
+          }
+        } else {
+          next = prev + wallDelta; // genuine gap — coast
         }
 
-        const deltaTime = (currentTime - lastTimeRef.current) / 1000;
-        lastTimeRef.current = currentTime;
+        if (!Number.isFinite(next)) next = prev;
+        if (next >= duration) {
+          setIsPlaying(false);
+          return duration;
+        }
+        // Guard tiny backward jitter at clip transitions.
+        return next < prev - 0.05 ? prev : next;
+      });
 
-        setPlayheadPosition((prev) => {
-          const newPos = prev + deltaTime;
-          if (newPos >= duration) {
-            setIsPlaying(false);
-            return duration;
-          }
-          return newPos;
-        });
+      raf = requestAnimationFrame(tick);
+    };
 
-        animationFrameRef.current = requestAnimationFrame(animate);
-      };
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-    }
-
+    raf = requestAnimationFrame(tick);
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      if (raf) cancelAnimationFrame(raf);
     };
   }, [isPlaying, duration]);
 
@@ -414,13 +416,14 @@ export function useTimeline(sessionId) {
     [items]
   );
 
-  // Register video/audio elements for playback sync
-  const registerVideoRef = useCallback((itemId, ref) => {
-    videoRefs.current[itemId] = ref;
+  // Register the live media elements so the playback clock can read them.
+  const registerVideoEl = useCallback((el) => {
+    videoElRef.current = el;
   }, []);
 
-  const registerAudioRef = useCallback((itemId, ref) => {
-    audioRefs.current[itemId] = ref;
+  const registerAudioEl = useCallback((itemId, el) => {
+    if (el) audioElsRef.current[itemId] = el;
+    else delete audioElsRef.current[itemId];
   }, []);
 
   return {
@@ -479,7 +482,7 @@ export function useTimeline(sessionId) {
     timeToPixel,
     pixelToTime,
     getItemAtTime,
-    registerVideoRef,
-    registerAudioRef,
+    registerVideoEl,
+    registerAudioEl,
   };
 }

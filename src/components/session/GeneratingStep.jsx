@@ -38,13 +38,13 @@ export default function GeneratingStep({ session, scriptData, generationError, o
   const assemblyStatus = isDone ? "completed" : isAssembly ? "processing" : "pending";
 
   // Estimated time: clips generate in batches of 3 (~6 min per batch), plus a
-  // small buffer for final assembly. Narration + music run in parallel with the
+  // buffer for final assembly. Narration + music run in parallel with the
   // clips, so they don't add to the estimate.
   const CLIP_BATCH_SIZE = 3;
   const MINUTES_PER_BATCH = 6;
   const clipCountForEstimate = totalClips || scriptData?.sections?.length || 0;
   const estimatedMinutes = clipCountForEstimate > 0
-    ? Math.ceil(clipCountForEstimate / CLIP_BATCH_SIZE) * MINUTES_PER_BATCH + 2
+    ? Math.ceil(clipCountForEstimate / CLIP_BATCH_SIZE) * MINUTES_PER_BATCH + 4
     : null;
   const estimatedLabel = estimatedMinutes ? `~${estimatedMinutes} minutes` : "a few minutes";
 
@@ -281,7 +281,7 @@ export default function GeneratingStep({ session, scriptData, generationError, o
         {/* Processing Note */}
         <div className="mt-8 p-4 bg-amber-50 rounded-lg border border-amber-200 text-center">
           <p className="text-sm text-amber-800">
-            Hang tight while we generate your video — this can take {estimatedLabel}.
+            Hang tight while we generate your video, this can take {estimatedLabel}.
             <br />
             <strong>Do not close or reload this page.</strong> Credits will not be refunded if you leave.
           </p>

@@ -26,9 +26,9 @@ export default function DurationEstimate({
   onToggleAiFill,
   onUploadMore,
   onRemoveImages,
+  onStatusChange,
 }) {
   const [estimate, setEstimate] = useState(null);
-  const [dismissed, setDismissed] = useState(false);
   const timerRef = useRef(null);
   // Opt-out tracking for the auto-fill behaviour. A ref (not state) because the
   // debounced async callback must read the current value, and every path that
@@ -43,21 +43,25 @@ export default function DurationEstimate({
     if (!imageCount || imageCount <= 0) {
       setEstimate(null);
       prevStatusRef.current = null;
+      onStatusChange?.(null);
       return;
     }
-    // Inputs changed — a prior "keep longer video" dismissal no longer applies.
-    setDismissed(false);
+    // Inputs changed — re-block the parent's CTA until a fresh estimate resolves.
+    onStatusChange?.(null);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       let data;
       try {
         data = await fetchEstimate({ imageCount, targetDuration, enableBridges });
       } catch {
-        // Fail quietly — this is an optional hint, never a blocker.
+        // Estimate unavailable — show nothing and let the parent fail open
+        // (a flaky estimate endpoint must not block all generation).
         setEstimate(null);
+        onStatusChange?.('error');
         return;
       }
       setEstimate(data);
+      onStatusChange?.(data.status);
 
       // Auto-fill only when short: engage AI fill on the leading edge of a
       // shortage (not every render — that would fight a manual toggle), unless
@@ -80,11 +84,10 @@ export default function DurationEstimate({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageCount, targetDuration, enableBridges]);
 
-  if (!estimate || estimate.status === "no_images" || dismissed) return null;
+  if (!estimate || estimate.status === "no_images") return null;
 
   const handleOption = (opt) => {
     switch (opt.id) {
-      case "extend_duration":
       case "shorten_duration":
         onSetDuration?.(opt.value);
         break;
@@ -102,9 +105,6 @@ export default function DurationEstimate({
       case "remove_images":
         onRemoveImages?.(opt.removeCount);
         break;
-      case "keep":
-        setDismissed(true);
-        break;
       default:
         break;
     }
@@ -118,6 +118,12 @@ export default function DurationEstimate({
       : estimate.status;
   const s = STATUS_STYLES[variantKey] || STATUS_STYLES.no_target;
   const Icon = s.Icon;
+  // For a too-many-images block the banner only offers "Remove N images". The
+  // "Keep longer video" and "Set duration to ~Xs" options are dropped — the user
+  // raises the duration via the preset selector instead.
+  const visibleOptions = (estimate.options ?? []).filter(
+    (opt) => opt.id !== "keep" && opt.id !== "extend_duration"
+  );
 
   return (
     <div className="rounded-2xl border p-4 space-y-3" style={{ background: s.bg, borderColor: s.border }}>
@@ -127,9 +133,9 @@ export default function DurationEstimate({
           {estimate.message}
         </p>
       </div>
-      {estimate.options?.length > 0 && (
+      {visibleOptions.length > 0 && (
         <div className="flex flex-wrap gap-2 pl-6">
-          {estimate.options.map((opt) => (
+          {visibleOptions.map((opt) => (
             <button
               key={opt.id}
               onClick={() => handleOption(opt)}

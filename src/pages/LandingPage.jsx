@@ -1166,7 +1166,7 @@ export default function LandingPage() {
             style={{ fontSize: 'clamp(32px,4.5vw,70px)', letterSpacing: '0.01em', lineHeight: 1.15, color: C.dark }}
             mutedColor="rgba(28,25,23,0.15)"
           >
-            If you have photos and a story, Raphio does the rest - turning everyday moments into videos worth sharing.
+            If you have photos and a story, Raphio does the rest, turning everyday moments into videos worth sharing.
           </ScrollRevealText>
           <div style={{ marginTop: 40, height: 2, width:164, borderRadius: 99, background: C.terra, margin:' 40px auto 0'}}/>
         </div>
@@ -1209,51 +1209,31 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch">
             {[
               {
-                id: 'free', label: 'Free', price: 0, credits: 10, save: null,
+                id: 'free', label: 'Free', price: 0, credits: 3, save: null,
                 icon: Sparkles, cta: 'Start Free', popular: false,
                 features: [
                   { text: '1 short video (≤15s)',   ok: true  },
-                  { text: 'Watermarked exports',    ok: true  },
-                  { text: 'Watermark-free exports', ok: false },
-                  { text: 'Commercial use',         ok: false },
-                  { text: 'Priority generation',    ok: false },
-                  { text: 'Credits never expire',   ok: false },
                 ],
               },
               {
-                id: 'starter', label: 'Starter', price: 9, credits: 30, save: 'Save 10%',
+                id: 'starter', label: 'Starter', price: 29, credits: 6, 
                 icon: Zap, cta: 'Get Starter pack', popular: false,
                 features: [
                   { text: 'Up to 3 short videos (≤15s)', ok: true  },
-                  { text: 'Watermarked exports',          ok: true  },
-                  { text: 'Watermark-free exports',       ok: false },
-                  { text: 'Commercial use',               ok: false },
-                  { text: 'Priority generation',          ok: false },
-                  { text: 'Credits never expire',         ok: true  },
                 ],
               },
               {
-                id: 'creator', label: 'Creator', price: 19, credits: 75, save: 'Save 15%',
+                id: 'creator', label: 'Creator', price: 55, credits: 12, save: 'Save 8%',
                 icon: Layers, cta: 'Get Creator Pack', popular: true,
                 features: [
                   { text: 'Up to 6 videos (≤30s)',  ok: true  },
-                  { text: 'Watermark-free exports', ok: true  },
-                  { text: 'Commercial use',         ok: true  },
-                  { text: 'All styles unlocked',    ok: true  },
-                  { text: 'Priority generation',    ok: false },
-                  { text: 'Credits never expire',   ok: true  },
                 ],
               },
               {
-                id: 'studio', label: 'Studio', price: 39, credits: 175, save: 'Save 25%',
+                id: 'studio', label: 'Studio', price: 99, credits: 24, save: 'Save 17%',
                 icon: Crown, cta: 'Get Studio Pack', popular: false,
                 features: [
                   { text: 'Up to 8 full videos (≤60s)', ok: true },
-                  { text: 'Watermark-free exports',      ok: true },
-                  { text: 'Commercial use',              ok: true },
-                  { text: 'All styles unlocked',         ok: true },
-                  { text: 'Priority generation',         ok: true },
-                  { text: 'Credits never expire',        ok: true },
                 ],
               },
             ].map((tier, i) => {
@@ -1354,7 +1334,7 @@ export default function LandingPage() {
               Credits per video
             </p>
             <div className="flex justify-around">
-              {[{ label: 'Up to 15s', credits: 8 }, { label: '16s to 30s', credits: 12 }, { label: '31s to 60s', credits: 20 }].map((row) => (
+              {[{ label: 'Up to 15s', credits: 3 }, { label: '16s to 30s', credits: 6 }, { label: '31s to 60s', credits: 12 }].map((row) => (
                 <div key={row.label} className="text-center">
                   <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
                   <p className="text-xs font-semibold" style={{ color: '#2C2420' }}>credits</p>

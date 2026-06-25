@@ -355,14 +355,14 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         <ScriptLoadingScreen
           progress={scriptProgress}
           subSteps={REFERENCES_SUB_STEPS}
-          estimate="~5 minutes"
+          estimate="~7 minutes"
         />
       )}
       {loading && step !== 5 && step === 1 && (
         <ScriptLoadingScreen
           progress={scriptProgress}
           subSteps={SCRIPT_GEN_SUB_STEPS}
-          estimate="~5 minutes"
+          estimate="~7 minutes"
         />
       )}
       {loading && step !== 5 && step !== 0 && step !== 1 && (
@@ -373,8 +373,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             : "Processing..."
           }
           estimate={
-            step === 2 ? "~1 minute"
-            : step === 3 ? "~3 minutes"
+            step === 2 ? "~3 minutes"
+            : step === 3 ? "~5 minutes"
             : null
           }
           progress={null}

@@ -210,22 +210,6 @@ export default function TimelineCanvas({
         previewStartTime: newStartTime,
         previewDuration: dragItem.duration,
       };
-    } else if (dragType === "trim-end") {
-      const newDuration = Math.max(0.5, dragStartValue + deltaTime);
-      return {
-        itemId: dragItem.id,
-        previewStartTime: dragItem.startTime,
-        previewDuration: newDuration,
-      };
-    } else if (dragType === "trim-start") {
-      const deltaSeconds = dragOffset / pixelsPerSecond;
-      const newStartTime = Math.max(0, dragItem.startTime + deltaSeconds);
-      const newDuration = Math.max(0.5, dragItem.duration - deltaSeconds);
-      return {
-        itemId: dragItem.id,
-        previewStartTime: newStartTime,
-        previewDuration: newDuration,
-      };
     }
 
     return null;
@@ -342,57 +326,6 @@ export default function TimelineCanvas({
         );
 
         updates.startTime = newStartTime;
-      } else if (dragType === "trim-start") {
-        const newTrimStart = Math.max(0, dragStartValue + deltaTime);
-        let newDuration = Math.max(0.5, dragItem.duration - deltaTime);
-        let newStartTime = dragItem.startTime + deltaTime;
-
-        // Prevent overlap after trimming
-        newStartTime = findNonOverlappingPosition(
-          dragItem.id,
-          newStartTime,
-          newDuration,
-          dragItem.trackType,
-          dragItem.trackIndex
-        );
-
-        // Calculate new speed: source duration stays the same, timeline duration changed
-        const sourceDuration = dragItem.duration * (dragItem.speed || 1);
-        const newSpeed = Math.max(0.25, Math.min(4, sourceDuration / newDuration));
-
-        updates.trimStart = newTrimStart;
-        updates.duration = newDuration;
-        updates.startTime = newStartTime;
-        updates.speed = newSpeed;
-      } else if (dragType === "trim-end") {
-        let newDuration = Math.max(0.5, dragStartValue + deltaTime);
-
-        // Prevent overlap: check if extending the end would overlap
-        const trackItems =
-          dragItem.trackType === "VIDEO"
-            ? videoItems
-            : dragItem.trackIndex === 1
-            ? musicItems
-            : narrationItems;
-        const others = trackItems.filter((it) => it.id !== dragItem.id);
-        const newEnd = dragItem.startTime + newDuration;
-        for (const other of others) {
-          if (
-            dragItem.startTime < other.startTime + other.duration &&
-            newEnd > other.startTime
-          ) {
-            // Clamp duration so it doesn't overlap
-            newDuration = Math.max(0.5, other.startTime - dragItem.startTime);
-            break;
-          }
-        }
-
-        // Calculate new speed: source duration stays the same, timeline duration changed
-        const sourceDuration = dragItem.duration * (dragItem.speed || 1);
-        const newSpeed = Math.max(0.25, Math.min(4, sourceDuration / newDuration));
-
-        updates.duration = newDuration;
-        updates.speed = newSpeed;
       }
 
       // Clear drag state immediately so mouse movements stop being tracked

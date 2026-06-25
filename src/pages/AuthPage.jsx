@@ -368,8 +368,8 @@ function LoginForm() {
         </span>
       </div>
       <PrimaryButton loading={loading}>{loading ? 'Signing in…' : 'Sign in'}</PrimaryButton>
-      <Divider />
-      <GoogleButton />
+      {/* <Divider />
+      <GoogleButton /> */}
     </motion.form>
   );
 }
@@ -416,8 +416,8 @@ function RegisterForm() {
       <UnderlineInput id="reg-confirm" type="password" label="Confirm password" placeholder="Type it again"
         value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
       <PrimaryButton loading={loading}>{loading ? 'Creating account…' : 'Create account'}</PrimaryButton>
-      <Divider />
-      <GoogleButton />
+      {/* <Divider />
+      <GoogleButton /> */}
     </motion.form>
   );
 }

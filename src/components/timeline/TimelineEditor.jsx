@@ -8,6 +8,11 @@ import {
   Music,
   Plus,
   Upload,
+  HelpCircle,
+  X,
+  Scissors,
+  Move,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
@@ -25,6 +30,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const timeline = useTimeline(sessionId);
   const [showAudioUpload, setShowAudioUpload] = useState(false);
   const [showTTSModal, setShowTTSModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editingNarration, setEditingNarration] = useState(null); // { item, section }
   const [exporting, setExporting] = useState(false);
@@ -186,6 +192,14 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
+            onClick={() => setShowHelp(true)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <HelpCircle className="w-4 h-4 mr-2" />
+            How to use
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setShowAudioUpload(true)}
             className="text-muted-foreground hover:text-foreground"
           >
@@ -248,6 +262,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               isPlaying={timeline.isPlaying}
               getSection={timeline.getSection}
               getAudioAsset={timeline.getAudioAsset}
+              registerVideoEl={timeline.registerVideoEl}
+              registerAudioEl={timeline.registerAudioEl}
             />
           </div>
 
@@ -322,6 +338,60 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           onSave={handleNarrationSave}
           onRegenerateNarration={handleRegenerateNarration}
         />
+      )}
+
+      {/* How-to-use guide */}
+      {showHelp && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+          onClick={() => setShowHelp(false)}
+        >
+          <div
+            className="bg-card rounded-lg w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">How to use the editor</h3>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="text-muted-foreground hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <ul className="space-y-3 text-sm text-foreground">
+              <li className="flex items-start gap-3">
+                <Scissors className="w-4 h-4 mt-0.5 flex-shrink-0 text-terra" />
+                <span><span className="font-medium">Double-click a clip</span> to trim it — set the start/end and Apply the cut.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Move className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+                <span><span className="font-medium">Drag a clip</span> left/right to move it on the timeline.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Trash2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                <span><span className="font-medium">Select a clip</span> and press Delete (or the Delete button) to remove it.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Upload className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-400" />
+                <span><span className="font-medium">Upload Audio</span> or <span className="font-medium">Generate TTS</span>, then drag it from the Assets panel onto the Audio or Music track.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Music className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" />
+                <span>Press <span className="font-medium">Play</span> to preview (all tracks play together), then <span className="font-medium">Export Video</span> when you're done.</span>
+              </li>
+            </ul>
+            <div className="flex justify-end mt-6">
+              <Button
+                onClick={() => setShowHelp(false)}
+                className="text-white border-0"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Saving indicator */}

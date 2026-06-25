@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { Film, Music, Volume2, Gauge } from "lucide-react";
+import { Film, Music, Volume2, Scissors } from "lucide-react";
 
 export default function TimelineItem({
   item,
@@ -29,8 +29,8 @@ export default function TimelineItem({
   // Get display info
   let label = "";
   let thumbnail = null;
-  let hasSpeed = item.speed && item.speed !== 1.0;
   let hasVolume = item.volume && item.volume !== 1.0;
+  const isTrimmed = (item.trimStart > 0) || (item.trimEnd != null);
 
   if (trackType === "VIDEO" && section) {
     label = section.narrationText?.substring(0, 30) || `Clip ${section.orderIndex + 1}`;
@@ -110,45 +110,23 @@ export default function TimelineItem({
 
         {/* Indicators */}
         <div className="flex items-center gap-1">
-          {hasSpeed && (
-            <div className="flex items-center gap-0.5 text-xs text-white/70 bg-black/30 px-1 rounded">
-              <Gauge className="w-3 h-3" />
-              {item.speed}x
-            </div>
-          )}
           {hasVolume && trackType === "AUDIO" && (
             <div className="flex items-center gap-0.5 text-xs text-white/70 bg-black/30 px-1 rounded">
               <Volume2 className="w-3 h-3" />
               {Math.round(item.volume * 100)}%
             </div>
           )}
-          {item.trimStart > 0 && (
-            <div className="text-xs text-white/70 bg-black/30 px-1 rounded">
-              T
+          {isTrimmed && (
+            <div className="flex items-center gap-0.5 text-xs text-white/70 bg-black/30 px-1 rounded">
+              <Scissors className="w-3 h-3" />
             </div>
           )}
         </div>
       </div>
 
-      {/* Trim handles */}
+      {/* Move handle — full clip. Trimming is done in the edit modal (double-click). */}
       <div
-        className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-card/0 hover:bg-card/30 transition-colors"
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onDragStart(item, "trim-start", e);
-        }}
-      />
-      <div
-        className="absolute right-0 top-0 w-2 h-full cursor-ew-resize bg-card/0 hover:bg-card/30 transition-colors"
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onDragStart(item, "trim-end", e);
-        }}
-      />
-
-      {/* Move handle (center) */}
-      <div
-        className="absolute inset-x-2 inset-y-0 cursor-move"
+        className="absolute inset-0 cursor-move"
         onMouseDown={(e) => {
           e.stopPropagation();
           onDragStart(item, "move", e);
