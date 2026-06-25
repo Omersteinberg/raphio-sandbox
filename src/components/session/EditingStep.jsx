@@ -161,13 +161,13 @@ export default function EditingStep({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-border p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="bg-white border-b border-border p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <Button
             variant="ghost"
             onClick={handleBackToVideo}
             disabled={reassembling}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 self-start -ml-2 sm:ml-0"
           >
             {reassembling ? (
               <>
@@ -182,7 +182,7 @@ export default function EditingStep({
             )}
           </Button>
           <div>
-            <h2 className="text-xl font-semibold text-ink">Edit Clips</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-ink">Edit Clips</h2>
             <p className="text-sm text-ink-muted">{sections.length} clips in your video</p>
           </div>
         </div>
@@ -190,15 +190,16 @@ export default function EditingStep({
           <Button
             onClick={() => setShowTimeline(true)}
             variant="outline"
-            className="border-terra text-terra hover:bg-terra/5"
+            className="border-terra text-terra hover:bg-terra/5 flex-1 sm:flex-none justify-center"
           >
             <Layers className="w-4 h-4 mr-2" />
-            Timeline Editor
+            <span className="hidden sm:inline">Timeline Editor</span>
+            <span className="sm:hidden">Timeline</span>
           </Button>
           <Button
             onClick={handleReassemble}
             disabled={reassembling || loading}
-            className="text-white border-0"
+            className="text-white border-0 flex-1 sm:flex-none justify-center"
             style={{ background: "var(--gradient-brand)" }}
           >
             {reassembling ? (
@@ -209,7 +210,8 @@ export default function EditingStep({
             ) : (
               <span className="flex items-center gap-2">
                 <Save className="w-4 h-4" />
-                Reassemble Video
+                <span className="hidden sm:inline">Reassemble Video</span>
+                <span className="sm:hidden">Reassemble</span>
               </span>
             )}
           </Button>
@@ -248,7 +250,7 @@ export default function EditingStep({
                       : "border-border"
                   }`}
                 >
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4">
                     {/* Drag Handle */}
                     <div className="flex items-center text-ink-muted">
                       <GripVertical className="w-5 h-5" />
@@ -260,7 +262,7 @@ export default function EditingStep({
                     </div>
 
                     {/* Video Thumbnail */}
-                    <div className="flex-shrink-0 w-32 h-20 bg-gray-900 rounded-lg overflow-hidden relative">
+                    <div className="flex-shrink-0 w-24 h-16 sm:w-32 sm:h-20 bg-gray-900 rounded-lg overflow-hidden relative">
                       {section.generatedClipUrl ? (
                         <>
                           {playingClip === section.id ? (
@@ -314,7 +316,7 @@ export default function EditingStep({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[160px]">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           section.sectionType === "OPENING"
@@ -344,7 +346,7 @@ export default function EditingStep({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
                       <Button
                         variant="ghost"
                         size="sm"

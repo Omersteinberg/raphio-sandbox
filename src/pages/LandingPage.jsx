@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValueEvent } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail, X, MapPin } from "lucide-react";
+import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail, X, MapPin, Menu } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import brainImg from '../assets/brain.png';
 import adamImg from '../assets/Adam.png';
@@ -146,7 +146,7 @@ const STEPS = [
 
 // ── Redesigned Light/Alternating How It Works Section ─────────────────
 // ── Final Production Overhaul: High-Velocity Widescreen Studio Engine ──
-function DescribeVisual() {
+function DescribeVisual({ compact = false }) {
   const twRef = useRef(null);
   const ccRef = useRef(null);
   const tagRef = useRef(null);
@@ -313,10 +313,10 @@ function DescribeVisual() {
       background: '#1C1917', borderRadius: 16, overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.06)',
       boxShadow: '0 24px 56px rgba(0,0,0,0.3)',
-      height: 360, display: 'grid', gridTemplateColumns: '1fr 1fr',
+      height: 360, display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr',
     }}>
       {/* Prompt side */}
-      <div style={{ display:'flex', flexDirection:'column', padding:22, borderRight:'1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ display:'flex', flexDirection:'column', padding:22, borderRight: compact ? 'none' : '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:12, flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'10px 14px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.terra, flexShrink:0 }} />
@@ -336,30 +336,34 @@ function DescribeVisual() {
         </div>
       </div>
 
-      {/* Brain canvas */}
-      <div style={{ position:'relative', overflow:'hidden' }}>
-        <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} />
-      </div>
+      {/* Brain canvas — desktop only; dropped on mobile per compact mode */}
+      {!compact && (
+        <div style={{ position:'relative', overflow:'hidden' }}>
+          <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} />
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Step 2: Scattered photo grid ──────────────────────────────────
-function PhotoGridVisual() {
-    const cards = [
+function PhotoGridVisual({ compact = false }) {
+    const allCards = [
       { img: scene1Img, fallback:'#ffe2c6', label:'Scene 1', check:'#C1440E', rot:-2   },
       { img: scene2Img, fallback:'#fd996a', label:'Scene 2', check:'#5CB85C', rot:2.5  },
       { img: scene3Img, fallback:'#eed6b7', label:'Scene 3', check:'#5CB85C', rot:-1.5 },
       { img: scene4Img, fallback:'#ffceae', label:'Scene 4', check:'#5CB85C', rot:1.5  },
       { img: scene5Img, fallback:'#fde2c9', label:'Scene 5', check:'#5CB85C', rot:-2   },
     ];
+    // Mobile shows a simpler 2×2 (3 photos + add-more) instead of the full 3×2 grid.
+    const cards = compact ? allCards.slice(0, 3) : allCards;
 
   return (
     <div style={{
       background: '#1C1917', borderRadius: 16, overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.06)',
       boxShadow: '0 24px 56px rgba(0,0,0,0.3)',
-      height: 360, display: 'grid', gridTemplateColumns: '168px 1fr',
+      height: 360, display: 'grid', gridTemplateColumns: 'clamp(110px, 32vw, 168px) 1fr',
     }}>
 
       {/* ── Drop zone ── */}
@@ -367,30 +371,30 @@ function PhotoGridVisual() {
         borderRight: '1px solid rgba(255,255,255,0.07)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 11, padding: 24, position: 'relative',
+        gap: compact ? 8 : 11, padding: compact ? 14 : 24, position: 'relative',
       }}>
         <div style={{ position:'absolute', inset:12, border:'1.5px dashed rgba(193,68,14,0.35)', borderRadius:12, pointerEvents:'none' }} />
-        <div style={{ width:50, height:50, borderRadius:14, background:'rgba(193,68,14,0.10)', border:'1px solid rgba(193,68,14,0.20)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <Upload style={{ width:23, height:23, color:C.terra }} />
+        <div style={{ width: compact ? 40 : 50, height: compact ? 40 : 50, borderRadius:14, background:'rgba(193,68,14,0.10)', border:'1px solid rgba(193,68,14,0.20)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Upload style={{ width: compact ? 18 : 23, height: compact ? 18 : 23, color:C.terra }} />
         </div>
-        <p style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,0.8)', textAlign:'center', lineHeight:1.45 }}>
+        <p style={{ fontSize: compact ? 11 : 12, fontWeight:700, color:'rgba(255,255,255,0.8)', textAlign:'center', lineHeight:1.45 }}>
           Drag &amp; drop<br />your photos
         </p>
-        <p style={{ fontSize:10, color:'rgba(255,255,255,0.3)', textAlign:'center' }}>JPEG or PNG · up to 10</p>
-        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2, padding:'5px 12px', borderRadius:999, background:'rgba(193,68,14,0.10)', border:'1px solid rgba(193,68,14,0.25)' }}>
+        {!compact && <p style={{ fontSize:10, color:'rgba(255,255,255,0.3)', textAlign:'center' }}>JPEG or PNG · up to 10</p>}
+        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2, padding: compact ? '4px 9px' : '5px 12px', borderRadius:999, background:'rgba(193,68,14,0.10)', border:'1px solid rgba(193,68,14,0.25)' }}>
           <motion.div animate={{ opacity:[1,0.3,1] }} transition={{ repeat:Infinity, duration:1.5 }}
             style={{ width:5, height:5, borderRadius:'50%', background:'#4CAF50' }} />
-          <span style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.75)' }}>5 uploaded</span>
+          <span style={{ fontSize: compact ? 9 : 10, fontWeight:600, color:'rgba(255,255,255,0.75)', whiteSpace:'nowrap' }}>{compact ? '3 uploaded' : '5 uploaded'}</span>
         </div>
       </div>
 
-      {/* ── 3×2 photo grid ── */}
+      {/* ── Photo grid: 3×2 on desktop, 2×2 on mobile ── */}
       <div style={{
-        padding: '20px 18px 38px 18px',
+        padding: compact ? '14px 14px 34px 14px' : '20px 18px 38px 18px',
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
         gridTemplateRows: 'repeat(2, 1fr)',
-        gap: 14,
+        gap: compact ? 10 : 14,
         height: '100%',
         position: 'relative',
       }}>
@@ -434,7 +438,7 @@ function PhotoGridVisual() {
           </motion.div>
         ))}
 
-        {/* + Add more — 6th grid cell */}
+        {/* + Add more — last grid cell (4th on mobile's 2×2, 6th on desktop's 3×2) */}
         <div style={{
           borderRadius: 12,
           border: '2px dashed rgba(193,68,14,0.65)',
@@ -444,16 +448,16 @@ function PhotoGridVisual() {
           background: 'rgba(193,68,14,0.07)',
           cursor: 'pointer', width:'100%', height:'100%',
         }}>
-          <span style={{ fontSize:30, fontWeight:700, color:'rgba(193,68,14,0.88)', lineHeight:1 }}>+</span>
-          <span style={{ fontSize:10, fontWeight:700, color:'rgba(193,68,14,0.60)', letterSpacing:'0.08em' }}>ADD MORE</span>
+          <span style={{ fontSize: compact ? 22 : 30, fontWeight:700, color:'rgba(193,68,14,0.88)', lineHeight:1 }}>+</span>
+          <span style={{ fontSize: compact ? 9 : 10, fontWeight:700, color:'rgba(193,68,14,0.60)', letterSpacing:'0.08em' }}>ADD MORE</span>
         </div>
 
         {/* Progress bar */}
         <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'8px 16px', background:'rgba(20,17,15,0.95)', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ flex:1, height:2, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden' }}>
-            <div style={{ height:'100%', width:'83%', background:C.terra, borderRadius:99 }} />
+            <div style={{ height:'100%', width: compact ? '50%' : '83%', background:C.terra, borderRadius:99 }} />
           </div>
-          <span style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.40)', whiteSpace:'nowrap' }}>5 / 10 scenes matched</span>
+          <span style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.40)', whiteSpace:'nowrap' }}>{compact ? '3 / 10 scenes matched' : '5 / 10 scenes matched'}</span>
         </div>
       </div>
     </div>
@@ -679,13 +683,31 @@ const STEP_VISUALS = [
   { visual: <AvatarExportVisual />, status: 'Render complete · HD 1080p' },
 ];
 
+// Mobile uses simplified visuals: no brain canvas on step 1, a 2×2 photo grid on step 2.
+const STEP_VISUALS_MOBILE = [
+  { visual: <DescribeVisual compact />,   status: 'Writing scene 2 of 4...' },
+  { visual: <PhotoGridVisual compact />,   status: 'Images matched to script' },
+  { visual: <AvatarExportVisual />, status: 'Render complete · HD 1080p' },
+];
+
 // ── HowItWorks ─────────────────────────────────────────────────────
 function HowItWorks() {
   const [active, setActive] = useState(0);
   const sectionRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end end'] });
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const update = () => setIsDesktop(mq.matches);
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // Scroll-linked active step only drives on desktop, where the sticky-scroll layout is shown.
+  // Mobile uses the stacked layout below, navigated by tapping tabs instead.
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
+    if (!isDesktop) return;
     if (v < 0.34) setActive(0);
     else if (v < 0.67) setActive(1);
     else setActive(2);
@@ -694,8 +716,71 @@ function HowItWorks() {
   const Icon = STEPS[active].icon;
 
   return (
-    <section ref={sectionRef} id="how-it-works" style={{ height: '170vh', position: 'relative' }}>
-      <motion.div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: C.bg }}>
+    <section ref={sectionRef} id="how-it-works" className="relative h-auto md:h-[170vh]">
+      {/* Mobile / tablet — stacked, tap-driven layout (no sticky scroll) */}
+      <div className="md:hidden flex flex-col py-14 px-5" style={{ background: C.bg }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.terra, marginBottom: 4 }}>How it works</p>
+        <h2 className="display" style={{ fontSize: 'clamp(24px,6vw,32px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 20 }}>
+          Three steps. One great video.
+        </h2>
+
+        {/* Tab pills — horizontally scrollable */}
+        <div className="hide-scrollbar flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 mb-6">
+          {STEPS.map((s, i) => (
+            <button key={s.num} onClick={() => setActive(i)}
+              className="flex-shrink-0"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 999, cursor: 'pointer',
+                background: active === i ? C.terra : C.white,
+                border: `1px solid ${active === i ? C.terra : C.faint}`,
+                boxShadow: active === i ? '0 4px 14px rgba(193,68,14,0.22)' : 'none',
+                transition: 'all 0.22s ease',
+              }}>
+              <span style={{ fontSize: 12, color: active === i ? 'rgba(255,255,255,0.6)' : C.muted }}>{s.num}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: active === i ? '#fff' : C.dark, whiteSpace: 'nowrap' }}>{s.tab}</span>
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div key={active}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col gap-5"
+          >
+            <div className="flex items-center gap-3">
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(193,68,14,0.07)', border: '1px solid rgba(193,68,14,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon style={{ width: 17, height: 17, color: C.terra }} />
+              </div>
+              <h3 className="display" style={{ fontSize: 'clamp(19px,5vw,24px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                {STEPS[active].title}
+              </h3>
+            </div>
+            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65 }}>
+              {STEPS[active].body}
+            </p>
+            <div className="w-full overflow-hidden rounded-2xl">
+              {STEP_VISUALS_MOBILE[active].visual}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Step dots */}
+        <div className="flex items-center justify-center gap-2 mt-7">
+          {STEPS.map((s, i) => (
+            <button key={s.num} onClick={() => setActive(i)} aria-label={`Go to step ${i + 1}: ${s.label}`}
+              style={{
+                width: active === i ? 22 : 8, height: 8, borderRadius: 99,
+                background: active === i ? C.terra : C.faint,
+                transition: 'all 0.25s ease',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop — sticky scroll layout (unchanged) */}
+      <motion.div className="hidden md:flex md:sticky md:top-0 md:h-screen md:overflow-hidden flex-col" style={{ background: C.bg }}>
 
         {/* Header */}
         <div style={{ padding: '52px 48px 0', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -787,71 +872,55 @@ function HowItWorks() {
 }
 
 // ── "See it in action" — real output reel ────────────────────────
+// Base URL for the gallery videos — swap filenames below as real exports land.
+const VIDEO_BASE_URL = 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/';
 const SEE_IT_ITEMS = [
-  { label: 'Travel montage', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
-  { label: 'Product showcase', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
-  { label: 'Luxury brand ad', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
-  { label: 'Food commercial', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4' },
+  { label: 'Travel montage',   file: 'Travel_brand_ad_montage_202606181523.mp4' },
+  { label: 'Product showcase', file: 'Luxury_watch_ad_Raphio_202606181523.mp4' },
+  { label: 'Luxury brand ad',  file: 'Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
+  { label: 'Food commercial',  file: 'Burger_built_Raphio_brandmark_202606181522.mp4' },
 ];
 
-function ActionVideoCard({ item, onOpen }) {
-  const containerRef = useRef(null);
-  const videoRef = useRef(null);
-  const [hovered, setHovered] = useState(false);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    const video = videoRef.current;
-    if (!el || !video) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      },
-      { threshold: 0.4 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+function ActionVideoCard({ item, onOpen, cardRef }) {
   return (
-    <div ref={containerRef} className="flex-shrink-0 w-full sm:w-72">
-      <button
-        onClick={() => onOpen(item)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="relative w-full aspect-video rounded-2xl overflow-hidden block transition-transform duration-300"
-        style={{
-          background: C.white,
-          border: `1px solid ${C.faint}`,
-          boxShadow: '0 4px 18px rgba(28,25,23,0.08)',
-          transform: hovered ? 'scale(1.03)' : 'scale(1)',
-        }}
-      >
-        <video
-          ref={videoRef}
-          src={item.src}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div
-          className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
-          style={{ background: 'rgba(10,9,8,0.28)', opacity: hovered ? 1 : 0 }}
-        >
-          <div className="rounded-full flex items-center justify-center" style={{ width: 52, height: 52, background: 'rgba(255,250,247,0.94)' }}>
-            <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 2 }} fill={C.terra} />
-          </div>
+    <button
+      ref={cardRef}
+      onClick={() => onOpen(item)}
+      className="gallery-card relative flex-shrink-0 rounded-2xl overflow-hidden block"
+      style={{
+        width: 'clamp(220px, 26vw, 300px)',
+        aspectRatio: '16/9',
+        background: C.white,
+        border: `1px solid ${C.faint}`,
+        boxShadow: '0 4px 18px rgba(28,25,23,0.08)',
+      }}
+    >
+      <video
+        src={VIDEO_BASE_URL + item.file}
+        muted
+        loop
+        playsInline
+        autoPlay
+        preload="metadata"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
+      {/* Bottom gradient overlay anchoring the label */}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: '60%', background: 'linear-gradient(to top, rgba(10,9,8,0.70), transparent)' }}
+      />
+      <span className="absolute bottom-3 left-3 right-3 text-sm font-semibold text-white text-left truncate">
+        {item.label}
+      </span>
+
+      {/* Centered play badge — fades in on hover */}
+      <div className="gallery-play-badge absolute inset-0 flex items-center justify-center opacity-0">
+        <div className="rounded-full flex items-center justify-center" style={{ width: 52, height: 52, background: 'rgba(255,250,247,0.94)' }}>
+          <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 2 }} fill={C.terra} />
         </div>
-      </button>
-      <p className="text-sm font-semibold mt-3 text-center" style={{ color: C.dark }}>{item.label}</p>
-    </div>
+      </div>
+    </button>
   );
 }
 
@@ -878,17 +947,17 @@ function ActionVideoModal({ item, onClose }) {
       <motion.div
         initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.94, opacity: 0 }}
         transition={{ duration: 0.22 }}
-        className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
-        style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        className="relative w-full rounded-2xl overflow-hidden"
+        style={{ maxWidth: 480, boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <video
           ref={videoRef}
-          src={item.src}
+          src={VIDEO_BASE_URL + item.file}
           controls
           autoPlay
           playsInline
-          className="w-full h-full block"
+          className="w-full aspect-video block"
           style={{ background: '#000' }}
         />
       </motion.div>
@@ -906,25 +975,108 @@ function ActionVideoModal({ item, onClose }) {
   );
 }
 
+// Marquee speed in pixels/second — duration is derived from the measured
+// track distance so the visual speed stays constant at any screen size.
+const MARQUEE_SPEED = 40;
+
 function SeeItInAction() {
   const [activeItem, setActiveItem] = useState(null);
+  const firstItemRef = useRef(null);
+  const secondSetFirstItemRef = useRef(null);
+  const [distance, setDistance] = useState(0);
+  // How many copies of SEE_IT_ITEMS to render. 2 is only enough when the set
+  // is wider than the viewport — on any screen wide enough to show all the
+  // cards at once, the track runs out of content before the loop point and
+  // the right edge goes blank. Recomputed so the track is always at least
+  // one full set wider than the viewport, however many copies that takes.
+  const [copies, setCopies] = useState(3);
+
+  useEffect(() => {
+    const measure = () => {
+      if (firstItemRef.current && secondSetFirstItemRef.current) {
+        const d = secondSetFirstItemRef.current.getBoundingClientRect().left
+          - firstItemRef.current.getBoundingClientRect().left;
+        if (d > 0) {
+          setDistance(d);
+          setCopies(Math.max(3, Math.ceil(window.innerWidth / d) + 2));
+        }
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const sets = Array.from({ length: copies }, (_, i) => i);
 
   return (
-    <section className="py-24 px-6" style={{ background: C.bg }}>
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>See it in action</p>
-          <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,44px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
-            See what Raphio creates
-          </h2>
-          <p className="text-base mt-3" style={{ color: C.muted }}>
-            Real outputs from real prompts, no editing, no post-production.
-          </p>
-        </div>
+    <section className="py-24" style={{ background: C.bg }}>
+      <style>{`
+        @keyframes gallery-scroll {
+          from { transform: translateX(0); }
+          to   { transform: translateX(var(--marquee-distance)); }
+        }
+        .gallery-track {
+          animation-name: gallery-scroll;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
+          will-change: transform;
+        }
+        .gallery-track:hover { animation-play-state: paused; }
+        .gallery-card { transition: transform 0.3s ease; }
+        .gallery-card:hover { transform: scale(1.05); }
+        .gallery-card:hover .gallery-play-badge { opacity: 1; }
+        .gallery-play-badge { transition: opacity 0.2s ease; }
+        @media (prefers-reduced-motion: reduce) {
+          .gallery-track { animation: none; }
+        }
+      `}</style>
 
-        <div className="hide-scrollbar grid grid-cols-2 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
-          {SEE_IT_ITEMS.map((item) => (
-            <ActionVideoCard key={item.label} item={item} onOpen={setActiveItem} />
+      <div className="max-w-6xl mx-auto px-6 text-center mb-12">
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>See it in action</p>
+        <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,44px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+          See what Raphio creates
+        </h2>
+        <p className="text-base mt-3" style={{ color: C.muted }}>
+          Real outputs from real prompts, no editing, no post-production.
+        </p>
+      </div>
+
+      <div className="overflow-hidden">
+        {/*
+          N back-to-back copies of the same row (N grows with viewport width —
+          see `copies` above). The track animates by the exact pixel distance
+          between the first item of set 0 and the first item of set 1
+          (measured via refs, not a 50%/1-over-N guess — gap-based flex
+          spacing makes percentage math land slightly off and produces a
+          visible "snap" at the loop point). Once set 0 has fully scrolled
+          past, set 1 sits exactly where set 0 started, set 2 where set 1
+          started, etc., so the animation restart at 0% is invisible and the
+          loop reads as truly continuous, no matter how wide the screen is.
+        */}
+        <div
+          className="gallery-track flex gap-5"
+          style={{
+            width: 'max-content',
+            '--marquee-distance': `-${distance}px`,
+            animationDuration: distance ? `${distance / MARQUEE_SPEED}s` : '0s',
+          }}
+        >
+          {sets.map((setIndex) => (
+            <div key={setIndex} className="flex gap-5" aria-hidden={setIndex > 0 ? 'true' : undefined}>
+              {SEE_IT_ITEMS.map((item, i) => (
+                <ActionVideoCard
+                  key={`${setIndex}-${i}`}
+                  item={item}
+                  onOpen={setActiveItem}
+                  cardRef={
+                    setIndex === 0 && i === 0 ? firstItemRef
+                      : setIndex === 1 && i === 0 ? secondSetFirstItemRef
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -1015,6 +1167,7 @@ function ContactSection() {
 export default function LandingPage() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 12);
@@ -1022,7 +1175,17 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', fn);
   }, []);
 
-  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKey = (e) => { if (e.key === 'Escape') setMobileMenuOpen(false); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [mobileMenuOpen]);
+
+  const scrollTo = (id) => {
+    setMobileMenuOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="min-h-screen font-figtree" style={{ background: C.bg }}>
@@ -1031,6 +1194,10 @@ export default function LandingPage() {
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        #hero { height: 100vh; }
+        @supports (height: 100dvh) {
+          #hero { height: 100dvh; }
+        }
       `}</style>
 
       {/* Navbar */}
@@ -1039,10 +1206,10 @@ export default function LandingPage() {
         backdropFilter: scrolled ? 'blur(14px)' : 'none',
         borderBottom: scrolled ? `1px solid rgba(193,68,14,0.10)` : '1px solid transparent',
       }}>
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <button onClick={() => scrollTo('hero')} className="hover:opacity-80 transition-opacity">
-              <img src={scrolled ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
+            <button onClick={() => scrollTo('hero')} className="hover:opacity-80 transition-opacity flex-shrink-0">
+              <img src={scrolled ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-6 sm:h-7" />
             </button>
             <nav className="hidden sm:flex items-center gap-1">
               {[['How it works','how-it-works'],['Pricing','pricing'],['Contact','contact']].map(([label, id]) => (
@@ -1055,15 +1222,15 @@ export default function LandingPage() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button onClick={() => navigate('/login')}
-              className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
+              className="px-2.5 py-1 text-xs sm:px-3.5 sm:py-1.5 sm:text-sm rounded-lg font-semibold transition-all"
               style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
               onMouseEnter={e => { e.currentTarget.style.background = scrolled ? 'rgba(193,68,14,0.06)' : 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = scrolled ? C.terra : '#FFD9C7'; }}
               onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; }}
             >Log in</button>
             <button onClick={() => navigate('/create')}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs sm:gap-1.5 sm:px-4 sm:py-1.5 sm:text-sm rounded-full font-bold transition-all"
               style={{
                 background: scrolled ? C.white : 'transparent',
                 color: scrolled ? C.terra : '#FFFAF7',
@@ -1071,13 +1238,49 @@ export default function LandingPage() {
               }}
               onMouseEnter={e => { e.currentTarget.style.background=`linear-gradient(135deg,${C.terra},${C.terraLt})`; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.boxShadow=`0 4px 16px rgba(193,68,14,0.30)`; }}
               onMouseLeave={e => { e.currentTarget.style.background = scrolled ? C.white : 'transparent'; e.currentTarget.style.color = scrolled ? C.terra : '#FFFAF7'; e.currentTarget.style.borderColor = scrolled ? C.terra : 'rgba(255,250,247,0.55)'; e.currentTarget.style.boxShadow='none'; }}
-            >Get started <ArrowRight className="w-3.5 h-3.5" /></button>
+            >Get started <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>
+            <button
+              onClick={() => setMobileMenuOpen(o => !o)}
+              aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
+              className="sm:hidden inline-flex items-center justify-center rounded-lg flex-shrink-0"
+              style={{ width: 36, height: 36, color: scrolled ? C.dark : '#FFFAF7' }}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile nav panel */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="sm:hidden overflow-hidden"
+              style={{
+                background: scrolled ? 'rgba(245,240,235,0.97)' : 'rgba(10,9,8,0.92)',
+                backdropFilter: 'blur(14px)',
+                borderBottom: '1px solid rgba(193,68,14,0.12)',
+              }}
+            >
+              <nav className="max-w-6xl mx-auto px-4 py-2 flex flex-col">
+                {[['How it works', 'how-it-works'], ['Pricing', 'pricing']].map(([label, id]) => (
+                  <button key={id} onClick={() => scrollTo(id)}
+                    className="text-left px-3 py-3 rounded-lg text-sm font-semibold transition-colors"
+                    style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)' }}
+                  >{label}</button>
+                ))}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Hero — fullscreen cinematic video */}
-      <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100vh', minHeight: 600, background: '#0A0908' }}>
+      <section id="hero" className="relative w-full overflow-hidden" style={{ minHeight: 560, background: '#0A0908' }}>
         <video
           autoPlay
           muted
@@ -1095,11 +1298,11 @@ export default function LandingPage() {
         />
 
         {/* Headline content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-5 sm:px-6">
           <motion.h1
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease: [0.22,1,0.36,1] }}
             className="display leading-none max-w-4xl"
-            style={{ fontSize: 'clamp(38px,6vw,72px)', color: '#FFFAF7', letterSpacing: '-0.01em', lineHeight: 1.08, textShadow: '0 4px 28px rgba(0,0,0,0.4)' }}
+            style={{ fontSize: 'clamp(32px,6vw,72px)', color: '#FFFAF7', letterSpacing: '-0.01em', lineHeight: 1.08, textShadow: '0 4px 28px rgba(0,0,0,0.4)' }}
           >
             Turn your photos into a video{' '}
             <span style={{ color: C.terra }}>instantly.</span>
@@ -1107,7 +1310,7 @@ export default function LandingPage() {
 
           <motion.p
             initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.26 }}
-            className="mt-5 max-w-lg text-lg leading-relaxed"
+            className="mt-4 sm:mt-5 max-w-lg text-base sm:text-lg leading-relaxed"
             style={{ color: 'rgba(255,250,247,0.84)' }}
           >
             Upload your photos, describe what you want, and Raphio handles the rest. No editing skills needed.
@@ -1115,11 +1318,11 @@ export default function LandingPage() {
 
           <motion.div
             initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}
-            className="mt-9 flex flex-col items-center gap-3"
+            className="mt-7 sm:mt-9 flex flex-col items-center gap-3"
           >
             <button
               onClick={() => navigate('/login')}
-              className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
+              className="inline-flex items-center gap-2 px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 24px rgba(193,68,14,0.35)' }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(193,68,14,0.35)'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
@@ -1127,7 +1330,7 @@ export default function LandingPage() {
               Try it free
               <ArrowRight className="w-4 h-4" />
             </button>
-            <span className="text-sm font-medium" style={{ color: 'rgba(255,250,247,0.58)' }}>No credit card needed · Ready in minutes</span>
+            <span className="text-xs sm:text-sm font-medium text-center px-2" style={{ color: 'rgba(255,250,247,0.58)' }}>No credit card needed · Ready in minutes</span>
           </motion.div>
         </div>
       </section>
@@ -1142,11 +1345,11 @@ export default function LandingPage() {
 
       {/* Stats strip */}
       <div style={{ background: C.dark }}>
-        <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-3 gap-8 text-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 grid grid-cols-3 gap-3 sm:gap-8 text-center">
           {[{value:36,suffix:'+',label:'Natural voices'},{value:10,suffix:'x',label:'Faster than editing'},{value:100,suffix:'%',label:'Free to start'}].map(({value,suffix,label}) => (
             <div key={label}>
-              <p className="display text-4xl mb-1" style={{ color:C.terra }}><Counter to={value} suffix={suffix} /></p>
-              <p className="text-sm font-semibold" style={{ color:'rgba(245,240,235,0.40)' }}>{label}</p>
+              <p className="display text-2xl sm:text-4xl mb-1" style={{ color:C.terra }}><Counter to={value} suffix={suffix} /></p>
+              <p className="text-xs sm:text-sm font-semibold leading-snug" style={{ color:'rgba(245,240,235,0.40)' }}>{label}</p>
             </div>
           ))}
         </div>

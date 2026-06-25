@@ -665,7 +665,7 @@ export default function PromptStep({
           )}
           {/* Zone 1 — Prompt (the hero) */}
           <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? 'Direction' : "What's your video about?"}

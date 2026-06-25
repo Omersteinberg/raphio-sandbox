@@ -39,14 +39,14 @@ export default function AppHeader() {
 
   return (
     <header
-      className="h-14 flex items-center justify-between px-5 shrink-0 z-50 relative font-figtree"
+      className="h-14 flex items-center justify-between px-3 md:px-5 shrink-0 z-50 relative font-figtree"
       style={{
         background: 'rgba(255,250,247,0.92)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(193,68,14,0.10)',
       }}
     >
-      {/* Left: Logo + nav */}
+      {/* Left: Logo + nav — nav links move to the mobile bottom tab bar below md */}
       <div className="flex items-center gap-6">
         <button
           onClick={goToCreate}
@@ -56,9 +56,9 @@ export default function AppHeader() {
           <img src="/Logo.svg" alt="Raphio" className="h-7" />
         </button>
 
-        <div style={{ width: 1, height: 20, background: 'rgba(193,68,14,0.15)' }} />
+        <div className="hidden md:block" style={{ width: 1, height: 20, background: 'rgba(193,68,14,0.15)' }} />
 
-        <nav className="flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1">
           <button
             onClick={goToCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
@@ -112,12 +112,12 @@ export default function AppHeader() {
       </div>
 
       {/* Right: Credits + Avatar */}
-      <div className="flex items-center gap-2.5" ref={dropdownRef}>
+      <div className="flex items-center gap-1.5 md:gap-2.5" ref={dropdownRef}>
 
-        {/* Credits pill */}
+        {/* Credits pill — icon + number only below md, full label on desktop */}
         <button
           onClick={() => navigate('/buy-credits')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+          className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs font-bold transition-all"
           style={{
             background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)',
             color: isLow ? '#C1440E' : '#7A6A62',
@@ -131,18 +131,22 @@ export default function AppHeader() {
             e.currentTarget.style.background = isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)';
             e.currentTarget.style.color = isLow ? '#C1440E' : '#7A6A62';
           }}
+          aria-label={isLow ? `Running low, ${credits ?? 0} credits left — tap to top up` : `${credits ?? 0} credits — tap to buy more`}
           title={isLow ? 'Running low — top up credits' : 'Buy more credits'}
         >
           <Zap className="w-3 h-3" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
           <span>{credits ?? '...'}</span>
-          <span style={{ color: isLow ? '#C1440E' : '#9B8B83', fontWeight: 500 }}>credits</span>
+          <span className="hidden md:inline" style={{ color: isLow ? '#C1440E' : '#9B8B83', fontWeight: 500 }}>credits</span>
           {isLow && (
             <span
-              className="ml-0.5 px-1.5 py-0.5 rounded-full text-white"
+              className="hidden md:inline-block ml-0.5 px-1.5 py-0.5 rounded-full text-white"
               style={{ fontSize: '9px', background: '#C1440E', lineHeight: 1 }}
             >
               Low
             </span>
+          )}
+          {isLow && (
+            <span className="md:hidden w-1.5 h-1.5 rounded-full" style={{ background: '#C1440E' }} />
           )}
         </button>
 
@@ -166,7 +170,7 @@ export default function AppHeader() {
             {initials}
           </div>
           <ChevronDown
-            className={`w-3 h-3 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : 'rotate-0'}`}
+            className={`hidden md:inline w-3 h-3 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : 'rotate-0'}`}
             style={{ color: '#7A6A62' }}
           />
         </button>

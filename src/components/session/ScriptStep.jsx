@@ -108,9 +108,9 @@ export default function ScriptStep({
     <div className="w-full h-full flex flex-col lg:flex-row">
       {/* Left Side - Script Sections */}
       <div className="flex-1 flex flex-col p-6 border-r border-border overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-ink">
+            <h2 className="text-lg sm:text-xl font-semibold text-ink">
               {phase === "bridges" ? "Review Bridge Frames" : (scriptData?.title || "Video Script")}
             </h2>
             <p className="text-sm text-ink-muted">
@@ -125,7 +125,7 @@ export default function ScriptStep({
                 <Button
                   onClick={approveScript}
                   disabled={loading}
-                  className="text-white"
+                  className="text-white w-full sm:w-auto justify-center"
                   style={{ background: "var(--gradient-brand)" }}
                 >
                   <Check className="w-4 h-4 mr-2" />
@@ -135,7 +135,7 @@ export default function ScriptStep({
                 <Button
                   onClick={approveOutline}
                   disabled={loading}
-                  className="bg-terra hover:bg-terra-dark text-white"
+                  className="bg-terra hover:bg-terra-dark text-white w-full sm:w-auto justify-center"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {loading
@@ -146,7 +146,7 @@ export default function ScriptStep({
                 <Button
                   onClick={approveScript}
                   disabled={loading || hasBridgeFailures}
-                  className="text-white"
+                  className="text-white w-full sm:w-auto justify-center"
                   style={{ background: "var(--gradient-brand)" }}
                   title={hasBridgeFailures ? "Fix failed bridge frames first" : ""}
                 >
@@ -203,7 +203,7 @@ export default function ScriptStep({
                   editingSection === "opening" ? "border-green-500" : "border-green-300"
                 }`}
               >
-                <div className="flex gap-4">
+                <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
                     {(generatedFrameImages?.opening?.imageUrl || openingFrame.uploadedImage || session?.openingFrameConfig?.uploadedImageUrl) ? (
@@ -227,7 +227,7 @@ export default function ScriptStep({
                     )}
                   </div>
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[160px]">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">OPENING</span>
@@ -348,7 +348,7 @@ export default function ScriptStep({
                     editingSection === originalIndex ? "border-terra" : "border-border"
                   }`}
                 >
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4">
                     {/* Image Thumbnail — hidden for references pipeline */}
                     {!isReferencesPipeline && (
                     <div className="flex-shrink-0">
@@ -385,7 +385,7 @@ export default function ScriptStep({
                     )}
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[160px]">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-1 rounded text-xs font-medium bg-terra/10 text-terra">
@@ -467,7 +467,7 @@ export default function ScriptStep({
                   editingSection === "closing" ? "border-orange-500" : "border-orange-300"
                 }`}
               >
-                <div className="flex gap-4">
+                <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4">
                   {/* Frame Image */}
                   <div className="flex-shrink-0">
                     {(generatedFrameImages?.closing?.imageUrl || closingFrame.uploadedImage || session?.closingFrameConfig?.uploadedImageUrl) ? (
@@ -491,7 +491,7 @@ export default function ScriptStep({
                     )}
                   </div>
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[160px]">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">CLOSING</span>
