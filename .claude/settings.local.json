@@ -34,7 +34,8 @@
       "Bash(chromium-cli --help)",
       "Bash(npm ls *)",
       "Bash(netstat -ano)",
-      "Bash(cd \"c:\\\\Users\\\\amnon\\\\merge-frontend\" && rm -f .tmp-gallery*.mjs && rm -rf .tmp-screenshots)"
+      "Bash(cd \"c:\\\\Users\\\\amnon\\\\merge-frontend\" && rm -f .tmp-gallery*.mjs && rm -rf .tmp-screenshots)",
+      "Bash(curl -sf http://localhost:5173/)"
     ],
     "additionalDirectories": [
       "C:\\Users\\amnon\\merge-frontend"

@@ -752,8 +752,9 @@ export default function PromptStep({
                       {INSPIRATION_ITEMS.map((item) => (
                         <motion.button
                           key={item.label}
-                          whileHover={{ y: -2 }}
+                          whileHover={{ y: -2, scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                           onClick={() => { setUserPrompt(item.prompt); setShowInspiration(false); }}
                           className="group relative aspect-video rounded-xl overflow-hidden text-left"
                           style={{ boxShadow: '0 2px 10px rgba(193,68,14,0.10), 0 0 0 1px rgba(193,68,14,0.08)' }}
@@ -763,9 +764,8 @@ export default function PromptStep({
                             muted
                             loop
                             playsInline
-                            preload="metadata"
-                            onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
-                            onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                            autoPlay
+                            preload="auto"
                             className="absolute inset-0 w-full h-full object-cover"
                           />
                           <div
