@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
-  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen,
+  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

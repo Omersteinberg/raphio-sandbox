@@ -27,15 +27,15 @@ export function useTimeline(sessionId) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Refs for playback
-  const animationFrameRef = useRef(null);
-  const lastTimeRef = useRef(null);
-  const videoRefs = useRef({});
-  const audioRefs = useRef({});
+  // Edits made since the last successful Export. Drafts still auto-save, but the
+  // rendered video only updates on Export — this drives the "leave without
+  // exporting?" warning.
+  const [hasUnexportedChanges, setHasUnexportedChanges] = useState(false);
 
-  // Live media elements (registered by VideoPreview) — the playback clock reads
-  // their real currentTime so the playhead never runs ahead of the sound.
-  const videoElRef = useRef(null);
+  // Live media elements (registered by VideoPreview). VideoPreview slaves them to
+  // the playhead; the clock only reads their readiness to decide whether to wait
+  // for a still-buffering track (see the stall gate in the playback loop).
+  const videoElsRef = useRef({}); // keyed by video item id — one element per clip
   const audioElsRef = useRef({});
   const audioItemsRef = useRef([]);
   const videoItemsRef = useRef([]);
@@ -99,6 +99,7 @@ export function useTimeline(sessionId) {
       setItems((prev) =>
         prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
       );
+      setHasUnexportedChanges(true);
 
       setSaving(true);
       try {
@@ -127,6 +128,7 @@ export function useTimeline(sessionId) {
     async (itemData) => {
       if (!sessionId || !timeline) return;
 
+      setHasUnexportedChanges(true);
       setSaving(true);
       try {
         const newItem = await sessionService.addTimelineItem(sessionId, itemData);
@@ -147,6 +149,7 @@ export function useTimeline(sessionId) {
     async (itemId) => {
       if (!sessionId) return;
 
+      setHasUnexportedChanges(true);
       setSaving(true);
       try {
         await sessionService.removeTimelineItem(sessionId, itemId);
@@ -180,6 +183,7 @@ export function useTimeline(sessionId) {
         return;
       }
 
+      setHasUnexportedChanges(true);
       setSaving(true);
       try {
         const newItems = await sessionService.splitTimelineItem(
@@ -253,6 +257,7 @@ export function useTimeline(sessionId) {
     async (audioId) => {
       if (!sessionId) return;
 
+      setHasUnexportedChanges(true);
       setSaving(true);
       try {
         await sessionService.deleteAudioAsset(sessionId, audioId);
@@ -279,6 +284,7 @@ export function useTimeline(sessionId) {
       toast.info("Exporting timeline...");
       const video = await sessionService.exportTimeline(sessionId);
       toast.success("Export complete!");
+      setHasUnexportedChanges(false);
       return video;
     } catch (err) {
       console.error("Failed to export timeline:", err);
@@ -311,10 +317,16 @@ export function useTimeline(sessionId) {
     setPlayheadPosition(Math.max(0, position));
   }, []);
 
-  // Media-driven playback loop — single source of truth is the playing media's
-  // own clock. The playhead follows the active media element's real currentTime,
-  // so it can never lead the sound. While media at the playhead is still spinning
-  // up, the playhead holds (no startup leap); a true gap coasts on wall-clock.
+  // Central wall-clock playback loop. The playhead is the single source of truth:
+  // it advances on real elapsed time, and every media element slaves itself to it
+  // (see VideoPreview). There is no "master" element, so a finished narration or
+  // missing background music can never freeze the clock — silent stretches simply
+  // coast.
+  //
+  // Stall gate: if a track that *should* be sounding/showing right now is still
+  // buffering or seeking, hold for that frame so the picture doesn't race ahead of
+  // the sound on startup. A clip whose audio has already ended is past its content
+  // and is never part of the gate, so it can't cause a hang.
   useEffect(() => {
     if (!isPlaying) return undefined;
 
@@ -327,41 +339,36 @@ export function useTimeline(sessionId) {
       lastWall = now;
 
       setPlayheadPosition((prev) => {
-        const audioActive = audioItemsRef.current.find(
-          (i) =>
-            prev >= i.startTime &&
-            prev < i.startTime + i.duration &&
-            audioElsRef.current[i.id]
-        );
-        const videoActive = videoItemsRef.current.find(
-          (i) => prev >= i.startTime && prev < i.startTime + i.duration && videoElRef.current
-        );
+        // Media that should be producing output at `prev` right now.
+        const gating = [];
 
-        const master = audioActive
-          ? { item: audioActive, el: audioElsRef.current[audioActive.id] }
-          : videoActive
-          ? { item: videoActive, el: videoElRef.current }
-          : null;
-
-        let next;
-        if (master) {
-          if (!master.el.paused && master.el.readyState >= 2) {
-            next =
-              master.item.startTime + (master.el.currentTime - (master.item.trimStart || 0));
-          } else {
-            next = prev; // media present but not playing yet — hold (no leap)
-          }
-        } else {
-          next = prev + wallDelta; // genuine gap — coast
+        const activeVideo = videoItemsRef.current.find(
+          (i) => prev >= i.startTime && prev < i.startTime + i.duration
+        );
+        if (activeVideo) {
+          const el = videoElsRef.current[activeVideo.id];
+          if (el) gating.push(el);
         }
 
+        audioItemsRef.current.forEach((i) => {
+          if (prev < i.startTime || prev >= i.startTime + i.duration) return;
+          const el = audioElsRef.current[i.id];
+          if (!el) return;
+          const sourceTime = prev - i.startTime + (i.trimStart || 0);
+          // A clip whose audio has already ended isn't "should be sounding now".
+          const hasContent = !Number.isFinite(el.duration) || sourceTime < el.duration - 0.05;
+          if (hasContent) gating.push(el);
+        });
+
+        const stalled = gating.some((el) => el.readyState < 2 || el.seeking);
+
+        let next = stalled ? prev : prev + wallDelta;
         if (!Number.isFinite(next)) next = prev;
         if (next >= duration) {
           setIsPlaying(false);
           return duration;
         }
-        // Guard tiny backward jitter at clip transitions.
-        return next < prev - 0.05 ? prev : next;
+        return next < prev ? prev : next; // never run backward
       });
 
       raf = requestAnimationFrame(tick);
@@ -417,8 +424,9 @@ export function useTimeline(sessionId) {
   );
 
   // Register the live media elements so the playback clock can read them.
-  const registerVideoEl = useCallback((el) => {
-    videoElRef.current = el;
+  const registerVideoEl = useCallback((itemId, el) => {
+    if (el) videoElsRef.current[itemId] = el;
+    else delete videoElsRef.current[itemId];
   }, []);
 
   const registerAudioEl = useCallback((itemId, el) => {
@@ -474,6 +482,7 @@ export function useTimeline(sessionId) {
     // Loading state
     loading,
     saving,
+    hasUnexportedChanges,
     loadTimeline,
 
     // Utilities

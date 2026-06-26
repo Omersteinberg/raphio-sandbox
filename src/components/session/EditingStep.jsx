@@ -99,15 +99,8 @@ export default function EditingStep({
     }
   };
 
-  // Handle back to video - always reassemble to set backend back to COMPLETED
-  const handleBackToVideo = async () => {
-    setReassembling(true);
-    try {
-      await reassembleVideo({ regenerateAudio: false });
-      setHasChanges(false);
-    } finally {
-      setReassembling(false);
-    }
+  // Handle back to video — plain navigation back to the result page.
+  const handleBackToVideo = () => {
     goToResult();
   };
 
@@ -166,20 +159,10 @@ export default function EditingStep({
           <Button
             variant="ghost"
             onClick={handleBackToVideo}
-            disabled={reassembling}
             className="flex items-center gap-2"
           >
-            {reassembling ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Reassembling...
-              </>
-            ) : (
-              <>
-                <ArrowLeft className="w-4 h-4" />
-                Back to Video
-              </>
-            )}
+            <ArrowLeft className="w-4 h-4" />
+            Back to Video
           </Button>
           <div>
             <h2 className="text-xl font-semibold text-ink">Edit Clips</h2>

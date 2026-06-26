@@ -13,6 +13,8 @@ import {
   Scissors,
   Move,
   Trash2,
+  Keyboard,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
@@ -30,12 +32,56 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const timeline = useTimeline(sessionId);
   const [showAudioUpload, setShowAudioUpload] = useState(false);
   const [showTTSModal, setShowTTSModal] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHelp, setShowHelp] = useState(true); // open the guide whenever the editor is entered
   const [editingItem, setEditingItem] = useState(null);
   const [editingNarration, setEditingNarration] = useState(null); // { item, section }
   const [exporting, setExporting] = useState(false);
 
   const containerRef = useRef(null);
+
+  // Confirm before leaving if there are edits that haven't been exported yet.
+  // (Edits auto-save as a draft, but the video only updates on Export.)
+  const handleBack = () => {
+    if (timeline.hasUnexportedChanges) {
+      const ok = window.confirm(
+        "Your edits are saved as a draft, but won't appear in the video until you Export. Leave anyway?"
+      );
+      if (!ok) return;
+    }
+    onBack?.();
+  };
+
+  // Keyboard shortcuts — ignored while typing in a field or when a modal is open.
+  useEffect(() => {
+    const onKey = (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (showAudioUpload || showTTSModal || showHelp || editingItem || editingNarration) return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (timeline.selectedItem) {
+          e.preventDefault();
+          timeline.removeItem(timeline.selectedItem);
+        }
+      } else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        timeline.zoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        timeline.zoomOut();
+      } else if (e.key === " ") {
+        e.preventDefault();
+        if (timeline.isPlaying) timeline.pause();
+        else timeline.play();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    showAudioUpload, showTTSModal, showHelp, editingItem, editingNarration,
+    timeline.selectedItem, timeline.isPlaying,
+    timeline.removeItem, timeline.zoomIn, timeline.zoomOut, timeline.play, timeline.pause,
+  ]);
 
   // Handle export - download video and save as completed
   const handleExport = async () => {
@@ -175,7 +221,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={onBack}
+            onClick={handleBack}
             className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -249,8 +295,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           />
         </div>
 
-        {/* Center - Preview and Timeline */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Center - Preview and Timeline (scrolls on short viewports) */}
+        <div className="flex-1 flex flex-col overflow-y-auto">
           {/* Video Preview - Larger section */}
           <div className="flex-1 min-h-[400px] bg-gray-900 flex items-center justify-center border-b border-border">
             <VideoPreview
@@ -362,23 +408,35 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             <ul className="space-y-3 text-sm text-foreground">
               <li className="flex items-start gap-3">
                 <Scissors className="w-4 h-4 mt-0.5 flex-shrink-0 text-terra" />
-                <span><span className="font-medium">Double-click a clip</span> to trim it — set the start/end and Apply the cut.</span>
+                <span><span className="font-medium">Double-click a clip</span> to trim it — drag the In/Out handles (or type exact times) and Apply. Trimming only cuts; it never stretches a clip.</span>
               </li>
               <li className="flex items-start gap-3">
                 <Move className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-                <span><span className="font-medium">Drag a clip</span> left/right to move it on the timeline.</span>
+                <span><span className="font-medium">Drag a clip</span> left/right to move it. It snaps to nearby clip edges, the playhead, and half-second marks; clips on the same track can't overlap.</span>
               </li>
               <li className="flex items-start gap-3">
                 <Trash2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
-                <span><span className="font-medium">Select a clip</span> and press Delete (or the Delete button) to remove it.</span>
+                <span><span className="font-medium">Select a clip</span>, then click Delete or press <kbd className="px-1 rounded bg-muted text-xs">Delete</kbd> to remove it.</span>
               </li>
               <li className="flex items-start gap-3">
-                <Upload className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-400" />
-                <span><span className="font-medium">Upload Audio</span> or <span className="font-medium">Generate TTS</span>, then drag it from the Assets panel onto the Audio or Music track.</span>
+                <Keyboard className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground" />
+                <span><span className="font-medium">Shortcuts:</span> <kbd className="px-1 rounded bg-muted text-xs">Space</kbd> play/pause · <kbd className="px-1 rounded bg-muted text-xs">+</kbd>/<kbd className="px-1 rounded bg-muted text-xs">-</kbd> zoom · <kbd className="px-1 rounded bg-muted text-xs">Delete</kbd> remove selected.</span>
               </li>
               <li className="flex items-start gap-3">
                 <Music className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" />
-                <span>Press <span className="font-medium">Play</span> to preview (all tracks play together), then <span className="font-medium">Export Video</span> when you're done.</span>
+                <span><span className="font-medium">Three tracks:</span> Video, Narration, and Music. Drag items from the Assets panel onto the matching track; music plays under the whole video.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Upload className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-400" />
+                <span><span className="font-medium">Add audio</span> with Upload Audio or Generate TTS, then drag it from the Assets panel onto a track.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Clock className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground" />
+                <span><span className="font-medium">Gaps between clips</span> hold the previous clip's last frame while any audio keeps playing — exactly how the exported video will look.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Download className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+                <span><span className="font-medium">Edits auto-save as a draft</span>, but the final video only updates when you click <span className="font-medium">Export Video</span>. Leaving without exporting keeps your draft but won't change the video.</span>
               </li>
             </ul>
             <div className="flex justify-end mt-6">
