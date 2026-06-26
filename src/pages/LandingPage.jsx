@@ -875,10 +875,18 @@ function HowItWorks() {
 // Base URL for the gallery videos — swap filenames below as real exports land.
 const VIDEO_BASE_URL = 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/';
 const SEE_IT_ITEMS = [
+  { label: 'Fitness ad',       file: 'Athlete_training_fitness_ad_202606181523.mp4' },
+  { label: 'Headphones ad',    file: 'Headphones_assemble_Raphio_brand%E2%80%A6_202606181523.mp4' },
+  { label: 'Beauty ad',        file: 'Luxury_beauty_ad_Raphio_202606181523.mp4' },
+  { label: 'Watch ad',         file: 'Luxury_watch_ad_Raphio_202606181523.mp4' },
+  { label: 'Runway show',      file: 'Model_strides_down_runway_202606181522.mp4' },
+  { label: 'Perfume ad',       file: 'Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
+  { label: 'Idea to video',    file: 'Raphio_ad_idea_to_video_202606181521.mp4' },
+  { label: 'Real estate tour', file: 'Real-estate_tour_Raphio_brandmark_202606181522%20(1).mp4' },
+  { label: 'Sports car ad',    file: 'Sports_car_ad_Raphio_brandmark_202606181522.mp4' },
   { label: 'Travel montage',   file: 'Travel_brand_ad_montage_202606181523.mp4' },
-  { label: 'Product showcase', file: 'Luxury_watch_ad_Raphio_202606181523.mp4' },
-  { label: 'Luxury brand ad',  file: 'Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
-  { label: 'Food commercial',  file: 'Burger_built_Raphio_brandmark_202606181522.mp4' },
+  { label: 'Burger ad',        file: 'Burger_built_Raphio_brandmark_202606181522.mp4' },
+  { label: 'App promo',        file: 'Corporate_app_promo_Raphio_202606181523.mp4' },
 ];
 
 function ActionVideoCard({ item, onOpen, cardRef }) {
@@ -989,7 +997,7 @@ function SeeItInAction() {
   // cards at once, the track runs out of content before the loop point and
   // the right edge goes blank. Recomputed so the track is always at least
   // one full set wider than the viewport, however many copies that takes.
-  const [copies, setCopies] = useState(3);
+  const [copies, setCopies] = useState(2);
 
   useEffect(() => {
     const measure = () => {
@@ -998,7 +1006,7 @@ function SeeItInAction() {
           - firstItemRef.current.getBoundingClientRect().left;
         if (d > 0) {
           setDistance(d);
-          setCopies(Math.max(3, Math.ceil(window.innerWidth / d) + 2));
+          setCopies(Math.max(2, Math.ceil(window.innerWidth / d) + 1));
         }
       }
     };
@@ -1010,7 +1018,7 @@ function SeeItInAction() {
   const sets = Array.from({ length: copies }, (_, i) => i);
 
   return (
-    <section className="py-24" style={{ background: C.bg }}>
+    <section className="py-24" style={{ background: C.bgAlt }}>
       <style>{`
         @keyframes gallery-scroll {
           from { transform: translateX(0); }
