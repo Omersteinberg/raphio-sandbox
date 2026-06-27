@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 
@@ -6,9 +7,17 @@ import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 const ENABLED_MODES = ["image", "references"];
 
 export default function Creator() {
+  const [searchParams] = useSearchParams();
+
+  // When resuming a session (?session=&mode=), the session's own pipeline mode is
+  // authoritative — otherwise the last-selected "new video" mode (localStorage)
+  // renders the wrong creator and the resume drops the user on step 0 of the
+  // wrong pipeline. Read once at mount; resume always remounts via /videos.
+  const resumeMode = searchParams.get("mode");
+
   const [pipelineMode, setPipelineMode] = useState(() => {
+    if (ENABLED_MODES.includes(resumeMode)) return resumeMode;
     const stored = localStorage.getItem("raphio_pipeline_mode");
-    // Ignore stale/disabled modes (e.g. a previously-selected "intro").
     return ENABLED_MODES.includes(stored) ? stored : "image";
   });
 

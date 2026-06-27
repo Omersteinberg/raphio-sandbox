@@ -78,6 +78,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     backgroundMusic,
     setBackgroundMusic,
     startGeneration,
+    generationError,
 
     // Result step
     finalVideoUrl,
@@ -223,6 +224,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
           <GeneratingStep
             session={session.session}
             scriptData={scriptData}
+            generationError={generationError}
+            onRegenerate={startGeneration}
           />
         );
 

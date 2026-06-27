@@ -576,7 +576,9 @@ export default function MyVideosPage() {
   const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
   const handleCardClick = session => {
     if (["COMPLETED","EDITING"].includes(session.stage)) navigate(`/video/${session.id}`);
-    else navigate(`/create?session=${session.id}`);
+    // Resume by the session's OWN pipeline mode — Creator otherwise picks the
+    // last-selected (localStorage) mode and renders the wrong pipeline.
+    else navigate(`/create?session=${session.id}&mode=${session.pipelineMode || 'image'}`);
   };
 
   return (

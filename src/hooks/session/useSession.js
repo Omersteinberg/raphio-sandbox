@@ -199,8 +199,11 @@ export function useSession() {
   // Sync sessionId to URL so refresh restores the session
   useEffect(() => {
     const currentParam = searchParams.get("session");
+    const mode = searchParams.get("mode");
     if (sessionId && currentParam !== sessionId) {
-      setSearchParams({ session: sessionId }, { replace: true });
+      const next = { session: sessionId };
+      if (mode) next.mode = mode; // keep so a refresh still loads the right pipeline
+      setSearchParams(next, { replace: true });
     } else if (!sessionId && currentParam) {
       setSearchParams({}, { replace: true });
     }
@@ -219,6 +222,12 @@ export function useSession() {
           setLoading(true);
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
+            // Wrong creator: this is a references (or other) session — bounce to it.
+            if (data.pipelineMode && data.pipelineMode !== "image"
+                && ["image", "references"].includes(data.pipelineMode)) {
+              navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
+              return;
+            }
             setSessionId(resumeSessionId);
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
@@ -296,12 +305,22 @@ export function useSession() {
   useEffect(() => {
     if (session?.stage) {
       const stageMap = getStageToStep(enableBridges);
-      const newStep = stageMap[session.stage] ?? 0;
+      // Resume/refresh after a failed generation: backend rolled the stage back to
+      // SCRIPT_APPROVED but flagged the Video FAILED. Pin to the generating step so
+      // the failure screen + Regenerate shows instead of silently dropping back.
+      const genFailed =
+        (session.video?.status === "FAILED" || session.video?.progressData?.stage === "FAILED") &&
+        session.stage !== "GENERATING";
+      const generatingStep = enableBridges ? 4 : 3;
+      const newStep = genFailed ? generatingStep : (stageMap[session.stage] ?? 0);
+      if (genFailed && !generationError) {
+        setGenerationError(session.video?.progressData?.error || "Video generation failed. Please try again.");
+      }
       console.log("[useSession] Stage sync effect triggered");
       console.log("[useSession] Current session.stage:", session.stage);
       console.log("[useSession] Mapped to step:", newStep, "(enableBridges:", enableBridges, ")");
       console.log("[useSession] Current step:", step);
-      
+
       if (newStep !== step) {
         console.log("[useSession] Changing step from", step, "to", newStep);
         setDirection(newStep > step ? 1 : -1);
@@ -339,7 +358,8 @@ export function useSession() {
           // on failure, which would bounce the user off the generating screen before
           // they see the error. generationError keeps them here with the message
           // and a Regenerate button.
-          if (updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED") {
+          if ((updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED")
+              && updatedSession.stage !== "GENERATING") {
             clearInterval(pollInterval);
             const msg = updatedSession.video?.progressData?.error || "Video generation failed. Please try again.";
             setGenerationError(msg);
@@ -1158,7 +1178,8 @@ export function useSession() {
         backgroundMusic,
       });
       console.log("[useSession] startGeneration response:", updatedSession);
-      setSession(updatedSession);
+      // Do NOT setSession here — the 202 response is a stub ({message,sessionId,stage}),
+      // not a full session; the poll refreshes the real session within ~5s.
       refreshCredits();
       toast.success("Video generation started!");
     } catch (err) {

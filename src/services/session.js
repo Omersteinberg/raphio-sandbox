@@ -648,11 +648,13 @@ export async function deleteAudioAsset(sessionId, audioId) {
 }
 
 /**
- * Export timeline to final video
+ * Export timeline to final video. The backend now runs the (potentially long)
+ * ffmpeg assembly as a background job and returns 202, so we poll /job-status
+ * until it's done. Resolves with the updated Video (same shape as before).
  */
 export async function exportTimeline(sessionId) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/timeline/export`);
-  return response.data;
+  await axios.post(`${API_BASE}/${sessionId}/timeline/export`); // 202 — starts the job
+  return await pollJobUntilDone(sessionId);
 }
 
 /**

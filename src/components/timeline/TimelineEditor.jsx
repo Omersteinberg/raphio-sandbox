@@ -228,7 +228,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             Back
           </Button>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Timeline Editor</h2>
+            <h2 className="text-lg font-semibold text-foreground">Video Editor</h2>
             <p className="text-xs text-muted-foreground">
               {timeline.duration.toFixed(1)}s total duration
             </p>
@@ -408,7 +408,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             <ul className="space-y-3 text-sm text-foreground">
               <li className="flex items-start gap-3">
                 <Scissors className="w-4 h-4 mt-0.5 flex-shrink-0 text-terra" />
-                <span><span className="font-medium">Double-click a clip</span> to trim it — drag the In/Out handles (or type exact times) and Apply. Trimming only cuts; it never stretches a clip.</span>
+                <span><span className="font-medium">Double-click a clip</span> to trim it. Drag the In/Out handles (or type exact times) and Apply. Trimming only cuts; it never stretches a clip.</span>
               </li>
               <li className="flex items-start gap-3">
                 <Move className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
@@ -432,7 +432,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               </li>
               <li className="flex items-start gap-3">
                 <Clock className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground" />
-                <span><span className="font-medium">Gaps between clips</span> hold the previous clip's last frame while any audio keeps playing — exactly how the exported video will look.</span>
+                <span><span className="font-medium">Gaps between clips</span> hold the previous clip's last frame while any audio keeps playing, exactly how the exported video will look.</span>
               </li>
               <li className="flex items-start gap-3">
                 <Download className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />

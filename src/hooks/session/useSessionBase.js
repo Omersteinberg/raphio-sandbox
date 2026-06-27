@@ -28,7 +28,7 @@ export const STAGES = {
  *   during URL-param resume, so the pipeline hook can restore pipeline-specific state
  *   (e.g. images, character data). Called with (sessionData).
  */
-export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } = {}) {
+export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, expectedMode } = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,12 +58,16 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   const [generationProgress, setGenerationProgress] = useState(null);
   const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
+  const [generationError, setGenerationError] = useState(null);
 
   // ── Sync sessionId to URL so refresh restores the session ──────────
   useEffect(() => {
     const currentParam = searchParams.get("session");
+    const mode = searchParams.get("mode");
     if (sessionId && currentParam !== sessionId) {
-      setSearchParams({ session: sessionId }, { replace: true });
+      const next = { session: sessionId };
+      if (mode) next.mode = mode; // keep so a refresh still loads the right pipeline
+      setSearchParams(next, { replace: true });
     } else if (!sessionId && currentParam) {
       setSearchParams({}, { replace: true });
     }
@@ -78,6 +82,12 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
           setLoading(true);
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
+            // Wrong creator for this session's pipeline — bounce to the right one.
+            if (expectedMode && data.pipelineMode && data.pipelineMode !== expectedMode
+                && ["image", "references"].includes(data.pipelineMode)) {
+              navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
+              return;
+            }
             setSessionId(resumeSessionId);
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
@@ -106,11 +116,28 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   // ── Poll for session updates during generation ─────────────────────
   useEffect(() => {
     let pollInterval;
+    const startedAt = Date.now();
+    const GIVE_UP_MS = 20 * 60 * 1000; // backstop; backend watchdog fails at 15m
 
-    if (sessionId && currentStep === generatingStep) {
+    if (sessionId && currentStep === generatingStep && !generationError) {
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
+
+          // Failed (and the stage has rolled back, so this isn't a fresh re-gen
+          // still pointing at the previous FAILED video). Surface + stop polling.
+          const failed =
+            (updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED") &&
+            updatedSession.stage !== "GENERATING";
+          if (failed) {
+            clearInterval(pollInterval);
+            const msg = updatedSession.video?.progressData?.error || "Video generation failed. Please try again.";
+            setGenerationError(msg);
+            refreshCredits();
+            toast.error(msg);
+            return;
+          }
+
           setSession(updatedSession);
 
           if (updatedSession.stage === "COMPLETED") {
@@ -118,6 +145,15 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
             setFinalVideoUrl(updatedSession.video?.finalVideoUrl);
             refreshCredits();
             toast.success("Video generation complete!");
+            return;
+          }
+
+          if (Date.now() - startedAt > GIVE_UP_MS) {
+            clearInterval(pollInterval);
+            const msg = "Generation is taking longer than expected. Please check back shortly or try again.";
+            setGenerationError(msg);
+            refreshCredits();
+            toast.error(msg);
           }
         } catch (err) {
           console.error("Error polling session:", err);
@@ -128,7 +164,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [sessionId, currentStep, generatingStep]);
+  }, [sessionId, currentStep, generatingStep, generationError]);
 
   // ── Shared callbacks ───────────────────────────────────────────────
 
@@ -210,7 +246,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
         backgroundMusic: config.backgroundMusic !== undefined ? config.backgroundMusic : backgroundMusic,
       });
       console.log("[useSessionBase] startGeneration response:", updatedSession);
-      setSession(updatedSession);
+      // Do NOT setSession here — the 202 response is a stub, not a full session;
+      // the poll refreshes the real session within ~5s.
       refreshCredits();
       toast.success("Video generation started!");
       return { success: true, session: updatedSession };
@@ -443,6 +480,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setGenerationProgress(null);
     setInsufficientCredits(null);
     setFinalVideoUrl(null);
+    setGenerationError(null);
     setError(null);
   }, []);
 
@@ -490,6 +528,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setInsufficientCredits,
     finalVideoUrl,
     setFinalVideoUrl,
+    generationError,
+    setGenerationError,
     dismissInsufficientCredits,
 
     // Shared callbacks

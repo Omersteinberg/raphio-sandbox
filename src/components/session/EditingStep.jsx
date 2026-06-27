@@ -176,7 +176,7 @@ export default function EditingStep({
             className="border-terra text-terra hover:bg-terra/5"
           >
             <Layers className="w-4 h-4 mr-2" />
-            Timeline Editor
+            Video Editor
           </Button>
           <Button
             onClick={handleReassemble}

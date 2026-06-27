@@ -33,6 +33,7 @@ export function useReferencesSession() {
   const base = useSessionBase({
     generatingStep: 5,
     currentStep: step,
+    expectedMode: "references",
     onSessionLoaded: (data) => {
       if (onSessionLoadedRef.current) onSessionLoadedRef.current(data);
     },
@@ -92,7 +93,16 @@ export function useReferencesSession() {
   // ── Sync step with session stage ───────────────────────────────────
   useEffect(() => {
     if (session?.stage) {
-      const newStep = REF_STAGE_TO_STEP[session.stage] ?? 0;
+      // Resume/refresh after a failed generation: backend rolled the stage back to
+      // REF_SCRIPT_APPROVED but flagged the Video FAILED. Pin to the generating
+      // step (5) so the failure screen + Regenerate shows.
+      const genFailed =
+        (session.video?.status === "FAILED" || session.video?.progressData?.stage === "FAILED") &&
+        session.stage !== "GENERATING";
+      const newStep = genFailed ? 5 : (REF_STAGE_TO_STEP[session.stage] ?? 0);
+      if (genFailed && !base.generationError) {
+        base.setGenerationError(session.video?.progressData?.error || "Video generation failed. Please try again.");
+      }
       console.log("[useReferencesSession] Stage sync:", session.stage, "-> step", newStep);
 
       if (newStep !== step) {
@@ -443,6 +453,8 @@ export function useReferencesSession() {
   const startGeneration = useCallback(async () => {
     if (!sessionId) return;
 
+    // Clear any prior failure so the failure screen closes and polling resumes.
+    base.setGenerationError(null);
     setDirection(1);
     setStep(5);
 
