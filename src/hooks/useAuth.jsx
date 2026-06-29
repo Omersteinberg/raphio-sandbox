@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { checkAuth, login as apiLogin, register as apiRegister, logout as apiLogout } from '../api/auth';
+import {
+  checkAuth,
+  login as apiLogin,
+  loginWithGoogle as apiLoginWithGoogle,
+  register as apiRegister,
+  logout as apiLogout,
+} from '../api/auth';
 import { getBalance } from '../services/credits';
 
 const AuthContext = createContext(null);
@@ -35,6 +41,12 @@ export function AuthProvider({ children }) {
     refreshCredits,
     login: async (username, password) => {
       const user = await apiLogin(username, password);
+      setUser(user);
+      refreshCredits();
+      return user;
+    },
+    googleLogin: async (credential) => {
+      const user = await apiLoginWithGoogle(credential);
       setUser(user);
       refreshCredits();
       return user;
