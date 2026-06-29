@@ -14,10 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 import { getSession, enterEditingMode } from "@/services/session";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 export default function VideoDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -85,6 +87,13 @@ export default function VideoDetailPage() {
   };
 
   const handleEditVideo = async () => {
+    // Mobile uses a dedicated editor route that mounts the touch editor directly
+    // on top of useTimeline, bypassing the Creator/useSession wizard (which loops
+    // on mobile). Desktop keeps the full wizard → timeline flow.
+    if (isMobile) {
+      navigate(`/video/${id}/edit`);
+      return;
+    }
     try {
       await enterEditingMode(id);
       navigate(`/create?session=${id}`);
@@ -160,12 +169,20 @@ export default function VideoDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-black rounded-2xl overflow-hidden shadow-2xl mb-8"
           >
-            <video
-              src={finalVideoUrl}
-              controls
-              className="w-full aspect-video"
-              poster={video?.sections?.[0]?.imageUrl}
-            />
+            {finalVideoUrl ? (
+              <video
+                src={finalVideoUrl}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full aspect-video"
+                poster={video?.sections?.[0]?.imageUrl}
+              />
+            ) : (
+              <div className="w-full aspect-video flex items-center justify-center text-white/60 text-sm">
+                Your video isn't ready to play yet.
+              </div>
+            )}
           </motion.div>
 
           {/* Video Info */}
