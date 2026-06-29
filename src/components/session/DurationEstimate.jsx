@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Clock, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
 import { estimateDuration as fetchEstimate } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
-import { CREDITS_PER_CLIP } from "@/lib/limits";
+import { creditsForDuration } from "@/lib/limits";
 
 // Visual treatment per estimate status. needs_ai_fill splits on whether AI fill
 // is currently enabled (info-blue when it'll close the gap, amber when the video
@@ -92,7 +92,8 @@ export default function DurationEstimate({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageCount, targetDuration, enableBridges]);
 
-  const requiredCredits = estimate ? (estimate.contentScenes ?? 0) * CREDITS_PER_CLIP : 0;
+  // Cost tracks the duration the user selected, not the scene/clip count.
+  const requiredCredits = creditsForDuration(targetDuration);
   // Unknown balance or no cost yet => treat as affordable so we never block prematurely.
   const affordable = credits == null || requiredCredits <= 0 || credits >= requiredCredits;
   useEffect(() => {
@@ -156,8 +157,8 @@ export default function DurationEstimate({
             style={{ color: affordable ? s.text : "#C2410C" }}
           >
             {affordable
-              ? `Costs ${requiredCredits} credit${requiredCredits !== 1 ? "s" : ""} — you have ${credits}`
-              : `Needs ${requiredCredits} credits — you have ${credits ?? 0}`}
+              ? `Costs ${requiredCredits} credit${requiredCredits !== 1 ? "s" : ""}, you have ${credits}`
+              : `Needs ${requiredCredits} credits, you have ${credits ?? 0}`}
           </span>
           {!affordable && (
             <button

@@ -568,6 +568,16 @@ export default function PromptStep({
     durationStatus === 'needs_ai_fill' ||
     durationStatus === 'no_target' ||
     durationStatus === 'error';
+
+  // AI bridge clips only make sense when there aren't enough images to fill the
+  // chosen length. Once the images meet or exceed the budget, lock the toggle off
+  // so the user can't add AI filler clips they don't need.
+  const hasEnoughImages =
+    durationStatus === 'exact_fit' || durationStatus === 'too_many_images';
+  useEffect(() => {
+    if (hasEnoughImages && enableBridges) setEnableBridges?.(false);
+  }, [hasEnoughImages, enableBridges, setEnableBridges]);
+
   const canStart = isReferencesMode
     ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
     : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
@@ -1427,10 +1437,11 @@ export default function PromptStep({
                       {/* Smooth Scene Transitions toggle */}
                       {setEnableBridges && (
                         <button
-                          onClick={() => setEnableBridges(!enableBridges)}
+                          onClick={() => { if (!hasEnoughImages) setEnableBridges(!enableBridges); }}
                           aria-pressed={enableBridges}
+                          disabled={hasEnoughImages}
                           className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-colors text-left"
-                          style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
+                          style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)', opacity: hasEnoughImages ? 0.55 : 1, cursor: hasEnoughImages ? 'not-allowed' : 'pointer' }}
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -1446,7 +1457,9 @@ export default function PromptStep({
                             <div>
                               <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
                               <span className="text-xs text-stone-400 block leading-relaxed">
-                                Generate extra AI frames between your images for smoother cuts
+                                {hasEnoughImages
+                                  ? "Your images already fill the video, so no AI clips are needed."
+                                  : "Generate extra AI frames between your images for smoother cuts."}
                               </span>
                             </div>
                           </div>

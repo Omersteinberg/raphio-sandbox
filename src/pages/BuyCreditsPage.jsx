@@ -61,9 +61,10 @@ const TIERS = [
 ];
 
 const COST_TABLE = [
-  { label: 'Up to 15s', clips: 3, credits: 3 },
-  { label: '16s – 30s', clips: 6, credits: 6 },
-  { label: '31s – 60s', clips: 12, credits: 12 },
+  { label: '15s', credits: 3 },
+  { label: '30s', credits: 6 },
+  { label: '45s', credits: 9 },
+  { label: '60s', credits: 12 },
 ];
 
 const TRUST = [
@@ -355,12 +356,11 @@ export default function BuyCreditsPage() {
                 <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
                 <p className="text-xs font-semibold" style={{ color: C.charcoal }}>credits</p>
                 <p className="text-xs mt-0.5" style={{ color: C.muted }}>{row.label}</p>
-                <p className="text-xs mt-0.5" style={{ color: C.muted }}>({row.clips} clips)</p>
               </div>
             ))}
           </div>
           <p className="text-xs text-center mt-3" style={{ color: C.muted }}>
-            1 credit per clip (~5s) — shorter videos cost less.
+            Credits are based on the video length you choose, not the number of clips.
           </p>
         </motion.div>
 
@@ -369,7 +369,7 @@ export default function BuyCreditsPage() {
           className="text-center py-4 rounded-2xl"
           style={{ background: C.faint, border: `1px solid ${C.cardBorder}` }}>
           <p className="text-sm font-semibold mb-1" style={{ color: C.charcoal }}>Not sure yet?</p>
-          <p className="text-xs mb-3" style={{ color: C.muted }}>Start with free credits to explore the platform — no card needed.</p>
+          <p className="text-xs mb-3" style={{ color: C.muted }}>Start with free credits to explore the platform. No card needed.</p>
           <button onClick={() => navigate('/create')}
             className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
             style={{ color: C.terra }}>

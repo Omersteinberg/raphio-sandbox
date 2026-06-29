@@ -5,9 +5,9 @@ import { Sparkles } from "lucide-react";
 const SUB_STEPS = [
   { id: "session",  label: "Setting up your session", range: [0, 15]  },
   { id: "upload",   label: "Uploading your images",   range: [15, 40] },
-  { id: "analyze",  label: "Analyzing images",         range: [40, 70] },
-  { id: "restyle",  label: "Restyling images",         range: [70, 85] },
-  { id: "script",   label: "Generating script",        range: [85, 100] },
+  { id: "analyze",  label: "Analyzing images",         range: [40, 55] },
+  { id: "restyle",  label: "Restyling images",         range: [55, 70] },
+  { id: "script",   label: "Generating script",        range: [70, 100] },
 ];
 
 function getStatus(range, progress) {

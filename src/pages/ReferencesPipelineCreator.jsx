@@ -213,6 +213,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             backgroundMusic={backgroundMusic}
             setBackgroundMusic={setBackgroundMusic}
             sceneFrames={sceneFrames}
+            targetDuration={targetDuration}
             onStartGeneration={startGeneration}
             loading={loading}
             insufficientCredits={insufficientCredits}

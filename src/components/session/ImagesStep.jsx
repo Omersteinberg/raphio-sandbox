@@ -92,7 +92,7 @@ export default function ImagesStep({
 
         {!isUploaded && (
           <p className="text-xs text-ink-muted mb-4">
-            Up to {MAX_IMAGES} images per video · 1 credit per clip
+            Up to {MAX_IMAGES} images per video · cost depends on length
             {" · "}
             <span className={`font-semibold ${atCap ? "text-terra" : "text-ink/80"}`}>
               {images?.length ?? 0} / {MAX_IMAGES}

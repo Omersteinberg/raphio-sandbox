@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
-import { MAX_IMAGES, CREDITS_PER_CLIP } from "@/lib/limits";
+import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
@@ -412,7 +412,8 @@ export function useSession() {
       return;
     }
 
-    if (credits != null && credits < CREDITS_PER_CLIP) {
+    const requiredCredits = creditsForDuration(targetDuration);
+    if (credits != null && requiredCredits > 0 && credits < requiredCredits) {
       try {
         // Convert File objects to base64 strings for IndexedDB serialization
         const imagesToSave = await Promise.all(
@@ -438,7 +439,7 @@ export function useSession() {
       } catch (err) {
         console.warn("[useSession] Failed to save pending session:", err);
       }
-      toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video — your work is saved.`);
+      toast.info(`You need ${requiredCredits} credits for a ${targetDuration}s video. Your work is saved.`);
       navigate("/buy-credits");
       return;
     }
@@ -675,7 +676,33 @@ export function useSession() {
       console.log("[useSession] Generating script...");
       console.log("[useSession] Frame options:", frameOptions);
       setScriptProgress(75);
-      const sessionAfterScript = await sessionService.generateOutline(targetSessionId, frameOptions);
+
+      // Script generation is a single backend job that runs several sequential
+      // LLM passes (classify → write → refine → QA). The backend now reports a
+      // sub-stage % via jobProgress; map it into the 75–98 band. Between those
+      // milestones, gently creep the bar (decelerating toward 98) so it never
+      // looks frozen during a long single pass. A real milestone snaps it ahead.
+      let scriptCreep = 75;
+      const applyCreep = (value) => {
+        scriptCreep = Math.max(scriptCreep, value);
+        const v = Math.round(scriptCreep);
+        setScriptProgress((prev) => Math.max(prev, v));
+      };
+      const creepTimer = setInterval(() => applyCreep(scriptCreep + (98 - scriptCreep) * 0.02), 500);
+
+      let sessionAfterScript;
+      try {
+        sessionAfterScript = await sessionService.generateOutline(targetSessionId, frameOptions, {
+          onProgress: (jobProgress) => {
+            if (jobProgress && typeof jobProgress.percentage === "number") {
+              // backend 0–100 → overall 75–98
+              applyCreep(75 + (jobProgress.percentage / 100) * 23);
+            }
+          },
+        });
+      } finally {
+        clearInterval(creepTimer);
+      }
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
       setScriptData(sessionAfterScript.scriptData);
@@ -720,7 +747,7 @@ export function useSession() {
         } catch (saveErr) {
           console.warn("[useSession] Failed to save pending on 402:", saveErr);
         }
-        toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video — your work is saved.`);
+        toast.info(`You need ${creditsForDuration(targetDuration)} credits for a ${targetDuration}s video. Your work is saved.`);
         navigate('/buy-credits');
       } else {
         toast.error(err.response?.data?.error || "Failed to start session");

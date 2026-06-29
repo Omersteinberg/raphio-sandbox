@@ -131,7 +131,7 @@ export default function AppHeader() {
             e.currentTarget.style.background = isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)';
             e.currentTarget.style.color = isLow ? '#C1440E' : '#7A6A62';
           }}
-          title={isLow ? 'Running low — top up credits' : 'Buy more credits'}
+          title={isLow ? 'Running low, top up credits' : 'Buy more credits'}
         >
           <Zap className="w-3 h-3" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
           <span>{credits ?? '...'}</span>

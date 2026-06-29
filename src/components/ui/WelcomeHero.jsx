@@ -421,7 +421,7 @@ function WelcomeEmptyState({ username, onCreateClick }) {
           letterSpacing:'-0.025em', lineHeight:1.1,
           marginBottom:14,
         }}>
-          Hey {firstName} —<br/>
+          Hey {firstName} <br/>
           <span style={{ color:C.terra }}>start creating.</span>
         </h2>
 

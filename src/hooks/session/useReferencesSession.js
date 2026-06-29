@@ -5,7 +5,7 @@ import * as referenceApi from "@/services/reference";
 import { fetchStyles } from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
-import { CREDITS_PER_CLIP } from "@/lib/limits";
+import { creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 
 // Map backend references-pipeline stages to frontend step numbers
@@ -181,8 +181,9 @@ export function useReferencesSession() {
       }
     }
 
-    if (credits != null && credits < CREDITS_PER_CLIP) {
-      toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video.`);
+    const requiredCredits = creditsForDuration(targetDuration);
+    if (credits != null && requiredCredits > 0 && credits < requiredCredits) {
+      toast.info(`You need ${requiredCredits} credits for a ${targetDuration}s video.`);
       navigate("/buy-credits");
       return;
     }
@@ -268,7 +269,7 @@ export function useReferencesSession() {
       setStep(0);
       setError(err.message);
       if (err.response?.status === 402) {
-        toast.info(`You need at least ${CREDITS_PER_CLIP} credits per clip to generate a video.`);
+        toast.info(`You need ${creditsForDuration(targetDuration)} credits for a ${targetDuration}s video.`);
         navigate("/buy-credits");
       } else {
         toast.error(err.response?.data?.error || "Failed to start references session");

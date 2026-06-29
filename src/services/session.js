@@ -282,19 +282,26 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
  * @param {string} frameOptions.closingImageUrl - User image URL for closing
  * @param {string} frameOptions.closingNarration - Custom narration for closing
  */
-export async function generateScript(sessionId, frameOptions = null) {
+export async function generateScript(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
   await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202 — starts the job
-  return await pollJobUntilDone(sessionId);
+  return await pollJobUntilDone(sessionId, {
+    onProgress: (status) => options.onProgress?.(status.jobProgress),
+  });
 }
 
 /**
- * Generate story outline with bridge frame proposals
+ * Generate story outline with bridge frame proposals.
+ * @param {object} [options]
+ * @param {(progress: {percentage:number,label:string}|null) => void} [options.onProgress]
+ *   Called on each poll with the backend's current sub-stage progress (or null).
  */
-export async function generateOutline(sessionId, frameOptions = null) {
+export async function generateOutline(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
   await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202 — starts the job
-  return await pollJobUntilDone(sessionId);
+  return await pollJobUntilDone(sessionId, {
+    onProgress: (status) => options.onProgress?.(status.jobProgress),
+  });
 }
 
 /**

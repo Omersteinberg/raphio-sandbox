@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import VoiceSelector from './VoiceSelector';
-import { CREDITS_PER_CLIP } from '@/lib/limits';
+import { creditsForDuration } from '@/lib/limits';
 
 export default function VoiceConfigStep({
   voiceId,
@@ -8,12 +8,14 @@ export default function VoiceConfigStep({
   backgroundMusic,
   setBackgroundMusic,
   sceneFrames,
+  targetDuration,
   onStartGeneration,
   loading,
   insufficientCredits,
 }) {
   const clipCount = sceneFrames?.length || 0;
-  const totalCredits = clipCount * CREDITS_PER_CLIP;
+  // Cost is priced by the selected video duration, not the clip count.
+  const totalCredits = creditsForDuration(targetDuration);
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -56,12 +58,12 @@ export default function VoiceConfigStep({
         <div className="bg-surface-alt border border-border rounded-xl p-5">
           <h3 className="text-lg font-medium text-ink mb-2">Generation Summary</h3>
           <ul className="text-ink-muted text-sm space-y-1">
-            <li>{clipCount} {clipCount === 1 ? 'clip' : 'clips'} will be generated from your scene frames (~5s each)</li>
+            <li>{clipCount} {clipCount === 1 ? 'scene' : 'scenes'} will be generated from your scene frames</li>
             <li>Narration will be generated for all scenes</li>
             {backgroundMusic && <li>Background music will be generated</li>}
             <li>Final video will be assembled automatically</li>
           </ul>
-          <p className="text-ink-muted text-xs mt-3">Cost: {totalCredits} {totalCredits === 1 ? 'credit' : 'credits'} ({clipCount} {clipCount === 1 ? 'clip' : 'clips'} × {CREDITS_PER_CLIP} credit{CREDITS_PER_CLIP === 1 ? '' : 's'})</p>
+          <p className="text-ink-muted text-xs mt-3">Cost: {totalCredits} {totalCredits === 1 ? 'credit' : 'credits'} for your {targetDuration}s video (based on length, not clip count)</p>
         </div>
 
         {/* Generate Button */}
@@ -71,7 +73,7 @@ export default function VoiceConfigStep({
           className="w-full disabled:opacity-50 text-white font-medium py-3 rounded-xl"
           style={{ background: "var(--gradient-brand)" }}
         >
-          {loading ? 'Starting Generation...' : `Generate Video (${clipCount} credits)`}
+          {loading ? 'Starting Generation...' : `Generate Video (${totalCredits} credits)`}
         </button>
       </motion.div>
     </div>
