@@ -53,6 +53,21 @@ export async function login(username, password) {
   return data.user;
 }
 
+// Login or register with Google Identity Services credential
+export async function loginWithGoogle(credential) {
+  const res = await fetch(`${API_URL}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+
+  setToken(data.token);
+  return data.user;
+}
+
 // Get current user (protected)
 export async function getMe() {
   const res = await fetch(`${API_URL}/auth/me`, {
