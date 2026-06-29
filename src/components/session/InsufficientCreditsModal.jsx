@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { saveReturnTo } from '@/lib/returnTo';
 
 export default function InsufficientCreditsModal({ required, available, onClose }) {
   const navigate = useNavigate();
@@ -43,7 +44,10 @@ export default function InsufficientCreditsModal({ required, available, onClose 
             Cancel
           </Button>
           <Button
-            onClick={() => navigate('/buy-credits')}
+            onClick={() => {
+              saveReturnTo(window.location.pathname + window.location.search);
+              navigate('/buy-credits');
+            }}
             className="flex-1"
           >
             Buy Credits

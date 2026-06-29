@@ -13,6 +13,8 @@ import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
+import { useNavigate } from "react-router-dom";
+import { saveReturnTo } from "@/lib/returnTo";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -458,6 +460,14 @@ export default function PromptStep({
   // Latest duration-vs-image-count status reported by <DurationEstimate>.
   // `null` = pending/unknown (CTA stays blocked until an estimate resolves).
   const [durationStatus, setDurationStatus] = useState(null);
+  // Affordability reported by <DurationEstimate>. Defaults true so the CTA isn't
+  // blocked before an estimate resolves; flips false only when cost > balance.
+  const [affordable, setAffordable] = useState(true);
+  const navigate = useNavigate();
+  const handleTopUp = () => {
+    saveReturnTo(window.location.pathname + window.location.search);
+    navigate("/buy-credits");
+  };
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
   const ctaRef = useRef(null);
@@ -560,7 +570,7 @@ export default function PromptStep({
     durationStatus === 'error';
   const canStart = isReferencesMode
     ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
-    : userPrompt?.trim() && images?.length > 0 && durationOk;
+    : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
 
@@ -1782,6 +1792,8 @@ export default function PromptStep({
               onUploadMore={() => fileInputRef.current?.click()}
               onRemoveImages={handleRemoveImages}
               onStatusChange={setDurationStatus}
+              onAffordableChange={setAffordable}
+              onTopUp={handleTopUp}
             />
           )}
 

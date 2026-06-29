@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion,  AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { createCheckoutSession } from '../services/credits';
+import { takeReturnTo } from '../lib/returnTo';
 import { Button } from '../components/ui/button';
 import {
   CheckCircle, XCircle, ArrowLeft, Sparkles,
@@ -78,12 +79,14 @@ export default function BuyCreditsPage() {
   const [loadingTier, setLoadingTier] = useState(null);
   const [hoveredTier, setHoveredTier] = useState(null);
   const [error, setError] = useState('');
+  const [returnPath, setReturnPath] = useState(null);
 
   const success  = searchParams.get('success');
   const canceled = searchParams.get('canceled');
 
   useEffect(() => {
     if (success !== 'true') return;
+    setReturnPath(takeReturnTo());
     let attempts = 0;
     const poll = setInterval(async () => {
       await refreshCredits();
@@ -98,7 +101,7 @@ export default function BuyCreditsPage() {
     setError('');
     try {
       const { url } = await createCheckoutSession(tier.stripeId);
-      window.open(url, '_blank');
+      window.location.href = url;
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to start checkout');
     } finally {
@@ -121,10 +124,10 @@ export default function BuyCreditsPage() {
           </motion.div>
           <h2 className="text-2xl font-bold mb-2" style={{ color: C.charcoal }}>Credits Added!</h2>
           <p className="text-sm mb-1" style={{ color: C.muted }}>Time to create something great.</p>
-          <Button onClick={() => navigate('/create')}
+          <Button onClick={() => navigate(returnPath || '/create')}
             className="w-full text-white rounded-xl py-6 text-base font-bold border-0 mt-4"
             style={{ background: `linear-gradient(135deg, ${C.terra}, ${C.terraLight})` }}>
-            Start Creating
+            {returnPath ? 'Continue where you left off' : 'Start Creating'}
           </Button>
         </motion.div>
       </div>

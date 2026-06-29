@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Clock, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
 import { estimateDuration as fetchEstimate } from "@/services/session";
+import { useAuth } from "@/hooks/useAuth.jsx";
+import { CREDITS_PER_CLIP } from "@/lib/limits";
 
 // Visual treatment per estimate status. needs_ai_fill splits on whether AI fill
 // is currently enabled (info-blue when it'll close the gap, amber when the video
@@ -27,22 +29,22 @@ export default function DurationEstimate({
   onUploadMore,
   onRemoveImages,
   onStatusChange,
+  onAffordableChange,
+  onTopUp,
 }) {
+  const { credits } = useAuth();
   const [estimate, setEstimate] = useState(null);
   const timerRef = useRef(null);
-  // Opt-out tracking for the auto-fill behaviour. A ref (not state) because the
-  // debounced async callback must read the current value, and every path that
-  // flips it also re-fetches the estimate, which re-renders the banner anyway.
-  const optedOutRef = useRef(false);
-  const prevStatusRef = useRef(null);
-  const setOpted = (v) => {
-    optedOutRef.current = v;
-  };
+  // Track the user-facing inputs (image count + target duration) so we can tell an
+  // INPUT change from a mere toggle change. The estimate auto-drives the AI-bridge
+  // on/off only on input changes, so a manual toggle is respected until the user next
+  // changes images or duration.
+  const prevInputsRef = useRef({ imageCount: null, targetDuration: null });
 
   useEffect(() => {
     if (!imageCount || imageCount <= 0) {
       setEstimate(null);
-      prevStatusRef.current = null;
+      prevInputsRef.current = { imageCount: null, targetDuration: null };
       onStatusChange?.(null);
       return;
     }
@@ -63,18 +65,24 @@ export default function DurationEstimate({
       setEstimate(data);
       onStatusChange?.(data.status);
 
-      // Auto-fill only when short: engage AI fill on the leading edge of a
-      // shortage (not every render — that would fight a manual toggle), unless
-      // the user has explicitly opted out of filling this gap.
-      const wasShort = prevStatusRef.current === "needs_ai_fill";
-      prevStatusRef.current = data.status;
-      if (data.status === "needs_ai_fill") {
-        if (!wasShort && !enableBridges && !optedOutRef.current) {
-          onToggleAiFill?.(true);
+      // The estimate drives the AI-bridge toggle: ON when there's a gap to fill, OFF
+      // when the images already meet/exceed the target. Apply this only when the
+      // INPUTS changed (image count or duration) — never on a bare toggle change — so
+      // a manual on/off sticks until the user next changes images or duration.
+      // (no_target / no_images: leave the toggle as the user set it.)
+      const inputsChanged =
+        prevInputsRef.current.imageCount !== imageCount ||
+        prevInputsRef.current.targetDuration !== targetDuration;
+      prevInputsRef.current = { imageCount, targetDuration };
+
+      if (inputsChanged) {
+        const GAP_STATUSES = ["needs_ai_fill", "exact_fit", "too_many_images"];
+        if (GAP_STATUSES.includes(data.status)) {
+          const shouldFill = data.status === "needs_ai_fill";
+          if (shouldFill !== enableBridges) {
+            onToggleAiFill?.(shouldFill);
+          }
         }
-      } else if (optedOutRef.current) {
-        // Shortage resolved — clear opt-out so a future gap can auto-fill again.
-        setOpted(false);
       }
     }, 300);
     return () => clearTimeout(timerRef.current);
@@ -84,6 +92,16 @@ export default function DurationEstimate({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageCount, targetDuration, enableBridges]);
 
+  const requiredCredits = estimate ? (estimate.contentScenes ?? 0) * CREDITS_PER_CLIP : 0;
+  // Unknown balance or no cost yet => treat as affordable so we never block prematurely.
+  const affordable = credits == null || requiredCredits <= 0 || credits >= requiredCredits;
+  useEffect(() => {
+    onAffordableChange?.(affordable);
+    // onAffordableChange is an inline parent callback (new identity each render);
+    // re-run only when affordability actually flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [affordable]);
+
   if (!estimate || estimate.status === "no_images") return null;
 
   const handleOption = (opt) => {
@@ -92,11 +110,9 @@ export default function DurationEstimate({
         onSetDuration?.(opt.value);
         break;
       case "enable_ai_fill":
-        setOpted(false);
         onToggleAiFill?.(true);
         break;
       case "disable_ai_fill":
-        setOpted(true);
         onToggleAiFill?.(false);
         break;
       case "upload_more":
@@ -133,6 +149,27 @@ export default function DurationEstimate({
           {estimate.message}
         </p>
       </div>
+      {requiredCredits > 0 && (
+        <div className="flex items-center justify-between gap-2 pl-6">
+          <span
+            className="text-[11px] font-bold"
+            style={{ color: affordable ? s.text : "#C2410C" }}
+          >
+            {affordable
+              ? `Costs ${requiredCredits} credit${requiredCredits !== 1 ? "s" : ""} — you have ${credits}`
+              : `Needs ${requiredCredits} credits — you have ${credits ?? 0}`}
+          </span>
+          {!affordable && (
+            <button
+              onClick={() => onTopUp?.()}
+              className="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
+              style={{ background: "#C1440E" }}
+            >
+              Top up
+            </button>
+          )}
+        </div>
+      )}
       {visibleOptions.length > 0 && (
         <div className="flex flex-wrap gap-2 pl-6">
           {visibleOptions.map((opt) => (
