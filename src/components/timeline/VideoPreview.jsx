@@ -37,18 +37,10 @@ export default function VideoPreview({
     return playheadPosition >= item.startTime && playheadPosition < end;
   });
 
-  // In a gap (no active clip), hold the most recently-ended clip's last frame —
-  // matching the exported video's freeze-fill. Before the first clip there's
-  // nothing to hold, so the preview stays black.
-  const heldVideo = activeVideo
-    ? null
-    : items
-        .filter((item) => item.startTime + item.duration <= playheadPosition)
-        .sort((a, b) => a.startTime + a.duration - (b.startTime + b.duration))
-        .pop() || null;
-
-  const displayVideo = activeVideo || heldVideo;
-  const isHeld = !activeVideo && !!heldVideo;
+  // A gap (no clip under the playhead) renders as black, just like a real video
+  // editor — empty timeline space is treated as intentional, not filled by
+  // holding the previous frame. This matches the exported video's black-fill.
+  const displayVideo = activeVideo || null;
   const displaySection = displayVideo?.sectionId ? getSection(displayVideo.sectionId) : null;
   const currentThumbnail = displaySection?.imageUrl || null;
 
@@ -82,31 +74,31 @@ export default function VideoPreview({
       if (!el) return;
 
       if (displayVideo && item.id === displayVideo.id) {
-        if (isHeld) {
-          // Freeze on the clip's last kept frame; never play during a gap.
-          const endSource =
-            item.trimEnd != null ? item.trimEnd : (item.trimStart || 0) + item.duration;
-          const target = Math.max(0, endSource - 0.05);
-          if (Math.abs(el.currentTime - target) > 0.1) {
-            try { el.currentTime = target; } catch (_) {}
-          }
-          if (!el.paused) el.pause();
-        } else {
-          const sourceTime = playheadPosition - item.startTime + (item.trimStart || 0);
-          if (Math.abs(el.currentTime - sourceTime) > 0.3) {
-            try { el.currentTime = sourceTime; } catch (_) {}
-          }
-          if (isPlaying && el.paused) {
-            el.play().catch(() => {});
-          } else if (!isPlaying && !el.paused) {
-            el.pause();
-          }
+        const speed = item.speed || 1;
+        if (el.playbackRate !== speed) el.playbackRate = speed;
+        // Source advances `speed`× per timeline second.
+        const sourceTime = (playheadPosition - item.startTime) * speed + (item.trimStart || 0);
+        if (Math.abs(el.currentTime - sourceTime) > 0.3) {
+          try { el.currentTime = sourceTime; } catch (_) {}
         }
-      } else if (!el.paused) {
-        el.pause();
+        if (isPlaying && el.paused) {
+          el.play().catch(() => {});
+        } else if (!isPlaying && !el.paused) {
+          el.pause();
+        }
+      } else {
+        // Non-active clip: pause it AND keep it parked at its in-point, so when
+        // the playhead crosses into it (a cut / split) the element is already on
+        // the right frame — no seek, no stall, a seamless handoff. Only re-seek
+        // when it has drifted and isn't already seeking, so this doesn't thrash.
+        if (!el.paused) el.pause();
+        const inPoint = item.trimStart || 0;
+        if (!el.seeking && Math.abs(el.currentTime - inPoint) > 0.25) {
+          try { el.currentTime = inPoint; } catch (_) {}
+        }
       }
     });
-  }, [items, displayVideo, isHeld, playheadPosition, isPlaying]);
+  }, [items, displayVideo, playheadPosition, isPlaying]);
 
   // --- Audio: every active audio item plays simultaneously (narration + music + uploads) ---
   useEffect(() => {
@@ -118,7 +110,8 @@ export default function VideoPreview({
       const active = playheadPosition >= item.startTime && playheadPosition < end;
 
       if (active) {
-        const sourceTime = playheadPosition - item.startTime + (item.trimStart || 0);
+        const speed = item.speed || 1;
+        const sourceTime = (playheadPosition - item.startTime) * speed + (item.trimStart || 0);
         // The clip's slot can outlast its actual audio. Once the playhead is
         // past the real audio length, keep it silent instead of replaying the
         // finished element from the start (which would loop quietly).
@@ -126,6 +119,7 @@ export default function VideoPreview({
         if (pastEnd) {
           if (!el.paused) el.pause();
         } else {
+          if (el.playbackRate !== speed) el.playbackRate = speed;
           // Lenient drift correction for audio: re-seeking mid-playback causes
           // audible clicks, so only correct large drift and otherwise let it play.
           if (Math.abs(el.currentTime - sourceTime) > 0.5) {
@@ -193,8 +187,11 @@ export default function VideoPreview({
         );
       })}
 
-      {/* Fallback when nothing is revealed yet (before the first clip / cold load) */}
-      {!hasShown &&
+      {/* When no clip is revealed (a gap, before the first clip, or a cold load)
+          the black background shows through. While playing we leave it pure
+          black so playback through a gap doesn't flash a hint; when paused or
+          scrubbing we show a placeholder so the user knows the spot is empty. */}
+      {!hasShown && !isPlaying &&
         (currentThumbnail ? (
           <img
             src={currentThumbnail}

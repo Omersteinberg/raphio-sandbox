@@ -122,11 +122,11 @@ export default function GeneratingStep({ session, scriptData, generationError, o
 
   if (failed) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-8">
+      <div className="w-full h-full flex flex-col items-center overflow-y-auto px-4 py-6 md:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-lg text-center"
+          className="w-full max-w-lg text-center my-auto"
         >
           <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
             <Film className="w-10 h-10 text-red-500" />
@@ -153,11 +153,11 @@ export default function GeneratingStep({ session, scriptData, generationError, o
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+    <div className="w-full h-full flex flex-col items-center overflow-y-auto px-4 py-6 md:p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg"
+        className="w-full max-w-lg my-auto"
       >
         {/* Header */}
         <div className="text-center mb-8">

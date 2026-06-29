@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Music, ArrowRight, Zap, ChevronDown, Check } from "lucide-react";
+import { Mic, Music, ArrowRight, Zap, ChevronDown, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import VoiceSelector from "./VoiceSelector";
 
 export default function FramesStep({
@@ -15,6 +16,9 @@ export default function FramesStep({
   startGeneration,
 }) {
   const [expandedSection, setExpandedSection] = useState(null);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  // On phones the voice list opens in a modal instead of an inline accordion.
+  const isMobile = useIsMobile();
 
   const toggleSection = (section) => {
     setExpandedSection((prev) => (prev === section ? null : section));
@@ -43,7 +47,7 @@ export default function FramesStep({
         {/* Narration Voice Accordion */}
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           <button
-            onClick={() => toggleSection("voice")}
+            onClick={() => (isMobile ? setVoiceModalOpen(true) : toggleSection("voice"))}
             className="w-full flex items-center justify-between p-4 hover:bg-surface-alt transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -73,7 +77,7 @@ export default function FramesStep({
           </button>
 
           <AnimatePresence initial={false}>
-            {expandedSection === "voice" && (
+            {!isMobile && expandedSection === "voice" && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -148,6 +152,44 @@ export default function FramesStep({
           </ul>
         </div>
       </div>
+
+      {/* Mobile voice picker modal */}
+      <AnimatePresence>
+        {isMobile && voiceModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
+            onClick={() => setVoiceModalOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <h3 className="text-base font-semibold text-ink">Choose a voice</h3>
+                <button onClick={() => setVoiceModalOpen(false)} aria-label="Close" className="text-ink-muted">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <VoiceSelector value={voiceId} onChange={setVoiceId} />
+              </div>
+              <Button
+                onClick={() => setVoiceModalOpen(false)}
+                className="w-full mt-4 text-white border-0 shrink-0"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                Done
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
 
 const SNAP_THRESHOLD_PX = 8; // Snap within 8 pixels
+const MIN_DURATION = 0.5; // Shortest a clip can be trimmed to (seconds)
 
 export default function TimelineCanvas({
   videoItems,
@@ -38,6 +39,18 @@ export default function TimelineCanvas({
   // Split audio items into narration (trackIndex 0) and music (trackIndex 1)
   const narrationItems = audioItems.filter((i) => i.trackIndex !== 1);
   const musicItems = audioItems.filter((i) => i.trackIndex === 1);
+
+  // Underlying source length for a clip — used to clamp trimming.
+  const getSourceDuration = (item) => {
+    if (item.trackType === "VIDEO") {
+      const s = item.sectionId ? getSection(item.sectionId) : null;
+      return s?.clipDuration || (item.trimStart || 0) + item.duration;
+    }
+    const a = item.audioAssetId ? getAudioAsset(item.audioAssetId) : null;
+    if (a?.duration) return a.duration;
+    const s = item.sectionId ? getSection(item.sectionId) : null;
+    return s?.narrationDuration ?? s?.clipDuration ?? ((item.trimStart || 0) + item.duration);
+  };
 
   // Get all snap points for the track the dragged item belongs to
   const getSnapPoints = useCallback(
@@ -212,14 +225,38 @@ export default function TimelineCanvas({
       };
     }
 
+    if (dragType === "trim-end") {
+      const sourceDuration = getSourceDuration(dragItem);
+      const ts = dragItem.trimStart || 0;
+      const newDuration = Math.max(MIN_DURATION, Math.min(dragStartValue + deltaTime, sourceDuration - ts));
+      return { itemId: dragItem.id, previewStartTime: dragItem.startTime, previewDuration: newDuration };
+    }
+
+    if (dragType === "trim-start") {
+      // Right edge stays fixed: trimming the in-point moves startTime and shrinks duration.
+      const te = dragItem.trimEnd ?? ((dragItem.trimStart || 0) + dragItem.duration);
+      const newTrimStart = Math.max(0, Math.min(dragStartValue + deltaTime, te - MIN_DURATION));
+      const delta = newTrimStart - (dragItem.trimStart || 0);
+      return {
+        itemId: dragItem.id,
+        previewStartTime: Math.max(0, dragItem.startTime + delta),
+        previewDuration: te - newTrimStart,
+      };
+    }
+
     return null;
-  }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond, findSnapTarget]);
+  }, [isDragging, dragItem, dragType, dragOffset, dragStartValue, pixelsPerSecond, findSnapTarget, getSection, getAudioAsset]);
 
   const dragPreview = getDragPreview();
 
   // Update snap indicator whenever drag preview changes
   useEffect(() => {
     if (!dragPreview || !dragItem) {
+      setSnapIndicator(null);
+      return;
+    }
+    // Snapping only applies to move; trimming has no snap line.
+    if (dragType !== "move") {
       setSnapIndicator(null);
       return;
     }
@@ -251,26 +288,33 @@ export default function TimelineCanvas({
     setScrollLeft(e.target.scrollLeft);
   };
 
-  // Handle ruler click to seek
-  const handleRulerClick = (e) => {
+  // Read an X coordinate from either a mouse or a touch event.
+  const eventClientX = (e) =>
+    e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? null;
+
+  // Handle ruler click / tap to seek
+  const handleRulerSeek = (e) => {
     const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left + scrollLeft - 80; // subtract 80px track label width
+    const clientX = eventClientX(e);
+    if (clientX == null) return;
+    const x = clientX - rect.left + scrollLeft - 80; // subtract 80px track label width
     const time = x / pixelsPerSecond;
     onSeek(Math.max(0, Math.min(duration, time)));
   };
 
-  // Handle item drag start
+  // Handle item drag start (mouse or touch)
   const handleItemDragStart = (item, type, e) => {
     e.stopPropagation();
+    const clientX = eventClientX(e);
     setIsDragging(true);
     setDragType(type);
     setDragItem(item);
-    setDragStartX(e.clientX);
+    setDragStartX(clientX ?? 0);
     setDragStartValue(
       type === "move"
         ? item.startTime
         : type === "trim-start"
-        ? item.trimStart
+        ? (item.trimStart || 0)
         : item.duration
     );
   };
@@ -279,8 +323,11 @@ export default function TimelineCanvas({
   const handleDragMove = useCallback(
     (e) => {
       if (!isDragging || !dragItem) return;
-
-      const deltaX = e.clientX - dragStartX;
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+      if (clientX == null) return;
+      // Stop the timeline (and page) from scrolling while dragging a clip on touch.
+      if (e.cancelable) e.preventDefault();
+      const deltaX = clientX - dragStartX;
       setDragOffset(deltaX); // Update drag offset for visual feedback
     },
     [isDragging, dragItem, dragStartX]
@@ -291,7 +338,20 @@ export default function TimelineCanvas({
     async (e) => {
       if (!isDragging || !dragItem) return;
 
-      const deltaX = e.clientX - dragStartX;
+      const clientX = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragStartX;
+      const deltaX = clientX - dragStartX;
+
+      // A click/tap with no real movement must not persist anything — otherwise
+      // selecting a clip re-saves its position and flashes a "Saving…" spinner.
+      if (Math.abs(deltaX) < 3) {
+        setIsDragging(false);
+        setDragType(null);
+        setDragItem(null);
+        setDragOffset(0);
+        setSnapIndicator(null);
+        return;
+      }
+
       const deltaTime = deltaX / pixelsPerSecond;
 
       let updates = {};
@@ -326,6 +386,19 @@ export default function TimelineCanvas({
         );
 
         updates.startTime = newStartTime;
+      } else if (dragType === "trim-end") {
+        const sourceDuration = getSourceDuration(dragItem);
+        const ts = dragItem.trimStart || 0;
+        const newDuration = Math.max(MIN_DURATION, Math.min(dragStartValue + deltaTime, sourceDuration - ts));
+        updates.duration = newDuration;
+        updates.trimEnd = ts + newDuration;
+      } else if (dragType === "trim-start") {
+        const te = dragItem.trimEnd ?? ((dragItem.trimStart || 0) + dragItem.duration);
+        const newTrimStart = Math.max(0, Math.min(dragStartValue + deltaTime, te - MIN_DURATION));
+        const delta = newTrimStart - (dragItem.trimStart || 0);
+        updates.trimStart = newTrimStart;
+        updates.startTime = Math.max(0, dragItem.startTime + delta);
+        updates.duration = te - newTrimStart;
       }
 
       // Clear drag state immediately so mouse movements stop being tracked
@@ -339,19 +412,26 @@ export default function TimelineCanvas({
         await onUpdateItem(dragItem.id, updates);
       }
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, narrationItems, musicItems]
+    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, narrationItems, musicItems, getSection, getAudioAsset]
   );
 
-  // Add mouse event listeners for dragging
+  // Add mouse + touch event listeners for dragging
   useEffect(() => {
     if (isDragging) {
       window.addEventListener("mousemove", handleDragMove);
       window.addEventListener("mouseup", handleDragEnd);
+      // touchmove must be non-passive so we can preventDefault (stop scrolling).
+      window.addEventListener("touchmove", handleDragMove, { passive: false });
+      window.addEventListener("touchend", handleDragEnd);
+      window.addEventListener("touchcancel", handleDragEnd);
     }
 
     return () => {
       window.removeEventListener("mousemove", handleDragMove);
       window.removeEventListener("mouseup", handleDragEnd);
+      window.removeEventListener("touchmove", handleDragMove);
+      window.removeEventListener("touchend", handleDragEnd);
+      window.removeEventListener("touchcancel", handleDragEnd);
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
@@ -401,7 +481,8 @@ export default function TimelineCanvas({
         {/* Ruler */}
         <div
           className="sticky top-0 z-20 bg-card border-b border-border"
-          onClick={handleRulerClick}
+          onClick={handleRulerSeek}
+          onTouchEnd={handleRulerSeek}
         >
           <TimelineRuler
             duration={duration}
@@ -410,8 +491,8 @@ export default function TimelineCanvas({
           />
         </div>
 
-        {/* Tracks Container */}
-        <div className="relative">
+        {/* Tracks Container — tapping empty space deselects (clips stopPropagation) */}
+        <div className="relative" onClick={() => onSelectItem(null)}>
           {/* Video Track */}
           <TimelineTrack
             label="Video"

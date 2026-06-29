@@ -316,7 +316,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
       {/* Progress Bar */}
       {showProgressBar && (
         <div
-          className="px-6 py-3 border-b"
+          className="px-3 md:px-6 py-3 border-b"
           style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
         >
           <div className="max-w-4xl mx-auto">
@@ -329,7 +329,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
                   }`}
                 >
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"
                     style={
                       step > index
                         ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
@@ -353,7 +353,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-xs">
+            <div className="hidden sm:flex justify-between text-xs">
               {progressSteps.map((name, index) => (
                 <span
                   key={name}

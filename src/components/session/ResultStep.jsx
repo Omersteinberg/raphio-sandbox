@@ -49,7 +49,7 @@ export default function ResultStep({
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto flex flex-col items-center justify-start p-8 pb-16">
+    <div className="w-full h-full overflow-y-auto flex flex-col items-center justify-start p-4 md:p-8 pb-16">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -65,7 +65,7 @@ export default function ResultStep({
           >
             <Check className="w-10 h-10 text-green-600" />
           </motion.div>
-          <h1 className="text-3xl font-bold text-ink mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-ink mb-2">
             Your Video is Ready!
           </h1>
           <p className="text-ink-muted">
@@ -79,6 +79,8 @@ export default function ResultStep({
             <video
               src={finalVideoUrl}
               controls
+              playsInline
+              preload="metadata"
               className="w-full aspect-video"
               poster=""
             >
@@ -95,7 +97,7 @@ export default function ResultStep({
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Button
             onClick={handleDownload}
             disabled={!finalVideoUrl}

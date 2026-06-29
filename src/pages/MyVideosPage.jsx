@@ -8,6 +8,7 @@ import {
 import { toast } from "react-toastify";
 import { listSessions } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { STYLE_OPTIONS } from "@/constants/styles";
 import VideoCard from "@/components/videos/VideoCard";
 
@@ -217,6 +218,7 @@ function StyleFilterChips({ sessions, activeStyle, onChange }) {
 // ── Sort dropdown ─────────────────────────────────────────────────
 function SortDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const current = SORT_OPTIONS.find(o => o.value === value);
   useEffect(() => {
     const close = e => { if (!e.target.closest('#sort-dd')) setOpen(false); };
@@ -242,7 +244,8 @@ function SortDropdown({ value, onChange }) {
             initial={{ opacity:0, y:-4 }} animate={{ opacity:1, y:0 }}
             exit={{ opacity:0, y:-4 }} transition={{ duration:0.14 }}
             style={{
-              position:'absolute', top:40, right:0, zIndex:20,
+              position:'absolute', top:40, zIndex:20,
+              ...(isMobile ? { left:0 } : { right:0 }),
               background:'#fff', borderRadius:12,
               border:`1px solid ${C.border}`,
               boxShadow:'0 8px 24px rgba(45,34,53,0.10)',
@@ -586,7 +589,8 @@ export default function MyVideosPage() {
       <style>{`
         .mvp-wrap { max-width:1100px; margin:0 auto; padding:36px 24px; }
         .mvp-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
-        @media (max-width:520px) { .mvp-wrap { padding:20px 16px; } .mvp-header { margin-bottom:12px; } }
+        .mvp-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:20px; }
+        @media (max-width:520px) { .mvp-wrap { padding:20px 16px; } .mvp-header { margin-bottom:12px; } .mvp-controls { width:100%; } .mvp-grid { grid-template-columns:repeat(2, 1fr); gap:12px; } }
       `}</style>
       <div className="mvp-wrap">
 
@@ -595,7 +599,7 @@ export default function MyVideosPage() {
           <h1 style={{ fontSize:24, fontWeight:800, color:C.dark, letterSpacing:'-0.02em' }}>
             My Videos
           </h1>
-          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <div className="mvp-controls" style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
             {/* Sort + view toggle only shown when user has videos */}
             {!isNewUser && checkedNew && (<>
               <SortDropdown value={sort} onChange={setSort} />
@@ -608,7 +612,7 @@ export default function MyVideosPage() {
               </div>
             </>)}
             <button onClick={()=>navigate('/create')} style={{
-              display:'flex', alignItems:'center', gap:6,
+              display:'flex', alignItems:'center', gap:6, marginLeft:'auto',
               height:38, paddingLeft:18, paddingRight:18,
               borderRadius:9999, border:'none',
               background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`,
@@ -682,7 +686,7 @@ export default function MyVideosPage() {
           {checkedNew && !isNewUser && loading && (
             <motion.div key="skeleton" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
               {viewMode==='grid' ? (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:20 }}>
+                <div className="mvp-grid">
                   {Array.from({ length:6 }).map((_,i)=><SkeletonCard key={i} />)}
                 </div>
               ) : (
@@ -714,7 +718,7 @@ export default function MyVideosPage() {
                 <StyleFilterChips sessions={sessions} activeStyle={styleFilter} onChange={setStyleFilter} />
               )}
               {viewMode==='grid' ? (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:20 }}>
+                <div className="mvp-grid">
                   {processed.map(session => (
                     <VideoCard key={session.id} session={session} onClick={()=>handleCardClick(session)} />
                   ))}

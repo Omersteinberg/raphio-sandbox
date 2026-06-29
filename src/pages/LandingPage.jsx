@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionV
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail, X, MapPin } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import brainImg from '../assets/brain.png';
 import adamImg from '../assets/Adam.png';
 import scene1Img from '../assets/scene-1.png';
@@ -147,6 +148,7 @@ const STEPS = [
 // ── Redesigned Light/Alternating How It Works Section ─────────────────
 // ── Final Production Overhaul: High-Velocity Widescreen Studio Engine ──
 function DescribeVisual() {
+  const isMobile = useIsMobile();
   const twRef = useRef(null);
   const ccRef = useRef(null);
   const tagRef = useRef(null);
@@ -200,9 +202,11 @@ function DescribeVisual() {
     const W = parent.clientWidth, H = parent.clientHeight;
     canvas.width = W; canvas.height = H;
 
-    const cx = W * 0.62, cy = H * 0.46;
+    // On mobile the card is full-width, so centre the brain (0.5) and shrink
+    // it + the word orbit so it doesn't overflow the narrower canvas.
+    const cx = W * (isMobile ? 0.5 : 0.62), cy = H * (isMobile ? 0.5 : 0.46);
     const lineEndX = W * 0.04, lineEndY = cy;
-    const WORD_R = 105;
+    const WORD_R = isMobile ? 74 : 105;
 
     // ── Load brain image ──
     const img = new Image();
@@ -214,7 +218,7 @@ function DescribeVisual() {
     const drawBrain = (frame) => {
       if (!img.complete || !img.naturalWidth) return;
       const pulse = Math.sin(frame * 0.04) * 3;
-      const size = 134 + pulse;
+      const size = (isMobile ? 96 : 134) + pulse;
       ctx.drawImage(img, cx - size / 2, cy - size / 2, size, size);
     };
 
@@ -306,17 +310,21 @@ function DescribeVisual() {
     img.onload = () => { draw(); };
     if (img.complete && img.naturalWidth) { draw(); }
     return () => cancelAnimationFrame(animId);
-  }, []);
+    // Re-measure + re-centre when switching between mobile/desktop layouts.
+  }, [isMobile]);
 
   return (
     <div style={{
       background: '#1C1917', borderRadius: 16, overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.06)',
       boxShadow: '0 24px 56px rgba(0,0,0,0.3)',
-      height: 360, display: 'grid', gridTemplateColumns: '1fr 1fr',
+      width: '100%',
+      height: isMobile ? 'auto' : 360,
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
     }}>
       {/* Prompt side */}
-      <div style={{ display:'flex', flexDirection:'column', padding:22, borderRight:'1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ display:'flex', flexDirection:'column', padding:isMobile ? 18 : 22, minHeight: isMobile ? 190 : undefined, borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)', borderBottom: isMobile ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
         <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:12, flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'10px 14px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.terra, flexShrink:0 }} />
@@ -337,7 +345,7 @@ function DescribeVisual() {
       </div>
 
       {/* Brain canvas */}
-      <div style={{ position:'relative', overflow:'hidden' }}>
+      <div style={{ position:'relative', overflow:'hidden', height: isMobile ? 240 : undefined }}>
         <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} />
       </div>
     </div>
@@ -346,6 +354,7 @@ function DescribeVisual() {
 
 // ── Step 2: Scattered photo grid ──────────────────────────────────
 function PhotoGridVisual() {
+    const isMobile = useIsMobile();
     const cards = [
       { img: scene1Img, fallback:'#ffe2c6', label:'Scene 1', check:'#C1440E', rot:-2   },
       { img: scene2Img, fallback:'#fd996a', label:'Scene 2', check:'#5CB85C', rot:2.5  },
@@ -359,12 +368,16 @@ function PhotoGridVisual() {
       background: '#1C1917', borderRadius: 16, overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.06)',
       boxShadow: '0 24px 56px rgba(0,0,0,0.3)',
-      height: 360, display: 'grid', gridTemplateColumns: '168px 1fr',
+      width: '100%',
+      height: isMobile ? 'auto' : 360,
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : '168px 1fr',
     }}>
 
       {/* ── Drop zone ── */}
       <div style={{
-        borderRight: '1px solid rgba(255,255,255,0.07)',
+        borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)',
+        borderBottom: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         gap: 11, padding: 24, position: 'relative',
@@ -391,7 +404,7 @@ function PhotoGridVisual() {
         gridTemplateColumns: 'repeat(3, 1fr)',
         gridTemplateRows: 'repeat(2, 1fr)',
         gap: 14,
-        height: '100%',
+        height: isMobile ? 240 : '100%',
         position: 'relative',
       }}>
         {cards.map((card, i) => (
@@ -462,6 +475,7 @@ function PhotoGridVisual() {
 
 // ── Step 3: Avatar + video export ─────────────────────────────────
 function AvatarExportVisual() {
+  const isMobile = useIsMobile();
   const waveRef = useRef(null);
   const progressRef = useRef(null);
   const timeLabelRef = useRef(null);
@@ -501,11 +515,12 @@ function AvatarExportVisual() {
       overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.06)',
       boxShadow: '0 24px 56px rgba(0,0,0,0.3)',
-      // ↓ Fixed: tall enough to show all content
-      height: 360,
+      width: '100%',
+      // Stack to a single column on phones; fixed widescreen height on desktop.
+      height: isMobile ? 'auto' : 360,
       display: 'grid',
-      gridTemplateColumns: '1fr 1.2fr',
-      gap: 14,
+      gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr',
+      gap: isMobile ? 18 : 14,
       padding: '18px 18px 18px 18px',
       alignItems: 'start',
     }}>
@@ -595,7 +610,7 @@ function AvatarExportVisual() {
       </div>
 
       {/* ── Right: Video preview + download ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: isMobile ? 'auto' : '100%', width: '100%' }}>
 
         {/* Video preview panel */}
         <div style={{
@@ -682,6 +697,7 @@ const STEP_VISUALS = [
 // ── HowItWorks ─────────────────────────────────────────────────────
 function HowItWorks() {
   const [active, setActive] = useState(0);
+  const isMobile = useIsMobile();
   const sectionRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end end'] });
 
@@ -693,20 +709,69 @@ function HowItWorks() {
 
   const Icon = STEPS[active].icon;
 
+  // On phones the widescreen demo cards (fixed 360px, two-column) and the
+  // tab/rail step-switcher don't fit. Show a clean stacked list of the three
+  // steps instead — number, title, description — no cramped animations.
+  if (isMobile) {
+    return (
+      <section ref={sectionRef} id="how-it-works" style={{ background: C.bg, padding: '56px 20px' }}>
+        <div style={{ marginBottom: 26 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.terra, marginBottom: 6 }}>How it works</p>
+          <h2 className="display" style={{ fontSize: 'clamp(28px,8vw,36px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+            Three steps. One great video.
+          </h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {STEPS.map((s, i) => (
+            <motion.div
+              key={s.num}
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ duration: 0.45, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                background: C.white, borderRadius: 16, border: `1px solid ${C.faint}`,
+                padding: '20px', display: 'flex', flexDirection: 'column', gap: 18,
+                boxShadow: '0 2px 14px rgba(28,25,23,0.05)',
+              }}
+            >
+              {/* Number + content sit side by side */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <span className="display" style={{ fontSize: 30, lineHeight: 1, color: C.terra, flexShrink: 0 }}>{s.num}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+                  <h3 className="display" style={{ fontSize: 19, color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                    {s.title}
+                  </h3>
+                  <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>
+                    {s.body}
+                  </p>
+                </div>
+              </div>
+              {/* The step's animated demo — stacked full-width on mobile */}
+              {STEP_VISUALS[i].visual}
+            </motion.div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section ref={sectionRef} id="how-it-works" style={{ height: '170vh', position: 'relative' }}>
-      <motion.div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: C.bg }}>
+      <motion.div style={isMobile
+        ? { position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: C.bg }
+        : { position: 'sticky', top: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: C.bg }}>
 
         {/* Header */}
-        <div style={{ padding: '52px 48px 0', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ padding: isMobile ? '40px 20px 0' : '52px 48px 0', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: isMobile ? 18 : 0, flexShrink: 0 }}>
           <div>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.terra, marginBottom: 4 }}>How it works</p>
-            <h2 className="display" style={{ fontSize: 'clamp(26px,2.4vw,36px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <h2 className="display" style={{ fontSize: isMobile ? 'clamp(26px,7vw,34px)' : 'clamp(26px,2.4vw,36px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1 }}>
               Three steps. One great video.
             </h2>
           </div>
           {/* Tab pills */}
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {STEPS.map((s, i) => (
               <button key={s.num} onClick={() => setActive(i)}
                 style={{
@@ -724,13 +789,13 @@ function HowItWorks() {
         </div>
 
         {/* Divider */}
-        <div style={{ margin: '24px 48px 0', height: 1, background: C.faint, flexShrink: 0 }} />
+        <div style={{ margin: isMobile ? '20px 20px 0' : '24px 48px 0', height: 1, background: C.faint, flexShrink: 0 }} />
 
         {/* Main layout */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingBottom: 28 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: isMobile ? 'visible' : 'hidden', paddingBottom: isMobile ? 40 : 28 }}>
 
           {/* Left rail */}
-          <div style={{ width: 260, padding: '20px 28px 20px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6, flexShrink: 0, borderRight: `1px solid ${C.faint}` }}>
+          <div style={{ width: isMobile ? '100%' : 260, padding: isMobile ? '16px 20px' : '20px 28px 20px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6, flexShrink: 0, borderRight: isMobile ? 'none' : `1px solid ${C.faint}` }}>
             {STEPS.map((s, i) => (
               <button key={s.num} onClick={() => setActive(i)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px', borderRadius: 12, cursor: 'pointer',
@@ -754,12 +819,12 @@ function HowItWorks() {
           </div>
 
           {/* Right panel */}
-          <div style={{ flex: 1, padding: '32px 56px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ flex: 1, padding: isMobile ? '8px 20px 0' : '32px 56px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AnimatePresence mode="wait">
               <motion.div key={active}
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: 52, width: '100%', height: '100%', maxHeight: 420, alignItems: 'center' }}
+                style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '5fr 7fr', gap: isMobile ? 24 : 52, width: '100%', height: '100%', maxHeight: isMobile ? 'none' : 420, alignItems: 'center' }}
               >
                 {/* Description */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -922,7 +987,7 @@ function SeeItInAction() {
           </p>
         </div>
 
-        <div className="hide-scrollbar grid grid-cols-2 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
+        <div className="hide-scrollbar grid grid-cols-1 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
           {SEE_IT_ITEMS.map((item) => (
             <ActionVideoCard key={item.label} item={item} onOpen={setActiveItem} />
           ))}
@@ -1083,7 +1148,8 @@ export default function LandingPage() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
+          poster="/hero-poster.jpg"
           src={HERO_VIDEO_URL}
           className="absolute inset-0 w-full h-full object-cover"
         />

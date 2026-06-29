@@ -4,6 +4,7 @@ import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Fi
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import BridgeSectionCard from "./BridgeSectionCard";
 
 export default function ScriptStep({
@@ -32,6 +33,10 @@ export default function ScriptStep({
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  // Below lg the two panes stack; on those widths we move the AI editor and the
+  // per-section editor into modals instead of inline panels.
+  const isCompact = useMediaQuery("(max-width: 1023px)");
   const isGenerated = !!scriptData;
   const isApproved = session?.stage === "SCRIPT_APPROVED" || session?.stage === "FRAMES_CONFIGURED"
     || session?.stage === "REF_SCRIPT_APPROVED" || session?.stage === "REF_FRAMES_GENERATED" || session?.stage === "REF_FRAMES_APPROVED";
@@ -104,11 +109,21 @@ export default function ScriptStep({
     setSelectedSectionIndex(null);
   };
 
+  // Mobile FAB shows only while the AI editor is actually usable.
+  const showAiFab = isGenerated && !isApproved;
+  // Resolve the section the mobile per-section edit modal is editing.
+  const activeEditSection =
+    editingSection === "opening" ? openingSection
+    : editingSection === "closing" ? closingSection
+    : typeof editingSection === "number" ? allSections[editingSection]
+    : null;
+  const activeEditIndex = activeEditSection ? getOriginalIndex(activeEditSection) : null;
+
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
       {/* Left Side - Script Sections */}
       <div className="flex-1 flex flex-col p-6 border-r border-border overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 mb-4">
           <div>
             <h2 className="text-xl font-semibold text-ink">
               {phase === "bridges" ? "Review Bridge Frames" : (scriptData?.title || "Video Script")}
@@ -254,7 +269,7 @@ export default function ScriptStep({
                       )}
                     </div>
 
-                    {editingSection === "opening" && openingSection ? (
+                    {editingSection === "opening" && openingSection && !isCompact ? (
                       <div className="space-y-3">
                         <div>
                           <label className="text-xs text-ink-muted mb-1 block">Narration</label>
@@ -407,7 +422,7 @@ export default function ScriptStep({
                         )}
                       </div>
 
-                      {editingSection === originalIndex ? (
+                      {editingSection === originalIndex && !isCompact ? (
                         <div className="space-y-3">
                           <div>
                             <label className="text-xs text-ink-muted mb-1 block">Narration</label>
@@ -518,7 +533,7 @@ export default function ScriptStep({
                       )}
                     </div>
 
-                    {editingSection === "closing" && closingSection ? (
+                    {editingSection === "closing" && closingSection && !isCompact ? (
                       <div className="space-y-3">
                         <div>
                           <label className="text-xs text-ink-muted mb-1 block">Narration</label>
@@ -595,8 +610,30 @@ export default function ScriptStep({
         )}
       </div>
 
-      {/* Right Side - AI Edit or Bridge Status */}
-      <div className="w-full lg:w-80 flex flex-col bg-surface-alt p-6">
+      {/* Mobile backdrop for the AI editor sheet */}
+      {isCompact && aiModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setAiModalOpen(false)} />
+      )}
+
+      {/* Right Side - AI Edit / Bridge Status.
+          Desktop (lg+): inline sidebar. Mobile (<lg): a bottom-sheet opened by the FAB. */}
+      <div
+        className={
+          isCompact
+            ? `${aiModalOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl shadow-2xl flex-col bg-surface-alt p-6`
+            : "flex w-80 flex-col bg-surface-alt p-6"
+        }
+      >
+        {isCompact && (
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+              {phase === "bridges" ? "Bridge status" : "AI script editor"}
+            </span>
+            <button onClick={() => setAiModalOpen(false)} aria-label="Close editor" className="text-ink-muted">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         {phase === "bridges" ? (
           <>
             <h3 className="font-semibold text-ink mb-4">Bridge Frame Status</h3>
@@ -710,6 +747,84 @@ export default function ScriptStep({
           </>
         )}
       </div>
+
+      {/* Mobile FAB — opens the AI editor sheet */}
+      {isCompact && showAiFab && !aiModalOpen && (
+        <button
+          onClick={() => setAiModalOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 h-12 rounded-full text-white shadow-lg"
+          style={{ background: "var(--gradient-brand)" }}
+        >
+          <Wand2 className="w-5 h-5" />
+          <span className="text-sm font-semibold">{phase === "bridges" ? "Bridge status" : "Edit with AI"}</span>
+        </button>
+      )}
+
+      {/* Mobile per-section edit modal (opened by the pencil icon on a card) */}
+      <AnimatePresence>
+        {isCompact && activeEditSection && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
+            onClick={() => setEditingSection(null)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-ink">Edit section</h3>
+                <button onClick={() => setEditingSection(null)} aria-label="Close" className="text-ink-muted">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-ink-muted mb-1 block">Narration</label>
+                  <Textarea
+                    value={activeEditSection.narrationText || ""}
+                    onChange={(e) => handleSectionEdit(activeEditIndex, "narrationText", e.target.value)}
+                    className="text-sm"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-ink-muted mb-1 block">Visual Description</label>
+                  <Textarea
+                    value={activeEditSection.visualDescription || ""}
+                    onChange={(e) => handleSectionEdit(activeEditIndex, "visualDescription", e.target.value)}
+                    className="text-sm"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
+                  <Input
+                    type="number"
+                    value={activeEditSection.suggestedDuration || 5}
+                    onChange={(e) => handleSectionEdit(activeEditIndex, "suggestedDuration", parseInt(e.target.value) || 5)}
+                    className="w-24 text-sm"
+                    min={1}
+                    max={30}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={() => setEditingSection(null)}
+                className="w-full mt-5 text-white border-0"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                Done
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Image Selection Modal */}
       <AnimatePresence>

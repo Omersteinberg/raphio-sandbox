@@ -275,20 +275,20 @@ export function useTimeline(sessionId) {
     [sessionId]
   );
 
-  // Export timeline
-  const exportTimeline = useCallback(async () => {
+  // Export timeline. `onProgress({ percentage, label })` is forwarded to the
+  // service's job poller so the caller can drive a real progress bar.
+  const exportTimeline = useCallback(async (onProgress) => {
     if (!sessionId) return;
 
     setLoading(true);
     try {
-      toast.info("Exporting timeline...");
-      const video = await sessionService.exportTimeline(sessionId);
+      const video = await sessionService.exportTimeline(sessionId, onProgress);
       toast.success("Export complete!");
       setHasUnexportedChanges(false);
       return video;
     } catch (err) {
       console.error("Failed to export timeline:", err);
-      toast.error("Failed to export timeline");
+      toast.error(err?.message || "Failed to export timeline");
     } finally {
       setLoading(false);
     }

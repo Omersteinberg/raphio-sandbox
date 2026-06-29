@@ -1,14 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown } from 'lucide-react';
+import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X } from 'lucide-react';
 
 export default function AppHeader() {
   const { user, credits, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     function handleClick(e) {
@@ -38,6 +44,7 @@ export default function AppHeader() {
   };
 
   return (
+    <>
     <header
       className="h-14 flex items-center justify-between px-5 shrink-0 z-50 relative font-figtree"
       style={{
@@ -56,9 +63,9 @@ export default function AppHeader() {
           <img src="/Logo.svg" alt="Raphio" className="h-7" />
         </button>
 
-        <div style={{ width: 1, height: 20, background: 'rgba(193,68,14,0.15)' }} />
+        <div className="hidden md:block" style={{ width: 1, height: 20, background: 'rgba(193,68,14,0.15)' }} />
 
-        <nav className="flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1">
           <button
             onClick={goToCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
@@ -111,8 +118,8 @@ export default function AppHeader() {
         </nav>
       </div>
 
-      {/* Right: Credits + Avatar */}
-      <div className="flex items-center gap-2.5" ref={dropdownRef}>
+      {/* Right: Credits + Avatar (desktop only) */}
+      <div className="hidden md:flex items-center gap-2.5" ref={dropdownRef}>
 
         {/* Credits pill */}
         <button
@@ -256,6 +263,128 @@ export default function AppHeader() {
           </div>
         )}
       </div>
+
+      {/* Mobile: hamburger button (replaces the right cluster below md) */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden flex items-center justify-center w-11 h-11 -mr-2 rounded-xl"
+        style={{ color: '#2C2420' }}
+        aria-label="Open menu"
+        aria-expanded={mobileOpen}
+      >
+        <Menu className="w-6 h-6" />
+      </button>
     </header>
+
+      {/* Mobile drawer — rendered as a SIBLING of <header>, not a child:
+          the header's backdrop-filter makes position:fixed descendants anchor
+          to the header box (56px tall) instead of the viewport, which crammed
+          the whole drawer into the header bar. */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 animate-in fade-in duration-200"
+            style={{ background: 'rgba(44,36,32,0.45)' }}
+            onClick={() => setMobileOpen(false)}
+          />
+
+          {/* Panel */}
+          <div
+            className="absolute right-0 top-0 h-full w-[82%] max-w-xs flex flex-col animate-in slide-in-from-right duration-200"
+            style={{
+              background: 'rgba(255,250,247,0.99)',
+              backdropFilter: 'blur(16px)',
+              borderLeft: '1px solid rgba(193,68,14,0.12)',
+              boxShadow: '-8px 0 32px rgba(44,36,32,0.14)',
+            }}
+          >
+            {/* Drawer header: avatar + name on the left, close on the right */}
+            <div className="flex items-center justify-between gap-3 px-5 h-14 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+                >
+                  {initials}
+                </div>
+                <p className="text-sm font-semibold truncate" style={{ color: '#2C2420' }}>
+                  {user.username || 'Account'}
+                </p>
+              </div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-center w-10 h-10 -mr-2 rounded-xl shrink-0"
+                style={{ color: '#7A6A62' }}
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Page links — top */}
+            <nav className="flex flex-col px-3 pt-2 gap-1">
+              <button
+                onClick={goToCreate}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                style={
+                  isActive('/create')
+                    ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                    : { color: '#2C2420', background: 'transparent' }
+                }
+              >
+                <Plus className="w-5 h-5 shrink-0" />
+                Create
+              </button>
+              <button
+                onClick={() => navigate('/videos')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                style={
+                  isActive('/videos')
+                    ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                    : { color: '#2C2420', background: 'transparent' }
+                }
+              >
+                <Video className="w-5 h-5 shrink-0" />
+                My Videos
+              </button>
+            </nav>
+
+            {/* Bottom: credits + sign out (pinned, no dividers) */}
+            <div
+              className="mt-auto px-3 py-3 flex flex-col gap-2"
+              style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+            >
+              <button
+                onClick={() => navigate('/buy-credits')}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{
+                  background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(193,68,14,0.06)',
+                  border: isLow ? '1px solid rgba(193,68,14,0.25)' : '1px solid rgba(193,68,14,0.10)',
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
+                  <span className="text-sm font-semibold" style={{ color: '#2C2420' }}>
+                    {credits ?? '...'} credits
+                  </span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: '#C1440E' }}>
+                  {isLow ? 'Running low' : 'Top up'}
+                </span>
+              </button>
+              <button
+                onClick={() => { setMobileOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-medium"
+                style={{ color: '#9B8B83' }}
+              >
+                <LogOut className="w-5 h-5 shrink-0" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

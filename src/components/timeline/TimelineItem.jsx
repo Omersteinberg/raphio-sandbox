@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { Film, Music, Volume2, Scissors } from "lucide-react";
+import { Film, Music, Volume2, Scissors, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function TimelineItem({
   item,
@@ -18,6 +18,7 @@ export default function TimelineItem({
   dragPreviewDuration = null,
 }) {
   const itemRef = useRef(null);
+  const lastTapRef = useRef(0);
 
   // Apply drag preview offset to the position
   const baseLeft = item.startTime * pixelsPerSecond;
@@ -79,10 +80,6 @@ export default function TimelineItem({
         e.stopPropagation();
         onSelect();
       }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        onEdit();
-      }}
       whileHover={{ scale: isDragging ? 1.02 : 1.01 }}
     >
       {/* Thumbnail for video items */}
@@ -124,14 +121,39 @@ export default function TimelineItem({
         </div>
       </div>
 
-      {/* Move handle — full clip. Trimming is done in the edit modal (double-click). */}
+      {/* Move handle — full clip. Trim via the edge handles (or double-tap for the modal). */}
       <div
-        className="absolute inset-0 cursor-move"
+        className="absolute inset-0 cursor-move touch-none"
         onMouseDown={(e) => {
           e.stopPropagation();
           onDragStart(item, "move", e);
         }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          onDragStart(item, "move", e);
+        }}
       />
+
+      {/* Trim handles — shown when selected; drag the edges to trim (right edge
+          stays put when trimming the left). They sit above the move handle. */}
+      {isSelected && (
+        <>
+          <div
+            className="absolute left-0 top-0 bottom-0 w-5 z-20 flex items-center justify-center cursor-ew-resize touch-none bg-white rounded-l"
+            onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
+            onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
+          >
+            <ChevronLeft className="w-4 h-4 text-black/70" />
+          </div>
+          <div
+            className="absolute right-0 top-0 bottom-0 w-5 z-20 flex items-center justify-center cursor-ew-resize touch-none bg-white rounded-r"
+            onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
+            onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
+          >
+            <ChevronRight className="w-4 h-4 text-black/70" />
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }

@@ -69,7 +69,7 @@ export default function IntroBriefStep({
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-6">
         {/* Header */}
         <div className="text-center space-y-3">
           {onModeChange && (
@@ -87,7 +87,7 @@ export default function IntroBriefStep({
           >
             <Wand2 className="w-6 h-6 text-[var(--terra)]" />
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-[#2D2235]">
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#2D2235]">
             Create a Brand Intro
           </h1>
           <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed">
@@ -97,7 +97,7 @@ export default function IntroBriefStep({
         </div>
 
         {/* Logo dropzone (required) */}
-        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
           <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
             Logo <span className="text-[var(--terra)]">*</span>
           </label>
@@ -145,7 +145,7 @@ export default function IntroBriefStep({
         </div>
 
         {/* Business brief */}
-        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-5">
+        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-5">
           <div className="space-y-2">
             <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Business name
@@ -184,7 +184,7 @@ export default function IntroBriefStep({
         </div>
 
         {/* Style + aspect ratio */}
-        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-5">
+        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-5">
           <div className="space-y-3">
             <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Visual style
@@ -220,7 +220,7 @@ export default function IntroBriefStep({
                 <button
                   key={opt.id}
                   onClick={() => setAspectRatio(opt.id)}
-                  className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold tracking-wide transition-all"
+                  className="flex-1 py-2.5 px-2 md:px-4 rounded-xl text-xs font-bold tracking-wide transition-all"
                   style={
                     aspectRatio === opt.id
                       ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
@@ -236,7 +236,7 @@ export default function IntroBriefStep({
         </div>
 
         {/* Optional showcase images */}
-        <div className="bg-white rounded-3xl p-6 border border-border/60 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
               Showcase images <span className="text-ink-muted normal-case font-medium tracking-normal">(optional)</span>

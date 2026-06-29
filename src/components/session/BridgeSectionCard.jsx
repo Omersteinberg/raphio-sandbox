@@ -190,7 +190,7 @@ export default function BridgeSectionCard({
           )}
 
           {!isOutlineStage && section.bridgeStatus === "failed" && (
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"

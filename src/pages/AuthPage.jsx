@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 const C = {
   bg:      '#FBF7F4',
@@ -426,6 +427,7 @@ function RegisterForm() {
 export default function AuthPage() {
   const isRegister = typeof window !== 'undefined' && window.location.pathname.includes('register');
   const [tab, setTab] = useState(isRegister ? 'register' : 'login');
+  const isMobile = useIsMobile();
 
   return (
     <div className="font-figtree" style={{
@@ -439,8 +441,9 @@ export default function AuthPage() {
       overflow: 'hidden',
     }}>
 
-      {/* Scrolling thumbnail background */}
-      <FrameStream />
+      {/* Scrolling thumbnail background — hidden on mobile (decorative,
+          fixed-width columns could peek past the viewport at 375px) */}
+      {!isMobile && <FrameStream />}
 
       {/* White card */}
       <motion.div
@@ -454,7 +457,7 @@ export default function AuthPage() {
           maxWidth: 420,
           background: '#FFFFFF',
           borderRadius: 20,
-          padding: '44px 40px 36px',
+          padding: isMobile ? '28px 22px 24px' : '44px 40px 36px',
           boxShadow: '0 4px 24px rgba(45,34,53,0.08), 0 1px 4px rgba(45,34,53,0.06)',
           border: '1px solid rgba(45,34,53,0.07)',
         }}

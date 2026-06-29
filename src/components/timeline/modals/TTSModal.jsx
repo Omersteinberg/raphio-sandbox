@@ -42,14 +42,14 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-lg w-full max-w-lg p-6"
+          className="bg-card rounded-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -59,13 +59,13 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Volume2 className="w-5 h-5 text-terra" />
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-foreground">
                 Generate Text-to-Speech
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="w-5 h-5" />
             </button>
@@ -83,7 +83,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Intro Narration"
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-terra"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-terra"
               />
             </div>
 
@@ -97,7 +97,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Enter the text you want to convert to speech..."
                 rows={4}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-terra resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-terra resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 {text.length} characters
@@ -110,7 +110,7 @@ export default function TTSModal({ onClose, onGenerate, onComplete }) {
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-terra"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-terra"
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>

@@ -223,13 +223,24 @@ export async function getJobStatus(sessionId) {
  * @param {number} [options.intervalMs=3000]
  * @param {number} [options.timeoutMs=600000] - 10 min client cap
  * @param {(status: object) => void} [options.onProgress]
+ * @param {string} [options.expectedJobType] - if set, ignore states belonging to
+ *   a different job. A session has ONE job slot shared by export/reassemble, so
+ *   without this an export's poller could react to a reassemble's DONE/FAILED
+ *   (and vice-versa) — e.g. a stray "Reassemble failed" during an export.
  */
 export async function pollJobUntilDone(sessionId, options = {}) {
-  const { intervalMs = 3000, timeoutMs = 600000, onProgress } = options;
+  const { intervalMs = 3000, timeoutMs = 600000, onProgress, expectedJobType } = options;
   const startedAt = Date.now();
 
   while (true) {
     const status = await getJobStatus(sessionId);
+
+    // The slot now holds a DIFFERENT job than the one we started — another
+    // operation took over. Stop quietly rather than reporting its result as ours.
+    if (expectedJobType && status.jobType && status.jobType !== expectedJobType) {
+      return null;
+    }
+
     if (typeof onProgress === 'function') onProgress(status);
     if (status.jobStatus === 'DONE') return status.result;
     if (status.jobStatus === 'FAILED') throw new Error(status.jobError || 'Job failed');
@@ -488,14 +499,26 @@ export async function reorderClips(sessionId, order) {
 }
 
 /**
- * Reassemble video after edits
+ * Reassemble video after edits. Runs as a background job; pass `onProgress` to
+ * receive the job's live stage progress ({ percentage, label }) for a modal.
  */
-export async function reassembleVideo(sessionId, { regenerateAudio, voiceId } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/reassemble`, {
+export async function reassembleVideo(sessionId, { regenerateAudio, voiceId } = {}, onProgress) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/reassemble`, {
     regenerateAudio,
     voiceId,
   });
-  return await pollJobUntilDone(sessionId);
+  // Another job already owns this video's single slot — don't poll its result.
+  if (data && data.jobType && data.jobType !== 'REASSEMBLE_VIDEO') {
+    throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
+  }
+  return await pollJobUntilDone(sessionId, {
+    expectedJobType: 'REASSEMBLE_VIDEO',
+    onProgress: (status) => {
+      if (typeof onProgress === 'function' && status && status.jobProgress) {
+        onProgress(status.jobProgress); // { percentage, label }
+      }
+    },
+  });
 }
 
 /**
@@ -658,10 +681,27 @@ export async function deleteAudioAsset(sessionId, audioId) {
  * Export timeline to final video. The backend now runs the (potentially long)
  * ffmpeg assembly as a background job and returns 202, so we poll /job-status
  * until it's done. Resolves with the updated Video (same shape as before).
+ *
+ * @param {string} sessionId
+ * @param {(progress: { percentage: number, label: string }) => void} [onProgress]
+ *   Called on each poll with the job's live progress snapshot, so the UI can
+ *   show a real progress bar + stage label.
  */
-export async function exportTimeline(sessionId) {
-  await axios.post(`${API_BASE}/${sessionId}/timeline/export`); // 202 — starts the job
-  return await pollJobUntilDone(sessionId);
+export async function exportTimeline(sessionId, onProgress) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/timeline/export`); // 202 — starts the job
+  // If another job already owns this video's single slot, the API hands back
+  // that job's type instead of starting ours. Don't poll — say so clearly.
+  if (data && data.jobType && data.jobType !== 'EXPORT_TIMELINE') {
+    throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
+  }
+  return await pollJobUntilDone(sessionId, {
+    expectedJobType: 'EXPORT_TIMELINE',
+    onProgress: (status) => {
+      if (typeof onProgress === 'function' && status && status.jobProgress) {
+        onProgress(status.jobProgress); // { percentage, label }
+      }
+    },
+  });
 }
 
 /**

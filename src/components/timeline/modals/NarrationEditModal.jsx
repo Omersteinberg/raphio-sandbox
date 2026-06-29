@@ -113,14 +113,14 @@ export default function NarrationEditModal({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-lg w-full max-w-lg p-6"
+          className="bg-card rounded-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -130,13 +130,13 @@ export default function NarrationEditModal({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Volume2 className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-foreground">
                 Edit Narration
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="w-5 h-5" />
             </button>
@@ -156,7 +156,7 @@ export default function NarrationEditModal({
                 )}
               </button>
               <div className="flex-1">
-                <p className="text-sm text-white">Current Narration</p>
+                <p className="text-sm text-foreground">Current Narration</p>
                 <p className="text-xs text-muted-foreground">
                   Clip {(section.orderIndex || 0) + 1}
                 </p>
@@ -176,7 +176,7 @@ export default function NarrationEditModal({
                 onChange={(e) => setNarrationText(e.target.value)}
                 placeholder="Enter the narration text..."
                 rows={4}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500 resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 {narrationText.length} characters
@@ -189,7 +189,7 @@ export default function NarrationEditModal({
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-blue-500"
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>
@@ -201,7 +201,7 @@ export default function NarrationEditModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-between mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 sm:gap-3 mt-6">
             <Button
               onClick={handleRegenerate}
               disabled={!hasChanges || regenerating || saving}
@@ -221,7 +221,7 @@ export default function NarrationEditModal({
               )}
             </Button>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 justify-end">
               <Button
                 variant="ghost"
                 onClick={onClose}

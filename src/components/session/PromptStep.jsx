@@ -15,6 +15,8 @@ import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/l
 import DurationEstimate from "./DurationEstimate";
 import { useNavigate } from "react-router-dom";
 import { saveReturnTo } from "@/lib/returnTo";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -411,6 +413,23 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
   );
 }
 
+// Sortable photo tile — dnd-kit so reordering works with mouse AND touch
+// (long-press to start dragging on touch, so page scrolling still works).
+function SortableTile({ id, className, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 20 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={className} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
 export default function PromptStep({
   userPrompt,
   setUserPrompt,
@@ -472,6 +491,19 @@ export default function PromptStep({
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
   const ctaRef = useRef(null);
   const prevImagesLengthRef = useRef(images?.length ?? 0);
+
+  // dnd-kit: photo reordering that works with mouse AND touch.
+  const imageId = (img, i) => img?.preview || img?.name || `img-${i}`;
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+  const handleImageDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = images.findIndex((img, i) => imageId(img, i) === active.id);
+    const newIndex = images.findIndex((img, i) => imageId(img, i) === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) reorderImages(oldIndex, newIndex);
+  };
 
   const chipStyle = (active) => active
     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
@@ -593,23 +625,23 @@ export default function PromptStep({
         @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
-      <div className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6 py-12 md:py-16 pb-12">
+      <div className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6 py-6 sm:py-12 md:py-16 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-3xl space-y-5"
+          className="w-full max-w-3xl space-y-3 sm:space-y-5"
         >
         {/* Hero headline */}
         <div className="text-center mb-1">
           {/* Layered icon */}
-          <div className="relative inline-flex items-center justify-center mb-5">
+          <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
             <div
               className="absolute rounded-3xl"
               style={{ inset: '-10px', background: 'rgba(193,68,14,0.08)', filter: 'blur(18px)' }}
             />
             <div
-              className="relative flex items-center justify-center w-[72px] h-[72px] rounded-[22px]"
+              className="relative flex items-center justify-center w-[56px] h-[56px] sm:w-[72px] sm:h-[72px] rounded-[18px] sm:rounded-[22px]"
               style={{
                 background: 'linear-gradient(145deg, #FFF6EF 0%, #FAF0EA 100%)',
                 boxShadow: '0 0 0 1px rgba(193,68,14,0.12), 0 6px 6px rgba(193,68,14,0.18), inset 0 1px 0 rgba(255,255,255,0.95)',
@@ -636,7 +668,7 @@ export default function PromptStep({
               <>Your story. Your <span style={{ color: '#C1440E' }}>video.</span></>
             )}
           </h1>
-          <p className="mt-2 text-sm font-medium" style={{ color: '#9C8F85' }}>
+          <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#9C8F85' }}>
             {isReferencesMode
               ? 'Define your visual props and settings, then reveal the full storyline.'
               : 'Tell Raphio what you want. It handles everything else.'}
@@ -684,7 +716,7 @@ export default function PromptStep({
             </div>
           )}
           {/* Zone 1 — Prompt (the hero) */}
-          <div className="rounded-3xl p-6 sm:p-7 space-y-4" style={CARD_SHADOW}>
+          <div className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
@@ -701,7 +733,7 @@ export default function PromptStep({
                   }
                 >
                   <Sparkles className="w-3 h-3" />
-                  Inspiration
+                  <span className="hidden sm:inline">Inspiration</span>
                 </button>
                 <button
                   onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
@@ -712,7 +744,7 @@ export default function PromptStep({
                   }
                 >
                   <BookOpen className="w-3 h-3" />
-                  Dictionary
+                  <span className="hidden sm:inline">Dictionary</span>
                 </button>
                 <button
                   onClick={() => setShowPromptGuide(true)}
@@ -722,7 +754,7 @@ export default function PromptStep({
                   onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
                 >
                   <Lightbulb className="w-3.5 h-3.5" />
-                  Tips
+                  <span className="hidden sm:inline">Tips</span>
                 </button>
               </div>
             </div>
@@ -865,7 +897,7 @@ export default function PromptStep({
               )}
             </AnimatePresence>
 
-            <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
+            <span className="hidden sm:flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
               <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
               More detail → better results
             </span>
@@ -881,7 +913,7 @@ export default function PromptStep({
                   </label>
                   <div className="group relative">
                     <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
                       Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly — no AI restyling.
                       <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                     </div>
@@ -943,7 +975,7 @@ export default function PromptStep({
           {/* Zone 2 — Upload your photos (image mode only) */}
           {!isReferencesMode && (
             <div
-              className="rounded-3xl p-6 sm:p-7 space-y-4 relative"
+              className="rounded-3xl p-4 sm:p-7 space-y-4 relative"
               style={CARD_SHADOW}
               onDragEnter={(e) => {
                 e.preventDefault();
@@ -1054,34 +1086,17 @@ export default function PromptStep({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
+                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
+                    <SortableContext items={images.map(imageId)} strategy={rectSortingStrategy}>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                       {images.map((img, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, scale: 0.85 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: 350,
-                            damping: 25,
-                            delay: index * 0.03,
-                          }}
-                          draggable
-                          onDragStart={() => setDragSlot(index)}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={() => {
-                            if (dragSlot !== null && dragSlot !== index)
-                              reorderImages(dragSlot, index);
-                            setDragSlot(null);
-                          }}
+                        <SortableTile
+                          key={imageId(img, index)}
+                          id={imageId(img, index)}
                           className="cursor-grab active:cursor-grabbing"
                         >
                           <div
-                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-150 ${
-                              dragSlot === index
-                                ? 'opacity-30 scale-95 border-dashed border-stone-300'
-                                : 'border-transparent hover:border-orange-300'
-                            }`}
+                            className="relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-300 transition-all duration-150"
                             style={{ background: '#FBFAF8' }}
                           >
                             <img
@@ -1143,7 +1158,7 @@ export default function PromptStep({
                               {customLabels[index] || slotLabels[index]}
                             </button>
                           )}
-                        </motion.div>
+                        </SortableTile>
                       ))}
 
                       {/* Add more tile */}
@@ -1174,6 +1189,8 @@ export default function PromptStep({
                         </button>
                       )}
                     </div>
+                    </SortableContext>
+                    </DndContext>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1219,7 +1236,7 @@ export default function PromptStep({
           )}
 
           {/* Zone 3 — Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
-          <div className="rounded-3xl p-5 sm:p-6 space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
+          <div className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
             {/* Style Selection (renders in both image and references modes) */}
             <div className="space-y-2">

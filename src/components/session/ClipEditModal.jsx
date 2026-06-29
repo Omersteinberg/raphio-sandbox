@@ -71,7 +71,7 @@ export default function ClipEditModal({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl p-4 md:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -86,9 +86,9 @@ export default function ClipEditModal({
         </div>
 
         {/* Clip Preview */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
           {/* Video/Image Preview */}
-          <div className="w-48 flex-shrink-0">
+          <div className="w-full sm:w-48 flex-shrink-0">
             <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden relative mb-2">
               {clip.generatedClipUrl ? (
                 <video

@@ -152,7 +152,7 @@ export default function VoiceSelector({ value, onChange }) {
       )}
 
       {/* Search and Filter */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
           <Input

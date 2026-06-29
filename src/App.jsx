@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Creator from "./pages/Creator";
 import LandingPage from "./pages/LandingPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
+import MobileEditorPage from "./pages/MobileEditorPage";
 import TimelineTest from "./pages/TimelineTest";
 import AuthPage from "./pages/AuthPage";
 // import LoginPage from "./pages/LoginPage";
@@ -36,6 +37,7 @@ function App() {
             <Route path="/buy-credits" element={<BuyCreditsPage />} />
             <Route path="/videos" element={<MyVideosPage />} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
+            <Route path="/video/:id/edit" element={<MobileEditorPage />} />
             <Route path="/timeline-test" element={<TimelineTest />} />
           </Route>
         </Routes>

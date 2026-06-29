@@ -28,6 +28,7 @@ export default function TimelineControls({
   onZoomOut,
   selectedItem,
   onDelete,
+  compact = false,
 }) {
   return (
     <div className="bg-card border-y border-border px-4 py-2 flex items-center justify-between">
@@ -60,47 +61,50 @@ export default function TimelineControls({
         </div>
       </div>
 
-      {/* Edit Controls */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={!selectedItem}
-          className="text-destructive hover:text-destructive hover:bg-red-50 disabled:opacity-50"
-          title="Delete selected (Delete)"
-        >
-          <Trash2 className="w-4 h-4 mr-1" />
-          Delete
-        </Button>
-      </div>
+      {/* Edit + Zoom controls — on mobile these live in the bottom action bar */}
+      {!compact && (
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              disabled={!selectedItem}
+              className="text-destructive hover:text-destructive hover:bg-red-50 disabled:opacity-50"
+              title="Delete selected (Delete)"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete
+            </Button>
+          </div>
 
-      {/* Zoom Controls */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onZoomOut}
-          className="text-muted-foreground hover:text-foreground hover:bg-muted"
-          title="Zoom out (-)"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onZoomOut}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Zoom out (-)"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </Button>
 
-        <div className="text-xs text-muted-foreground w-12 text-center">
-          {Math.round(zoomLevel * 100)}%
-        </div>
+            <div className="text-xs text-muted-foreground w-12 text-center">
+              {Math.round(zoomLevel * 100)}%
+            </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onZoomIn}
-          className="text-muted-foreground hover:text-foreground hover:bg-muted"
-          title="Zoom in (+)"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </Button>
-      </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onZoomIn}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Zoom in (+)"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

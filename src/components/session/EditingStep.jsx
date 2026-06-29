@@ -154,7 +154,7 @@ export default function EditingStep({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-border p-4 flex items-center justify-between">
+      <div className="bg-white border-b border-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -169,7 +169,7 @@ export default function EditingStep({
             <p className="text-sm text-ink-muted">{sections.length} clips in your video</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             onClick={() => setShowTimeline(true)}
             variant="outline"
@@ -200,7 +200,7 @@ export default function EditingStep({
       </div>
 
       {/* Clips Timeline */}
-      <div className="flex-1 overflow-y-auto p-6 bg-surface-alt">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface-alt">
         <div className="max-w-4xl mx-auto">
           <p className="text-sm text-ink-muted mb-4">
             Drag clips to reorder. Click to edit individual clips.
@@ -231,7 +231,7 @@ export default function EditingStep({
                       : "border-border"
                   }`}
                 >
-                  <div className="flex gap-4">
+                  <div className="flex gap-2 md:gap-4">
                     {/* Drag Handle */}
                     <div className="flex items-center text-ink-muted">
                       <GripVertical className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function EditingStep({
                     </div>
 
                     {/* Video Thumbnail */}
-                    <div className="flex-shrink-0 w-32 h-20 bg-gray-900 rounded-lg overflow-hidden relative">
+                    <div className="flex-shrink-0 w-24 h-16 md:w-32 md:h-20 bg-gray-900 rounded-lg overflow-hidden relative">
                       {section.generatedClipUrl ? (
                         <>
                           {playingClip === section.id ? (

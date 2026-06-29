@@ -79,13 +79,13 @@ export default function IntroPipelineCreator({ onModeChange }) {
   return (
     <div className="h-full flex flex-col font-figtree" style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}>
       {showProgressBar && (
-        <div className="px-6 py-3 border-b" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}>
+        <div className="px-3 md:px-6 py-3 border-b" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}>
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-2">
               {STEP_NAMES.map((name, index) => (
                 <div key={name} className={`flex items-center ${index < STEP_NAMES.length - 1 ? "flex-1" : ""}`}>
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"
                     style={
                       step > index
                         ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
@@ -102,7 +102,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-xs">
+            <div className="hidden sm:flex justify-between text-xs">
               {STEP_NAMES.map((name, index) => (
                 <span key={name} className="font-medium" style={{ color: step === index ? "#C1440E" : "#7A6A62" }}>{name}</span>
               ))}

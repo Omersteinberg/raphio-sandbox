@@ -42,14 +42,14 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-lg w-full max-w-md p-6"
+          className="bg-card rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -57,10 +57,10 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Upload Audio</h3>
+            <h3 className="text-lg font-semibold text-foreground">Upload Audio</h3>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="w-5 h-5" />
             </button>
@@ -94,7 +94,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
             {file ? (
               <div className="space-y-2">
                 <Music className="w-12 h-12 mx-auto text-green-400" />
-                <p className="text-white font-medium">{file.name}</p>
+                <p className="text-foreground font-medium">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>

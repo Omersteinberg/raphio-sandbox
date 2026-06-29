@@ -4,41 +4,50 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
   const x = position * pixelsPerSecond + 80; // 80px offset for track label
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault();
+  const handleDown = useCallback((e) => {
+    if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   }, []);
 
-  const handleMouseMove = useCallback(
+  const handleMove = useCallback(
     (e) => {
       if (!isDragging || !onSeek) return;
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+      if (clientX == null) return;
+      if (e.cancelable) e.preventDefault(); // stop the timeline scrolling while scrubbing
       // Find the timeline container to calculate position relative to it
       const container = document.querySelector("[data-timeline-container]");
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const scrollLeft = container.scrollLeft;
-      const x = e.clientX - rect.left + scrollLeft - 80; // subtract track label width
+      const x = clientX - rect.left + scrollLeft - 80; // subtract track label width
       const time = Math.max(0, x / pixelsPerSecond);
       onSeek(time);
     },
     [isDragging, onSeek, pixelsPerSecond]
   );
 
-  const handleMouseUp = useCallback(() => {
+  const handleUp = useCallback(() => {
     setIsDragging(false);
   }, []);
 
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+      window.addEventListener("touchmove", handleMove, { passive: false });
+      window.addEventListener("touchend", handleUp);
+      window.addEventListener("touchcancel", handleUp);
     }
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleUp);
+      window.removeEventListener("touchcancel", handleUp);
     };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMove, handleUp]);
 
   return (
     <div
@@ -51,15 +60,20 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
       {/* Playhead line */}
       <div className="w-0.5 h-full bg-primary" />
 
-      {/* Playhead handle */}
+      {/* Playhead handle — visible triangle with a larger invisible touch target */}
       <div
-        className="absolute -top-0 -left-2 w-4 h-4 pointer-events-auto cursor-ew-resize"
-        style={{
-          clipPath: "polygon(50% 100%, 0 0, 100% 0)",
-          background: "hsl(var(--primary))",
-        }}
-        onMouseDown={handleMouseDown}
-      />
+        className="absolute -top-1 -left-4 w-8 h-7 pointer-events-auto cursor-ew-resize flex justify-center touch-none"
+        onMouseDown={handleDown}
+        onTouchStart={handleDown}
+      >
+        <div
+          className="w-4 h-4"
+          style={{
+            clipPath: "polygon(50% 100%, 0 0, 100% 0)",
+            background: "hsl(var(--primary))",
+          }}
+        />
+      </div>
     </div>
   );
 }
