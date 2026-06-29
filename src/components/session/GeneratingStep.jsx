@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Film, Mic, Layers, Music, Check, Loader2, Image } from "lucide-react";
+import { Film, Mic, Layers, Music, Check, Loader2, Image, ArrowRight } from "lucide-react";
 
 export default function GeneratingStep({ session, scriptData, generationError, onRegenerate }) {
+  const navigate = useNavigate();
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
@@ -91,16 +93,6 @@ export default function GeneratingStep({ session, scriptData, generationError, o
   // Simulated progress: +1% every 5 seconds so bar doesn't sit at 0
   const [simulatedProgress, setSimulatedProgress] = useState(0);
 
-  // Native browser beforeunload warning (for tab close / URL change)
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, []);
-
   useEffect(() => {
     const interval = setInterval(() => {
       setSimulatedProgress((prev) => Math.min(prev + 1, 40));
@@ -174,7 +166,9 @@ export default function GeneratingStep({ session, scriptData, generationError, o
           <p className="text-ink-muted">
             {scriptData?.title || "Your video"} is being generated
           </p>
-          <p className="text-ink-muted text-sm mt-1">Estimated time: {estimatedLabel}</p>
+          <p className="text-ink-muted text-sm mt-1">
+            This can take {estimatedLabel} depending on model and clip count.
+          </p>
         </div>
 
         {/* Progress Bar */}
@@ -279,12 +273,19 @@ export default function GeneratingStep({ session, scriptData, generationError, o
         </div>
 
         {/* Processing Note */}
-        <div className="mt-8 p-4 bg-amber-50 rounded-lg border border-amber-200 text-center">
-          <p className="text-sm text-amber-800">
-            Hang tight while we generate your video, this can take {estimatedLabel}.
-            <br />
-            <strong>Do not close or reload this page.</strong> Credits will not be refunded if you leave.
+        <div className="mt-8 p-4 bg-terra/5 rounded-lg border border-terra/20 text-center">
+          <p className="text-sm text-terra-dark">
+            You can leave this page; your video will keep generating in the background.
+            Come back to My Videos to check progress.
           </p>
+          <button
+            type="button"
+            onClick={() => navigate("/videos")}
+            className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-terra/25 bg-white text-sm font-medium text-terra hover:bg-terra/5 transition-colors"
+          >
+            Go to My Videos
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </motion.div>
     </div>
