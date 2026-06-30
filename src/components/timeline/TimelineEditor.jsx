@@ -17,6 +17,7 @@ import {
   SplitSquareHorizontal,
   Mic,
   RefreshCw,
+  Volume2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(null); // { percentage, label } while exporting
   const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
+  const [volumeSheetOpen, setVolumeSheetOpen] = useState(false);
+  const [volumeDraft, setVolumeDraft] = useState(1); // 0–1.5 while the volume sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
   const [regenerating, setRegenerating] = useState(false);
@@ -78,9 +81,14 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     timeline.addItem({ trackType: "AUDIO", trackIndex: 0, startTime: freeSlot("AUDIO", 0, dur), duration: dur, sectionId: section.id });
     setAssetsSheetOpen(false);
   };
+  // Route an audio asset to its row by source: TTS → Narration (0), uploads →
+  // Audio (1), background music → Music (2). Matches TimelineCanvas's audioKind.
+  const audioTrackIndex = (asset) =>
+    asset?.sourceType === "TTS" ? 0 : asset?.sourceType === "AI_MUSIC" ? 2 : 1;
   const addAudioAsset = (asset) => {
     const dur = Number(asset.duration) || 5;
-    timeline.addItem({ trackType: "AUDIO", trackIndex: 1, startTime: freeSlot("AUDIO", 1, dur), duration: dur, audioAssetId: asset.id });
+    const idx = audioTrackIndex(asset);
+    timeline.addItem({ trackType: "AUDIO", trackIndex: idx, startTime: freeSlot("AUDIO", idx, dur), duration: dur, audioAssetId: asset.id });
     setAssetsSheetOpen(false);
   };
 
@@ -544,6 +552,13 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 ? [
                     { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
                     { Icon: Gauge, label: "Speed", onClick: () => setSpeedSheetOpen(true) },
+                    // Volume — only for audio clips (narration / audio / music).
+                    ...(() => {
+                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+                      return sel && sel.trackType === "AUDIO"
+                        ? [{ Icon: Volume2, label: "Volume", onClick: () => { setVolumeDraft(sel.volume ?? 1); setVolumeSheetOpen(true); } }]
+                        : [];
+                    })(),
                     // Regenerate — only for a video clip backed by a section.
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
@@ -663,6 +678,51 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         </div>
       )}
 
+      {/* Volume sheet (audio clip action). Commits on release so the slider
+          doesn't flood the save endpoint while dragging. */}
+      {volumeSheetOpen && timeline.selectedItem && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setVolumeSheetOpen(false)}>
+          <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground">Volume</h3>
+              <button onClick={() => setVolumeSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <Volume2 className="w-5 h-5 text-muted-foreground shrink-0" />
+              <input
+                type="range"
+                min="0"
+                max="1.5"
+                step="0.05"
+                value={volumeDraft}
+                onChange={(e) => setVolumeDraft(Number(e.target.value))}
+                onPointerUp={() => timeline.updateItem(timeline.selectedItem, { volume: volumeDraft })}
+                onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { volume: volumeDraft })}
+                className="flex-1 accent-primary"
+              />
+              <span className="text-sm font-medium text-foreground w-12 text-right tabular-nums">{Math.round(volumeDraft * 100)}%</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 mt-4">
+              {[0, 0.5, 1, 1.5].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => { setVolumeDraft(v); timeline.updateItem(timeline.selectedItem, { volume: v }); }}
+                  className={`py-2 rounded-lg border text-sm font-medium ${
+                    Math.abs(volumeDraft - v) < 0.001
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {v === 0 ? "Mute" : `${Math.round(v * 100)}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add-assets sheet — touch-friendly version of the desktop asset panel.
           Tap an item to append it to its track (no drag needed). */}
       {assetsSheetOpen && (
@@ -699,15 +759,15 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   )}
                 </div>
               </div>
-              {/* Narration & audio */}
+              {/* Narration (section narration + TTS voice) */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5" /> Narration & audio
+                  <Mic className="w-3.5 h-3.5" /> Narration
                 </p>
                 <div className="space-y-1.5">
                   {timeline.sections.filter((s) => s.narrationUrl).map((section) => (
                     <button key={`narr-${section.id}`} onClick={() => addNarrationAsset(section)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">
-                      <Music className="w-4 h-4 text-blue-400 shrink-0 ml-1" />
+                      <Mic className="w-4 h-4 text-blue-400 shrink-0 ml-1" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-foreground truncate">Narration {section.orderIndex + 1}</p>
                         <p className="text-[11px] text-muted-foreground truncate">{section.narrationText?.substring(0, 30)}</p>
@@ -715,18 +775,60 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                       <Plus className="w-4 h-4 text-primary shrink-0" />
                     </button>
                   ))}
-                  {timeline.audioAssets.map((asset) => (
+                  {timeline.audioAssets.filter((a) => a.sourceType === "TTS").map((asset) => (
                     <button key={asset.id} onClick={() => addAudioAsset(asset)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">
-                      <Music className="w-4 h-4 text-green-500 shrink-0 ml-1" />
+                      <Mic className="w-4 h-4 text-blue-400 shrink-0 ml-1" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-foreground truncate">{asset.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{Number(asset.duration || 0).toFixed(1)}s{asset.sourceType === "TTS" ? " (TTS)" : ""}</p>
+                        <p className="text-[11px] text-muted-foreground">{Number(asset.duration || 0).toFixed(1)}s · voice</p>
                       </div>
                       <Plus className="w-4 h-4 text-primary shrink-0" />
                     </button>
                   ))}
-                  {timeline.audioAssets.length === 0 && timeline.sections.filter((s) => s.narrationUrl).length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">No audio</p>
+                  {timeline.sections.filter((s) => s.narrationUrl).length === 0 && timeline.audioAssets.filter((a) => a.sourceType === "TTS").length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No narration</p>
+                  )}
+                </div>
+              </div>
+              {/* Audio (uploaded files) */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5" /> Audio
+                </p>
+                <div className="space-y-1.5">
+                  {timeline.audioAssets.filter((a) => a.sourceType !== "TTS" && a.sourceType !== "AI_MUSIC").map((asset) => (
+                    <button key={asset.id} onClick={() => addAudioAsset(asset)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">
+                      <Upload className="w-4 h-4 text-green-500 shrink-0 ml-1" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-foreground truncate">{asset.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{Number(asset.duration || 0).toFixed(1)}s</p>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary shrink-0" />
+                    </button>
+                  ))}
+                  {timeline.audioAssets.filter((a) => a.sourceType !== "TTS" && a.sourceType !== "AI_MUSIC").length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No uploaded audio</p>
+                  )}
+                </div>
+              </div>
+              {/* Music (background music) */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5" /> Music
+                </p>
+                <div className="space-y-1.5">
+                  {timeline.audioAssets.filter((a) => a.sourceType === "AI_MUSIC").map((asset) => (
+                    <button key={asset.id} onClick={() => addAudioAsset(asset)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">
+                      <Music className="w-4 h-4 text-purple-400 shrink-0 ml-1" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-foreground truncate">{asset.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{Number(asset.duration || 0).toFixed(1)}s</p>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary shrink-0" />
+                    </button>
+                  ))}
+                  {timeline.audioAssets.filter((a) => a.sourceType === "AI_MUSIC").length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No music</p>
                   )}
                 </div>
               </div>

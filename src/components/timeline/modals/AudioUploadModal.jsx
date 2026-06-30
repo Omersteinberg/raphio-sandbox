@@ -1,7 +1,19 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, Music, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
+
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|flac|aiff?|caf|opus|weba|webm)$/i;
+
+// iOS often reports an empty or non-"audio/*" MIME type for audio files, so fall
+// back to checking the file extension. (Reject obvious video picks.)
+function isAudioFile(f) {
+  if (!f) return false;
+  if (f.type.startsWith("audio/")) return true;
+  if (f.type.startsWith("video/") || f.type.startsWith("image/")) return false;
+  return AUDIO_EXT.test(f.name || "");
+}
 
 export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
   const [file, setFile] = useState(null);
@@ -9,10 +21,15 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
+  const UNSUPPORTED_MSG = "Unsupported file. Please choose an audio file (MP3, M4A, AAC, WAV, OGG, or FLAC).";
+
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
-    if (selected && selected.type.startsWith("audio/")) {
+    if (!selected) return; // user cancelled
+    if (isAudioFile(selected)) {
       setFile(selected);
+    } else {
+      toast.error(UNSUPPORTED_MSG);
     }
   };
 
@@ -20,8 +37,11 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped && dropped.type.startsWith("audio/")) {
+    if (!dropped) return;
+    if (isAudioFile(dropped)) {
       setFile(dropped);
+    } else {
+      toast.error(UNSUPPORTED_MSG);
     }
   };
 
@@ -86,7 +106,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
             <input
               ref={inputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac,.opus"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -105,7 +125,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
                 <p className="text-foreground">
                   Drop an audio file here or click to browse
                 </p>
-                <p className="text-sm text-muted-foreground">MP3, WAV, or OGG</p>
+                <p className="text-sm text-muted-foreground">MP3, M4A, AAC, WAV, OGG, or FLAC</p>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { Film, Music, Volume2, Scissors, ChevronLeft, ChevronRight } from "lucide-react";
+import { Film, Music, Mic, Upload, Volume2, Scissors, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function TimelineItem({
   item,
@@ -44,21 +44,30 @@ export default function TimelineItem({
     }
   }
 
-  const isMusic = trackType === "AUDIO" && item.trackIndex === 1;
-
-  // Colors based on track type and overlap state
+  // Audio row kind, by source (matches TimelineCanvas.audioKind): narration
+  // (section narration or TTS voice), music (AI background music), else upload.
+  const audioKind =
+    trackType !== "AUDIO"
+      ? null
+      : item.sectionId || audioAsset?.sourceType === "TTS"
+      ? "narration"
+      : audioAsset?.sourceType === "AI_MUSIC"
+      ? "music"
+      : "audio";
+  // Colors match the Assets colour coding: Narration = blue, Audio = green,
+  // Music = purple (video = brand terracotta; overlaps = red/orange warning).
   const getBackgroundColor = () => {
     if (isOverlapping) {
       return trackType === "VIDEO"
         ? isSelected ? "bg-red-400" : "bg-red-500"
         : isSelected ? "bg-orange-400" : "bg-orange-500";
     }
-    if (isMusic) {
-      return isSelected ? "bg-green-600" : "bg-green-500";
+    if (trackType === "VIDEO") {
+      return isSelected ? "bg-primary" : "bg-primary/80";
     }
-    return trackType === "VIDEO"
-      ? isSelected ? "bg-primary" : "bg-primary/80"
-      : isSelected ? "bg-blue-500" : "bg-blue-400";
+    if (audioKind === "music") return isSelected ? "bg-purple-600" : "bg-purple-500";
+    if (audioKind === "audio") return isSelected ? "bg-green-600" : "bg-green-500";
+    return isSelected ? "bg-blue-500" : "bg-blue-400"; // narration
   };
 
   const bgColor = getBackgroundColor();
@@ -99,8 +108,12 @@ export default function TimelineItem({
         <div className="flex items-center gap-1 min-w-0">
           {trackType === "VIDEO" ? (
             <Film className="w-3 h-3 flex-shrink-0 text-white/70" />
-          ) : (
+          ) : audioKind === "narration" ? (
+            <Mic className="w-3 h-3 flex-shrink-0 text-white/70" />
+          ) : audioKind === "music" ? (
             <Music className="w-3 h-3 flex-shrink-0 text-white/70" />
+          ) : (
+            <Upload className="w-3 h-3 flex-shrink-0 text-white/70" />
           )}
           <span className="text-xs text-white truncate">{label}</span>
         </div>

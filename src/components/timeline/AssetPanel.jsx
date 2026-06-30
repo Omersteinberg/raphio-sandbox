@@ -66,6 +66,41 @@ export default function AssetPanel({
     }
   };
 
+  const narrationSections = sections.filter((s) => s.narrationUrl);
+  const ttsAssets = audioAssets.filter((a) => a.sourceType === "TTS");
+  const uploadAssets = audioAssets.filter((a) => a.sourceType !== "TTS" && a.sourceType !== "AI_MUSIC");
+  const musicAssets = audioAssets.filter((a) => a.sourceType === "AI_MUSIC");
+
+  // One draggable audio-asset row (uploads / TTS / music share this markup).
+  const assetRow = (asset, btnClass) => (
+    <div
+      key={asset.id}
+      className="bg-muted/60 rounded p-2 cursor-grab hover:bg-muted transition-colors group border border-border"
+      draggable
+      onDragStart={(e) => handleAudioDragStart(e, asset)}
+    >
+      <div className="flex items-center gap-2">
+        <button className={`w-6 h-6 flex items-center justify-center rounded ${btnClass}`} onClick={() => handlePlayAudio(asset.url)}>
+          <Play className="w-3 h-3 text-white" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-foreground truncate">{asset.name}</p>
+          <p className="text-xs text-muted-foreground">{Number(asset.duration || 0).toFixed(1)}s</p>
+        </div>
+        <button
+          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onDeleteAudio(asset.id); }}
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const groupLabel = (text) => (
+    <p className="text-[11px] font-semibold text-muted-foreground px-1 pt-1">{text}</p>
+  );
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 border-b border-border">
@@ -146,95 +181,61 @@ export default function AssetPanel({
             <Music className="w-4 h-4 text-blue-500" />
             <span className="text-sm font-medium">Audio</span>
             <span className="text-xs text-muted-foreground ml-auto">
-              {audioAssets.length +
-                sections.filter((s) => s.narrationUrl).length}
+              {audioAssets.length + narrationSections.length}
             </span>
           </button>
 
           {audioExpanded && (
             <div className="px-2 pb-2 space-y-1">
-              {/* Section narrations */}
-              {sections
-                .filter((s) => s.narrationUrl)
-                .map((section) => (
-                  <div
-                    key={`narration-${section.id}`}
-                    className="bg-blue-500/10 rounded p-2 cursor-grab hover:bg-blue-500/20 transition-colors group border border-blue-500/25"
-                    draggable
-                    onDragStart={(e) => handleNarrationDragStart(e, section)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="w-6 h-6 flex items-center justify-center rounded bg-blue-500 hover:bg-blue-400"
-                        onClick={() => handlePlayAudio(section.narrationUrl)}
-                      >
-                        <Play className="w-3 h-3 text-white" />
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-foreground truncate">
-                          Narration {section.orderIndex + 1}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {section.narrationText?.substring(0, 30)}...
-                        </p>
-                      </div>
-                      {onNarrationEdit && (
-                        <button
-                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-blue-500 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNarrationEdit(section);
-                          }}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-              {/* Custom audio assets */}
-              {audioAssets.map((asset) => (
+              {/* Narration (section narration + TTS voice) */}
+              {groupLabel("Narration")}
+              {narrationSections.map((section) => (
                 <div
-                  key={asset.id}
-                  className="bg-green-500/10 rounded p-2 cursor-grab hover:bg-green-500/20 transition-colors group border border-green-500/25"
+                  key={`narration-${section.id}`}
+                  className="bg-blue-500/10 rounded p-2 cursor-grab hover:bg-blue-500/20 transition-colors group border border-blue-500/25"
                   draggable
-                  onDragStart={(e) => handleAudioDragStart(e, asset)}
+                  onDragStart={(e) => handleNarrationDragStart(e, section)}
                 >
                   <div className="flex items-center gap-2">
                     <button
-                      className="w-6 h-6 flex items-center justify-center rounded bg-green-500 hover:bg-green-400"
-                      onClick={() => handlePlayAudio(asset.url)}
+                      className="w-6 h-6 flex items-center justify-center rounded bg-blue-500 hover:bg-blue-400"
+                      onClick={() => handlePlayAudio(section.narrationUrl)}
                     >
                       <Play className="w-3 h-3 text-white" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-foreground truncate">{asset.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {asset.duration.toFixed(1)}s
-                        {asset.sourceType === "TTS" && " (TTS)"}
-                        {asset.sourceType === "AI_MUSIC" && " (Music)"}
-                      </p>
+                      <p className="text-xs text-foreground truncate">Narration {section.orderIndex + 1}</p>
+                      <p className="text-xs text-muted-foreground truncate">{section.narrationText?.substring(0, 30)}...</p>
                     </div>
-                    <button
-                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteAudio(asset.id);
-                      }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {onNarrationEdit && (
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-blue-500 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); onNarrationEdit(section); }}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
+              {ttsAssets.map((asset) => assetRow(asset, "bg-blue-500 hover:bg-blue-400"))}
+              {narrationSections.length === 0 && ttsAssets.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-1 py-1">None</p>
+              )}
 
-              {audioAssets.length === 0 &&
-                sections.filter((s) => s.narrationUrl).length === 0 && (
-                  <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                    No audio available
-                  </p>
-                )}
+              {/* Audio (uploaded files) */}
+              {groupLabel("Audio")}
+              {uploadAssets.map((asset) => assetRow(asset, "bg-green-500 hover:bg-green-400"))}
+              {uploadAssets.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-1 py-1">None</p>
+              )}
+
+              {/* Music (background music) */}
+              {groupLabel("Music")}
+              {musicAssets.map((asset) => assetRow(asset, "bg-purple-500 hover:bg-purple-400"))}
+              {musicAssets.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-1 py-1">None</p>
+              )}
             </div>
           )}
         </div>

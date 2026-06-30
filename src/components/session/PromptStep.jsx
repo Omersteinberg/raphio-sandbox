@@ -807,11 +807,14 @@ export default function PromptStep({
                           whileHover={{ y: -2 }}
                           whileTap={{ scale: 0.97 }}
                           onClick={() => { setUserPrompt(item.prompt); setShowInspiration(false); }}
-                          className="group relative aspect-video rounded-xl overflow-hidden text-left"
+                          className="group relative aspect-video rounded-xl overflow-hidden text-left bg-neutral-900"
                           style={{ boxShadow: '0 2px 10px rgba(193,68,14,0.10), 0 0 0 1px rgba(193,68,14,0.08)' }}
                         >
                           <video
-                            src={item.poster}
+                            // #t=0.1 forces the browser to paint the first frame as a
+                            // still (iOS won't render anything from preload=metadata
+                            // alone, leaving the tile blank).
+                            src={`${item.poster}#t=0.1`}
                             muted
                             loop
                             playsInline

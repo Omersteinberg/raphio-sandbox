@@ -34,11 +34,21 @@ export default function TimelineCanvas({
 
   const timelineWidth = Math.max(duration * pixelsPerSecond + 200, 800);
   const trackHeight = 60;
-  const totalTracks = 3;
+  const totalTracks = 4;
 
-  // Split audio items into narration (trackIndex 0) and music (trackIndex 1)
-  const narrationItems = audioItems.filter((i) => i.trackIndex !== 1);
-  const musicItems = audioItems.filter((i) => i.trackIndex === 1);
+  // Group audio into three rows by source KIND (not stored trackIndex, so older
+  // timelines map correctly): Narration (section narration + TTS voice), Audio
+  // (uploaded files), Music (background music).
+  const audioKind = (item) => {
+    if (item.sectionId) return "narration";
+    const a = item.audioAssetId ? getAudioAsset(item.audioAssetId) : null;
+    if (a?.sourceType === "AI_MUSIC") return "music";
+    if (a?.sourceType === "TTS") return "narration";
+    return "audio"; // UPLOAD or anything else
+  };
+  const narrationItems = audioItems.filter((i) => audioKind(i) === "narration");
+  const audioRowItems = audioItems.filter((i) => audioKind(i) === "audio");
+  const musicItems = audioItems.filter((i) => audioKind(i) === "music");
 
   // Underlying source length for a clip — used to clamp trimming.
   const getSourceDuration = (item) => {
@@ -60,7 +70,7 @@ export default function TimelineCanvas({
     (draggedItem) => {
       const points = new Set();
 
-      [...videoItems, ...narrationItems, ...musicItems].forEach((item) => {
+      [...videoItems, ...narrationItems, ...audioRowItems, ...musicItems].forEach((item) => {
         if (item.id === draggedItem.id) return;
         points.add(item.startTime);
         points.add(item.startTime + item.duration);
@@ -72,7 +82,7 @@ export default function TimelineCanvas({
 
       return [...points];
     },
-    [videoItems, narrationItems, musicItems, playheadPosition, duration]
+    [videoItems, narrationItems, audioRowItems, musicItems, playheadPosition, duration]
   );
 
   // Find the nearest snap target for a given time value
@@ -100,11 +110,15 @@ export default function TimelineCanvas({
   // Find nearest non-overlapping position for an item
   const findNonOverlappingPosition = useCallback(
     (itemId, startTime, itemDuration, trackType, trackIdx = 0) => {
+      // Pick the dragged item's own audio row by membership (kind-based), so
+      // overlap is checked against the right row regardless of stored trackIndex.
       const trackItems =
         trackType === "VIDEO"
           ? videoItems
-          : trackIdx === 1
+          : musicItems.some((i) => i.id === itemId)
           ? musicItems
+          : audioRowItems.some((i) => i.id === itemId)
+          ? audioRowItems
           : narrationItems;
       const others = trackItems.filter((it) => it.id !== itemId);
 
@@ -145,7 +159,7 @@ export default function TimelineCanvas({
 
       return Math.max(0, bestPos);
     },
-    [videoItems, narrationItems, musicItems]
+    [videoItems, narrationItems, audioRowItems, musicItems]
   );
 
   // Detect overlapping items
@@ -173,6 +187,7 @@ export default function TimelineCanvas({
   // Calculate overlaps for video, audio, and music tracks
   const videoOverlaps = useMemo(() => detectOverlaps(videoItems), [videoItems, detectOverlaps]);
   const audioOverlaps = useMemo(() => detectOverlaps(narrationItems), [narrationItems, detectOverlaps]);
+  const audioRowOverlaps = useMemo(() => detectOverlaps(audioRowItems), [audioRowItems, detectOverlaps]);
   const musicOverlaps = useMemo(() => detectOverlaps(musicItems), [musicItems, detectOverlaps]);
 
   // Calculate drag preview position for the dragged item (with snapping)
@@ -401,7 +416,7 @@ export default function TimelineCanvas({
         await onUpdateItem(dragItem.id, updates);
       }
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, narrationItems, musicItems, getSection, getAudioAsset]
+    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, findSnapTarget, findNonOverlappingPosition, videoItems, narrationItems, audioRowItems, musicItems, getSection, getAudioAsset]
   );
 
   // Add mouse + touch event listeners for dragging
@@ -502,9 +517,9 @@ export default function TimelineCanvas({
             dragPreview={dragPreview}
           />
 
-          {/* Audio Track (Narration) */}
+          {/* Narration Track (section narration + TTS voice) */}
           <TimelineTrack
-            label="Audio"
+            label="Narration"
             trackType="AUDIO"
             trackIndex={0}
             items={narrationItems}
@@ -522,12 +537,12 @@ export default function TimelineCanvas({
             dragPreview={dragPreview}
           />
 
-          {/* Music Track */}
+          {/* Audio Track (uploaded audio) */}
           <TimelineTrack
-            label="Music"
+            label="Audio"
             trackType="AUDIO"
             trackIndex={1}
-            items={musicItems}
+            items={audioRowItems}
             height={trackHeight}
             pixelsPerSecond={pixelsPerSecond}
             selectedItem={selectedItem}
@@ -537,6 +552,26 @@ export default function TimelineCanvas({
             getSection={getSection}
             getAudioAsset={getAudioAsset}
             onDrop={(e) => handleDrop(e, "AUDIO", 1)}
+            onDragOver={handleDragOver}
+            overlappingItems={audioRowOverlaps}
+            dragPreview={dragPreview}
+          />
+
+          {/* Music Track (background music) */}
+          <TimelineTrack
+            label="Music"
+            trackType="AUDIO"
+            trackIndex={2}
+            items={musicItems}
+            height={trackHeight}
+            pixelsPerSecond={pixelsPerSecond}
+            selectedItem={selectedItem}
+            onSelectItem={onSelectItem}
+            onItemDragStart={handleItemDragStart}
+            onItemEdit={onItemEdit}
+            getSection={getSection}
+            getAudioAsset={getAudioAsset}
+            onDrop={(e) => handleDrop(e, "AUDIO", 2)}
             onDragOver={handleDragOver}
             overlappingItems={musicOverlaps}
             dragPreview={dragPreview}

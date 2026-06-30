@@ -125,7 +125,8 @@ export default function VideoPreview({
           if (Math.abs(el.currentTime - sourceTime) > 0.5) {
             try { el.currentTime = sourceTime; } catch (_) {}
           }
-          el.volume = item.volume ?? 1;
+          // HTML media volume must be 0–1; clamp (the export can still boost >1).
+          el.volume = Math.max(0, Math.min(1, item.volume ?? 1));
           if (isPlaying && el.paused) {
             el.play().catch(() => {});
           } else if (!isPlaying && !el.paused) {
