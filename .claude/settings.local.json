@@ -20,7 +20,8 @@
       "WebFetch(domain:blog.segmind.com)",
       "Bash(npx vite *)",
       "Bash(Select-Object -First 30)",
-      "PowerShell(npx vite build --logLevel error 2>&1)"
+      "PowerShell(npx vite build --logLevel error 2>&1)",
+      "WebFetch(domain:subhooked-nontumultuously-lynwood.ngrok-free.dev)"
     ]
   }
 }

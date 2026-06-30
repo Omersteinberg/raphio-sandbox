@@ -109,6 +109,32 @@ export async function changePassword(currentPassword, newPassword) {
   return data;
 }
 
+// Request a password reset email (public)
+export async function requestPasswordReset(email) {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  return data;
+}
+
+// Complete a password reset with a token + new password (public)
+export async function resetPassword(token, password) {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+
+  const data = await parseJSON(res);
+  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  return data;
+}
+
 // Logout
 export function logout() {
   removeToken();

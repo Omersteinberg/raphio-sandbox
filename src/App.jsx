@@ -6,6 +6,8 @@ import VideoDetailPage from "./pages/VideoDetailPage";
 import EditorPage from "./pages/EditorPage";
 import TimelineTest from "./pages/TimelineTest";
 import AuthPage from "./pages/AuthPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 // import LoginPage from "./pages/LoginPage";
 // import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
@@ -27,6 +29,8 @@ function App() {
           <Route path="/register" element={<AuthPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} /> */}
 
