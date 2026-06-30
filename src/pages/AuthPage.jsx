@@ -275,7 +275,7 @@ function Thumbnail({ item, width }) {
 }
 // ── Stream column ─────────────────────────────────────────────────
 // Tiles scroll from top → completely off bottom, then loop.
-// Using CSS animation so it's GPU-composited — no JS on the animation loop.
+// Using CSS animation so it's GPU-composited, no JS on the animation loop.
 function StreamColumn({ items, reverse = false, speed = 30, width = 160 }) {
   const doubled = [...items, ...items];
   const animName = `scroll-${reverse ? "down" : "up"}-${width}`;

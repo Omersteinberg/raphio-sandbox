@@ -18,13 +18,13 @@ export const STAGES = {
 };
 
 /**
- * useSessionBase — shared state, callbacks, and effects for all session pipelines.
+ * useSessionBase: shared state, callbacks, and effects for all session pipelines.
  *
  * @param {object} opts
- * @param {number} opts.generatingStep — the step number that represents "generating" in the
+ * @param {number} opts.generatingStep - the step number that represents "generating" in the
  *   consuming pipeline.  The polling effect fires when `currentStep === generatingStep`.
- * @param {number} opts.currentStep — the pipeline's current step (so base can drive polling).
- * @param {function} opts.onSessionLoaded — optional callback invoked with the loaded session
+ * @param {number} opts.currentStep - the pipeline's current step (so base can drive polling).
+ * @param {function} opts.onSessionLoaded - optional callback invoked with the loaded session
  *   during URL-param resume, so the pipeline hook can restore pipeline-specific state
  *   (e.g. images, character data). Called with (sessionData).
  */
@@ -82,7 +82,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
           setLoading(true);
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
-            // Wrong creator for this session's pipeline — bounce to the right one.
+            // Wrong creator for this session's pipeline, bounce to the right one.
             if (expectedMode && data.pipelineMode && data.pipelineMode !== expectedMode
                 && ["image", "references"].includes(data.pipelineMode)) {
               navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
@@ -110,7 +110,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       loadSession();
     }
   }, [resumeSessionId, sessionId, navigate]);
-  // NOTE: onSessionLoaded intentionally omitted from deps — it is a stable ref
+  // NOTE: onSessionLoaded intentionally omitted from deps, it is a stable ref
   // provided by the consuming hook and including it would cause infinite re-renders.
 
   // ── Poll for session updates during generation ─────────────────────
@@ -227,7 +227,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
     }
   }, [sessionId, scriptData]);
 
-  // Start generation — accepts a generic config object from the pipeline hook
+  // Start generation: accepts a generic config object from the pipeline hook
   const startGeneration = useCallback(async (config = {}) => {
     console.log("[useSessionBase] startGeneration called");
     console.log("[useSessionBase] sessionId:", sessionId);
@@ -246,7 +246,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
         backgroundMusic: config.backgroundMusic !== undefined ? config.backgroundMusic : backgroundMusic,
       });
       console.log("[useSessionBase] startGeneration response:", updatedSession);
-      // Do NOT setSession here — the 202 response is a stub, not a full session;
+      // Do NOT setSession here, the 202 response is a stub, not a full session;
       // the poll refreshes the real session within ~5s.
       refreshCredits();
       toast.success("Video generation started!");
@@ -258,7 +258,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
         response: err.response?.data,
         status: err.response?.status,
       });
-      // Insufficient credits — let pipeline hook handle step changes
+      // Insufficient credits: let pipeline hook handle step changes
       if (err.response?.status === 402) {
         setInsufficientCredits({
           required: err.response.data.required,
@@ -463,7 +463,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
     setInsufficientCredits(null);
   }, []);
 
-  // Reset shared state — pipeline hooks should call this and then reset their own state
+  // Reset shared state: pipeline hooks should call this and then reset their own state
   const resetBase = useCallback(() => {
     setSessionId(null);
     setSession(null);

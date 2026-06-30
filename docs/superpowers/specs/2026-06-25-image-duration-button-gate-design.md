@@ -1,7 +1,7 @@
-# Image Pipeline — Gate "Create my video" on Image-Count vs. Duration
+# Image Pipeline: Gate "Create my video" on Image-Count vs. Duration
 
 **Date:** 2026-06-25
-**Status:** Design — pending implementation
+**Status:** Design, pending implementation
 **Scope:** Frontend only (`merge-frontend`). Reuses the existing backend `/estimate-duration` endpoint; no backend changes.
 
 ## Problem
@@ -15,7 +15,7 @@ the user sees no message and the "Create my video" button stays enabled.
 ## Goal
 
 When the user has **too many images** for the selected duration, surface the existing
-advisory **and disable** the "Create my video" button until they resolve it — by
+advisory **and disable** the "Create my video" button until they resolve it, by
 removing images or increasing the duration. Too-few-images is unaffected (still allowed,
 handled by AI fill / a shorter video).
 
@@ -23,29 +23,29 @@ handled by AI fill / a shorter video).
 
 1. **Block only on too-many.** `too_many_images` disables the button. `exact_fit` and
    `needs_ai_fill` (too few) stay enabled.
-2. **Full advisory.** Render the complete `DurationEstimate` banner — too-many blocks,
+2. **Full advisory.** Render the complete `DurationEstimate` banner, too-many blocks,
    and too-few shows its guidance and auto-enables AI fill / suggests shortening, exactly
    as the component was built.
 3. **Pre-block while unknown.** The button is disabled until an estimate has resolved to
    a confirmed-safe status. It is not optimistically enabled during the initial/unknown
    window.
-4. **Fail open on estimate error.** If the estimate request fails, enable the button — a
+4. **Fail open on estimate error.** If the estimate request fails, enable the button, a
    flaky estimate endpoint must not block all generation. The backend tolerates a stray
    too-many start.
 5. **Drop "Keep longer video."** The too-many banner's `keep` option dismissed the advisory
    and let the user proceed with an overshoot. That contradicts the hard block, so it is
-   removed — the only remedies are "Remove N images" or "Set duration to ~Xs".
+   removed, the only remedies are "Remove N images" or "Set duration to ~Xs".
 
 ## Approach
 
-Render `DurationEstimate` (which already fetches the server-side estimate — the single
+Render `DurationEstimate` (which already fetches the server-side estimate, the single
 source of truth for scene budget) and lift its resolved status up to `PromptStep` via a
 new `onStatusChange` callback. `PromptStep` gates the button on that status.
 
 Rejected alternatives:
-- **Client-side recompute** of the estimate — duplicates backend scene-budget math that
+- **Client-side recompute** of the estimate, duplicates backend scene-budget math that
   the backend explicitly warns against drifting from.
-- **Extract the fetch into a shared hook** — cleaner separation but more refactor than
+- **Extract the fetch into a shared hook**: cleaner separation but more refactor than
   this change warrants.
 
 ## Changes
@@ -79,7 +79,7 @@ Rejected alternatives:
   ```
   (`null` / `too_many_images` → not OK → disabled.)
 - When `durationStatus === 'too_many_images'`, change the CTA subtext from
-  "Usually ready in 30–60 seconds" to **"Remove some images or increase the length to
+  "Usually ready in 30-60 seconds" to **"Remove some images or increase the length to
   continue."**
 
 ## Behavior

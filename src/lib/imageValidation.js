@@ -32,7 +32,7 @@ export function filterValidImages(files) {
     toast.error(
       rejected === 1
         ? "Only JPEG and PNG images are supported. WebP isn't accepted."
-        : `${rejected} files were skipped — only JPEG and PNG are supported (WebP isn't).`
+        : `${rejected} files were skipped. Only JPEG and PNG are supported (WebP isn't).`
     );
   }
   return valid;

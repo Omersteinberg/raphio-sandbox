@@ -10,7 +10,7 @@ export default function Creator() {
   const [searchParams] = useSearchParams();
 
   // When resuming a session (?session=&mode=), the session's own pipeline mode is
-  // authoritative — otherwise the last-selected "new video" mode (localStorage)
+  // authoritative, otherwise the last-selected "new video" mode (localStorage)
   // renders the wrong creator and the resume drops the user on step 0 of the
   // wrong pipeline. Read once at mount; resume always remounts via /videos.
   const resumeMode = searchParams.get("mode");

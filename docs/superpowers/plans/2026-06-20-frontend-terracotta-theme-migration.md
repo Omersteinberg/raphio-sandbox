@@ -1,7 +1,7 @@
-# Frontend Terracotta Theme Migration — Implementation Plan
+# Frontend Terracotta Theme Migration: Implementation Plan
 
 > **For agentic workers:** This is a visual/CSS refactor, not feature work. There are no
-> unit-test cycles — each task's verification is `npm run build` (must compile) plus a
+> unit-test cycles, each task's verification is `npm run build` (must compile) plus a
 > visual on-brand check. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Convert every off-theme page/component in `merge-frontend` to consume the central
@@ -18,10 +18,10 @@ both of which already resolve to terracotta.
 ## Global Constraints
 
 - **Single commit at end.** Make ALL changes first; do not commit between tasks. One commit when the whole migration is done. No `Co-Authored-By` line.
-- **Style only — never change behavior.** Do not touch state, props, handlers, data flow, API calls, or copy. Only swap colors / fonts / background utilities.
+- **Style only: never change behavior.** Do not touch state, props, handlers, data flow, API calls, or copy. Only swap colors / fonts / background utilities.
 - **Do NOT touch the already-on-theme files** (they look correct and are out of scope for this pass): `LandingPage.jsx`, `AuthPage.jsx`, `BuyCreditsPage.jsx`, `MyVideosPage.jsx`, `VideoCard.jsx`, `AppHeader.jsx`, `ScriptLoadingScreen.jsx`, `PromptStep.jsx`.
 - **`npm run build` must pass** after every task (run from `C:\Users\mikha\merge-frontend`).
-- **Leave `bg-black` / video-frame surfaces alone** — video players and media frames are intentionally black.
+- **Leave `bg-black` / video-frame surfaces alone**: video players and media frames are intentionally black.
 
 ## Conversion Dictionary (apply everywhere)
 
@@ -48,11 +48,11 @@ The deterministic find→replace recipe. Match on intent, not just string.
 | `text-gray-400/500` | `text-ink-muted` |
 | `text-gray-700/900` | `text-ink` / `text-ink/80` |
 | `bg-gray-50/100` | `bg-surface-alt` / `bg-cream` |
-| shadcn semantics (`text-foreground`, `bg-primary`, `bg-card`, `bg-muted`, `border-border`, `text-destructive`) | **leave as-is** — already terracotta after the token retune |
+| shadcn semantics (`text-foreground`, `bg-primary`, `bg-card`, `bg-muted`, `border-border`, `text-destructive`) | **leave as-is**: already terracotta after the token retune |
 
 ---
 
-## Task 0: Token layer — ✅ DONE
+## Task 0: Token layer ✅ DONE
 
 **Files:** `src/index.css`, `tailwind.config.js`
 
@@ -62,7 +62,7 @@ Already complete: `:root` retuned to terracotta; brand variables added (`--terra
 `terra`/`cream`/`surface`/`ink` + `bg-app-gradient`/`bg-brand-gradient` wired; stale indigo/green
 gradients removed.
 
-## Task 1: VideoDetailPage — ✅ DONE
+## Task 1: VideoDetailPage ✅ DONE
 
 **File:** `src/pages/VideoDetailPage.jsx`
 
@@ -73,20 +73,20 @@ Already complete: `font-figtree`, `var(--gradient-app)` background, green `bg-se
 ## Task 2: Create-flow step components (the main batch)
 
 **Files (modify):**
-- `src/components/session/ScriptStep.jsx` — heaviest: `bg-purple-*`, `text-purple-*`, `border-purple-*`, `ring-purple-200`, coral gradient, `border-gray-200/300`. Also uses shadcn `Button`/`Input`/`Textarea` (leave the imports; restyle inline classes).
-- `src/components/session/FramesStep.jsx` — coral gradient + purple + `bg-muted`.
-- `src/components/session/GeneratingStep.jsx` — coral gradient + purple progress visuals.
-- `src/components/session/ResultStep.jsx` — coral gradient CTAs + purple.
-- `src/components/session/EditingStep.jsx` — purple/gray; renders `TimelineEditor` (handled in Task 3).
-- `src/components/session/ImagesStep.jsx` — purple + gray.
-- `src/components/session/ReferenceLockStep.jsx` — purple + coral.
-- `src/components/session/FrameGenerationStep.jsx` — coral gradient + purple.
-- `src/components/session/VoiceConfigStep.jsx` — purple + gray; embeds `VoiceSelector`.
-- `src/components/session/VoiceSelector.jsx` — purple/blue + shadcn `Input`; play/pause accent → `text-terra`.
-- `src/components/session/BridgeSectionCard.jsx` — purple/indigo card accents.
-- `src/components/session/ClipEditModal.jsx` — purple + gray modal.
-- `src/components/session/IntroBriefStep.jsx` — `const GRADIENT = "linear-gradient(135deg, #F97066, #FB923C)"` → `var(--gradient-brand)`; purple + shadcn inputs.
-- `src/components/session/IntroScriptStep.jsx` — coral gradient + purple.
+- `src/components/session/ScriptStep.jsx`, heaviest: `bg-purple-*`, `text-purple-*`, `border-purple-*`, `ring-purple-200`, coral gradient, `border-gray-200/300`. Also uses shadcn `Button`/`Input`/`Textarea` (leave the imports; restyle inline classes).
+- `src/components/session/FramesStep.jsx`: coral gradient + purple + `bg-muted`.
+- `src/components/session/GeneratingStep.jsx`: coral gradient + purple progress visuals.
+- `src/components/session/ResultStep.jsx`: coral gradient CTAs + purple.
+- `src/components/session/EditingStep.jsx`: purple/gray; renders `TimelineEditor` (handled in Task 3).
+- `src/components/session/ImagesStep.jsx`: purple + gray.
+- `src/components/session/ReferenceLockStep.jsx`: purple + coral.
+- `src/components/session/FrameGenerationStep.jsx`: coral gradient + purple.
+- `src/components/session/VoiceConfigStep.jsx`: purple + gray; embeds `VoiceSelector`.
+- `src/components/session/VoiceSelector.jsx`: purple/blue + shadcn `Input`; play/pause accent → `text-terra`.
+- `src/components/session/BridgeSectionCard.jsx`: purple/indigo card accents.
+- `src/components/session/ClipEditModal.jsx`: purple + gray modal.
+- `src/components/session/IntroBriefStep.jsx`: `const GRADIENT = "linear-gradient(135deg, #F97066, #FB923C)"` → `var(--gradient-brand)`; purple + shadcn inputs.
+- `src/components/session/IntroScriptStep.jsx`: coral gradient + purple.
 
 **Per-file procedure (repeat for each):**
 
@@ -103,20 +103,20 @@ Already complete: `font-figtree`, `var(--gradient-app)` background, green `bg-se
 
 > **Note / open question:** these files lean on shadcn semantics (`bg-card`, `bg-muted`,
 > `text-foreground`) that now resolve to the LIGHT warm theme, so the editor will render
-> light instead of its old dark look. That's the intended brand direction — but it's a
+> light instead of its old dark look. That's the intended brand direction, but it's a
 > bigger visual shift; eyeball it for contrast (e.g. timeline tracks on cream) and bump
 > opacities if anything washes out.
 
 **Files (modify):**
-- `src/components/timeline/TimelineEditor.jsx` — shell + shadcn `Button`; hardcoded accents → terra.
-- `src/components/timeline/TimelineControls.jsx` — play/zoom controls; semantic + gray.
+- `src/components/timeline/TimelineEditor.jsx`: shell + shadcn `Button`; hardcoded accents → terra.
+- `src/components/timeline/TimelineControls.jsx`: play/zoom controls; semantic + gray.
 - `src/components/timeline/TimelineCanvas.jsx`
 - `src/components/timeline/TimelineTrack.jsx`
-- `src/components/timeline/TimelineItem.jsx` — selected/active state → `border-terra`/`ring-terra`.
+- `src/components/timeline/TimelineItem.jsx`: selected/active state → `border-terra`/`ring-terra`.
 - `src/components/timeline/TimelineRuler.jsx`
-- `src/components/timeline/TimelinePlayhead.jsx` — playhead accent → `bg-terra`.
-- `src/components/timeline/AssetPanel.jsx` — heaviest semantic usage; gray/slate → ink/border.
-- `src/components/timeline/VideoPreview.jsx` — keep black media frame; restyle chrome only.
+- `src/components/timeline/TimelinePlayhead.jsx`: playhead accent → `bg-terra`.
+- `src/components/timeline/AssetPanel.jsx`: heaviest semantic usage; gray/slate → ink/border.
+- `src/components/timeline/VideoPreview.jsx`: keep black media frame; restyle chrome only.
 - `src/components/timeline/modals/TTSModal.jsx`
 - `src/components/timeline/modals/AudioUploadModal.jsx`
 - `src/components/timeline/modals/ItemEditModal.jsx`
@@ -131,9 +131,9 @@ Already complete: `font-figtree`, `var(--gradient-app)` background, green `bg-se
 ## Task 4: Shared leftovers
 
 **Files (modify):**
-- `src/components/merge/MergeFloatingActionButton.jsx` — `hover:text-purple-600 hover:border-purple-300` → `hover:text-terra hover:border-terra/40`; `border-gray-200 text-gray-700 hover:bg-gray-50` → `border-border text-ink-muted hover:bg-surface-alt`.
-- `src/components/merge/MergeLoadingOverlay.jsx` — progress bar `linear-gradient(135deg, #F97066, #FB923C)` → `var(--gradient-brand)` (already on dark overlay; rest is fine).
-- `src/components/session/DurationEstimate.jsx` — `needs_ai_fill_on` info state uses blue `#1D4ED8`/`#EFF6FF`/`#BFDBFE`; optionally warm it to the `--info` token or leave (semantic info color is acceptable). Low priority.
+- `src/components/merge/MergeFloatingActionButton.jsx`: `hover:text-purple-600 hover:border-purple-300` → `hover:text-terra hover:border-terra/40`; `border-gray-200 text-gray-700 hover:bg-gray-50` → `border-border text-ink-muted hover:bg-surface-alt`.
+- `src/components/merge/MergeLoadingOverlay.jsx`: progress bar `linear-gradient(135deg, #F97066, #FB923C)` → `var(--gradient-brand)` (already on dark overlay; rest is fine).
+- `src/components/session/DurationEstimate.jsx`: `needs_ai_fill_on` info state uses blue `#1D4ED8`/`#EFF6FF`/`#BFDBFE`; optionally warm it to the `--info` token or leave (semantic info color is acceptable). Low priority.
 
 **Procedure:** same per-file procedure.
 
@@ -155,12 +155,12 @@ git commit -m "style(frontend): migrate off-theme pages to central terracotta to
 
 ## Self-Review
 
-- **Spec coverage:** every file from the analysis's "needs updating" list maps to a task (Task 2 = create-flow steps, Task 3 = timeline suite, Task 4 = shared bits; Tasks 0–1 already done). On-theme files explicitly excluded.
-- **Placeholders:** none — the Conversion Dictionary gives the concrete mapping; per-file notes name the actual off-brand markers present.
+- **Spec coverage:** every file from the analysis's "needs updating" list maps to a task (Task 2 = create-flow steps, Task 3 = timeline suite, Task 4 = shared bits; Tasks 0-1 already done). On-theme files explicitly excluded.
+- **Placeholders:** none, the Conversion Dictionary gives the concrete mapping; per-file notes name the actual off-brand markers present.
 - **Consistency:** token names (`terra`, `terra-light`, `terra-dark`, `cream`, `surface`, `surface-alt`, `ink`, `ink-warm`, `ink-muted`, `app-gradient`, `brand-gradient`) match exactly what Task 0 defined in `index.css` + `tailwind.config.js`.
 
 ## Risks
 
-- **Timeline goes light** (Task 3) — biggest visual change; may need contrast tuning. Flagged inline.
-- **shadcn primitives** (`ui/button.jsx`, `ui/input.jsx`, etc.) are intentionally NOT in the task list — they already inherit the retuned tokens. Only touch them if a converted component looks wrong because of a primitive default.
+- **Timeline goes light** (Task 3), biggest visual change; may need contrast tuning. Flagged inline.
+- **shadcn primitives** (`ui/button.jsx`, `ui/input.jsx`, etc.) are intentionally NOT in the task list, they already inherit the retuned tokens. Only touch them if a converted component looks wrong because of a primitive default.
 - **Opacity modifiers** require the `*-rgb` triples (already defined for `terra`/`ink`); `cream`/`surface` are solid-only (no `/opacity`).

@@ -14,7 +14,7 @@ import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 
-// Step names for progress bar — dynamic based on whether bridges are enabled
+// Step names for progress bar: dynamic based on whether bridges are enabled
 const STEP_NAMES_WITH_BRIDGES = ["Prompt", "Script", "Bridges", "Generate", "Processing", "Complete"];
 const STEP_NAMES_NO_BRIDGES = ["Prompt", "Script", "Generate", "Processing", "Complete"];
 
@@ -385,7 +385,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           </motion.div>
         </AnimatePresence>
 
-        {/* ScriptLoadingScreen lives here — outside the slide animation */}
+        {/* ScriptLoadingScreen lives here, outside the slide animation */}
         <AnimatePresence>
           {loading && (step === 0 || step === 1) && (
             <ScriptLoadingScreen progress={scriptProgress} />
@@ -393,7 +393,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
         </AnimatePresence>
       </div>
 
-      {/* Loading overlay — steps 0/1 handled by ScriptLoadingScreen */}
+      {/* Loading overlay: steps 0/1 handled by ScriptLoadingScreen */}
       {loading && step !== generatingStep && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={

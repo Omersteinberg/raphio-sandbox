@@ -23,7 +23,7 @@ export default function FrameGenerationStep({
 
   const allFramesComplete = sceneFrames.length > 0 && sceneFrames.every(f => f.status === 'completed' || f.status === 'success');
 
-  console.log("[FrameGenerationStep] render — sceneFrames:", sceneFrames.length, "framesLoading:", framesLoading, "allFramesComplete:", allFramesComplete);
+  console.log("[FrameGenerationStep] render, sceneFrames:", sceneFrames.length, "framesLoading:", framesLoading, "allFramesComplete:", allFramesComplete);
 
   return (
     <div className="h-full overflow-y-auto p-6">

@@ -108,7 +108,7 @@ export default function GeneratingStep({ session, scriptData, generationError, o
   );
   const progress = Math.max(simulatedProgress, realProgress);
 
-  // Failure state — generation failed; show the error and let the user regenerate.
+  // Failure state: generation failed; show the error and let the user regenerate.
   const failed = !!generationError || progressData.stage === "FAILED" || session?.video?.status === "FAILED";
   const errorMessage = generationError || progressData.error || "Something went wrong while generating your video.";
 

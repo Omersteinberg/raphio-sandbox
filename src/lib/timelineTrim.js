@@ -2,7 +2,7 @@
 //
 // Cut-only: the kept region [trimStart, trimEnd] lives inside the source
 // [0, sourceDuration], is always at least `minDuration` long, and never
-// stretches the source — so `speed` is always 1.0.
+// stretches the source, so `speed` is always 1.0.
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 

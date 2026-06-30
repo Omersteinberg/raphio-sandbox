@@ -76,11 +76,11 @@ export default function IntroScriptStep({
 
           {/* Narration */}
           <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-1 flex items-center gap-1"><Mic className="w-3.5 h-3.5" /> Narration <span className="normal-case font-medium tracking-normal text-ink-muted">(optional — leave empty for music only)</span></label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-1 flex items-center gap-1"><Mic className="w-3.5 h-3.5" /> Narration <span className="normal-case font-medium tracking-normal text-ink-muted">(optional, leave empty for music only)</span></label>
             <Textarea rows={2} placeholder="A short spoken line…" value={introScript?.narration || ""} onChange={(e) => updateScriptField("narration", e.target.value)} />
           </div>
 
-          {/* Voice — only meaningful when there is narration */}
+          {/* Voice: only meaningful when there is narration */}
           {hasNarration && (
             <div>
               <label className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-2 block">Narration voice</label>

@@ -45,16 +45,16 @@ export default function ScriptStep({
     s => s.source === "bridge" && s.bridgeStatus === "failed"
   );
 
-  console.log("[ScriptStep] render — scriptData:", scriptData);
-  console.log("[ScriptStep] render — scriptData?.sections:", scriptData?.sections);
-  console.log("[ScriptStep] render — isGenerated:", !!scriptData, "session stage:", session?.stage, "isApproved:", isApproved);
+  console.log("[ScriptStep] render, scriptData:", scriptData);
+  console.log("[ScriptStep] render, scriptData?.sections:", scriptData?.sections);
+  console.log("[ScriptStep] render, isGenerated:", !!scriptData, "session stage:", session?.stage, "isApproved:", isApproved);
 
   // Separate opening/closing sections from content sections
   const allSections = scriptData?.sections || [];
   const openingSection = allSections.find((s) => s.sectionType === "OPENING");
   const closingSection = allSections.find((s) => s.sectionType === "CLOSING");
   const contentSections = allSections.filter((s) => s.sectionType !== "OPENING" && s.sectionType !== "CLOSING");
-  // Opening/closing frames are OPTIONAL — only show a card when the script actually
+  // Opening/closing frames are OPTIONAL: only show a card when the script actually
   // has that section OR the user explicitly supplied one (upload / custom prompt).
   const hasOpening = !!(openingSection || openingFrame?.useUpload || openingFrame?.customPrompt || generatedFrameImages?.opening?.imageUrl || session?.openingFrameConfig?.uploadedImageUrl);
   const hasClosing = !!(closingSection || closingFrame?.useUpload || closingFrame?.customPrompt || generatedFrameImages?.closing?.imageUrl || session?.closingFrameConfig?.uploadedImageUrl);
@@ -319,7 +319,7 @@ export default function ScriptStep({
                           <p className="text-sm text-ink-muted"><span className="font-medium">Narration:</span> "{openingFrame.textOverlay}"</p>
                         )}
                         {!openingFrame.description && !openingFrame.textOverlay && (
-                          <p className="text-sm text-ink-muted italic">Opening frame — script will include narration & visual direction</p>
+                          <p className="text-sm text-ink-muted italic">Opening frame: script will include narration & visual direction</p>
                         )}
                       </>
                     )}
@@ -364,7 +364,7 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail — hidden for references pipeline */}
+                    {/* Image Thumbnail: hidden for references pipeline */}
                     {!isReferencesPipeline && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
@@ -583,7 +583,7 @@ export default function ScriptStep({
                           <p className="text-sm text-ink-muted mb-1"><span className="font-medium">Narration:</span> "{closingFrame.textOverlay}"</p>
                         )}
                         {!closingFrame.description && !closingFrame.textOverlay && (
-                          <p className="text-sm text-ink-muted italic">Closing frame — script will include narration & visual direction</p>
+                          <p className="text-sm text-ink-muted italic">Closing frame: script will include narration & visual direction</p>
                         )}
                       </>
                     )}

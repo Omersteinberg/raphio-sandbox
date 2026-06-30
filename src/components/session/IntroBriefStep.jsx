@@ -91,7 +91,7 @@ export default function IntroBriefStep({
             Create a Brand Intro
           </h1>
           <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed">
-            Upload your logo and tell us about your business — we’ll generate a short montage
+            Upload your logo and tell us about your business, we’ll generate a short montage
             that swirls into your logo reveal.
           </p>
         </div>

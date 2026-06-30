@@ -64,7 +64,7 @@ export async function listSessions({ stage, status, limit, offset } = {}) {
 
 /**
  * Estimate resulting video length from image count vs. target duration.
- * Stateless — safe to call before a session exists (while the user is still
+ * Stateless: safe to call before a session exists (while the user is still
  * choosing images/duration on the prompt screen).
  * @returns {{ status: string, estimatedDuration: number, message: string, options: Array }}
  */
@@ -131,7 +131,7 @@ export async function saveIntroBrief(sessionId, { businessName, description, tar
  * @returns updated session (stage INTRO_SCRIPT_GENERATED)
  */
 export async function generateIntroScript(sessionId, { editRequest } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202 — starts the job
+  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202: starts the job
   return await pollJobUntilDone(sessionId);
 }
 
@@ -295,7 +295,7 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
  */
 export async function generateScript(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202 — starts the job
+  await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202: starts the job
   return await pollJobUntilDone(sessionId, {
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
@@ -309,7 +309,7 @@ export async function generateScript(sessionId, frameOptions = null, options = {
  */
 export async function generateOutline(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202 — starts the job
+  await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202: starts the job
   return await pollJobUntilDone(sessionId, {
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
