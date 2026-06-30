@@ -42,14 +42,14 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
+          className="bg-card rounded-xl w-full max-w-md p-4 md:p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -70,9 +70,9 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragOver
-                ? "border-terra bg-terra/10"
+                ? "border-primary bg-primary/10"
                 : file
-                ? "border-green-500 bg-green-500/10"
+                ? "border-primary bg-primary/5"
                 : "border-border hover:border-border"
             }`}
             onDragOver={(e) => {
@@ -93,7 +93,7 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
 
             {file ? (
               <div className="space-y-2">
-                <Music className="w-12 h-12 mx-auto text-green-400" />
+                <Music className="w-12 h-12 mx-auto text-primary" />
                 <p className="text-foreground font-medium">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -111,12 +111,8 @@ export default function AudioUploadModal({ onClose, onUpload, onComplete }) {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 mt-6">
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="text-foreground"
-            >
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={onClose} disabled={uploading}>
               Cancel
             </Button>
             <Button

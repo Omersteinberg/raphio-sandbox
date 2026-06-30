@@ -13,13 +13,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { getSession, enterEditingMode } from "@/services/session";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { getSession } from "@/services/session";
 
 export default function VideoDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,20 +84,12 @@ export default function VideoDetailPage() {
     navigate("/create");
   };
 
-  const handleEditVideo = async () => {
-    // Mobile uses a dedicated editor route that mounts the touch editor directly
-    // on top of useTimeline, bypassing the Creator/useSession wizard (which loops
-    // on mobile). Desktop keeps the full wizard → timeline flow.
-    if (isMobile) {
-      navigate(`/video/${id}/edit`);
-      return;
-    }
-    try {
-      await enterEditingMode(id);
-      navigate(`/create?session=${id}`);
-    } catch (err) {
-      toast.error("Failed to enter editing mode");
-    }
+  const handleEditVideo = () => {
+    // Both desktop and mobile use the dedicated editor route, which mounts the
+    // responsive timeline editor directly (it calls enterEditingMode itself).
+    // This skips the Creator/useSession wizard, whose stage round-trip could land
+    // desktop on the result screen instead of the editor.
+    navigate(`/video/${id}/edit`);
   };
 
   if (loading) {

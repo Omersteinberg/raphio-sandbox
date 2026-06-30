@@ -4,7 +4,7 @@ import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
 
-const SNAP_THRESHOLD_PX = 8; // Snap within 8 pixels
+const SNAP_THRESHOLD_PX = 10; // Snap within 10 pixels
 const MIN_DURATION = 0.5; // Shortest a clip can be trimmed to (seconds)
 
 export default function TimelineCanvas({
@@ -52,34 +52,23 @@ export default function TimelineCanvas({
     return s?.narrationDuration ?? s?.clipDuration ?? ((item.trimStart || 0) + item.duration);
   };
 
-  // Get all snap points for the track the dragged item belongs to
+  // Snap points: the edges of EVERY clip on EVERY track (so a clip lines up with
+  // clips above/below it, like CapCut), plus the playhead, the timeline start,
+  // and the timeline end. No fine grid — that made dragging feel steppy and
+  // drowned out the meaningful alignment points.
   const getSnapPoints = useCallback(
     (draggedItem) => {
-      const trackItems =
-        draggedItem.trackType === "VIDEO"
-          ? videoItems
-          : draggedItem.trackIndex === 1
-          ? musicItems
-          : narrationItems;
       const points = new Set();
 
-      // Add edges of other clips on the same track
-      trackItems.forEach((item) => {
+      [...videoItems, ...narrationItems, ...musicItems].forEach((item) => {
         if (item.id === draggedItem.id) return;
         points.add(item.startTime);
         points.add(item.startTime + item.duration);
       });
 
-      // Add playhead position
       points.add(playheadPosition);
-
-      // Add grid points (every 0.5s)
-      for (let t = 0; t <= duration; t += 0.5) {
-        points.add(t);
-      }
-
-      // Add timeline start
       points.add(0);
+      if (duration > 0) points.add(duration);
 
       return [...points];
     },

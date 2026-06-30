@@ -131,4 +131,62 @@
   border-radius: 4px;
 }
 
+/* ── Interactive editor tour (driver.js) — themed to the warm light brand ──
+   driver.js base styles are imported in src/lib/editorTour.js; these override
+   them so the popover matches the terracotta/cream design tokens. Scoped to the
+   `raphio-tour` popoverClass set when launching the tour. */
+.driver-popover.raphio-tour {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(45, 34, 53, 0.18);
+  font-family: 'Figtree', sans-serif;
+  max-width: 320px;
+}
+.driver-popover.raphio-tour .driver-popover-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+.driver-popover.raphio-tour .driver-popover-description {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+.driver-popover.raphio-tour .driver-popover-progress-text {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+/* The little arrow must match the popover background on each side */
+.driver-popover.raphio-tour .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: hsl(var(--popover)); }
+.driver-popover.raphio-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: hsl(var(--popover)); }
+.driver-popover.raphio-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: hsl(var(--popover)); }
+.driver-popover.raphio-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: hsl(var(--popover)); }
+/* Buttons */
+.driver-popover.raphio-tour .driver-popover-footer button {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-shadow: none;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.85rem;
+}
+.driver-popover.raphio-tour .driver-popover-prev-btn {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+}
+.driver-popover.raphio-tour .driver-popover-next-btn {
+  background: var(--gradient-brand);
+  color: #fff;
+  border: none;
+}
+.driver-popover.raphio-tour .driver-popover-close-btn {
+  color: hsl(var(--muted-foreground));
+}
+.driver-popover.raphio-tour .driver-popover-close-btn:hover {
+  color: hsl(var(--foreground));
+}
+
 

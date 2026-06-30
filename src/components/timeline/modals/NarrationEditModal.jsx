@@ -113,14 +113,14 @@ export default function NarrationEditModal({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+          className="bg-card rounded-xl w-full max-w-lg p-4 md:p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -129,7 +129,7 @@ export default function NarrationEditModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Volume2 className="w-5 h-5 text-blue-400" />
+              <Volume2 className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-semibold text-foreground">
                 Edit Narration
               </h3>
@@ -147,7 +147,7 @@ export default function NarrationEditModal({
             <div className="bg-muted/50 rounded-lg p-3 mb-4 flex items-center gap-3">
               <button
                 onClick={togglePlayback}
-                className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white"
+                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-white"
               >
                 {isPlaying ? (
                   <Pause className="w-5 h-5" />
@@ -176,7 +176,7 @@ export default function NarrationEditModal({
                 onChange={(e) => setNarrationText(e.target.value)}
                 placeholder="Enter the narration text..."
                 rows={4}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500 resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 {narrationText.length} characters
@@ -189,7 +189,7 @@ export default function NarrationEditModal({
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-blue-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-primary"
               >
                 {voices.map((voice) => (
                   <option key={voice.key || voice.id} value={voice.key || voice.id}>
@@ -206,7 +206,7 @@ export default function NarrationEditModal({
               onClick={handleRegenerate}
               disabled={!hasChanges || regenerating || saving}
               variant="outline"
-              className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
+              className="border-primary text-primary hover:bg-primary/10"
             >
               {regenerating ? (
                 <>
@@ -221,18 +221,15 @@ export default function NarrationEditModal({
               )}
             </Button>
 
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="ghost"
-                onClick={onClose}
-                className="text-foreground"
-              >
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={onClose} disabled={saving || regenerating}>
                 Cancel
               </Button>
               <Button
                 onClick={handleSave}
                 disabled={saving || regenerating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white border-0"
+                style={{ background: "var(--gradient-brand)" }}
               >
                 {saving ? (
                   <>

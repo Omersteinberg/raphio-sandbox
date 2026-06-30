@@ -10,19 +10,20 @@ import {
   Upload,
   HelpCircle,
   X,
-  Scissors,
-  Move,
   Trash2,
-  Keyboard,
-  Clock,
   ZoomIn,
   ZoomOut,
   Gauge,
   SplitSquareHorizontal,
   Mic,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { startOverviewTour, startClipTour } from "@/lib/editorTour";
+import { tourSeen, markTourSeen, clearTourSeen, TOUR_KEYS } from "@/lib/tourState";
+import { estimatedProgress } from "@/lib/progressEstimate";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
 import * as sessionService from "@/services/session";
 import TimelineCanvas from "./TimelineCanvas";
@@ -33,6 +34,7 @@ import AudioUploadModal from "./modals/AudioUploadModal";
 import TTSModal from "./modals/TTSModal";
 import ItemEditModal from "./modals/ItemEditModal";
 import NarrationEditModal from "./modals/NarrationEditModal";
+import RegenerateClipModal from "./modals/RegenerateClipModal";
 import ExportProgressModal from "./modals/ExportProgressModal";
 
 export default function TimelineEditor({ sessionId, onBack, onExportComplete, onUpdateSection, onRegenerateNarration }) {
@@ -40,13 +42,15 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const isMobile = useIsMobile();
   const [showAudioUpload, setShowAudioUpload] = useState(false);
   const [showTTSModal, setShowTTSModal] = useState(false);
-  const [showHelp, setShowHelp] = useState(true); // open the guide whenever the editor is entered
   const [editingItem, setEditingItem] = useState(null);
   const [editingNarration, setEditingNarration] = useState(null); // { item, section }
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(null); // { percentage, label } while exporting
   const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
+  const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenProgress, setRegenProgress] = useState(null); // { percentage, label }
 
   // Tap-to-add (mobile asset sheet): drop the asset at the playhead, nudged to
   // the next free spot on its track so it doesn't overlap.
@@ -99,7 +103,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     const onKey = (e) => {
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (showAudioUpload || showTTSModal || showHelp || editingItem || editingNarration) return;
+      if (showAudioUpload || showTTSModal || editingItem || editingNarration) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
         if (timeline.selectedItem) {
@@ -121,10 +125,53 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
-    showAudioUpload, showTTSModal, showHelp, editingItem, editingNarration,
+    showAudioUpload, showTTSModal, editingItem, editingNarration,
     timeline.selectedItem, timeline.isPlaying,
     timeline.removeItem, timeline.zoomIn, timeline.zoomOut, timeline.play, timeline.pause,
   ]);
+
+  // Interactive onboarding tours (driver.js). Fire-once guards live in refs so a
+  // re-render can't re-trigger them.
+  const overviewShownRef = useRef(false);
+  const clipTourShownRef = useRef(false);
+
+  // Overview tour: first editor entry only (persisted in localStorage). After
+  // that it won't auto-run again — the "How to use" button replays it on demand.
+  // Wait a frame so the anchors are painted before driver.js measures them.
+  useEffect(() => {
+    if (overviewShownRef.current) return;
+    if (timeline.loading || !timeline.timeline) return;
+    overviewShownRef.current = true; // once per mount, regardless
+    if (tourSeen(TOUR_KEYS.editorOverview)) return; // already seen — don't auto-run
+    const id = window.setTimeout(() => {
+      startOverviewTour(isMobile);
+      markTourSeen(TOUR_KEYS.editorOverview);
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [timeline.loading, timeline.timeline, isMobile]);
+
+  // Clip tour: the first time a clip is ever selected (persisted). It won't
+  // repeat on later clip selections — only the "How to use" button re-arms it.
+  useEffect(() => {
+    if (clipTourShownRef.current) return;
+    if (!timeline.selectedItem) return;
+    clipTourShownRef.current = true; // once per mount
+    if (tourSeen(TOUR_KEYS.editorClip)) return; // already seen — don't repeat
+    const id = window.setTimeout(() => {
+      startClipTour(isMobile);
+      markTourSeen(TOUR_KEYS.editorClip);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [timeline.selectedItem, isMobile]);
+
+  // "How to use" button: replay the overview now, and re-arm the clip tour so it
+  // shows again the next time a clip is selected (the only way to see the tours
+  // again after the first run).
+  const handleReplayTour = () => {
+    clipTourShownRef.current = false;
+    clearTourSeen(TOUR_KEYS.editorClip);
+    startOverviewTour(isMobile);
+  };
 
   // Handle export - download video and save as completed
   const handleExport = async () => {
@@ -258,12 +305,104 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     }
   };
 
+  // Regenerate the selected clip's video with a (possibly edited) prompt. The
+  // backend runs this as a long job but doesn't report sub-stage progress for
+  // clip regeneration, so we creep a simulated bar up to ~92% then finish at 100%.
+  const handleRegenerateClip = async (prompt) => {
+    const section = regenSection;
+    if (!section) return;
+    setRegenSection(null); // close the prompt modal; the progress modal takes over
+    setRegenerating(true);
+    setRegenProgress({ percentage: 0, label: "Starting…" });
+
+    // The backend reports no progress for clip regeneration and it can take a
+    // few minutes, so we predict the duration and ramp EVENLY toward it (then
+    // creep on overrun) — feels like steady, consistent movement instead of
+    // racing ahead and freezing. Estimate mirrors GeneratingStep's batch model
+    // (~one clip-batch of generation time).
+    const start = Date.now();
+    const ESTIMATE_MS = 4 * 60 * 1000; // ~4 min for a single clip; tune if regen is consistently faster/slower
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const percentage = estimatedProgress(elapsed, ESTIMATE_MS);
+      const label =
+        elapsed < 25000
+          ? "Regenerating clip with AI…"
+          : elapsed < 120000
+          ? "Still working — this usually takes a few minutes…"
+          : "Hang tight, almost there…";
+      setRegenProgress({ percentage, label });
+    }, 1000);
+
+    try {
+      await sessionService.regenerateClip(sessionId, section.id, {
+        prompt,
+        imageUrl: section.imageUrl,
+      });
+      setRegenProgress({ percentage: 100, label: "Done" });
+      await timeline.loadTimeline(); // pick up the new generatedClipUrl
+      toast.success("Clip regenerated");
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || "Regenerate failed";
+      toast.error(msg);
+    } finally {
+      clearInterval(timer);
+      setRegenerating(false);
+      setRegenProgress(null);
+    }
+  };
+
   if (timeline.loading && !timeline.timeline) {
+    // Skeleton that mirrors the real editor layout, so the chrome appears
+    // instantly and only the content fills in — feels incremental instead of a
+    // blank spinner that looks stuck. Matches the responsive layout below.
     return (
-      <div className="w-full h-full flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading timeline...</p>
+      <div className="w-full h-full flex flex-col bg-background text-foreground">
+        {/* Header */}
+        <div className="bg-card border-b border-border px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+            <div className="h-5 w-28 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-20 rounded bg-muted animate-pulse" />
+            <div className="h-9 w-24 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+
+        <div className="flex-1 flex overflow-hidden">
+          {/* Desktop asset sidebar */}
+          {!isMobile && (
+            <div className="w-64 bg-card border-r border-border p-3 space-y-2 shrink-0">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Preview (subtle spinner so it reads as loading) */}
+            <div className={`${isMobile ? "h-[32vh] shrink-0" : "flex-1 min-h-[400px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
+              <Loader2 className="w-7 h-7 animate-spin text-primary/60" />
+            </div>
+
+            {/* Controls strip */}
+            <div className="bg-card border-y border-border px-4 py-2 flex items-center gap-3">
+              <div className="h-6 w-6 rounded-full bg-muted animate-pulse" />
+              <div className="h-6 w-6 rounded-full bg-muted animate-pulse" />
+              <div className="h-4 w-20 rounded bg-muted animate-pulse ml-1" />
+            </div>
+
+            {/* Timeline tracks */}
+            <div className={`${isMobile ? "flex-1 min-h-0" : "h-64 flex-shrink-0"} bg-muted/30 p-3 space-y-2 overflow-hidden`}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="h-10 w-16 rounded bg-muted animate-pulse shrink-0" />
+                  <div className="h-10 flex-1 rounded bg-muted/70 animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -293,13 +432,14 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
           <Button
             variant="ghost"
-            onClick={() => setShowHelp(true)}
+            onClick={handleReplayTour}
             className="text-muted-foreground hover:text-foreground px-2 md:px-4"
           >
             <HelpCircle className="w-4 h-4 md:mr-2" />
             <span className="hidden md:inline">How to use</span>
           </Button>
           <Button
+            data-tour="export"
             onClick={handleExport}
             disabled={exporting || timeline.loading}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 md:px-4"
@@ -318,7 +458,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Assets (desktop only; touch drag-to-timeline isn't supported yet) */}
-        <div className={`${isMobile ? "hidden" : "block"} w-64 bg-card border-r border-border overflow-y-auto`}>
+        <div data-tour="asset-panel" className={`${isMobile ? "hidden" : "block"} w-64 bg-card border-r border-border overflow-y-auto`}>
           <AssetPanel
             sections={timeline.sections}
             audioAssets={timeline.audioAssets}
@@ -333,7 +473,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         {/* Center - Preview and Timeline */}
         <div className={`flex-1 flex flex-col ${isMobile ? "overflow-hidden" : "overflow-y-auto"}`}>
           {/* Video Preview */}
-          <div className={`${isMobile ? "h-[32vh] shrink-0" : "flex-1 min-h-[400px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
+          <div data-tour="preview" className={`${isMobile ? "h-[32vh] shrink-0" : "flex-1 min-h-[400px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
             <VideoPreview
               items={timeline.videoItems}
               audioItems={timeline.audioItems}
@@ -349,21 +489,23 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           </div>
 
           {/* Timeline Controls */}
-          <TimelineControls
-            isPlaying={timeline.isPlaying}
-            playheadPosition={timeline.playheadPosition}
-            duration={timeline.duration}
-            zoomLevel={timeline.zoomLevel}
-            onPlay={timeline.play}
-            onPause={timeline.pause}
-            onStop={timeline.stop}
-            onSeek={timeline.seek}
-            onZoomIn={timeline.zoomIn}
-            onZoomOut={timeline.zoomOut}
-            selectedItem={timeline.selectedItem}
-            onDelete={() => timeline.selectedItem && timeline.removeItem(timeline.selectedItem)}
-            compact
-          />
+          <div data-tour="controls">
+            <TimelineControls
+              isPlaying={timeline.isPlaying}
+              playheadPosition={timeline.playheadPosition}
+              duration={timeline.duration}
+              zoomLevel={timeline.zoomLevel}
+              onPlay={timeline.play}
+              onPause={timeline.pause}
+              onStop={timeline.stop}
+              onSeek={timeline.seek}
+              onZoomIn={timeline.zoomIn}
+              onZoomOut={timeline.zoomOut}
+              selectedItem={timeline.selectedItem}
+              onDelete={() => timeline.selectedItem && timeline.removeItem(timeline.selectedItem)}
+              compact
+            />
+          </div>
 
           {/* Timeline Canvas — fills remaining height on mobile, fixed on desktop */}
           <div className={`${isMobile ? "flex-1 min-h-0" : "h-64 flex-shrink-0"} overflow-hidden`}>
@@ -384,13 +526,31 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             />
           </div>
 
+          {/* Slim "done editing" bar to deselect the clip (shown when one is selected) */}
+          {timeline.selectedItem && (
+            <button
+              data-tour="done-editing"
+              onClick={() => timeline.setSelectedItem(null)}
+              className="shrink-0 w-full py-1.5 text-xs font-semibold text-primary bg-primary/5 border-t border-border hover:bg-primary/10"
+            >
+              Done editing clip
+            </button>
+          )}
+
           {/* Bottom action bar (CapCut/VLLO style) — on mobile and desktop.
               Swaps to clip actions when a clip is selected. */}
-            <div className="bg-card border-t border-border shrink-0 flex items-center justify-around px-1 py-1.5">
+            <div data-tour="action-bar" className="bg-card border-t border-border shrink-0 flex items-center justify-around px-1 py-1.5">
               {(timeline.selectedItem
                 ? [
                     { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
                     { Icon: Gauge, label: "Speed", onClick: () => setSpeedSheetOpen(true) },
+                    // Regenerate — only for a video clip backed by a section.
+                    ...(() => {
+                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+                      return sel && sel.trackType === "VIDEO" && sel.sectionId
+                        ? [{ Icon: RefreshCw, label: "Regenerate", onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) }]
+                        : [];
+                    })(),
                     // Narration edit — only for a narration audio clip (has a section).
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
@@ -423,6 +583,16 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
       {/* Modals */}
       {exporting && <ExportProgressModal progress={exportProgress} />}
+
+      {regenSection && (
+        <RegenerateClipModal
+          section={regenSection}
+          loading={regenerating}
+          onClose={() => setRegenSection(null)}
+          onRegenerate={handleRegenerateClip}
+        />
+      )}
+      {regenerating && <ExportProgressModal progress={regenProgress} title="Regenerating clip" />}
 
       {showAudioUpload && (
         <AudioUploadModal
@@ -560,72 +730,6 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* How-to-use guide */}
-      {showHelp && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowHelp(false)}
-        >
-          <div
-            className="bg-card rounded-lg w-full max-w-md p-6 max-h-[85vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">How to use the editor</h3>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <ul className="space-y-3 text-sm text-foreground">
-              <li className="flex items-start gap-3">
-                <Scissors className="w-4 h-4 mt-0.5 flex-shrink-0 text-terra" />
-                <span><span className="font-medium">Double-click a clip</span> to trim it. Drag the In/Out handles (or type exact times) and Apply. Trimming only cuts; it never stretches a clip.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Move className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-                <span><span className="font-medium">Drag a clip</span> left/right to move it. It snaps to nearby clip edges, the playhead, and half-second marks; clips on the same track can't overlap.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Trash2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
-                <span><span className="font-medium">Select a clip</span>, then click Delete or press <kbd className="px-1 rounded bg-muted text-xs">Delete</kbd> to remove it.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Keyboard className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground" />
-                <span><span className="font-medium">Shortcuts:</span> <kbd className="px-1 rounded bg-muted text-xs">Space</kbd> play/pause · <kbd className="px-1 rounded bg-muted text-xs">+</kbd>/<kbd className="px-1 rounded bg-muted text-xs">-</kbd> zoom · <kbd className="px-1 rounded bg-muted text-xs">Delete</kbd> remove selected.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Music className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" />
-                <span><span className="font-medium">Three tracks:</span> Video, Narration, and Music. Drag items from the Assets panel onto the matching track; music plays under the whole video.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Upload className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-400" />
-                <span><span className="font-medium">Add audio</span> with Upload Audio or Generate TTS, then drag it from the Assets panel onto a track.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Clock className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground" />
-                <span><span className="font-medium">Gaps between clips</span> show as a black screen while any audio keeps playing, exactly how the exported video will look.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Download className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-                <span><span className="font-medium">Edits auto-save as a draft</span>, but the final video only updates when you click <span className="font-medium">Export Video</span>. Leaving without exporting keeps your draft but won't change the video.</span>
-              </li>
-            </ul>
-            <div className="flex justify-end mt-6">
-              <Button
-                onClick={() => setShowHelp(false)}
-                className="text-white border-0"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                Got it
-              </Button>
             </div>
           </div>
         </div>

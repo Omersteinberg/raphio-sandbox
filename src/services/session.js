@@ -457,16 +457,28 @@ export async function updateClip(sessionId, clipId, updates) {
 }
 
 /**
- * Regenerate a single clip
+ * Regenerate a single clip. Runs as a background job; pass `onProgress` to
+ * receive the job's live stage progress ({ percentage, label }) for a modal.
  */
-export async function regenerateClip(sessionId, clipId, { prompt, model, style, imageUrl } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
+export async function regenerateClip(sessionId, clipId, { prompt, model, style, imageUrl } = {}, onProgress) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate`, {
     prompt,
     model,
     style,
     imageUrl,
   });
-  return await pollJobUntilDone(sessionId);
+  // Another job already owns this video's single slot — don't poll its result.
+  if (data && data.jobType && data.jobType !== 'REGENERATE_CLIP') {
+    throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
+  }
+  return await pollJobUntilDone(sessionId, {
+    expectedJobType: 'REGENERATE_CLIP',
+    onProgress: (status) => {
+      if (typeof onProgress === 'function' && status && status.jobProgress) {
+        onProgress(status.jobProgress); // { percentage, label }
+      }
+    },
+  });
 }
 
 /**
