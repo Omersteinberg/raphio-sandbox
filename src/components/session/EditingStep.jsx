@@ -99,7 +99,7 @@ export default function EditingStep({
     }
   };
 
-  // Handle back to video — plain navigation back to the result page.
+  // Handle back to video: plain navigation back to the result page.
   const handleBackToVideo = () => {
     goToResult();
   };

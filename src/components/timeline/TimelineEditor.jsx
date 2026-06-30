@@ -94,7 +94,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     onBack?.();
   };
 
-  // Keyboard shortcuts — ignored while typing in a field or when a modal is open.
+  // Keyboard shortcuts: ignored while typing in a field or when a modal is open.
   useEffect(() => {
     const onKey = (e) => {
       const t = e.target;

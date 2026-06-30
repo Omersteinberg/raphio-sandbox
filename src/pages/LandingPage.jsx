@@ -447,7 +447,7 @@ function PhotoGridVisual() {
           </motion.div>
         ))}
 
-        {/* + Add more — 6th grid cell */}
+        {/* + Add more: 6th grid cell */}
         <div style={{
           borderRadius: 12,
           border: '2px dashed rgba(193,68,14,0.65)',
@@ -528,7 +528,7 @@ function AvatarExportVisual() {
       {/* ── Left: Avatar + voice list ── */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
 
-        {/* Avatar circle — replace src with your AI avatar image */}
+        {/* Avatar circle: replace src with your AI avatar image */}
         <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0 }}>
           {/* Outer pulse rings */}
           <motion.div
@@ -851,7 +851,7 @@ function HowItWorks() {
   );
 }
 
-// ── "See it in action" — real output reel ────────────────────────
+// ── "See it in action": real output reel ────────────────────────
 const SEE_IT_ITEMS = [
   { label: 'Travel montage', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
   { label: 'Product showcase', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
@@ -1003,7 +1003,7 @@ function SeeItInAction() {
   );
 }
 
-// ── Contact section — Unified direct action layout ───────────────
+// ── Contact section: unified direct action layout ───────────────
 const CONTACT_ROWS = [
   { icon: Mail, label: 'Email', value: 'Contact@raphio.ai', href: 'mailto:Contact@raphio.ai' },
   { icon: MapPin, label: 'Location', value: 'Melbourne, Victoria, Australia' },
@@ -1141,7 +1141,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero — fullscreen cinematic video */}
+      {/* Hero: fullscreen cinematic video */}
       <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100vh', minHeight: 600, background: '#0A0908' }}>
         <video
           autoPlay
@@ -1154,7 +1154,7 @@ export default function LandingPage() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Dark overlay for headline legibility — tuned so the footage still reads as vivid underneath */}
+        {/* Dark overlay for headline legibility, tuned so the footage still reads as vivid underneath */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.30) 45%, rgba(10,9,8,0.62) 100%)' }}
@@ -1198,7 +1198,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Hero footnote — stays on the hero's dark background so it flows
+      {/* Hero footnote: stays on the hero's dark background so it flows
           straight into the stats strip instead of breaking to a new color */}
       <div className="py-6 px-6 text-center" style={{ background: '#0A0908' }}>
         <p className="text-sm font-semibold" style={{ color: 'rgba(245,240,235,0.55)' }}>

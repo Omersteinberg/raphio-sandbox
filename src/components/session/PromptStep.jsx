@@ -163,7 +163,7 @@ const REF_TYPE_COLORS = {
   product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
 };
 
-// ── Shared step badge — used by every section header in the new flow ──
+// ── Shared step badge: used by every section header in the new flow ──
 function StepBadge({ n }) {
   return (
     <span
@@ -317,7 +317,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
             style={{ background: 'rgba(59,130,246,0.06)', border: '1.5px solid rgba(59,130,246,0.12)' }}
           >
             <span className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>
-              Upload only — logos are preserved exactly
+              Upload only: logos are preserved exactly
             </span>
           </div>
         ) : (
@@ -509,7 +509,7 @@ export default function PromptStep({
     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
     : { background: '#fff', color: '#6B5E7B', border: '1.5px solid rgba(193,68,14,0.12)' };
 
-  // Infer a sensible aspect-ratio default once, based on viewport — image mode only.
+  // Infer a sensible aspect-ratio default once, based on viewport, image mode only.
   useEffect(() => {
     if (!isReferencesMode && !aspectRatio && setAspectRatio) {
       setAspectRatio(window.innerWidth < 768 ? '9:16' : '16:9');
@@ -594,7 +594,7 @@ export default function PromptStep({
 
   // Image pipeline: keep the CTA disabled until the duration estimate confirms the
   // image count fits. `null` (pending) and `too_many_images` block; a resolved-safe
-  // status — or an estimate error (fail open) — allows it.
+  // status, or an estimate error (fail open), allows it.
   const durationOk =
     durationStatus === 'exact_fit' ||
     durationStatus === 'needs_ai_fill' ||
@@ -759,7 +759,7 @@ export default function PromptStep({
               </div>
             </div>
 
-            {/* Textarea — the hero of this card */}
+            {/* Textarea: the hero of this card */}
             <div
               className="relative rounded-2xl"
               style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
@@ -797,7 +797,7 @@ export default function PromptStep({
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9C8F85' }}>
-                        Tap an idea — see the result, use the prompt
+                        Tap an idea: see the result, use the prompt
                       </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -836,7 +836,7 @@ export default function PromptStep({
               )}
             </AnimatePresence>
 
-            {/* Dictionary Panel — your existing block, unchanged */}
+            {/* Dictionary Panel: your existing block, unchanged */}
             <AnimatePresence>
               {showDictionary && (
                 <motion.div
@@ -903,7 +903,7 @@ export default function PromptStep({
             </span>
           </div>
 
-          {/* References Mode — Unified References Section (untouched; redesigned in a separate task) */}
+          {/* References Mode: unified References Section (untouched; redesigned in a separate task) */}
           {isReferencesMode && (
             <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -972,7 +972,7 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Zone 2 — Upload your photos (image mode only) */}
+          {/* Zone 2: Upload your photos (image mode only) */}
           {!isReferencesMode && (
             <div
               className="rounded-3xl p-4 sm:p-7 space-y-4 relative"
@@ -1261,7 +1261,7 @@ export default function PromptStep({
                         transform: isSelected ? 'translateY(-2px)' : 'translateY(0)',
                       }}
                     >
-                      {/* Photo layer — isolated so it can zoom on hover/selected without affecting the card */}
+                      {/* Photo layer: isolated so it can zoom on hover/selected without affecting the card */}
                       <div
                         className="absolute inset-0 transition-transform duration-500 ease-out"
                         style={{
@@ -1272,7 +1272,7 @@ export default function PromptStep({
                         onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.transform = 'scale(1)'; }}
                       />
 
-                      {/* Dark gradient overlay — kept light over most of the photo, only built up near the text */}
+                      {/* Dark gradient overlay: kept light over most of the photo, only built up near the text */}
                       <div
                         className="absolute inset-0 rounded-2xl"
                         style={{
@@ -1296,7 +1296,7 @@ export default function PromptStep({
                         </div>
                       )}
 
-                      {/* Text — pinned to bottom left */}
+                      {/* Text: pinned to bottom left */}
                       <div
                         className="absolute bottom-0 left-0 right-0 px-3 pb-2.5"
                       >
@@ -1319,7 +1319,7 @@ export default function PromptStep({
               </div>
             </div>
 
-            {/* Video Length — Continuous Track Slider Strip (renders in both image and references modes) */}
+            {/* Video Length: Continuous Track Slider Strip (renders in both image and references modes) */}
             {setTargetDuration && (
               <div className="space-y-2">
                 <label className="text-sm font-bold block text-stone-500">
@@ -1367,7 +1367,7 @@ export default function PromptStep({
               </div>
             )}
 
-            {/* Aspect Ratio — Twin Box Visual Selectors (renders in both image and references modes) */}
+            {/* Aspect Ratio: Twin Box Visual Selectors (renders in both image and references modes) */}
             {setAspectRatio && (
               <div className="space-y-2">
                 <label className="text-sm font-bold block text-stone-500">
@@ -1837,7 +1837,7 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Inline CTA — the only "Create my video" action on the page */}
+          {/* Inline CTA: the only "Create my video" action on the page */}
           <div ref={ctaRef} className="w-full sm:max-w-[480px] sm:mx-auto">
             <Button
               onClick={handleStart}
@@ -1866,7 +1866,7 @@ export default function PromptStep({
                 ? "Add your characters and describe your video to get started"
                 : durationStatus === 'too_many_images'
                 ? "Remove some images or increase the length to continue"
-                : "Usually ready in 30–60 seconds"}
+                : "Usually ready in 30-60 seconds"}
             </p>
           </div>
 
@@ -1911,7 +1911,7 @@ export default function PromptStep({
                     <h3 className="font-extrabold text-stone-800">Tell us the story, not just the appearance</h3>
                     <p><span className="font-bold text-red-500">Weak:</span> "A woman with red hair"</p>
                     <p><span className="font-bold text-orange-500">Better:</span> "A confident woman in her 30s with short red hair and sharp green eyes, wearing a tailored black blazer"</p>
-                    <p><span className="font-bold text-emerald-600">Best:</span> "A confident woman in her 30s with short copper-red hair, sharp green eyes and faint freckles — wearing a fitted black blazer over a white shirt, silver ring on her right hand. Moves with quiet authority."</p>
+                    <p><span className="font-bold text-emerald-600">Best:</span> "A confident woman in her 30s with short copper-red hair, sharp green eyes and faint freckles, wearing a fitted black blazer over a white shirt, silver ring on her right hand. Moves with quiet authority."</p>
                   </div>
 
                   <div className="space-y-2">
@@ -1926,7 +1926,7 @@ export default function PromptStep({
 
                   <div className="space-y-1">
                     <h3 className="font-extrabold text-stone-800">Keep it specific and physical</h3>
-                    <p>Describe what a camera would actually see — hair colour, clothing texture, posture, expression. Avoid abstract personality traits like "kind" or "mysterious" unless paired with something visual that shows it.</p>
+                    <p>Describe what a camera would actually see: hair colour, clothing texture, posture, expression. Avoid abstract personality traits like "kind" or "mysterious" unless paired with something visual that shows it.</p>
                   </div>
                 </div>
               ) : (
@@ -1935,7 +1935,7 @@ export default function PromptStep({
                     <h3 className="font-extrabold text-stone-800">Tell us the story, not just the topic</h3>
                     <p><span className="font-bold text-red-500">Weak:</span> "A video about coffee"</p>
                     <p><span className="font-bold text-orange-500">Better:</span> "A barista crafts a latte from bean to cup in a cozy morning cafe"</p>
-                    <p><span className="font-bold text-emerald-600">Best:</span> "Follow a barista through her morning routine — grinding fresh beans, steaming milk, and pouring latte art for her first customer of the day"</p>
+                    <p><span className="font-bold text-emerald-600">Best:</span> "Follow a barista through her morning routine: grinding fresh beans, steaming milk, and pouring latte art for her first customer of the day"</p>
                   </div>
 
                   <div className="space-y-2">

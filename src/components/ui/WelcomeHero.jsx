@@ -312,7 +312,7 @@ function Pagination({ page, totalPages, onPrev, onNext }) {
   );
 }
 
-// ── NEW: Welcome empty state — lives inside the grid card area ────
+// ── NEW: Welcome empty state, lives inside the grid card area ────
 // Mirrors the canvas design: left text column + right ambient stream,
 // but contained within the standard page workspace below tabs.
 const STREAM_TILES_A = [
@@ -377,7 +377,7 @@ function WelcomeEmptyState({ username, onCreateClick }) {
   const firstName = username?.split(' ')[0] || username || 'there';
   return (
     <div style={{
-      // The card — same white surface as video cards, rounded, lifted
+      // The card, same white surface as video cards, rounded, lifted
       background: '#fff',
       borderRadius: 20,
       border: `1px solid ${C.border}`,
@@ -461,7 +461,7 @@ function WelcomeEmptyState({ username, onCreateClick }) {
         </p>
       </div>
 
-      {/* ── Right: ambient stream — fills remaining width ── */}
+      {/* ── Right: ambient stream, fills remaining width ── */}
       <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
 
         {/* Two scroll columns */}
@@ -652,7 +652,7 @@ export default function MyVideosPage() {
           </div>
         </div>
 
-        {/* ── Resume banner — always reserves space ── */}
+        {/* ── Resume banner, always reserves space ── */}
         {!isNewUser && checkedNew && (
           <ResumeBanner
             session={resumeSession}
@@ -685,7 +685,7 @@ export default function MyVideosPage() {
                 color: activeTab===key?C.terra:C.muted,
                 transition:'background 0.15s ease, color 0.15s ease',
               }}>
-                {checkedNew ? count : '—'}
+                {checkedNew ? count : '-'}
               </span>
             </button>
           ))}
@@ -694,7 +694,7 @@ export default function MyVideosPage() {
         {/* ── Content ── */}
         <AnimatePresence mode="wait">
 
-          {/* Case 1: Brand new user — welcome card inside the grid zone */}
+          {/* Case 1: Brand new user, welcome card inside the grid zone */}
           {checkedNew && isNewUser && (
             <motion.div key="welcome" initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} transition={{ duration:0.35, ease:'easeOut' }}>
               <WelcomeEmptyState

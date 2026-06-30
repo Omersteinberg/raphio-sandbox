@@ -28,14 +28,14 @@ export function useTimeline(sessionId) {
   const [saving, setSaving] = useState(false);
 
   // Edits made since the last successful Export. Drafts still auto-save, but the
-  // rendered video only updates on Export — this drives the "leave without
+  // rendered video only updates on Export, this drives the "leave without
   // exporting?" warning.
   const [hasUnexportedChanges, setHasUnexportedChanges] = useState(false);
 
   // Live media elements (registered by VideoPreview). VideoPreview slaves them to
   // the playhead; the clock only reads their readiness to decide whether to wait
   // for a still-buffering track (see the stall gate in the playback loop).
-  const videoElsRef = useRef({}); // keyed by video item id — one element per clip
+  const videoElsRef = useRef({}); // keyed by video item id, one element per clip
   const audioElsRef = useRef({});
   const audioItemsRef = useRef([]);
   const videoItemsRef = useRef([]);
@@ -320,7 +320,7 @@ export function useTimeline(sessionId) {
   // Central wall-clock playback loop. The playhead is the single source of truth:
   // it advances on real elapsed time, and every media element slaves itself to it
   // (see VideoPreview). There is no "master" element, so a finished narration or
-  // missing background music can never freeze the clock — silent stretches simply
+  // missing background music can never freeze the clock, silent stretches simply
   // coast.
   //
   // Stall gate: if a track that *should* be sounding/showing right now is still

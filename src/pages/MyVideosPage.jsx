@@ -111,13 +111,13 @@ function SkeletonCard({ list = false }) {
 }
 
 // ── Resume banner ─────────────────────────────────────────────────
-// Always renders to hold vertical space — prevents tab baseline shift.
+// Always renders to hold vertical space, prevents tab baseline shift.
 // For new users: shows a faint "first video in progress" hint instead
 // of being completely invisible, filling the space meaningfully.
 function ResumeBanner({ session, onClick, visible, isNewUser }) {
   const title = session ? getTitle(session) : null;
 
-  // New user variant — subtle hint that fills the reserved space
+  // New user variant: subtle hint that fills the reserved space
   if (isNewUser) {
     return (
       <div style={{
@@ -142,7 +142,7 @@ function ResumeBanner({ session, onClick, visible, isNewUser }) {
     );
   }
 
-  // Returning user variant — invisible space holder when no session
+  // Returning user variant: invisible space holder when no session
   return (
     <div style={{
       marginBottom: 20,
@@ -429,7 +429,7 @@ function WelcomeEmptyState({ username, onCreateClick }) {
             Welcome to Raphio
           </div>
           <h2 style={{ fontSize:'clamp(22px, 3.5vw, 40px)', fontWeight:800, color:C.dark, letterSpacing:'-0.025em', lineHeight:1.1, marginBottom:14 }}>
-            Hey {firstName} —<br/><span style={{ color:C.terra }}>start creating.</span>
+            Hey {firstName},<br/><span style={{ color:C.terra }}>start creating.</span>
           </h2>
           <p style={{ fontSize:14, color:C.muted, lineHeight:1.65, marginBottom:28, maxWidth:320 }}>
             Upload your images, describe the moment, and Raphio builds the rest. Your first video is one click away.
@@ -579,7 +579,7 @@ export default function MyVideosPage() {
   const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
   const handleCardClick = session => {
     if (["COMPLETED","EDITING"].includes(session.stage)) navigate(`/video/${session.id}`);
-    // Resume by the session's OWN pipeline mode — Creator otherwise picks the
+    // Resume by the session's OWN pipeline mode, Creator otherwise picks the
     // last-selected (localStorage) mode and renders the wrong pipeline.
     else navigate(`/create?session=${session.id}&mode=${session.pipelineMode || 'image'}`);
   };
@@ -629,7 +629,7 @@ export default function MyVideosPage() {
           </div>
         </div>
 
-        {/* ── Resume banner — always reserves 60px of space ── */}
+        {/* ── Resume banner, always reserves 60px of space ── */}
         {checkedNew && (
           <ResumeBanner
             session={resumeSession}
@@ -663,7 +663,7 @@ export default function MyVideosPage() {
                 color: activeTab===key?C.terra:C.muted,
                 transition:'background 0.15s ease, color 0.15s ease',
               }}>
-                {checkedNew ? count : '—'}
+                {checkedNew ? count : '-'}
               </span>
             </button>
           ))}

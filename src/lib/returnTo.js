@@ -5,7 +5,7 @@
 const KEY = "merge:returnTo";
 
 export function saveReturnTo(path) {
-  try { localStorage.setItem(KEY, path); } catch { /* storage unavailable — ignore */ }
+  try { localStorage.setItem(KEY, path); } catch { /* storage unavailable, ignore */ }
 }
 
 export function takeReturnTo() {

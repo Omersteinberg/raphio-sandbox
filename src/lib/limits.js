@@ -2,7 +2,7 @@
 export const CREDITS_PER_CLIP = 1; // single-clip regeneration only (~5s re-roll)
 export const MAX_IMAGES = 10;   // images per video (image pipeline pool)
 
-// Full video generation is priced by the selected duration — 1 credit per 5s,
+// Full video generation is priced by the selected duration: 1 credit per 5s,
 // banded to the UI presets. Keep in sync with credits.service.js on the backend.
 // Applies to both the image and references pipelines.
 const SECONDS_PER_CREDIT = 5;

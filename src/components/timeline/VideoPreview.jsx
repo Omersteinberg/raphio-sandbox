@@ -13,8 +13,8 @@ export default function VideoPreview({
   registerVideoEl,
   registerAudioEl,
 }) {
-  const videoElsRef = useRef({}); // keyed by video item id — one element per clip
-  const audioRefs = useRef({}); // keyed by audio item id — multiple play at once
+  const videoElsRef = useRef({}); // keyed by video item id, one element per clip
+  const audioRefs = useRef({}); // keyed by audio item id, multiple play at once
 
   // Which clip's element is currently revealed. We only swap to a new clip once
   // its element has a frame ready, so a hard cut never flashes black.
@@ -45,7 +45,7 @@ export default function VideoPreview({
   const currentThumbnail = displaySection?.imageUrl || null;
 
   // Reveal the display clip only once its element has a frame, so a cut never
-  // flashes black on a cold load — keep showing the previous element until then.
+  // flashes black on a cold load, keep showing the previous element until then.
   useEffect(() => {
     if (!displayVideo) {
       setShownId(null);

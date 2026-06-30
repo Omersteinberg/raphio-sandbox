@@ -209,7 +209,7 @@ export default function BuyCreditsPage() {
                   transition: 'box-shadow 0.2s ease, transform 0.2s ease',
                 }}>
 
-                {/* Floating Most Popular Badge — Pulled out of DOM flow via absolute positioning */}
+                {/* Floating Most Popular Badge, pulled out of DOM flow via absolute positioning */}
                 {tier.popular && (
                   <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 z-10 whitespace-nowrap">
                     <span
@@ -310,7 +310,7 @@ export default function BuyCreditsPage() {
                         opacity: isLoading ? 0.7 : 1,
                         ...(tier.popular
                           ? {
-                              // Creator (popular) — always terra gradient, lightens slightly on hover
+                              // Creator (popular): always terra gradient, lightens slightly on hover
                               background: isHovered
                                 ? `linear-gradient(135deg, #CE5520, ${C.terraLight})`
                                 : `linear-gradient(135deg, ${C.terra}, ${C.terraLight})`,
@@ -320,13 +320,13 @@ export default function BuyCreditsPage() {
                             }
                           : tier.price === 0
                           ? {
-                              // Free — resting: faint beige. Hover: slightly lighter warm grey
+                              // Free, resting: faint beige. Hover: slightly lighter warm grey
                               background: isHovered ? '#EDE8E2' : C.faint,
                               color: C.charcoal,
                               border: `1.5px solid ${C.cardBorder}`,
                             }
                           : {
-                              // Starter + Studio — resting: white with terra border. Hover: very light terra tint
+                              // Starter + Studio, resting: white with terra border. Hover: very light terra tint
                               background: isHovered ? 'rgba(193,68,14,0.06)' : '#fff',
                               color: C.terra,
                               border: `1.5px solid rgba(193,68,14,0.28)`,

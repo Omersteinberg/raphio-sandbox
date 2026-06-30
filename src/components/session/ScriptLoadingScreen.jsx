@@ -31,7 +31,7 @@ export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate =
       if (Math.abs(diff) < 0.3) {
         displayedRef.current = targetRef.current;
         setDisplayed(targetRef.current);
-        return; // stop rAF loop — resume when progress changes again
+        return; // stop rAF loop, resume when progress changes again
       }
       displayedRef.current += diff * 0.07;
       setDisplayed(Math.round(displayedRef.current));

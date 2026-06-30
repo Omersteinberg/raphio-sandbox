@@ -50,7 +50,7 @@ function getStageToStep(bridgesEnabled) {
       EDITING: 6,
     };
   }
-  // No bridges — skip the bridges review step entirely
+  // No bridges: skip the bridges review step entirely
   return {
     PROMPT_ENTERED: 1,
     IMAGES_UPLOADED: 1,
@@ -138,7 +138,7 @@ export function useSession() {
   const [scriptProgress, setScriptProgress] = useState(0);
 
   // Persist the prompt-step draft (prompt, style, picked photos) to IndexedDB on
-  // every change so a hard refresh — or an aborted upload — can't lose the
+  // every change so a hard refresh (or an aborted upload) can't lose the
   // user's photos. Saving only on unmount (the old behaviour) misses a real
   // page refresh, which is exactly the case we need to survive. The photos are
   // restored on mount by ImagePipelineCreator and re-sent to the backend on
@@ -222,7 +222,7 @@ export function useSession() {
           setLoading(true);
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
-            // Wrong creator: this is a references (or other) session — bounce to it.
+            // Wrong creator: this is a references (or other) session, bounce to it.
             if (data.pipelineMode && data.pipelineMode !== "image"
                 && ["image", "references"].includes(data.pipelineMode)) {
               navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
@@ -353,7 +353,7 @@ export function useSession() {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
 
-          // Generation failed — surface the error, stop polling, let the user retry.
+          // Generation failed: surface the error, stop polling, let the user retry.
           // Do NOT setSession here: the backend resets the stage to SCRIPT_APPROVED
           // on failure, which would bounce the user off the generating screen before
           // they see the error. generationError keeps them here with the message
@@ -490,7 +490,7 @@ export function useSession() {
           });
           console.log("[useSession] Restyle complete:", restyleResult);
           if (restyleResult.failed > 0) {
-            toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+            toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
           }
           setScriptProgress(70);
         }
@@ -528,21 +528,21 @@ export function useSession() {
         // resetting a large request), leaving zero images persisted. Verify the
         // backend actually has them before continuing. We keep the IndexedDB
         // copy until this check passes, so on failure the user returns to the
-        // prompt with their photos intact to retry — instead of crashing
+        // prompt with their photos intact to retry, instead of crashing
         // downstream with "No images to analyze".
         if (!sessionAfterUpload.images?.length) {
-          console.warn("[useSession] Upload persisted no images — aborting before analyze");
+          console.warn("[useSession] Upload persisted no images, aborting before analyze");
           setSession(null);
           setSessionId(null);
           setScriptProgress(0);
           setDirection(-1);
           setStep(0);
           setError("Your photos didn't finish uploading. Please try again.");
-          toast.error("Your photos didn't finish uploading — please tap Create my video again.");
+          toast.error("Your photos didn't finish uploading. Please tap Create my video again.");
           return;
         }
 
-        // Photos are safely persisted on the backend now — drop the local copy.
+        // Photos are safely persisted on the backend now, drop the local copy.
         try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
 
         setSession(sessionAfterUpload);
@@ -559,7 +559,7 @@ export function useSession() {
 
         // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
         // finish. /analyze submits the jobs and returns immediately, so we have
-        // to poll before generating the script — otherwise the script would be
+        // to poll before generating the script, otherwise the script would be
         // built from the pre-restyle (e.g. photo) images.
         console.log("[useSession] Waiting for restyle jobs to complete...");
         const restyleResult = await sessionService.pollRestyleUntilDone(targetSessionId, {
@@ -575,7 +575,7 @@ export function useSession() {
         });
         console.log("[useSession] Restyle complete:", restyleResult);
         if (restyleResult.failed > 0) {
-          toast.warn(`${restyleResult.failed} image(s) failed to restyle — using originals.`);
+          toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
         }
         setScriptProgress(70);
       }
@@ -679,7 +679,7 @@ export function useSession() {
 
       // Script generation is a single backend job that runs several sequential
       // LLM passes (classify → write → refine → QA). The backend now reports a
-      // sub-stage % via jobProgress; map it into the 75–98 band. Between those
+      // sub-stage % via jobProgress; map it into the 75-98 band. Between those
       // milestones, gently creep the bar (decelerating toward 98) so it never
       // looks frozen during a long single pass. A real milestone snaps it ahead.
       let scriptCreep = 75;
@@ -695,7 +695,7 @@ export function useSession() {
         sessionAfterScript = await sessionService.generateOutline(targetSessionId, frameOptions, {
           onProgress: (jobProgress) => {
             if (jobProgress && typeof jobProgress.percentage === "number") {
-              // backend 0–100 → overall 75–98
+              // backend 0-100 → overall 75-98
               applyCreep(75 + (jobProgress.percentage / 100) * 23);
             }
           },
@@ -776,7 +776,7 @@ export function useSession() {
       const rejected = newImages.slice(room);
       rejected.forEach((img) => URL.revokeObjectURL(img.preview));
       if (rejected.length > 0) {
-        toast(`Only added ${accepted.length} — limit is ${MAX_IMAGES} per video`);
+        toast(`Only added ${accepted.length}, limit is ${MAX_IMAGES} per video`);
       }
       return [...prev, ...accepted];
     });
@@ -860,7 +860,7 @@ export function useSession() {
           newGeneratedFrameImages.opening = { imageUrl: uploadedUrl, prompt: null };
         }
       } else if (!openingFrame.useUpload && openingFrame.customPrompt) {
-        // AI Generate mode — generate an image using the user's custom prompt
+        // AI Generate mode: generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -903,7 +903,7 @@ export function useSession() {
           newGeneratedFrameImages.closing = { imageUrl: uploadedUrl, prompt: null };
         }
       } else if (!closingFrame.useUpload && closingFrame.customPrompt) {
-        // AI Generate mode — generate an image using the user's custom prompt
+        // AI Generate mode: generate an image using the user's custom prompt
         try {
           const frameResult = await sessionService.generateFrameImage(
             sessionId,
@@ -1205,7 +1205,7 @@ export function useSession() {
         backgroundMusic,
       });
       console.log("[useSession] startGeneration response:", updatedSession);
-      // Do NOT setSession here — the 202 response is a stub ({message,sessionId,stage}),
+      // Do NOT setSession here, the 202 response is a stub ({message,sessionId,stage}),
       // not a full session; the poll refreshes the real session within ~5s.
       refreshCredits();
       toast.success("Video generation started!");
@@ -1216,7 +1216,7 @@ export function useSession() {
         response: err.response?.data,
         status: err.response?.status,
       });
-      // Insufficient credits — show modal
+      // Insufficient credits: show modal
       const framesStep = enableBridges ? 3 : 2;
       if (err.response?.status === 402) {
         setInsufficientCredits({

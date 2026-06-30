@@ -34,7 +34,7 @@ export default function AppHeader() {
 
   // Start a fresh creation. navigate('/create') is a no-op when already on
   // /create (the route doesn't change, so the wizard keeps its session state),
-  // so force a clean reload — same intentional reset ResultStep uses.
+  // so force a clean reload, same intentional reset ResultStep uses.
   const goToCreate = () => {
     if (location.pathname === '/create') {
       window.location.href = '/create';

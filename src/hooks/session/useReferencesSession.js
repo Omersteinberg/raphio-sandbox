@@ -424,7 +424,7 @@ export function useReferencesSession() {
   // ── Delete a scene ─────────────────────────────────────────────────
   const deleteScene = useCallback((index) => {
     if (sceneFrames.length <= 2) {
-      toast.error("Cannot delete — minimum 2 scenes required");
+      toast.error("Cannot delete: minimum 2 scenes required");
       return;
     }
     setSceneFrames((prev) => prev.filter((_, i) => i !== index));

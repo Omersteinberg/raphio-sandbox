@@ -18,7 +18,7 @@ const STATUS_STYLES = {
 /**
  * Live "your video will be about this long" banner for the prompt screen.
  * Calls the stateless estimate endpoint (debounced) and renders actionable
- * options that map back to the parent's local state setters — no session needed.
+ * options that map back to the parent's local state setters, no session needed.
  */
 export default function DurationEstimate({
   imageCount,
@@ -48,7 +48,7 @@ export default function DurationEstimate({
       onStatusChange?.(null);
       return;
     }
-    // Inputs changed — re-block the parent's CTA until a fresh estimate resolves.
+    // Inputs changed: re-block the parent's CTA until a fresh estimate resolves.
     onStatusChange?.(null);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
@@ -56,7 +56,7 @@ export default function DurationEstimate({
       try {
         data = await fetchEstimate({ imageCount, targetDuration, enableBridges });
       } catch {
-        // Estimate unavailable — show nothing and let the parent fail open
+        // Estimate unavailable: show nothing and let the parent fail open
         // (a flaky estimate endpoint must not block all generation).
         setEstimate(null);
         onStatusChange?.('error');
@@ -67,7 +67,7 @@ export default function DurationEstimate({
 
       // The estimate drives the AI-bridge toggle: ON when there's a gap to fill, OFF
       // when the images already meet/exceed the target. Apply this only when the
-      // INPUTS changed (image count or duration) — never on a bare toggle change — so
+      // INPUTS changed (image count or duration), never on a bare toggle change, so
       // a manual on/off sticks until the user next changes images or duration.
       // (no_target / no_images: leave the toggle as the user set it.)
       const inputsChanged =
@@ -136,7 +136,7 @@ export default function DurationEstimate({
   const s = STATUS_STYLES[variantKey] || STATUS_STYLES.no_target;
   const Icon = s.Icon;
   // For a too-many-images block the banner only offers "Remove N images". The
-  // "Keep longer video" and "Set duration to ~Xs" options are dropped — the user
+  // "Keep longer video" and "Set duration to ~Xs" options are dropped, the user
   // raises the duration via the preset selector instead.
   const visibleOptions = (estimate.options ?? []).filter(
     (opt) => opt.id !== "keep" && opt.id !== "extend_duration"
