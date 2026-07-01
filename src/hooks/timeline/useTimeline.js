@@ -360,7 +360,15 @@ export function useTimeline(sessionId) {
           if (hasContent) gating.push(el);
         });
 
-        const stalled = gating.some((el) => el.readyState < 2 || el.seeking);
+        // Only a genuinely un-buffered element (readyState < 2) holds the clock.
+        // We deliberately do NOT gate on `el.seeking`: a transient catch-up seek
+        // shouldn't freeze the whole timeline — that was the "video sticks and the
+        // marker stops but audio keeps playing" stutter. With per-frame re-seeking
+        // now removed (see VideoPreview), a playing element stays readyState >= 2,
+        // so this only pauses for real buffering. An element that has errored
+        // (`el.error`) is excluded so a single failed source can't deadlock the
+        // whole clock forever — we'd rather coast past it than hang.
+        const stalled = gating.some((el) => el.readyState < 2 && !el.error);
 
         let next = stalled ? prev : prev + wallDelta;
         if (!Number.isFinite(next)) next = prev;

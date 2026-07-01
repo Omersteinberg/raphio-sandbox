@@ -76,15 +76,36 @@ export default function VideoPreview({
       if (displayVideo && item.id === displayVideo.id) {
         const speed = item.speed || 1;
         if (el.playbackRate !== speed) el.playbackRate = speed;
-        // Source advances `speed`× per timeline second.
+        // Source time this element should show for the current playhead.
         const sourceTime = (playheadPosition - item.startTime) * speed + (item.trimStart || 0);
-        if (Math.abs(el.currentTime - sourceTime) > 0.3) {
-          try { el.currentTime = sourceTime; } catch (_) {}
-        }
-        if (isPlaying && el.paused) {
-          el.play().catch(() => {});
-        } else if (!isPlaying && !el.paused) {
-          el.pause();
+        const drift = Math.abs(el.currentTime - sourceTime);
+
+        if (isPlaying) {
+          // `ahead` > 0 means the picture has run PAST the marker; < 0 means it's
+          // lagging behind. We handle the two directions differently on purpose.
+          const ahead = el.currentTime - sourceTime;
+          if (ahead > 0.5) {
+            // The marker stalled (or is slower than this clip) and the video ran
+            // ahead. Do NOT seek it backward — a backward seek replays the same
+            // stretch, which is the "clip keeps repeating" bug. Just hold this
+            // frame; native playback resumes once the marker catches up.
+            if (!el.paused) el.pause();
+          } else {
+            // In sync, or the picture is lagging: let it play natively (re-seeking
+            // every frame stalls the decoder and stutters). Only nudge FORWARD on
+            // a large lag, and never while a seek is already in flight.
+            if (ahead < -0.5 && !el.seeking) {
+              try { el.currentTime = sourceTime; } catch (_) {}
+            }
+            if (el.paused) el.play().catch(() => {});
+          }
+        } else {
+          // Paused / scrubbing: track the playhead tightly so the frame under
+          // the marker is exact, but don't stack seeks on top of each other.
+          if (drift > 0.1 && !el.seeking) {
+            try { el.currentTime = sourceTime; } catch (_) {}
+          }
+          if (!el.paused) el.pause();
         }
       } else {
         // Non-active clip: pause it AND keep it parked at its in-point, so when
