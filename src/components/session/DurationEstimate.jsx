@@ -23,6 +23,7 @@ const STATUS_STYLES = {
 export default function DurationEstimate({
   imageCount,
   targetDuration,
+  style,
   enableBridges,
   onSetDuration,
   onToggleAiFill,
@@ -54,7 +55,7 @@ export default function DurationEstimate({
     timerRef.current = setTimeout(async () => {
       let data;
       try {
-        data = await fetchEstimate({ imageCount, targetDuration, enableBridges });
+        data = await fetchEstimate({ imageCount, targetDuration, style, enableBridges });
       } catch {
         // Estimate unavailable: show nothing and let the parent fail open
         // (a flaky estimate endpoint must not block all generation).
@@ -90,7 +91,7 @@ export default function DurationEstimate({
     // including it would re-fetch on every render. We only want to re-estimate
     // when the actual inputs change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageCount, targetDuration, enableBridges]);
+  }, [imageCount, targetDuration, style, enableBridges]);
 
   // Cost tracks the duration the user selected, not the scene/clip count.
   const requiredCredits = creditsForDuration(targetDuration);
@@ -135,9 +136,9 @@ export default function DurationEstimate({
       : estimate.status;
   const s = STATUS_STYLES[variantKey] || STATUS_STYLES.no_target;
   const Icon = s.Icon;
-  // For a too-many-images block the banner only offers "Remove N images". The
-  // "Keep longer video" and "Set duration to ~Xs" options are dropped, the user
-  // raises the duration via the preset selector instead.
+  // Older API responses included "keep longer" / "set duration to ~Xs" actions,
+  // but strict-total generation no longer supports those paths. Hide them
+  // defensively so stale responses never render dead buttons.
   const visibleOptions = (estimate.options ?? []).filter(
     (opt) => opt.id !== "keep" && opt.id !== "extend_duration"
   );

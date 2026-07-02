@@ -1819,6 +1819,7 @@ export default function PromptStep({
             <DurationEstimate
               imageCount={images?.length ?? 0}
               targetDuration={targetDuration}
+              style={style}
               enableBridges={enableBridges}
               onSetDuration={setTargetDuration}
               onToggleAiFill={setEnableBridges}
@@ -1868,7 +1869,7 @@ export default function PromptStep({
               {isReferencesMode
                 ? "Add your characters and describe your video to get started"
                 : durationStatus === 'too_many_images'
-                ? "Remove some images or increase the length to continue"
+                ? "Remove images or choose a longer length to continue"
                 : "Usually ready in 30-60 seconds"}
             </p>
           </div>

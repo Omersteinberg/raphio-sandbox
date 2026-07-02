@@ -68,11 +68,12 @@ export async function listSessions({ stage, status, limit, offset } = {}) {
  * choosing images/duration on the prompt screen).
  * @returns {{ status: string, estimatedDuration: number, message: string, options: Array }}
  */
-export async function estimateDuration({ imageCount, targetDuration, videoModel, enableBridges }) {
+export async function estimateDuration({ imageCount, targetDuration, videoModel, style, enableBridges }) {
   const response = await axios.post(`${API_BASE}/estimate-duration`, {
     imageCount,
     ...(targetDuration != null ? { targetDuration } : {}),
     ...(videoModel ? { videoModel } : {}),
+    ...(style ? { style } : {}),
     enableBridges: Boolean(enableBridges),
   });
   return response.data;
