@@ -8,6 +8,8 @@ export const TOUR_KEYS = {
   editorOverview: "editorOverview:v1",
   editorClip: "editorClip:v1",
   myVideos: "myVideos:v1",
+  promptImage: "promptImage:v1",
+  promptReferences: "promptReferences:v1",
 };
 
 export function tourSeen(key) {

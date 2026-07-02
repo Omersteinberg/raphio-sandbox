@@ -8,6 +8,18 @@ import { STYLE_OPTIONS } from "../../constants/styles";
 import { creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 
+// Encode a File to a base64 data URL so uploaded reference images survive a
+// refresh/navigation off the prompt step (a raw File handle doesn't reliably
+// reload from IndexedDB). Mirrors the image pipeline's photo persistence.
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 // Map backend references-pipeline stages to frontend step numbers
 const REF_STAGE_TO_STEP = {
   REF_PROMPT_ENTERED: 0,
@@ -29,6 +41,9 @@ const REF_STAGE_TO_STEP = {
 export function useReferencesSession() {
   const [step, setStep] = useState(0);
   const onSessionLoadedRef = useRef(null);
+  // Cache of File -> data URL so re-saving the draft on every keystroke doesn't
+  // re-encode reference photos that haven't changed.
+  const pendingDataUrlCache = useRef(new Map());
 
   const base = useSessionBase({
     generatingStep: 5,
@@ -144,17 +159,39 @@ export function useReferencesSession() {
 
     if (!hasDraft) return;
 
-    savePending("references", {
-      userPrompt,
-      style,
-      references: refsArray.map(r => ({
-        type: r.type || 'character',
-        name: r.name,
-        description: r.description,
-        useUpload: r.useUpload,
-      })),
-    }).catch(console.warn);
+    let cancelled = false;
+    (async () => {
+      // Encode uploaded reference photos to base64 data URLs (reusing the cache
+      // for unchanged Files) so they survive a refresh and reload into working
+      // previews / re-upload on Create.
+      const cache = pendingDataUrlCache.current;
+      const encoded = await Promise.all(
+        refsArray.map(async (r) => {
+          let imageData = null;
+          let imageName = null;
+          if (r.useUpload && r.referenceFile) {
+            imageData = cache.get(r.referenceFile);
+            if (!imageData) {
+              imageData = await fileToDataUrl(r.referenceFile);
+              cache.set(r.referenceFile, imageData);
+            }
+            imageName = r.referenceFile.name;
+          }
+          return {
+            type: r.type || 'character',
+            name: r.name,
+            description: r.description,
+            useUpload: r.useUpload,
+            imageData,
+            imageName,
+          };
+        })
+      );
+      if (cancelled) return;
+      await savePending("references", { userPrompt, style, references: encoded });
+    })().catch(console.warn);
 
+    return () => { cancelled = true; };
   }, [userPrompt, style, references, sessionId, step]);
 
   // ── Start references session ───────────────────────────────────────
@@ -183,8 +220,9 @@ export function useReferencesSession() {
 
     const requiredCredits = creditsForDuration(targetDuration);
     if (credits != null && requiredCredits > 0 && credits < requiredCredits) {
-      toast.info(`You need ${requiredCredits} credits for a ${targetDuration}s video.`);
-      navigate("/buy-credits");
+      // Tell the user in-place (modal) instead of yanking them to the pricing
+      // page, matching the image pipeline.
+      setInsufficientCredits({ required: requiredCredits, available: credits });
       return;
     }
 
@@ -269,15 +307,17 @@ export function useReferencesSession() {
       setStep(0);
       setError(err.message);
       if (err.response?.status === 402) {
-        toast.info(`You need ${creditsForDuration(targetDuration)} credits for a ${targetDuration}s video.`);
-        navigate("/buy-credits");
+        setInsufficientCredits({
+          required: err.response.data?.required ?? creditsForDuration(targetDuration),
+          available: err.response.data?.available ?? credits ?? 0,
+        });
       } else {
         toast.error(err.response?.data?.error || "Failed to start references session");
       }
     } finally {
       setLoading(false);
     }
-  }, [userPrompt, style, voiceId, references, navigate, credits, aspectRatio]);
+  }, [userPrompt, style, voiceId, references, credits, targetDuration, aspectRatio]);
 
   // ── Approve all references ─────────────────────────────────────────
   const approveAllReferences = useCallback(async () => {
@@ -311,8 +351,10 @@ export function useReferencesSession() {
       console.error("[useReferencesSession] Failed to approve references:", err);
       setScriptProgress(0);
       if (err.response?.status === 402) {
-        toast.error("Insufficient credits");
-        navigate("/buy-credits");
+        setInsufficientCredits({
+          required: err.response.data?.required ?? creditsForDuration(targetDuration),
+          available: err.response.data?.available ?? credits ?? 0,
+        });
       } else {
         toast.error(err.response?.data?.error || "Failed to approve references");
       }
@@ -320,7 +362,7 @@ export function useReferencesSession() {
       clearInterval(progressTimer);
       setLoading(false);
     }
-  }, [sessionId, navigate, setScriptProgress]);
+  }, [sessionId, setScriptProgress, targetDuration, credits]);
 
   // ── Approve script (override base to explicitly advance step) ──────
   const approveScript = useCallback(async () => {
@@ -384,15 +426,17 @@ export function useReferencesSession() {
     } catch (err) {
       console.error("[useReferencesSession] Failed to generate frames:", err);
       if (err.response?.status === 402) {
-        toast.error("Insufficient credits");
-        navigate("/buy-credits");
+        setInsufficientCredits({
+          required: err.response.data?.required ?? creditsForDuration(targetDuration),
+          available: err.response.data?.available ?? credits ?? 0,
+        });
       } else {
         toast.error(err.response?.data?.error || "Failed to generate scene frames");
       }
     } finally {
       setFramesLoading(false);
     }
-  }, [sessionId, navigate]);
+  }, [sessionId, targetDuration, credits]);
 
   // ── Regenerate a single frame ──────────────────────────────────────
   const regenerateFrame = useCallback(async (index, feedback) => {

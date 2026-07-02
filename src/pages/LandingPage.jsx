@@ -1257,7 +1257,6 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {[
               { icon: InfinityIcon, text: 'Credits never expire' },
-              { icon: ShieldCheck, text: '30-day money back on Starter' },
               { icon: Clock,       text: 'No subscription required' },
             ].map((t) => {
               const Icon = t.icon;
@@ -1417,7 +1416,7 @@ export default function LandingPage() {
           <div className="text-center py-4 rounded-2xl"
             style={{ background: '#F0EAE5', border: '1px solid rgba(193,68,14,0.12)' }}>
             <p className="text-sm font-semibold mb-1" style={{ color: '#2C2420' }}>Not sure yet?</p>
-            <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 10 free credits, no card needed.</p>
+            <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 3 free credits, no card needed.</p>
             <button onClick={() => navigate('/create')}
               className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
               style={{ color: C.terra }}>

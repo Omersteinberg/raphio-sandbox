@@ -13,6 +13,7 @@ export function useTimeline(sessionId) {
   const [items, setItems] = useState([]);
   const [sections, setSections] = useState([]);
   const [audioAssets, setAudioAssets] = useState([]);
+  const [references, setReferences] = useState([]); // references-pipeline only; empty otherwise
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -64,6 +65,7 @@ export function useTimeline(sessionId) {
       setItems(data.items || []);
       setSections(data.sections || []);
       setAudioAssets(data.audioAssets || []);
+      setReferences(data.references || []);
       setDuration(data.duration || 0);
       setPlayheadPosition(data.playheadPos || 0);
       setZoomLevel(data.zoomLevel || 1);
@@ -505,6 +507,7 @@ export function useTimeline(sessionId) {
     audioItems,
     sections,
     audioAssets,
+    references,
     duration,
 
     // Playback

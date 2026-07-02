@@ -18,6 +18,7 @@ import {
   Mic,
   RefreshCw,
   Volume2,
+  Layers,
   Undo2,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -38,6 +39,12 @@ import ItemEditModal from "./modals/ItemEditModal";
 import NarrationEditModal from "./modals/NarrationEditModal";
 import RegenerateClipModal from "./modals/RegenerateClipModal";
 import ExportProgressModal from "./modals/ExportProgressModal";
+import ReferencesModal from "./modals/ReferencesModal";
+
+// Shown when leaving with edits that haven't been exported. Shared by the in-app
+// Back button and the browser/OS back guard so both warn identically.
+const LEAVE_MSG =
+  "Your edits are saved as a draft, but won't appear in the video until you Export. Leave anyway?";
 
 export default function TimelineEditor({ sessionId, onBack, onExportComplete, onUpdateSection, onRegenerateNarration }) {
   const timeline = useTimeline(sessionId);
@@ -56,6 +63,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState(null); // { percentage, label }
+  const [showReferences, setShowReferences] = useState(false); // references-pipeline: view refs used
 
   // Tap-to-add (mobile asset sheet): drop the asset at the playhead, nudged to
   // the next free spot on its track so it doesn't overlap.
@@ -99,14 +107,29 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   // Confirm before leaving if there are edits that haven't been exported yet.
   // (Edits auto-save as a draft, but the video only updates on Export.)
   const handleBack = () => {
-    if (timeline.hasUnexportedChanges) {
-      const ok = window.confirm(
-        "Your edits are saved as a draft, but won't appear in the video until you Export. Leave anyway?"
-      );
-      if (!ok) return;
-    }
+    if (timeline.hasUnexportedChanges && !window.confirm(LEAVE_MSG)) return;
     onBack?.();
   };
+
+  // Same guard for the browser/OS back button and mobile back-swipe gesture,
+  // which bypass the in-app Back button entirely. The app uses <BrowserRouter>
+  // (no useBlocker), so we intercept the history "popstate" manually: while
+  // there are unexported edits, push a decoy entry so the first Back pops it
+  // instead of leaving, then confirm. Cancel re-arms; OK navigates away.
+  useEffect(() => {
+    if (!timeline.hasUnexportedChanges) return;
+    window.history.pushState(null, "", window.location.href);
+    const onPopState = () => {
+      if (window.confirm(LEAVE_MSG)) {
+        window.removeEventListener("popstate", onPopState);
+        onBack?.();
+      } else {
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [timeline.hasUnexportedChanges, onBack]);
 
   // Keyboard shortcuts: ignored while typing in a field or when a modal is open.
   useEffect(() => {
@@ -459,6 +482,17 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         </div>
 
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
+          {timeline.references?.length > 0 && (
+            <Button
+              data-tour="references"
+              variant="ghost"
+              onClick={() => setShowReferences(true)}
+              className="text-muted-foreground hover:text-foreground px-2 md:px-4"
+            >
+              <Layers className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">References</span>
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={() => timeline.undo()}
@@ -503,6 +537,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             audioAssets={timeline.audioAssets}
             onDeleteAudio={timeline.deleteAudio}
             onNarrationEdit={(section) => setEditingNarration({ item: null, section })}
+            onRegenerateClip={(section) => setRegenSection(section)}
             onDragStart={(asset, type) => {
               // Store drag data
             }}
@@ -629,6 +664,13 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
       {/* Modals */}
       {exporting && <ExportProgressModal progress={exportProgress} />}
+
+      {showReferences && (
+        <ReferencesModal
+          references={timeline.references}
+          onClose={() => setShowReferences(false)}
+        />
+      )}
 
       {regenSection && (
         <RegenerateClipModal
@@ -792,14 +834,24 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 </p>
                 <div className="space-y-1.5">
                   {timeline.sections.filter((s) => s.generatedClipUrl).map((section) => (
-                    <button key={section.id} onClick={() => addVideoAsset(section)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">
-                      {section.imageUrl && <img src={section.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-foreground truncate">{section.narrationText?.substring(0, 40) || `Clip ${section.orderIndex + 1}`}</p>
-                        <p className="text-[11px] text-muted-foreground">{Number(section.clipDuration || 5).toFixed(1)}s</p>
-                      </div>
-                      <Plus className="w-4 h-4 text-primary shrink-0" />
-                    </button>
+                    <div key={section.id} className="flex items-center rounded-lg bg-muted/50">
+                      <button onClick={() => addVideoAsset(section)} className="flex-1 min-w-0 flex items-center gap-2 p-2 text-left">
+                        {section.imageUrl && <img src={section.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground truncate">{section.narrationText?.substring(0, 40) || `Clip ${section.orderIndex + 1}`}</p>
+                          <p className="text-[11px] text-muted-foreground">{Number(section.clipDuration || 5).toFixed(1)}s</p>
+                        </div>
+                        <Plus className="w-4 h-4 text-primary shrink-0" />
+                      </button>
+                      <button
+                        onClick={() => { setAssetsSheetOpen(false); setRegenSection(section); }}
+                        className="p-2 mr-1 text-muted-foreground hover:text-primary shrink-0"
+                        title="Regenerate clip"
+                        aria-label="Regenerate clip"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
                   {timeline.sections.filter((s) => s.generatedClipUrl).length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-2">No clips</p>

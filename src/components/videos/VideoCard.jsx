@@ -29,10 +29,15 @@ export default function VideoCard({ session, onClick }) {
   const thumbnail = session.images?.[0]?.imageUrl;
   const title = session.video?.title || session.scriptData?.title || "Untitled Video";
   
-  // Dynamic duration format tracker
-  const durationStr = session.video?.duration 
-    ? `${Math.floor(session.video.duration / 60)}:${String(session.video.duration % 60).padStart(2, '0')}` 
-    : "0:16";
+  // Real length = sum of the generated section clip durations (ffmpeg-probed
+  // during generation). The Video row has no duration column, so relying on
+  // session.video.duration always fell back to a hardcoded placeholder.
+  const totalSecs = Math.round(
+    (session.video?.sections || []).reduce((sum, s) => sum + (Number(s.clipDuration) || 0), 0)
+  );
+  const durationStr = totalSecs > 0
+    ? `${Math.floor(totalSecs / 60)}:${String(totalSecs % 60).padStart(2, '0')}`
+    : null;
 
   // Use updatedAt if it differs from creation, otherwise fall back to createdAt
   const displayDate = session.updatedAt || session.createdAt;
@@ -101,26 +106,28 @@ export default function VideoCard({ session, onClick }) {
         </div>
 
         {/* ── TIMESTAMPS OVERLAY PILL (Bottom Right) ── */}
-        <div style={{
-          position: 'absolute',
-          bottom: 10,
-          right: 10,
-          background: 'rgba(45, 34, 53, 0.72)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          borderRadius: 6,
-          padding: '2px 6px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          zIndex: 3,
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        }}>
-          <Clock style={{ width: 11, height: 11, color: '#FFFFFF' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
-            {durationStr}
-          </span>
-        </div>
+        {durationStr && (
+          <div style={{
+            position: 'absolute',
+            bottom: 10,
+            right: 10,
+            background: 'rgba(45, 34, 53, 0.72)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            borderRadius: 6,
+            padding: '2px 6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            zIndex: 3,
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}>
+            <Clock style={{ width: 11, height: 11, color: '#FFFFFF' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
+              {durationStr}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── METADATA INFO BLOCK ── */}
