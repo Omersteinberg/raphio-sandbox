@@ -11,7 +11,6 @@ import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { STYLE_OPTIONS } from "@/constants/styles";
 import VideoCard from "@/components/videos/VideoCard";
-import MergeFloatingActionButton from "@/components/merge/MergeFloatingActionButton";
 import { startMyVideosTour } from "@/lib/myVideosTour";
 import { tourSeen, markTourSeen, TOUR_KEYS } from "@/lib/tourState";
 
@@ -775,18 +774,20 @@ export default function MyVideosPage() {
         </AnimatePresence>
       </div>
 
-      {/* Help FAB — reuses MergeFloatingActionButton; replays the onboarding
-          tour on demand (available to everyone, not just new users). It's also
-          pointed out as the final tour step via data-tour="mv-help". */}
-      <MergeFloatingActionButton
-        data-tour="mv-help"
+      {/* Help FAB — same design as the Create screen's help button (bottom-right
+          gradient circle) for a consistent look; replays the tour on demand.
+          `data-tour="help"` lets the tour's final step point back at it. */}
+      <button
         onClick={() => startMyVideosTour(isMobile)}
-        title="Help & replay tour"
-        aria-label="Help and replay tour"
-        size={52}
-        icon={<HelpCircle />}
-        className="fixed z-40 right-5 bottom-5"
-      />
+        aria-label="How to use"
+        data-tour="help"
+        className="fixed bottom-5 right-5 z-50 w-11 h-11 rounded-full flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 4px 14px rgba(193,68,14,0.42)', transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(193,68,14,0.52)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; }}
+      >
+        <HelpCircle className="w-5 h-5" strokeWidth={2.5} />
+      </button>
     </div>
   );
 }
