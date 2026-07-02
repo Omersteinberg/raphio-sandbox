@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 const SUB_STEPS = [
   { id: "session",  label: "Setting up your session", range: [0, 15]  },
@@ -125,20 +126,8 @@ export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate =
         })}
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full max-w-xs">
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(193,68,14,0.10)" }}>
-          <motion.div
-            className="h-full rounded-full"
-            style={{ background: "linear-gradient(90deg, #C1440E, #E8603C)" }}
-            animate={{ width: `${dp}%` }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          />
-        </div>
-        <p className="text-xs text-center mt-2 font-medium" style={{ color: "#9C8F85" }}>
-          {dp}%
-        </p>
-      </div>
+      {/* Progress bar (shared, brand-consistent) */}
+      <ProgressBar value={dp} className="w-full max-w-xs" />
     </motion.div>
   );
 }

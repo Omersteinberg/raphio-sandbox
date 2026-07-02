@@ -45,7 +45,14 @@ function App() {
             <Route path="/timeline-test" element={<TimelineTest />} />
           </Route>
         </Routes>
-        <ToastContainer theme="dark" />
+        <ToastContainer
+          position="top-left"
+          autoClose={3500}
+          hideProgressBar
+          newestOnTop
+          closeButton={false}
+          theme="colored"
+        />
       </Router>
     </AuthProvider>
   );

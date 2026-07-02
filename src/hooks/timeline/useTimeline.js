@@ -4,6 +4,9 @@ import * as sessionService from "@/services/session";
 
 const PIXELS_PER_SECOND_BASE = 50;
 
+// How many editing actions Undo can step back through.
+const HISTORY_LIMIT = 25;
+
 export function useTimeline(sessionId) {
   // Timeline data
   const [timeline, setTimeline] = useState(null);
@@ -39,6 +42,13 @@ export function useTimeline(sessionId) {
   const audioElsRef = useRef({});
   const audioItemsRef = useRef([]);
   const videoItemsRef = useRef([]);
+
+  // Undo history: snapshots of `items` captured before each editing action.
+  // Undo-only (no redo), capped at HISTORY_LIMIT. `itemsRef` lets the mutators
+  // read the current items to snapshot without re-subscribing every render.
+  const itemsRef = useRef([]);
+  const historyRef = useRef([]);
+  const [canUndo, setCanUndo] = useState(false);
 
   // Calculate pixels per second based on zoom
   const pixelsPerSecond = PIXELS_PER_SECOND_BASE * zoomLevel;
@@ -90,10 +100,23 @@ export function useTimeline(sessionId) {
     [audioAssets]
   );
 
+  // Snapshot the current items onto the undo stack. Called at the start of each
+  // editing mutation (before its optimistic change), so Undo can restore the
+  // exact prior item set. Shallow-copies each item so later edits don't alias.
+  const pushHistory = useCallback(() => {
+    const snapshot = itemsRef.current.map((it) => ({ ...it }));
+    const stack = historyRef.current;
+    stack.push(snapshot);
+    if (stack.length > HISTORY_LIMIT) stack.shift();
+    setCanUndo(true);
+  }, []);
+
   // Update item on server
   const updateItem = useCallback(
     async (itemId, updates) => {
       if (!sessionId) return;
+
+      pushHistory();
 
       // Optimistically apply updates to local state immediately
       setItems((prev) =>
@@ -120,7 +143,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, loadTimeline]
+    [sessionId, loadTimeline, pushHistory]
   );
 
   // Add item to timeline
@@ -128,6 +151,7 @@ export function useTimeline(sessionId) {
     async (itemData) => {
       if (!sessionId || !timeline) return;
 
+      pushHistory();
       setHasUnexportedChanges(true);
       setSaving(true);
       try {
@@ -141,7 +165,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, timeline, loadTimeline]
+    [sessionId, timeline, loadTimeline, pushHistory]
   );
 
   // Remove item from timeline
@@ -149,6 +173,7 @@ export function useTimeline(sessionId) {
     async (itemId) => {
       if (!sessionId) return;
 
+      pushHistory();
       setHasUnexportedChanges(true);
       setSaving(true);
       try {
@@ -183,6 +208,7 @@ export function useTimeline(sessionId) {
         return;
       }
 
+      pushHistory();
       setHasUnexportedChanges(true);
       setSaving(true);
       try {
@@ -203,8 +229,36 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, items, playheadPosition]
+    [sessionId, items, playheadPosition, pushHistory]
   );
+
+  // Undo the last editing action by restoring the previous item snapshot. The
+  // whole snapshot is sent to the backend in one call (replaceTimelineItems),
+  // which preserves item ids so repeated undos stay consistent. Playhead and
+  // zoom are intentionally left untouched. Undo-only — there is no redo.
+  const undo = useCallback(async () => {
+    const stack = historyRef.current;
+    if (stack.length === 0) return;
+
+    const snapshot = stack.pop();
+    setCanUndo(stack.length > 0);
+
+    setItems(snapshot); // optimistic restore
+    setSelectedItem(null);
+    setHasUnexportedChanges(true);
+    setSaving(true);
+    try {
+      const result = await sessionService.replaceTimelineItems(sessionId, snapshot);
+      if (result?.items) setItems(result.items);
+      if (typeof result?.duration === "number") setDuration(result.duration);
+    } catch (err) {
+      console.error("Failed to undo:", err);
+      toast.error("Failed to undo");
+      await loadTimeline(); // fall back to server truth
+    } finally {
+      setSaving(false);
+    }
+  }, [sessionId, loadTimeline]);
 
   // Upload audio
   const uploadAudio = useCallback(
@@ -297,6 +351,7 @@ export function useTimeline(sessionId) {
   // Keep the loop's view of items current without re-subscribing each frame.
   audioItemsRef.current = audioItems;
   videoItemsRef.current = videoItems;
+  itemsRef.current = items;
 
   // Playback controls. The playhead is derived from real media time (loop below),
   // so these just move state; the loop follows the media.
@@ -478,6 +533,10 @@ export function useTimeline(sessionId) {
     addItem,
     removeItem,
     splitItem,
+
+    // Undo
+    undo,
+    canUndo,
 
     // Audio operations
     uploadAudio,

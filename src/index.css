@@ -189,4 +189,42 @@
   color: hsl(var(--foreground));
 }
 
+/* ── Toasts (react-toastify) ──────────────────────────────────────
+   Smaller, tighter toasts in ONE consistent brand color. With the
+   `colored` theme, react-toastify derives every variant's background from
+   its own --toastify-color-* variables, so we point them ALL at the
+   terracotta brand token — the app never flashes green/red (the icon still
+   hints the status). Overriding the variables beats fighting theme-selector
+   specificity. */
+:root {
+  --toastify-color-success: var(--terra);
+  --toastify-color-error: var(--terra);
+  --toastify-color-info: var(--terra);
+  --toastify-color-warning: var(--terra);
+  --toastify-icon-color-success: #fff;
+  --toastify-icon-color-error: #fff;
+  --toastify-icon-color-info: #fff;
+  --toastify-icon-color-warning: #fff;
+}
+.Toastify__toast-container {
+  width: 300px;
+  padding: 6px;
+}
+.Toastify__toast {
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  box-shadow: 0 6px 20px rgba(var(--ink-rgb), 0.18);
+}
+.Toastify__toast-body {
+  padding: 2px 6px;
+  margin: 0;
+}
+.Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.55);
+}
+
 

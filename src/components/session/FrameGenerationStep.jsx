@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import ProgressBar from '@/components/ui/ProgressBar';
 
 export default function FrameGenerationStep({
   sceneFrames,
@@ -46,12 +47,14 @@ export default function FrameGenerationStep({
           </button>
         )}
 
-        {/* Loading state */}
+        {/* Loading state — show a progress bar (consistent with the app's other
+            long-wait screens) instead of a bare spinner. No backend percentage
+            is reported here, so ProgressBar trickles on its own. */}
         {framesLoading && sceneFrames.length === 0 && (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-terra mx-auto mb-3"></div>
-            <p className="text-ink-muted">Generating scene frames...</p>
-            <p className="text-ink-muted text-sm mt-1">Estimated time: ~5 minutes</p>
+            <p className="text-ink font-medium mb-1">Generating scene frames…</p>
+            <p className="text-ink-muted text-sm mb-4">Estimated time: ~5 minutes</p>
+            <ProgressBar className="mx-auto w-full max-w-xs" />
           </div>
         )}
 

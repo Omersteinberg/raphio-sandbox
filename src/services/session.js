@@ -610,6 +610,18 @@ export async function removeTimelineItem(sessionId, itemId) {
 }
 
 /**
+ * Replace ALL timeline items in one call (used by editor Undo).
+ * Returns { items, duration }.
+ */
+export async function replaceTimelineItems(sessionId, items) {
+  const response = await axios.put(
+    `${API_BASE}/${sessionId}/timeline/items`,
+    { items }
+  );
+  return response.data;
+}
+
+/**
  * Split a timeline item at a specific time
  */
 export async function splitTimelineItem(sessionId, itemId, splitTime) {

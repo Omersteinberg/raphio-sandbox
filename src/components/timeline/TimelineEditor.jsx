@@ -18,6 +18,7 @@ import {
   Mic,
   RefreshCw,
   Volume2,
+  Undo2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
   const [volumeSheetOpen, setVolumeSheetOpen] = useState(false);
   const [volumeDraft, setVolumeDraft] = useState(1); // 0–1.5 while the volume sheet is open
+  const [speedDraft, setSpeedDraft] = useState(1); // 0.25–6 while the speed sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
   const [regenerating, setRegenerating] = useState(false);
@@ -113,7 +115,12 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (showAudioUpload || showTTSModal || editingItem || editingNarration) return;
 
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+        // Undo-only: Ctrl/Cmd+Z. Shift+Z (redo) is intentionally not handled.
+        if (e.shiftKey) return;
+        e.preventDefault();
+        if (timeline.canUndo) timeline.undo();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
         if (timeline.selectedItem) {
           e.preventDefault();
           timeline.removeItem(timeline.selectedItem);
@@ -134,7 +141,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     return () => window.removeEventListener("keydown", onKey);
   }, [
     showAudioUpload, showTTSModal, editingItem, editingNarration,
-    timeline.selectedItem, timeline.isPlaying,
+    timeline.selectedItem, timeline.isPlaying, timeline.canUndo, timeline.undo,
     timeline.removeItem, timeline.zoomIn, timeline.zoomOut, timeline.play, timeline.pause,
   ]);
 
@@ -179,6 +186,20 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     clipTourShownRef.current = false;
     clearTourSeen(TOUR_KEYS.editorClip);
     startOverviewTour(isMobile);
+  };
+
+  // Commit a playback speed for the selected clip. Re-times its timeline length
+  // (duration = kept source ÷ speed), so faster → shorter. Clamped 0.25–6× to
+  // match the backend; supports the exact fractional speeds the AI narration-fit
+  // produces (e.g. 1.33×), not just the presets.
+  const SPEED_MIN = 0.25;
+  const SPEED_MAX = 6;
+  const commitSpeed = (val) => {
+    const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+    if (!sel) return;
+    const s = Math.max(SPEED_MIN, Math.min(SPEED_MAX, Number(val) || 1));
+    const keptSource = sel.duration * (sel.speed || 1);
+    timeline.updateItem(sel.id, { speed: s, duration: keptSource / s });
   };
 
   // Handle export - download video and save as completed
@@ -440,6 +461,16 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
           <Button
             variant="ghost"
+            onClick={() => timeline.undo()}
+            disabled={!timeline.canUndo || timeline.saving}
+            title="Undo (Ctrl+Z)"
+            className="text-muted-foreground hover:text-foreground px-2 md:px-3"
+          >
+            <Undo2 className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">Undo</span>
+          </Button>
+          <Button
+            variant="ghost"
             onClick={handleReplayTour}
             className="text-muted-foreground hover:text-foreground px-2 md:px-4"
           >
@@ -551,7 +582,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               {(timeline.selectedItem
                 ? [
                     { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
-                    { Icon: Gauge, label: "Speed", onClick: () => setSpeedSheetOpen(true) },
+                    { Icon: Gauge, label: "Speed", onClick: () => { setSpeedDraft(Number(sel?.speed) || 1); setSpeedSheetOpen(true); } },
                     // Volume — only for audio clips (narration / audio / music).
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
@@ -645,35 +676,51 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 <X className="w-5 h-5" />
               </button>
             </div>
-            {(() => {
-              const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-              const curSpeed = sel?.speed || 1;
-              return (
-                <div className="grid grid-cols-3 gap-2">
-                  {[0.5, 1, 1.5, 2, 3, 4].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => {
-                        if (sel) {
-                          // duration on the timeline = kept source length / speed,
-                          // so changing speed re-times the clip (faster → shorter).
-                          const keptSource = sel.duration * (sel.speed || 1);
-                          timeline.updateItem(sel.id, { speed: s, duration: keptSource / s });
-                        }
-                        setSpeedSheetOpen(false);
-                      }}
-                      className={`py-3 rounded-lg border text-sm font-medium ${
-                        curSpeed === s
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {s}x
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
+            <div className="space-y-4">
+              {/* Exact current speed — shows the AI narration-fit's fractional
+                  value (e.g. 1.33×), which the presets alone can't represent. */}
+              <div className="text-center">
+                <span className="text-2xl font-bold text-foreground tabular-nums">
+                  {speedDraft.toFixed(2)}×
+                </span>
+              </div>
+
+              {/* Fine-tune slider. Commits on release (like the volume sheet) so
+                  dragging doesn't flood the save endpoint. */}
+              <input
+                type="range"
+                min={SPEED_MIN}
+                max={SPEED_MAX}
+                step={0.05}
+                value={speedDraft}
+                onChange={(e) => setSpeedDraft(Number(e.target.value))}
+                onPointerUp={() => commitSpeed(speedDraft)}
+                onTouchEnd={() => commitSpeed(speedDraft)}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground -mt-2">
+                <span>{SPEED_MIN}×</span>
+                <span>{SPEED_MAX}×</span>
+              </div>
+
+              {/* Quick presets — set the value and commit, keeping the sheet open
+                  so you can then fine-tune with the slider. */}
+              <div className="grid grid-cols-3 gap-2">
+                {[0.5, 1, 1.5, 2, 3, 4].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => { setSpeedDraft(s); commitSpeed(s); }}
+                    className={`py-3 rounded-lg border text-sm font-medium ${
+                      Math.abs(speedDraft - s) < 0.001
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

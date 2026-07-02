@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Music, Check, Loader2, Image, ArrowRight } from "lucide-react";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 export default function GeneratingStep({ session, scriptData, generationError, onRegenerate }) {
   const navigate = useNavigate();
@@ -177,14 +178,7 @@ export default function GeneratingStep({ session, scriptData, generationError, o
             <span>Progress</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-3 bg-surface-alt rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-              className="h-full bg-gradient-to-r from-terra to-terra-light rounded-full"
-            />
-          </div>
+          <ProgressBar value={progress} showPercent={false} />
         </div>
 
         {/* Stage List */}
