@@ -67,6 +67,7 @@ export default function AppHeader() {
 
         <nav className="hidden md:flex items-center gap-1">
           <button
+            data-tour="nav-create"
             onClick={goToCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
             style={
@@ -92,6 +93,7 @@ export default function AppHeader() {
           </button>
 
           <button
+            data-tour="nav-videos"
             onClick={() => navigate('/videos')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
             style={
@@ -123,6 +125,7 @@ export default function AppHeader() {
 
         {/* Credits pill */}
         <button
+          data-tour="nav-credits"
           onClick={() => navigate('/buy-credits')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
           style={{
@@ -155,6 +158,7 @@ export default function AppHeader() {
 
         {/* Avatar button */}
         <button
+          data-tour="nav-account"
           onClick={() => setDropdownOpen(v => !v)}
           className="flex items-center gap-1.5 px-2 py-1 rounded-full transition-all"
           style={{
@@ -266,6 +270,7 @@ export default function AppHeader() {
 
       {/* Mobile: hamburger button (replaces the right cluster below md) */}
       <button
+        data-tour="nav-menu"
         onClick={() => setMobileOpen(true)}
         className="md:hidden flex items-center justify-center w-11 h-11 -mr-2 rounded-xl"
         style={{ color: '#2C2420' }}
@@ -313,6 +318,7 @@ export default function AppHeader() {
                 </p>
               </div>
               <button
+                data-tour="drawer-close"
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center justify-center w-10 h-10 -mr-2 rounded-xl shrink-0"
                 style={{ color: '#7A6A62' }}
@@ -325,6 +331,7 @@ export default function AppHeader() {
             {/* Page links — top */}
             <nav className="flex flex-col px-3 pt-2 gap-1">
               <button
+                data-tour="drawer-create"
                 onClick={goToCreate}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
                 style={
@@ -337,6 +344,7 @@ export default function AppHeader() {
                 Create
               </button>
               <button
+                data-tour="drawer-videos"
                 onClick={() => navigate('/videos')}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
                 style={
@@ -356,6 +364,7 @@ export default function AppHeader() {
               style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
             >
               <button
+                data-tour="drawer-credits"
                 onClick={() => navigate('/buy-credits')}
                 className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl"
                 style={{
@@ -374,6 +383,7 @@ export default function AppHeader() {
                 </span>
               </button>
               <button
+                data-tour="drawer-signout"
                 onClick={() => { setMobileOpen(false); logout(); }}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-medium"
                 style={{ color: '#9B8B83' }}

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Video, ArrowRight, LayoutGrid,
-  List, ChevronRight, SlidersHorizontal
+  List, ChevronRight, SlidersHorizontal, HelpCircle
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listSessions } from "@/services/session";
@@ -11,6 +11,9 @@ import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { STYLE_OPTIONS } from "@/constants/styles";
 import VideoCard from "@/components/videos/VideoCard";
+import MergeFloatingActionButton from "@/components/merge/MergeFloatingActionButton";
+import { startMyVideosTour } from "@/lib/myVideosTour";
+import { tourSeen, markTourSeen, TOUR_KEYS } from "@/lib/tourState";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const C = {
@@ -519,6 +522,8 @@ function TabEmptyState({ tab, styleFilter, onCreateClick, onClearFilter }) {
 export default function MyVideosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const tourStartedRef = useRef(false);
 
   const [activeTab,       setActiveTab]       = useState("completed");
   const [sessions,        setSessions]        = useState([]);
@@ -576,6 +581,20 @@ export default function MyVideosPage() {
     if (checkedNew && !isNewUser) fetchSessions();
   }, [fetchSessions, checkedNew, isNewUser]);
 
+  // First-run onboarding tour for users who just signed up (no videos yet).
+  // Runs once (persisted), after the welcome state + header have settled. On
+  // mobile the tour opens/closes the nav drawer itself (see myVideosTour.js).
+  useEffect(() => {
+    if (!checkedNew || !isNewUser) return;
+    if (tourStartedRef.current || tourSeen(TOUR_KEYS.myVideos)) return;
+    tourStartedRef.current = true;
+    const t = setTimeout(() => {
+      markTourSeen(TOUR_KEYS.myVideos);
+      startMyVideosTour(isMobile);
+    }, 650);
+    return () => clearTimeout(t);
+  }, [checkedNew, isNewUser, isMobile]);
+
   const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
   const handleCardClick = session => {
     if (["COMPLETED","EDITING"].includes(session.stage)) navigate(`/video/${session.id}`);
@@ -611,7 +630,7 @@ export default function MyVideosPage() {
                 ))}
               </div>
             </>)}
-            <button onClick={()=>navigate('/create')} style={{
+            <button data-tour="mv-new" onClick={()=>navigate('/create')} style={{
               display:'flex', alignItems:'center', gap:6, marginLeft:'auto',
               height:38, paddingLeft:18, paddingRight:18,
               borderRadius:9999, border:'none',
@@ -640,7 +659,7 @@ export default function MyVideosPage() {
         )}
 
         {/* ── Tabs with counts ── */}
-        <div style={{ display:'flex', borderBottom:'1.5px solid rgba(45,34,53,0.10)', marginBottom:20 }}>
+        <div data-tour="mv-tabs" style={{ display:'flex', borderBottom:'1.5px solid rgba(45,34,53,0.10)', marginBottom:20 }}>
           {[
             { key:'completed',   label:'Completed',   count:completedTotal   },
             { key:'in-progress', label:'In Progress',  count:inProgressTotal  },
@@ -736,6 +755,19 @@ export default function MyVideosPage() {
 
         </AnimatePresence>
       </div>
+
+      {/* Help FAB — reuses MergeFloatingActionButton; replays the onboarding
+          tour on demand (available to everyone, not just new users). It's also
+          pointed out as the final tour step via data-tour="mv-help". */}
+      <MergeFloatingActionButton
+        data-tour="mv-help"
+        onClick={() => startMyVideosTour(isMobile)}
+        title="Help & replay tour"
+        aria-label="Help and replay tour"
+        size={52}
+        icon={<HelpCircle />}
+        className="fixed z-40 right-5 bottom-5"
+      />
     </div>
   );
 }
