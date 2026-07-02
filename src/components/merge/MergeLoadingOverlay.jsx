@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
 
 export default function MergeLoadingOverlay({ text = "Loading...", progress = null, estimate = null }) {
   const [simulated, setSimulated] = useState(0);
@@ -46,6 +47,9 @@ export default function MergeLoadingOverlay({ text = "Loading...", progress = nu
         </div>
         <p className="text-sm text-center mt-2 font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           {displayProgress}%
+        </p>
+        <p className="text-xs text-center mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+          {EMAIL_WAIT_NOTE}
         </p>
       </div>
     </div>

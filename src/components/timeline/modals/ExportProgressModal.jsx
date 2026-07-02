@@ -1,5 +1,6 @@
 import { Film } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
 
 /**
  * Full-screen overlay shown while a long background job (timeline export or
@@ -69,7 +70,7 @@ export default function ExportProgressModal({ progress, title = "Exporting your 
         <p className="mt-2 text-xs font-medium text-foreground">{pct}%</p>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          This may take several minutes. Feel free to use other tabs, but don't close or refresh this page.
+          This may take several minutes. {EMAIL_WAIT_NOTE}
         </p>
       </div>
     </div>

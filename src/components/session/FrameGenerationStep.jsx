@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import ProgressBar from '@/components/ui/ProgressBar';
+import ProgressBar, { EMAIL_WAIT_NOTE } from '@/components/ui/ProgressBar';
 
 export default function FrameGenerationStep({
   sceneFrames,
@@ -54,7 +54,7 @@ export default function FrameGenerationStep({
           <div className="text-center py-12">
             <p className="text-ink font-medium mb-1">Generating scene frames…</p>
             <p className="text-ink-muted text-sm mb-4">Estimated time: ~5 minutes</p>
-            <ProgressBar className="mx-auto w-full max-w-xs" />
+            <ProgressBar className="mx-auto w-full max-w-xs" note={EMAIL_WAIT_NOTE} />
           </div>
         )}
 
@@ -104,34 +104,47 @@ export default function FrameGenerationStep({
                       </>
                     )}
 
-                    {/* Feedback + Actions */}
-                    {(frame.status === 'completed' || frame.status === 'success') && (
-                      <div className="space-y-2 pt-1 border-t border-border">
-                        <input
-                          type="text"
-                          value={feedbackByIndex[index] || ''}
-                          onChange={(e) => setFeedbackByIndex(prev => ({ ...prev, [index]: e.target.value }))}
-                          placeholder="Feedback for regeneration..."
-                          className="w-full bg-surface-alt border border-border rounded px-2 py-1 text-ink/80 text-xs placeholder-gray-400 focus:outline-none focus:border-terra"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleRegenerate(index)}
-                            disabled={regeneratingIndex === index}
-                            className="flex-1 text-xs bg-surface-alt hover:bg-surface-alt text-ink/80 py-1.5 rounded transition-colors disabled:opacity-50"
-                          >
-                            {regeneratingIndex === index ? 'Regenerating...' : 'Regenerate'}
-                          </button>
-                          <button
-                            onClick={() => onDelete(index)}
-                            disabled={sceneFrames.length <= 2}
-                            className="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded transition-colors disabled:opacity-30"
-                          >
-                            Delete
-                          </button>
+                    {/* Feedback + Actions — shown for completed AND failed frames.
+                        A failed frame MUST be retryable, otherwise (since Approve
+                        needs every frame to succeed) the user gets stuck. */}
+                    {(() => {
+                      const isDone = frame.status === 'completed' || frame.status === 'success';
+                      const isFailed = frame.status === 'failed' || frame.status === 'error';
+                      if (!isDone && !isFailed) return null;
+                      const busy = regeneratingIndex === index;
+                      return (
+                        <div className="space-y-2 pt-1 border-t border-border">
+                          <input
+                            type="text"
+                            value={feedbackByIndex[index] || ''}
+                            onChange={(e) => setFeedbackByIndex(prev => ({ ...prev, [index]: e.target.value }))}
+                            placeholder={isFailed ? "Optional: guidance for another try..." : "Feedback for regeneration..."}
+                            className="w-full bg-surface-alt border border-border rounded px-2 py-1 text-ink/80 text-xs placeholder-gray-400 focus:outline-none focus:border-terra"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleRegenerate(index)}
+                              disabled={busy}
+                              className={`flex-1 text-xs py-1.5 rounded transition-colors disabled:opacity-50 ${
+                                isFailed
+                                  ? 'text-white hover:opacity-90'
+                                  : 'bg-surface-alt hover:bg-surface-alt text-ink/80'
+                              }`}
+                              style={isFailed ? { background: 'var(--gradient-brand)' } : undefined}
+                            >
+                              {busy ? (isFailed ? 'Retrying…' : 'Regenerating…') : (isFailed ? 'Retry' : 'Regenerate')}
+                            </button>
+                            <button
+                              onClick={() => onDelete(index)}
+                              disabled={sceneFrames.length <= 2 || busy}
+                              className="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded transition-colors disabled:opacity-30"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               );

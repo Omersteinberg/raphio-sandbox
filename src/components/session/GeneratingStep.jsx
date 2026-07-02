@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Film, Mic, Layers, Music, Check, Loader2, Image, ArrowRight } from "lucide-react";
-import ProgressBar from "@/components/ui/ProgressBar";
+import ProgressBar, { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
 
 export default function GeneratingStep({ session, scriptData, generationError, onRegenerate }) {
   const navigate = useNavigate();
@@ -178,7 +178,7 @@ export default function GeneratingStep({ session, scriptData, generationError, o
             <span>Progress</span>
             <span>{progress}%</span>
           </div>
-          <ProgressBar value={progress} showPercent={false} />
+          <ProgressBar value={progress} showPercent={false} note={EMAIL_WAIT_NOTE} />
         </div>
 
         {/* Stage List */}

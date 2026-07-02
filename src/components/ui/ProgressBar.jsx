@@ -10,11 +10,17 @@ import { useEffect, useState } from "react";
  *   percentage (e.g. scene-frame generation).
  *
  * `showPercent` toggles the % label. `className` sizes/positions the wrapper.
+ * `note` renders a small reassurance line under the bar (e.g. "you can close
+ * this tab — we'll email you"). Pass `EMAIL_WAIT_NOTE` for the standard copy.
  */
+export const EMAIL_WAIT_NOTE =
+  "You don't have to keep this tab open. We'll email you a link when it's ready.";
+
 export default function ProgressBar({
   value = null,
   showPercent = true,
   className = "",
+  note = null,
 }) {
   const indeterminate = value == null;
   const [sim, setSim] = useState(0);
@@ -52,6 +58,11 @@ export default function ProgressBar({
       {showPercent && (
         <p className="mt-2 text-center text-xs font-medium text-ink-muted">
           {pct}%
+        </p>
+      )}
+      {note && (
+        <p className="mt-2 text-center text-xs text-ink-muted/80 max-w-xs mx-auto leading-relaxed">
+          {note}
         </p>
       )}
     </div>

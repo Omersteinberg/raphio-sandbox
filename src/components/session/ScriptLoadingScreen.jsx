@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
-import ProgressBar from "@/components/ui/ProgressBar";
+import ProgressBar, { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
 
 const SUB_STEPS = [
   { id: "session",  label: "Setting up your session", range: [0, 15]  },
@@ -127,7 +127,7 @@ export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate =
       </div>
 
       {/* Progress bar (shared, brand-consistent) */}
-      <ProgressBar value={dp} className="w-full max-w-xs" />
+      <ProgressBar value={dp} className="w-full max-w-xs" note={EMAIL_WAIT_NOTE} />
     </motion.div>
   );
 }

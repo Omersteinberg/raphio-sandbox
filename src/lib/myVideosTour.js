@@ -84,7 +84,7 @@ function startDesktopTour() {
       },
     },
     {
-      element: '[data-tour="mv-help"]',
+      element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
         description: "This help button is always here — click it anytime to replay this tour.",
@@ -200,7 +200,7 @@ function startMobileTour() {
       },
     },
     {
-      element: '[data-tour="mv-help"]',
+      element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
         description: "This help button is always here — tap it anytime to replay this tour.",

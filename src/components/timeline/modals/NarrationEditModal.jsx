@@ -7,12 +7,16 @@ import { getVoices } from "@/services/voices";
 
 export default function NarrationEditModal({
   section,
+  currentVoiceId,
   onClose,
   onSave,
   onRegenerateNarration,
 }) {
+  // The voice is stored on the Video (currentVoiceId), not per-section, so default
+  // to it — otherwise editing narration always reset the voice to "adam".
+  const initialVoiceId = section?.voiceId || currentVoiceId || "adam";
   const [narrationText, setNarrationText] = useState(section?.narrationText || "");
-  const [voiceId, setVoiceId] = useState(section?.voiceId || "adam");
+  const [voiceId, setVoiceId] = useState(initialVoiceId);
   const [voices, setVoices] = useState([]);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -108,7 +112,8 @@ export default function NarrationEditModal({
     }
   };
 
-  const hasChanges = narrationText !== section?.narrationText || voiceId !== section?.voiceId;
+  const hasChanges =
+    narrationText !== (section?.narrationText || "") || voiceId !== initialVoiceId;
 
   return (
     <AnimatePresence>

@@ -17,8 +17,12 @@ import TermsPage from "./pages/TermsPage";
 import AppLayout from "./components/AppLayout";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
+import { useIsMobile } from "./hooks/useMediaQuery";
 
 function App() {
+  // Desktop: toasts bottom-right. Mobile: keep them up top so they don't sit on
+  // top of the bottom action bar / help FAB.
+  const isMobile = useIsMobile();
   return (
     <AuthProvider>
       <Router>
@@ -46,7 +50,7 @@ function App() {
           </Route>
         </Routes>
         <ToastContainer
-          position="top-left"
+          position={isMobile ? "top-left" : "bottom-right"}
           autoClose={3500}
           hideProgressBar
           newestOnTop

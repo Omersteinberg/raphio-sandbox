@@ -617,7 +617,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               {(timeline.selectedItem
                 ? [
                     { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
-                    { Icon: Gauge, label: "Speed", onClick: () => { setSpeedDraft(Number(sel?.speed) || 1); setSpeedSheetOpen(true); } },
+                    { Icon: Gauge, label: "Speed", onClick: () => { const s = timeline.items.find((i) => i.id === timeline.selectedItem); setSpeedDraft(Number(s?.speed) || 1); setSpeedSheetOpen(true); } },
                     // Volume — only for audio clips (narration / audio / music).
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
@@ -702,6 +702,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {editingNarration && (
         <NarrationEditModal
           section={editingNarration.section}
+          currentVoiceId={timeline.timeline?.voiceId}
           onClose={() => setEditingNarration(null)}
           onSave={handleNarrationSave}
           onRegenerateNarration={handleRegenerateNarration}
