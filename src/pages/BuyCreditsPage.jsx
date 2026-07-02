@@ -69,7 +69,6 @@ const COST_TABLE = [
 
 const TRUST = [
   { icon: Infinity,    text: 'Credits never expire' },
-  { icon: ShieldCheck, text: '30-day money back on Starter' },
   { icon: Clock,       text: 'No subscription required' },
 ];
 

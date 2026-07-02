@@ -1,35 +1,14 @@
-import { driver } from "driver.js";
-import "driver.js/dist/driver.css";
+import { runTour } from "./tourCore";
 
 // Interactive onboarding tours for the timeline editor, built on driver.js
 // (imperative, so we can fire different mini-tours on demand). Steps target
 // `[data-tour="..."]` anchors added in TimelineEditor.jsx; the timeline canvas
 // reuses its existing `[data-timeline-container]` attribute.
 //
-// One module, parameterized by `isMobile` — the layouts differ only slightly
-// (the Assets sidebar is desktop-only; zoom lives in the bottom bar on mobile).
-// Any step whose anchor isn't currently in the DOM is dropped, so hidden/absent
-// targets never produce a broken highlight.
-
-const DRIVER_OPTS = {
-  showProgress: true,
-  allowClose: true,
-  overlayColor: "#1C1917", // matches the app's warm-dark ink
-  popoverClass: "raphio-tour",
-  nextBtnText: "Next",
-  prevBtnText: "Back",
-  doneBtnText: "Got it",
-};
-
-// Drop steps whose anchor isn't on screen, then run the tour. Returns the driver
-// instance (or null if nothing to show).
-function runTour(steps) {
-  const present = steps.filter((s) => !s.element || document.querySelector(s.element));
-  if (!present.length) return null;
-  const d = driver({ ...DRIVER_OPTS, steps: present });
-  d.drive();
-  return d;
-}
+// Parameterized by `isMobile`: the layouts differ only slightly (the Assets
+// sidebar is desktop-only; zoom lives in the bottom bar on mobile). The shared
+// driver setup and the "drop steps whose anchor is absent" logic live in
+// tourCore.js.
 
 export function startOverviewTour(isMobile) {
   const steps = [
@@ -84,10 +63,22 @@ export function startOverviewTour(isMobile) {
       popover: {
         title: "Add to your video",
         description: isMobile
-          ? "Add clips, audio or a voice-over, and zoom in or out — all from here."
+          ? "Add clips, audio or a voice-over, and zoom in or out, all from here."
           : "Add clips, audio or a voice-over here too.",
         side: "top",
         align: "center",
+      },
+    },
+    // References-pipeline only: the button is absent otherwise, so runTour drops
+    // this step automatically.
+    {
+      element: '[data-tour="references"]',
+      popover: {
+        title: "Your references",
+        description:
+          "See the character, setting and logo images that were used to create this video.",
+        side: "bottom",
+        align: "end",
       },
     },
     {

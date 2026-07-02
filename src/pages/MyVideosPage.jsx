@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Video, ArrowRight, LayoutGrid,
-  List, ChevronRight, SlidersHorizontal
+  List, ChevronRight, SlidersHorizontal, Clock
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listSessions } from "@/services/session";
@@ -57,6 +57,17 @@ function getRelativeTime(dateString) {
   return date.toLocaleDateString();
 }
 
+// Real length = sum of generated section clip durations. Returns null when
+// unknown (e.g. still generating) so callers can hide the field.
+function getDurationStr(session) {
+  const totalSecs = Math.round(
+    (session.video?.sections || []).reduce((sum, s) => sum + (Number(s.clipDuration) || 0), 0)
+  );
+  return totalSecs > 0
+    ? `${Math.floor(totalSecs / 60)}:${String(totalSecs % 60).padStart(2, '0')}`
+    : null;
+}
+
 function sortAndFilter(sessions, sort, styleFilter) {
   let result = styleFilter
     ? sessions.filter(s => s.style === styleFilter)
@@ -70,7 +81,9 @@ function sortAndFilter(sessions, sort, styleFilter) {
 
 function getStageBadge(session) {
   const stage = session.stage;
-  if (!stage || stage === 'COMPLETED') return null;
+  // COMPLETED and EDITING both live on the Completed tab — neither needs a
+  // status badge (EDITING previously showed a "Ready to Edit" pill).
+  if (!stage || stage === 'COMPLETED' || stage === 'EDITING') return null;
   if (['PROMPT_ENTERED','IMAGES_UPLOADED','IMAGES_ANALYZED','SCRIPT_GENERATED'].includes(stage))
     return { label: 'Writing Script', bg: 'rgba(107,94,123,0.10)', color: '#6B5E7B', pulse: false };
   if (['SCRIPT_APPROVED','FRAMES_CONFIGURED'].includes(stage))
@@ -82,8 +95,6 @@ function getStageBadge(session) {
     const progress  = total > 0 ? `${completed}/${total} clips` : null;
     return { label: progress ? `Generating · ${progress}` : 'Generating', bg: 'rgba(232,99,42,0.10)', color: C.terraLt, pulse: true };
   }
-  if (stage === 'EDITING')
-    return { label: 'Ready to Edit', bg: 'rgba(28,155,100,0.10)', color: '#1D9E64', pulse: false };
   if (['FAILED','ERROR'].includes(stage))
     return { label: 'Failed', bg: 'rgba(220,38,38,0.08)', color: '#DC2626', pulse: false };
   return { label: stage.replace(/_/g, ' ').toLowerCase(), bg: C.faint, color: C.muted, pulse: false };
@@ -277,9 +288,10 @@ function SortDropdown({ value, onChange }) {
 
 // ── List row ──────────────────────────────────────────────────────
 function VideoListRow({ session, onClick }) {
-  const thumbnail = session.images?.[0]?.imageUrl;
-  const title     = getTitle(session);
-  const badge     = getStageBadge(session);
+  const thumbnail   = session.images?.[0]?.imageUrl;
+  const title       = getTitle(session);
+  const badge       = getStageBadge(session);
+  const durationStr = getDurationStr(session);
   return (
     <motion.div whileHover={{ x:3 }} transition={{ duration:0.15 }} onClick={onClick}
       style={{
@@ -304,6 +316,13 @@ function VideoListRow({ session, onClick }) {
             <span style={{ fontSize:12, color:'rgba(45,34,53,0.2)' }}>·</span>
             <span style={{ fontSize:12, fontWeight:600, color:C.muted, textTransform:'capitalize' }}>
               {STYLE_OPTIONS.find(s=>s.id===session.style)?.name||session.style}
+            </span>
+          </>)}
+          {durationStr && (<>
+            <span style={{ fontSize:12, color:'rgba(45,34,53,0.2)' }}>·</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:C.muted, fontVariantNumeric:'tabular-nums' }}>
+              <Clock style={{ width:11, height:11 }} />
+              {durationStr}
             </span>
           </>)}
         </div>

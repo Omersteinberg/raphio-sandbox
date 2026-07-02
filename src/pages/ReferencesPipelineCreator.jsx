@@ -113,12 +113,32 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
         if (saved.userPrompt) setUserPrompt(saved.userPrompt);
         if (saved.style) setStyle(saved.style);
         if (saved.references) {
-          const refs = Array.isArray(saved.references)
+          const rawRefs = Array.isArray(saved.references)
             ? saved.references
             : [
                 ...(saved.references.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
                 ...(saved.references.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
               ];
+          // Restore uploaded reference photos: convert the persisted base64 back
+          // into a File so the preview shows and Create re-uploads it.
+          const refs = await Promise.all(
+            rawRefs.map(async (r) => {
+              const { imageData, imageName, ...rest } = r;
+              const ref = { ...rest, type: rest.type || 'character' };
+              if (imageData) {
+                try {
+                  const response = await fetch(imageData);
+                  const blob = await response.blob();
+                  ref.referenceFile = new File([blob], imageName || 'reference.png', { type: blob.type });
+                  ref.referenceImage = URL.createObjectURL(ref.referenceFile);
+                } catch (e) {
+                  console.warn("[ReferencesPipelineCreator] failed to restore reference image:", e);
+                }
+              }
+              return ref;
+            })
+          );
+          if (cancelled) return;
           setReferences(refs);
         }
       } catch (err) {

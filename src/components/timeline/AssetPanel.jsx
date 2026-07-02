@@ -8,6 +8,7 @@ import {
   Trash2,
   Play,
   Pencil,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +17,7 @@ export default function AssetPanel({
   audioAssets,
   onDeleteAudio,
   onNarrationEdit,
+  onRegenerateClip,
 }) {
   const [videoExpanded, setVideoExpanded] = useState(true);
   const [audioExpanded, setAudioExpanded] = useState(true);
@@ -133,7 +135,7 @@ export default function AssetPanel({
                 .map((section, i) => (
                   <div
                     key={section.id}
-                    className="bg-primary/10 rounded p-2 cursor-grab hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="group bg-primary/10 rounded p-2 cursor-grab hover:bg-primary/20 transition-colors border border-primary/20"
                     draggable
                     onDragStart={(e) => handleVideoDragStart(e, section)}
                   >
@@ -154,6 +156,16 @@ export default function AssetPanel({
                           {Number(section.clipDuration || 5).toFixed(1)}s
                         </p>
                       </div>
+                      {onRegenerateClip && (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-opacity flex-shrink-0"
+                          title="Regenerate clip"
+                          aria-label="Regenerate clip"
+                          onClick={(e) => { e.stopPropagation(); onRegenerateClip(section); }}
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

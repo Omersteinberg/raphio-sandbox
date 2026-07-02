@@ -10,13 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
-import { MAX_IMAGES } from "@/lib/limits";
+import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth.jsx";
 import { saveReturnTo } from "@/lib/returnTo";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { startImageTour, startReferencesTour } from "@/lib/promptTour";
+import { tourSeen, markTourSeen, TOUR_KEYS } from "@/lib/tourState";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -482,6 +485,7 @@ export default function PromptStep({
   // Affordability reported by <DurationEstimate>. Defaults true so the CTA isn't
   // blocked before an estimate resolves; flips false only when cost > balance.
   const [affordable, setAffordable] = useState(true);
+  const { credits } = useAuth();
   const navigate = useNavigate();
   const handleTopUp = () => {
     saveReturnTo(window.location.pathname + window.location.search);
@@ -525,6 +529,36 @@ export default function PromptStep({
     }
     prevImagesLengthRef.current = currentLength;
   }, [images?.length]);
+
+  // First-run onboarding tour for this creation screen. Auto-runs once per mode
+  // (persisted in localStorage) and only for a fresh creation: the parent passes
+  // `onModeChange` only when there's no session yet, so resuming a draft never
+  // triggers it. Switching modes remounts this component (Creator swaps the two
+  // pipeline creators), so each mode shows its own tour on first entry. Wait a
+  // frame so the [data-tour] anchors are painted before driver.js measures them.
+  const tourShownRef = useRef(false);
+  useEffect(() => {
+    if (tourShownRef.current) return;
+    if (!onModeChange) return; // resumed session, or no toggle: skip
+    tourShownRef.current = true; // once per mount
+    const key = isReferencesMode ? TOUR_KEYS.promptReferences : TOUR_KEYS.promptImage;
+    if (tourSeen(key)) return; // already seen
+    const isMobile = window.innerWidth < 768;
+    const start = isReferencesMode ? startReferencesTour : startImageTour;
+    const id = window.setTimeout(() => {
+      start(isMobile);
+      markTourSeen(key);
+    }, 350);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "How to use" button: replay the current mode's tour on demand. Unlike the
+  // auto-run above, this ignores the localStorage guard so it always shows.
+  const handleShowTour = () => {
+    const isMobile = window.innerWidth < 768;
+    (isReferencesMode ? startReferencesTour : startImageTour)(isMobile);
+  };
 
   const handleFrameFileChange = (e, frameType) => {
     const file = validateImageFile(e.target.files?.[0]);
@@ -610,8 +644,15 @@ export default function PromptStep({
     if (hasEnoughImages && enableBridges) setEnableBridges?.(false);
   }, [hasEnoughImages, enableBridges, setEnableBridges]);
 
+  // References mode has no images, so <DurationEstimate> (image-count driven)
+  // never renders. Compute affordability directly so we can show an in-place
+  // credit message and gate the CTA, instead of bouncing to the pricing page.
+  const refRequiredCredits = creditsForDuration(targetDuration);
+  const refAffordable =
+    credits == null || refRequiredCredits <= 0 || credits >= refRequiredCredits;
+
   const canStart = isReferencesMode
-    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim())
+    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim()) && refAffordable
     : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -625,6 +666,21 @@ export default function PromptStep({
         @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
+
+      {/* Help FAB: fixed to the bottom-right, replays the current mode's tour.
+          `data-tour="help"` lets the tour's final step point back at it. */}
+      <button
+        onClick={handleShowTour}
+        aria-label="How to use"
+        data-tour="help"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 6px 20px rgba(193,68,14,0.45)', transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(193,68,14,0.55)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(193,68,14,0.45)'; }}
+      >
+        <HelpCircle className="w-7 h-7" strokeWidth={2.5} />
+      </button>
+
       <div className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6 py-6 sm:py-12 md:py-16 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -678,6 +734,7 @@ export default function PromptStep({
           {/* Mode toggle */}
           {onModeChange && (
             <div
+              data-tour="mode-toggle"
               className="relative flex w-full p-1 rounded-full"
               style={{
                 background: '#EAE4DC',
@@ -716,11 +773,11 @@ export default function PromptStep({
             </div>
           )}
           {/* Zone 1 — Prompt (the hero) */}
-          <div className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
+          <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
-                  {isReferencesMode ? 'Direction' : "What's your video about?"}
+                  {isReferencesMode ? "What's your video about?" : "What's your video about?"}
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -908,7 +965,7 @@ export default function PromptStep({
 
           {/* References Mode: unified References Section (untouched; redesigned in a separate task) */}
           {isReferencesMode && (
-            <div className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
+            <div data-tour="references" className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                 <div className="flex items-center gap-2">
                   <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
@@ -917,7 +974,7 @@ export default function PromptStep({
                   <div className="group relative">
                     <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
-                      Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly — no AI restyling.
+                      Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly, so no AI restyling.
                       <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                     </div>
                   </div>
@@ -978,6 +1035,7 @@ export default function PromptStep({
           {/* Zone 2: Upload your photos (image mode only) */}
           {!isReferencesMode && (
             <div
+              data-tour="upload"
               className="rounded-3xl p-4 sm:p-7 space-y-4 relative"
               style={CARD_SHADOW}
               onDragEnter={(e) => {
@@ -1239,7 +1297,7 @@ export default function PromptStep({
           )}
 
           {/* Zone 3 — Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
-          <div className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
+          <div data-tour="settings" className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
             {/* Style Selection (renders in both image and references modes) */}
             <div className="space-y-2">
@@ -1831,6 +1889,36 @@ export default function PromptStep({
             />
           )}
 
+          {/* Credit cost / affordability (references mode). Tells the user in
+              place instead of redirecting to the pricing page. */}
+          {isReferencesMode && refRequiredCredits > 0 && (
+            <div
+              className="rounded-2xl border p-4 flex items-center justify-between gap-2"
+              style={{
+                background: refAffordable ? "#F0FDF4" : "#FFF7ED",
+                borderColor: refAffordable ? "#BBF7D0" : "#FED7AA",
+              }}
+            >
+              <span
+                className="text-[11px] font-bold"
+                style={{ color: refAffordable ? "#15803D" : "#C2410C" }}
+              >
+                {refAffordable
+                  ? `Costs ${refRequiredCredits} credit${refRequiredCredits !== 1 ? "s" : ""}, you have ${credits ?? 0}`
+                  : `Needs ${refRequiredCredits} credits, you have ${credits ?? 0}`}
+              </span>
+              {!refAffordable && (
+                <button
+                  onClick={handleTopUp}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
+                  style={{ background: "#C1440E" }}
+                >
+                  Top up
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
             <div
@@ -1842,7 +1930,7 @@ export default function PromptStep({
           )}
 
           {/* Inline CTA: the only "Create my video" action on the page */}
-          <div ref={ctaRef} className="w-full sm:max-w-[480px] sm:mx-auto">
+          <div ref={ctaRef} data-tour="cta" className="w-full sm:max-w-[480px] sm:mx-auto">
             <Button
               onClick={handleStart}
               disabled={!canStart || loading}
@@ -1867,7 +1955,9 @@ export default function PromptStep({
             </Button>
             <p className="text-center text-xs font-bold mt-2" style={{ color: '#9C8F85' }}>
               {isReferencesMode
-                ? "Add your characters and describe your video to get started"
+                ? (!refAffordable
+                    ? "Top up your credits to continue"
+                    : "Add your characters and describe your video to get started")
                 : durationStatus === 'too_many_images'
                 ? "Remove images or choose a longer length to continue"
                 : "Usually ready in 30-60 seconds"}
