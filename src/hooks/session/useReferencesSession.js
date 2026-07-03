@@ -256,7 +256,9 @@ export function useReferencesSession() {
       setSession(newSession);
       try { await clearPending("references"); } catch (e) { console.warn(e); }
 
-      // Step 2: Add all references
+      // Step 2: Add all references (metadata + any uploaded image only — no AI
+      // image generation here, so this loop stays fast and can't be killed by a
+      // proxy timeout mid-generation).
       const totalRefs = validRefs.length;
       let refsDone = 0;
 
@@ -276,25 +278,24 @@ export function useReferencesSession() {
           imageFile: ref.useUpload ? ref.referenceFile : null,
         });
 
-        // Logos are auto-locked, no AI generation needed. For others, generate if no file uploaded.
-        if (ref.type !== 'logo' && (!ref.useUpload || !ref.referenceFile)) {
-          const refreshed = await sessionService.getSession(newSession.id);
-          const refData = refreshed.referenceData;
-          const collection = refData[collectionMap[ref.type]] || [];
-          const lastRef = collection[collection.length - 1];
-          if (lastRef && !lastRef.originalUrl) {
-            await referenceApi.generateReferenceImage(newSession.id, lastRef.id);
-          }
-        }
-
         refsDone++;
-        setScriptProgress(10 + Math.round((refsDone / totalRefs) * 40));
+        setScriptProgress(10 + Math.round((refsDone / totalRefs) * 30));
       }
 
-      // Step 3: Restyle references
-      console.log("[useReferencesSession] Restyling references...");
-      setScriptProgress(55);
+      // Step 3: AI-generate images for all references that need one, as a single
+      // job-backed batch. The work runs detached server-side and we poll for it,
+      // so a slow image provider can't time out the request (the old per-ref
+      // synchronous loop is what stranded sessions at the reference-lock step).
+      // Individual refs that fail keep null URLs and are recoverable via Retry.
+      console.log("[useReferencesSession] Generating reference images...");
+      setScriptProgress(45);
       setLockLoading(new Set(['__all__']));
+      await referenceApi.generateAllReferenceImages(newSession.id);
+      setScriptProgress(65);
+
+      // Step 4: Restyle uploaded references (job-backed; AI-generated refs are
+      // already in the target style and are skipped).
+      console.log("[useReferencesSession] Restyling references...");
       await referenceApi.restyleReferences(newSession.id);
       setScriptProgress(90);
 

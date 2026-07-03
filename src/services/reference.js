@@ -39,6 +39,18 @@ export async function generateReferenceImage(sessionId, refId) {
 }
 
 /**
+ * AI-generate images for ALL references that need it, in a single job-backed
+ * batch. Uses the detached job + poll pattern so a slow image provider can't
+ * time out the HTTP request mid-generation (the failure mode that stranded
+ * sessions at the reference-lock step). Resolves once the batch finishes;
+ * individual refs that fail keep null URLs and are recoverable via Retry.
+ */
+export async function generateAllReferenceImages(sessionId) {
+  await axios.post(`${API}/${sessionId}/references/generate-all`);
+  return await pollJobUntilDone(sessionId);
+}
+
+/**
  * Restyle all references that need it
  */
 export async function restyleReferences(sessionId) {
