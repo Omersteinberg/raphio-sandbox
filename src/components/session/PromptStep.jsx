@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play,
+  Loader2, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import PromptMentionField from "./PromptMentionField";
+import { scorePrompt } from "@/lib/promptStrength";
+import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
@@ -657,6 +661,71 @@ export default function PromptStep({
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
 
+  // Image mode: uploaded photos are the @mention targets. Each carries its slot
+  // label (custom rename, else the template default) so the user can reference a
+  // scene by name in the prompt, with a thumbnail in the dropdown.
+  const imageMentionItems = useMemo(
+    () => (images || []).map((img, i) => ({
+      id: `img-${i}`,
+      name: customLabels[i] || slotLabels[i] || `Scene ${i + 1}`,
+      type: 'image',
+      preview: img?.preview,
+    })),
+    [images, customLabels, slotLabels]
+  );
+
+  // The things the user can @mention: named references (references mode) or the
+  // uploaded scenes (image mode). Drives both the dropdown source and the
+  // strength "coverage" factor.
+  const mentionTargets = isReferencesMode ? references : imageMentionItems;
+
+  // Prompt strength — a transparent checklist that doubles as guidance.
+  // Pure/synchronous; recomputed as the prompt, references, or scenes change.
+  const strength = useMemo(
+    () => scorePrompt({ userPrompt, references: mentionTargets, mode: isReferencesMode ? 'references' : 'image' }),
+    [userPrompt, mentionTargets, isReferencesMode]
+  );
+  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
+
+  // "Improve prompt" AI action. Stashes the previous value so the change is undoable.
+  const [improving, setImproving] = useState(false);
+  const [prevPrompt, setPrevPrompt] = useState(null);
+  const handleImprove = async () => {
+    if (!userPrompt?.trim() || improving) return;
+    setImproving(true);
+    const prev = userPrompt;
+    try {
+      const improved = await improvePromptApi({
+        userPrompt,
+        references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
+        style,
+        mode: isReferencesMode ? 'references' : 'image',
+      });
+      if (improved) {
+        setPrevPrompt(prev);
+        setUserPrompt(improved);
+      }
+    } catch (err) {
+      console.error("[PromptStep] improve prompt failed", err);
+    } finally {
+      setImproving(false);
+    }
+  };
+  const handleUndoImprove = () => {
+    if (prevPrompt != null) {
+      setUserPrompt(prevPrompt);
+      setPrevPrompt(null);
+    }
+  };
+
+  // Red → yellow → green as the prompt gets stronger.
+  const strengthBarColor =
+    strength.band === "strong"
+      ? "#22A06B" // green
+      : strength.band === "ok"
+      ? "#F0B429" // yellow
+      : "#E5484D"; // red
+
   return (
     <div
       className="w-full h-full overflow-y-auto relative"
@@ -823,15 +892,45 @@ export default function PromptStep({
               onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.15), 0 4px 20px rgba(193,68,14,0.08), 0 0 0 4px rgba(193,68,14,0.06)'; }}
               onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
-              <Textarea
-                value={userPrompt}
-                onChange={(e) => setUserPrompt(e.target.value)}
-                placeholder={isReferencesMode
-                  ? "e.g., A cinematic track of a classic luxury car cruising along mountain ridge turns in Switzerland at sunset..."
-                  : "e.g. A highlights reel from our product launch, upbeat and professional..."}
-                className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                style={{ color: '#1C1917', paddingBottom: '36px', outline: 'none' }}
-              />
+              {isReferencesMode ? (
+                <PromptMentionField
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  references={references}
+                  placeholder="e.g. @Sarah discovers @Acme in her workshop — warm and hopeful. Type @ to add a reference."
+                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
+                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
+                />
+              ) : (
+                <PromptMentionField
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  references={imageMentionItems}
+                  title="Your scenes"
+                  placeholder="e.g. A warm birthday montage from our photos. Type @ to add a scene."
+                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
+                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
+                />
+              )}
+              {/* Improve button — anchored bottom-left INSIDE the box so it's
+                  clearly tied to the prompt. Always shows its label (mobile too)
+                  so it's never a mystery icon. */}
+              <button
+                onClick={handleImprove}
+                disabled={!userPrompt?.trim() || improving}
+                className="absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
+                style={{
+                  bottom: 7, left: 10, zIndex: 5,
+                  ...((!userPrompt?.trim() || improving)
+                    ? { background: 'rgba(193,68,14,0.10)', color: '#B09A8A', cursor: 'not-allowed' }
+                    : { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }),
+                }}
+              >
+                {improving
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <Wand2 className="w-3 h-3" />}
+                <span>{improving ? 'Improving…' : 'Improve'}</span>
+              </button>
               <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
                 {wordCount} words
               </span>
@@ -957,10 +1056,87 @@ export default function PromptStep({
               )}
             </AnimatePresence>
 
-            <span className="hidden sm:flex items-center gap-1.5" style={{ fontSize: 11, color: '#9c8f85', fontWeight: 500 }}>
-              <Sparkles style={{ width: 11, height: 11, flexShrink: 0 }} />
-              More detail → better results
-            </span>
+            {(
+              <div className="space-y-2">
+                {/* Undo banner after an AI improve */}
+                <AnimatePresence>
+                  {prevPrompt != null && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+                      style={{ background: 'rgba(193,68,14,0.06)', border: '1px solid rgba(193,68,14,0.14)' }}
+                    >
+                      <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#C1440E' }}>
+                        <Sparkles style={{ width: 12, height: 12 }} /> Prompt improved with AI
+                      </span>
+                      <button
+                        onClick={handleUndoImprove}
+                        className="flex items-center gap-1 text-[11px] font-bold"
+                        style={{ color: '#9C8F85' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
+                      >
+                        <RotateCcw style={{ width: 12, height: 12 }} /> Undo
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Strength bar + expandable checklist */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-bold" style={{ color: strengthBarColor }}>
+                    Prompt strength: {strength.label}
+                  </span>
+                  <button
+                    onClick={() => setShowStrengthDetail(s => !s)}
+                    className="flex items-center gap-1 text-[11px] font-bold"
+                    style={{ color: '#C1440E' }}
+                  >
+                    {showStrengthDetail ? 'Hide' : "What's missing?"}
+                    {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${strength.score}%`, background: strengthBarColor, transition: 'width 0.3s ease' }} />
+                </div>
+                <AnimatePresence>
+                  {showStrengthDetail && (
+                    <motion.ul
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden space-y-1.5 pt-1"
+                    >
+                      {strength.factors.map((f) => (
+                        <li key={f.id} className="flex items-start gap-2">
+                          <span
+                            className="mt-0.5 flex items-center justify-center rounded-full flex-shrink-0"
+                            style={{
+                              width: 15, height: 15,
+                              background: f.met ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'transparent',
+                              border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                            }}
+                          >
+                            {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                          </span>
+                          <span className="flex-1 min-w-0">
+                            <span className="text-[11px] font-bold" style={{ color: f.met ? '#1C1917' : '#6B5E7B' }}>
+                              {f.label}
+                              {f.detail && <span className="font-medium" style={{ color: '#9C8F85' }}> · {f.detail}</span>}
+                            </span>
+                            {!f.met && (
+                              <span className="block text-[10.5px] leading-snug" style={{ color: '#9C8F85' }}>{f.hint}</span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
           {/* References Mode: unified References Section (untouched; redesigned in a separate task) */}

@@ -12,9 +12,11 @@ const Textarea = React.forwardRef(({ className, ...props }, ref) => {
     el.style.height = el.scrollHeight + "px"; 
   };
 
+  // Resize on mount AND whenever the controlled value changes, so programmatic
+  // updates (AI "Improve", @mention insert) expand the box, not just keystrokes.
   React.useEffect(() => {
     autoResize();
-  }, []);
+  }, [props.value]);
 
   const handleChange = (e) => {
     autoResize();
@@ -30,7 +32,9 @@ const Textarea = React.forwardRef(({ className, ...props }, ref) => {
         className
       )}
       onChange={handleChange}
-      style={{ overflowY: "hidden" }} 
+      // Merge caller style AFTER our default so props like paddingBottom apply
+      // (the earlier bare `style` object silently dropped every caller style).
+      style={{ overflowY: "hidden", ...props.style }}
     />
   );
 });
