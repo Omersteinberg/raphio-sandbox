@@ -6,6 +6,7 @@ import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
+import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
 // IndexedDB as data URLs (not raw File handles) because a File restored from
@@ -86,7 +87,6 @@ export function useSession() {
   // Form state
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
-  const imageDuration = 5; // seconds per image
   const [targetDuration, setTargetDuration] = useState(30);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [voiceId, setVoiceId] = useState("adam");
@@ -136,6 +136,11 @@ export function useSession() {
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
+
+  // A script job failed while the user was away (detected on resume). Drives
+  // the explicit "this is a retry" state on ScriptStep instead of the normal
+  // "Ready to Generate Script" screen.
+  const [scriptGenFailed, setScriptGenFailed] = useState(false);
 
   // Persist the prompt-step draft (prompt, style, picked photos) to IndexedDB on
   // every change so a hard refresh (or an aborted upload) can't lose the
@@ -288,6 +293,30 @@ export function useSession() {
             if (restoredGenerated.opening || restoredGenerated.closing) {
               setGeneratedFrameImages(restoredGenerated);
             }
+
+            // The script job runs detached in the backend, so it may still be
+            // generating (or have failed) from before the user navigated away.
+            // Re-attach to the OLD session's job instead of showing a dead
+            // "Ready to Generate Script" screen. Keeping `loading` true here
+            // keeps the ScriptLoadingScreen up; 75-98 is the band the kickoff
+            // path uses for the script phase of the overall progress bar.
+            const jobState = detectScriptJobOnResume(data);
+            if (jobState === "running") {
+              const ok = await attachToRunningScriptJob({
+                sessionId: resumeSessionId,
+                jobType: data.jobType,
+                setSession,
+                setScriptData,
+                setScriptProgress,
+                progressBand: [75, 98],
+              });
+              if (!ok) setScriptGenFailed(true);
+              // A failure refund may have landed while polling.
+              refreshCredits();
+            } else if (jobState === "failed") {
+              setScriptGenFailed(true);
+              notifyScriptJobFailedOnResume(data);
+            }
           }
         } catch (err) {
           console.error("[useSession] Failed to load session:", err);
@@ -393,7 +422,6 @@ export function useSession() {
     console.log("[useSession] Current state:", {
       userPrompt: userPrompt?.substring(0, 50),
       style,
-      imageDuration,
       voiceId,
       imagesCount: images?.length || 0,
       openingFrame: { enabled: openingFrame.enabled, useUpload: openingFrame.useUpload, customPrompt: openingFrame.customPrompt, description: openingFrame.description },
@@ -501,7 +529,6 @@ export function useSession() {
         const payload = {
           userPrompt,
           style,
-          imageDuration,
           voiceId,
           enableBridges,
           targetDuration,
@@ -702,6 +729,9 @@ export function useSession() {
         });
       } finally {
         clearInterval(creepTimer);
+        // The duration-priced charge lands at the outline kickoff; refresh so
+        // the header balance reflects the charge (or its failure refund).
+        refreshCredits();
       }
       console.log("[useSession] Script generated:", sessionAfterScript);
       setSession(sessionAfterScript);
@@ -756,7 +786,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session]);
+  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session, refreshCredits]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -950,6 +980,7 @@ export function useSession() {
     if (!sessionId) return;
 
     setLoading(true);
+    setScriptGenFailed(false);
     try {
       const frameOptions = await buildFrameOptions();
       const updatedSession = await sessionService.generateOutline(sessionId, frameOptions);
@@ -961,9 +992,11 @@ export function useSession() {
       setDirection(-1);
       setStep(0);
     } finally {
+      // Free on an already-paid session; charges again after a failure refund.
+      refreshCredits();
       setLoading(false);
     }
-  }, [sessionId, buildFrameOptions]);
+  }, [sessionId, buildFrameOptions, refreshCredits]);
 
   // Update script directly
   const updateScript = useCallback(async (newScriptData) => {
@@ -1464,7 +1497,6 @@ export function useSession() {
     setUserPrompt,
     style,
     setStyle,
-    imageDuration,
     targetDuration,
     setTargetDuration,
     aspectRatio,
@@ -1503,6 +1535,7 @@ export function useSession() {
     generationError,
     finalVideoUrl,
     scriptProgress,
+    scriptGenFailed,
     insufficientCredits,
     dismissInsufficientCredits: () => setInsufficientCredits(null),
 

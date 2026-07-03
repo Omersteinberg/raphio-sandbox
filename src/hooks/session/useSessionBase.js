@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { STYLE_OPTIONS } from '../../constants/styles';
+import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
 
 // Session stages matching backend
 export const STAGES = {
@@ -98,6 +99,29 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
             if (data.scriptData) setScriptData(data.scriptData);
             // Let pipeline-specific hook restore its own state
             if (onSessionLoaded) onSessionLoaded(data);
+
+            // The script job runs detached in the backend, so it may still be
+            // generating (or have failed) from before the user navigated away.
+            // Re-attach to the OLD session's job instead of dropping the user
+            // on a stale step with no sign anything is happening. Keeping
+            // `loading` true keeps the pipeline's loading screen up. 20-98
+            // sits past the "approving references" band of the references
+            // loader's sub-steps, which is already done by this point.
+            const jobState = detectScriptJobOnResume(data);
+            if (jobState === "running") {
+              await attachToRunningScriptJob({
+                sessionId: resumeSessionId,
+                jobType: data.jobType,
+                setSession,
+                setScriptData,
+                setScriptProgress,
+                progressBand: [20, 98],
+              });
+              // A failure refund may have landed while polling.
+              refreshCredits();
+            } else if (jobState === "failed") {
+              notifyScriptJobFailedOnResume(data);
+            }
           }
         } catch (err) {
           console.error("[useSessionBase] Failed to load session:", err);

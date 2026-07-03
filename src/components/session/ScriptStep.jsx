@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Film, Upload, Wand2 } from "lucide-react";
+import { FileText, Sparkles, Edit3, Check, Send, Clock, ArrowRight, Image, X, Film, Upload, Wand2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ export default function ScriptStep({
   generatedFrameImages,
   phase,
   enableBridges,
+  scriptGenFailed,
 }) {
   const isReferencesPipeline = pipelineMode === "references";
   const [editingSection, setEditingSection] = useState(null);
@@ -176,13 +177,27 @@ export default function ScriptStep({
         {!isGenerated ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="text-center mb-6">
-              <FileText className="w-16 h-16 text-terra/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-ink mb-2">
-                Ready to Generate Script
-              </h3>
-              <p className="text-ink-muted max-w-md">
-                Based on your prompt and image analysis, we'll create a complete video script with narration and visual descriptions.
-              </p>
+              {scriptGenFailed ? (
+                <>
+                  <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-ink mb-2">
+                    Script Generation Failed
+                  </h3>
+                  <p className="text-ink-muted max-w-md">
+                    Something went wrong while generating your script. The credits for that attempt were refunded. Click below to retry.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-16 h-16 text-terra/50 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-ink mb-2">
+                    Ready to Generate Script
+                  </h3>
+                  <p className="text-ink-muted max-w-md">
+                    Based on your prompt and image analysis, we'll create a complete video script with narration and visual descriptions.
+                  </p>
+                </>
+              )}
             </div>
             <Button
               onClick={generateScript}
@@ -198,6 +213,11 @@ export default function ScriptStep({
                     className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                   />
                   Generating Script...
+                </span>
+              ) : scriptGenFailed ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5" />
+                  Retry Script Generation
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
