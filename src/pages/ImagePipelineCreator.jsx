@@ -46,6 +46,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     addImages,
     removeImage,
     reorderImages,
+    setImageLabels,
 
     // Script step
     scriptData,
@@ -183,6 +184,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           addImages={addImages}
           removeImage={removeImage}
           reorderImages={reorderImages}
+          onLabelsChange={setImageLabels}
           onStart={startSession}
           loading={loading}
           openingFrame={openingFrame}

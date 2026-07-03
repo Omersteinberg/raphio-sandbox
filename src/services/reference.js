@@ -82,8 +82,8 @@ export async function generateSceneFrames(sessionId) {
  * Improve the story prompt with AI (references pipeline, before a session
  * exists). Stateless: sends the current prompt + references, gets improved text.
  */
-export async function improvePrompt({ userPrompt, references, style, mode }) {
-  const response = await axios.post(`${API}/improve-prompt`, { userPrompt, references, style, mode });
+export async function improvePrompt({ userPrompt, references, style, mode, imageDataUrls }) {
+  const response = await axios.post(`${API}/improve-prompt`, { userPrompt, references, style, mode, imageDataUrls });
   return response.data.improvedPrompt;
 }
 

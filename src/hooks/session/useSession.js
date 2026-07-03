@@ -96,6 +96,9 @@ export function useSession() {
 
   // Images state
   const [images, setImages] = useState([]);
+  // Per-image scene labels (image-mode @mentions), reported up from PromptStep,
+  // aligned to `images` order. Sent to the backend at upload time.
+  const [imageLabels, setImageLabels] = useState([]);
   const [imageAnalysis, setImageAnalysis] = useState(null);
 
   // Script state
@@ -548,7 +551,7 @@ export function useSession() {
         console.log("[useSession] Uploading images to session...");
         setScriptProgress(20);
         const files = images.map((img) => img.file);
-        const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files);
+        const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files, imageLabels);
         console.log("[useSession] Images uploaded:", sessionAfterUpload);
 
         // The upload connection can drop mid-transfer (a refresh, or a proxy
@@ -786,7 +789,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session, refreshCredits]);
+  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session, refreshCredits]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -1515,6 +1518,7 @@ export function useSession() {
     addImages,
     removeImage,
     reorderImages,
+    setImageLabels,
     imageAnalysis,
 
     // Script

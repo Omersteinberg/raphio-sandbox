@@ -81,11 +81,15 @@ export async function estimateDuration({ imageCount, targetDuration, videoModel,
 /**
  * Upload images to session
  */
-export async function uploadImages(sessionId, files) {
+export async function uploadImages(sessionId, files, labels = null) {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append("images", file);
   });
+  // Per-image scene labels (image-mode @mentions), parallel to the files.
+  if (Array.isArray(labels) && labels.length) {
+    formData.append("imageLabels", JSON.stringify(labels));
+  }
 
   const response = await axios.post(
     `${API_BASE}/${sessionId}/images`,

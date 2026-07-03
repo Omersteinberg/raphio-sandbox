@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import PromptMentionField from "./PromptMentionField";
 import { scorePrompt } from "@/lib/promptStrength";
+import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
+
+// How many uploaded photos the "Improve" button sends to the vision model.
+// Capped so the call stays fast and cheap on a button click.
+const IMPROVE_VISION_MAX_IMAGES = 6;
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
@@ -192,7 +197,7 @@ const CARD_SHADOW = {
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
-function ReferenceInput({ item, index, type, onChange, onRemove }) {
+function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
   const handleFileChange = (e) => {
     const file = validateImageFile(e.target.files?.[0]);
     if (file) {
@@ -292,6 +297,12 @@ function ReferenceInput({ item, index, type, onChange, onRemove }) {
             className="w-full bg-transparent px-3 py-2.5 text-xs font-bold text-stone-800 placeholder-stone-400 focus:outline-none rounded-xl"
           />
         </div>
+        {isDuplicateName && (
+          <p className="text-[11px] font-semibold -mt-1.5 flex items-center gap-1" style={{ color: '#dc2626' }}>
+            <X className="w-3 h-3" strokeWidth={3} />
+            This name is already used — give each reference a unique name so @mentions map correctly.
+          </p>
+        )}
 
         {/* Description field */}
         <div
@@ -463,6 +474,7 @@ export default function PromptStep({
   onModeChange,
   references = [],
   onReferencesChange,
+  onLabelsChange,
   error,
 }) {
   const isReferencesMode = pipelineMode === 'references';
@@ -674,6 +686,13 @@ export default function PromptStep({
     [images, customLabels, slotLabels]
   );
 
+  // Lift the effective per-image labels (aligned to `images`) up to the pipeline
+  // hook so they can be sent to the backend at upload — that's what lets a
+  // "@Opening shot" mention bind to the right photo during generation.
+  useEffect(() => {
+    onLabelsChange?.(imageMentionItems.map((it) => it.name));
+  }, [imageMentionItems, onLabelsChange]);
+
   // The things the user can @mention: named references (references mode) or the
   // uploaded scenes (image mode). Drives both the dropdown source and the
   // strength "coverage" factor.
@@ -695,11 +714,21 @@ export default function PromptStep({
     setImproving(true);
     const prev = userPrompt;
     try {
+      // Image mode: let the AI actually see the uploaded photos (downscaled) so
+      // it can ground the prompt in what they show. Failures fall back to text.
+      let imageDataUrls = [];
+      if (!isReferencesMode && images?.length) {
+        const shots = await Promise.all(
+          images.slice(0, IMPROVE_VISION_MAX_IMAGES).map((im) => downscaleImageToDataUrl(im?.preview || im?.file))
+        );
+        imageDataUrls = shots.filter(Boolean);
+      }
       const improved = await improvePromptApi({
         userPrompt,
         references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
         style,
         mode: isReferencesMode ? 'references' : 'image',
+        imageDataUrls,
       });
       if (improved) {
         setPrevPrompt(prev);
@@ -1179,6 +1208,10 @@ export default function PromptStep({
                     item={ref}
                     index={idx}
                     type={ref.type}
+                    isDuplicateName={
+                      !!ref.name?.trim() &&
+                      references.some((other, j) => j !== idx && other.name?.trim().toLowerCase() === ref.name.trim().toLowerCase())
+                    }
                     onChange={(i, updated) => {
                       const updated_refs = [...references];
                       updated_refs[i] = updated;
