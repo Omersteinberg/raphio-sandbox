@@ -63,7 +63,7 @@ export default function VoiceConfigStep({
             {backgroundMusic && <li>Background music will be generated</li>}
             <li>Final video will be assembled automatically</li>
           </ul>
-          <p className="text-ink-muted text-xs mt-3">Cost: {totalCredits} {totalCredits === 1 ? 'credit' : 'credits'} for your {targetDuration}s video (based on length, not clip count)</p>
+          <p className="text-ink-muted text-xs mt-3">Your {targetDuration}s video is covered by the {totalCredits} {totalCredits === 1 ? 'credit' : 'credits'} already charged. Generating costs nothing extra.</p>
         </div>
 
         {/* Generate Button */}
@@ -73,7 +73,7 @@ export default function VoiceConfigStep({
           className="w-full disabled:opacity-50 text-white font-medium py-3 rounded-xl"
           style={{ background: "var(--gradient-brand)" }}
         >
-          {loading ? 'Starting Generation...' : `Generate Video (${totalCredits} credits)`}
+          {loading ? 'Starting Generation...' : 'Generate Video'}
         </button>
       </motion.div>
     </div>

@@ -239,7 +239,6 @@ export function useReferencesSession() {
         style,
         pipelineMode: "references",
         voiceId,
-        imageDuration: 5,
         targetDuration,
         aspectRatio,
       });
@@ -337,7 +336,8 @@ export function useReferencesSession() {
       await referenceApi.approveAllReferences(sessionId);
       setScriptProgress((prev) => Math.max(prev, 30));
 
-      // Generate script after approval
+      // Generate script after approval. This kickoff is where the
+      // duration-priced charge lands for the references pipeline.
       console.log("[useReferencesSession] Generating script...");
       const sessionAfterScript = await sessionService.generateScript(sessionId);
       setSession(sessionAfterScript);
@@ -360,9 +360,11 @@ export function useReferencesSession() {
       }
     } finally {
       clearInterval(progressTimer);
+      // The charge (or its failure refund) lands at the script kickoff.
+      refreshCredits();
       setLoading(false);
     }
-  }, [sessionId, setScriptProgress, targetDuration, credits]);
+  }, [sessionId, setScriptProgress, targetDuration, credits, refreshCredits]);
 
   // ── Approve script (override base to explicitly advance step) ──────
   const approveScript = useCallback(async () => {

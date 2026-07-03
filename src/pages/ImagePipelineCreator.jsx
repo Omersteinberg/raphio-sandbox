@@ -58,6 +58,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
     approveOutline,
     retryBridgeFrames,
     uploadBridgeImage,
+    scriptGenFailed,
 
     // Frames step
     openingFrame,
@@ -214,6 +215,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           generatedFrameImages={generatedFrameImages}
           phase="outline"
           enableBridges={enableBridges}
+          scriptGenFailed={scriptGenFailed}
         />
       );
     }
