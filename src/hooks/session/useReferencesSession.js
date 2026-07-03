@@ -97,6 +97,7 @@ export function useReferencesSession() {
         ...(data.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
         ...(data.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
         ...(data.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+        ...(data.referenceData.products || []).map(r => ({ ...r, type: r.type || 'product' })),
       ];
       setReferences(allRefs);
     }
@@ -131,6 +132,7 @@ export function useReferencesSession() {
           ...(session.referenceData.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
           ...(session.referenceData.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
           ...(session.referenceData.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+          ...(session.referenceData.products || []).map(r => ({ ...r, type: r.type || 'product' })),
         ];
         setReferences(allRefs);
       }
@@ -203,16 +205,23 @@ export function useReferencesSession() {
       return;
     }
 
-    // Validate at least one reference with name and description
-    const validRefs = references.filter(r => r.name.trim() && r.description.trim());
+    // A reference is complete when it has a name plus its mode's required input:
+    // uploads need an image, AI-generate needs a description.
+    const refComplete = (r) => r.name.trim() && (r.useUpload ? !!r.referenceFile : r.description.trim());
+    const validRefs = references.filter(refComplete);
     if (validRefs.length === 0) {
-      toast.error("Please add at least one reference with name and description");
+      toast.error("Please add at least one reference with a name and an image or description");
       return;
     }
 
-    // Validate all named references have descriptions
+    // Validate every named reference has its required input
     for (const ref of references) {
-      if (ref.name.trim() && !ref.description.trim()) {
+      if (!ref.name.trim()) continue;
+      if (ref.useUpload && !ref.referenceFile) {
+        toast.error(`Please upload an image for ${ref.name}`);
+        return;
+      }
+      if (!ref.useUpload && !ref.description.trim()) {
         toast.error(`Please add a description for ${ref.name}`);
         return;
       }
@@ -251,15 +260,19 @@ export function useReferencesSession() {
       const totalRefs = validRefs.length;
       let refsDone = 0;
 
-      const collectionMap = { character: 'characters', setting: 'settings', logo: 'logos', product: 'characters' };
+      const collectionMap = { character: 'characters', setting: 'settings', logo: 'logos', product: 'products' };
 
       for (const ref of validRefs) {
         console.log(`[useReferencesSession] Adding ${ref.type}: ${ref.name}`);
+        // Description only drives AI image generation. Uploaded references carry
+        // their identity in the image, so send none. The background-isolation
+        // suffix likewise only matters for the generator.
         const descSuffix = ref.type === 'character' ? '. Do not generate any background, use a plain solid color background only.' : '';
+        const description = ref.useUpload ? '' : `${ref.description}${descSuffix}`;
         await referenceApi.addReference(newSession.id, {
           type: ref.type,
           name: ref.name,
-          description: `${ref.description}${descSuffix}`,
+          description,
           imageFile: ref.useUpload ? ref.referenceFile : null,
         });
 
@@ -461,27 +474,63 @@ export function useReferencesSession() {
     }
   }, [sessionId]);
 
+  // ── Regenerate a single scene's script + frame ─────────────────────
+  const regenerateFrameScript = useCallback(async (index, feedback) => {
+    if (!sessionId) return;
+
+    setFramesLoading(true);
+    try {
+      const result = await referenceApi.regenerateSceneFrameScript(sessionId, index, { feedback });
+      if (result.frame) {
+        setSceneFrames((prev) => {
+          const updated = [...prev];
+          updated[index] = result.frame;
+          return updated;
+        });
+      }
+      if (result.section) {
+        setScriptData((prev) => {
+          if (!prev?.sections) return prev;
+          const sections = [...prev.sections];
+          sections[index] = result.section;
+          return { ...prev, sections };
+        });
+      }
+      toast.success("Scene script and frame regenerated!");
+    } catch (err) {
+      console.error("[useReferencesSession] Failed to regenerate scene script:", err);
+      toast.error(err.response?.data?.error || "Failed to regenerate scene script");
+    } finally {
+      setFramesLoading(false);
+    }
+  }, [sessionId]);
+
   // ── Approve frames ────────────────────────────────────────────────
   const approveFrames = useCallback(() => {
     setDirection(1);
     setStep(4);
   }, []);
 
-  // ── Delete a scene ─────────────────────────────────────────────────
-  const deleteScene = useCallback((index) => {
+  // ── Delete a scene (persists so the generated video respects it) ────
+  const deleteScene = useCallback(async (index) => {
+    if (!sessionId) return;
     if (sceneFrames.length <= 2) {
       toast.error("Cannot delete: minimum 2 scenes required");
       return;
     }
-    setSceneFrames((prev) => prev.filter((_, i) => i !== index));
-    setScriptData((prev) => {
-      if (!prev?.sections) return prev;
-      const updatedSections = prev.sections.filter((_, i) => i !== index)
-        .map((section, i) => ({ ...section, index: i }));
-      return { ...prev, sections: updatedSections };
-    });
-    toast.success("Scene deleted");
-  }, [sceneFrames.length]);
+    setFramesLoading(true);
+    try {
+      const result = await referenceApi.deleteSceneFrame(sessionId, index);
+      if (result.sceneFrames) setSceneFrames(result.sceneFrames);
+      if (result.scriptData) setScriptData(result.scriptData);
+      toast.success("Scene deleted");
+    } catch (err) {
+      console.error("[useReferencesSession] Failed to delete scene:", err);
+      toast.error(err.response?.data?.error || "Failed to delete scene");
+    } finally {
+      setFramesLoading(false);
+    }
+  }, [sessionId, sceneFrames.length]);
 
   // ── Reorder scenes ─────────────────────────────────────────────────
   const reorderScenes = useCallback((newOrder) => {
@@ -570,6 +619,7 @@ export function useReferencesSession() {
     regenerateReference,
     generateFrames,
     regenerateFrame,
+    regenerateFrameScript,
     approveFrames,
     deleteScene,
     reorderScenes,

@@ -9,7 +9,7 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h4 className="font-semibold text-ink">{reference.name}</h4>
-          <p className="text-sm text-ink-muted mt-1">{reference.description}</p>
+          {reference.description && <p className="text-sm text-ink-muted mt-1">{reference.description}</p>}
         </div>
         <span
           className="text-xs px-2 py-1 rounded-full"
@@ -159,7 +159,7 @@ export default function ReferenceLockStep({
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h4 className="font-semibold text-ink">{logo.name}</h4>
-                      <p className="text-sm text-ink-muted mt-1">{logo.description}</p>
+                      {logo.description && <p className="text-sm text-ink-muted mt-1">{logo.description}</p>}
                     </div>
                     <span className="text-xs px-2 py-1 rounded-full bg-terra/5 text-terra">
                       Preserved Exactly

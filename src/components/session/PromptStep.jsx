@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
-  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play,
+  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
   Loader2, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -211,11 +211,13 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   };
 
   const isCharacter = type === 'character';
-  const accent = isCharacter ? '#C1440E' : '#E8603C';
-  const accentRgb = isCharacter ? '193,68,14' : '232,96,60';
-  const gradientEnd = isCharacter ? '#E8603C' : '#FB923C';
+  const isSetting = type === 'setting';
+  const isLogo = type === 'logo';
+  const isProduct = type === 'product';
+  const accent = isCharacter ? '#C1440E' : isSetting ? '#7C3AED' : isLogo ? '#2563EB' : '#059669';
+  const accentRgb = isCharacter ? '193,68,14' : isSetting ? '124,58,237' : isLogo ? '37,99,235' : '5,150,105';
+  const gradientEnd = isCharacter ? '#E8603C' : isSetting ? '#A855F7' : isLogo ? '#3B82F6' : '#10B981';
 
-  const isLogo = item.type === 'logo';
   const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
 
   return (
@@ -239,17 +241,28 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           >
             {isCharacter
               ? <Users className="w-2.5 h-2.5 text-white" />
-              : <Camera className="w-2.5 h-2.5 text-white" />
+              : isSetting
+                ? <Camera className="w-2.5 h-2.5 text-white" />
+                : isLogo
+                  ? <Camera className="w-2.5 h-2.5 text-white" />
+                  : <Package className="w-2.5 h-2.5 text-white" />
             }
           </div>
           <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: accent }}>
-            {isCharacter ? `Subject ${index + 1}` : `Background ${index + 1}`}
+            {isCharacter
+              ? `Subject ${index + 1}`
+              : isSetting
+                ? `Background ${index + 1}`
+                : isLogo
+                  ? `Logo ${index + 1}`
+                  : `Product ${index + 1}`
+            }
           </span>
         </div>
         <motion.button
           whileTap={{ scale: 0.88 }}
           onClick={() => onRemove(index)}
-          aria-label={`Remove ${isCharacter ? 'subject' : 'background'} ${index + 1}`}
+          aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
           className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
           style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
@@ -293,7 +306,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
             type="text"
             value={item.name}
             onChange={(e) => onChange(index, { ...item, name: e.target.value })}
-            placeholder={isCharacter ? 'Name (e.g. "Red Leather Jacket")' : 'Name (e.g. "City Rooftop at Dusk")'}
+              placeholder={isCharacter ? 'Name (e.g. "Red Leather Jacket")' : isSetting ? 'Name (e.g. "City Rooftop at Dusk")' : isLogo ? 'Name (e.g. "Brand Mark")' : 'Name (e.g. "Running Shoe")'}
             className="w-full bg-transparent px-3 py-2.5 text-xs font-bold text-stone-800 placeholder-stone-400 focus:outline-none rounded-xl"
           />
         </div>
@@ -304,7 +317,10 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           </p>
         )}
 
-        {/* Description field */}
+        {/* Description field — only for AI-generate refs. Uploaded references
+            (and logos, which are upload-only) carry their identity in the image
+            itself, so no description is needed. */}
+        {!item.useUpload && (
         <div
           className="rounded-xl"
           style={{ border: `1.5px solid rgba(${accentRgb},0.12)`, background: '#FBFAF8', transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease' }}
@@ -316,17 +332,18 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           <textarea
             value={item.description}
             onChange={(e) => onChange(index, { ...item, description: e.target.value })}
-            placeholder={
-              isLogo
-                ? 'Describe how this logo should appear in scenes (e.g., "on the truck door")...'
-                : isCharacter
-                  ? 'Describe exactly how this looks across all scenes...'
-                  : 'Describe the lighting, mood, and visual feel of this space...'
+              placeholder={
+              isCharacter
+                ? 'Describe exactly how this looks across all scenes...'
+                : isSetting
+                  ? 'Describe the lighting, mood, and visual feel of this space...'
+                  : 'Describe the product details, materials, and visual styling...'
             }
             rows={2}
             className="w-full bg-transparent px-3 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none resize-none rounded-xl"
           />
         </div>
+        )}
 
         {/* Source toggle */}
         {isLogo ? (
@@ -668,7 +685,7 @@ export default function PromptStep({
     credits == null || refRequiredCredits <= 0 || credits >= refRequiredCredits;
 
   const canStart = isReferencesMode
-    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim()) && refAffordable
+    ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && (r.useUpload ? !!r.referenceFile : r.description?.trim())) && refAffordable
     : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;

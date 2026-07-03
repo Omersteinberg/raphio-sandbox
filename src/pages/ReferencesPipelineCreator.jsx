@@ -68,7 +68,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     sceneFrames,
     framesLoading,
     generateFrames,
-    regenerateFrame,
+    regenerateFrameScript,
     approveFrames,
     deleteScene,
 
@@ -118,6 +118,8 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             : [
                 ...(saved.references.characters || []).map(r => ({ ...r, type: r.type || 'character' })),
                 ...(saved.references.settings || []).map(r => ({ ...r, type: r.type || 'setting' })),
+                ...(saved.references.logos || []).map(r => ({ ...r, type: r.type || 'logo' })),
+                ...(saved.references.products || []).map(r => ({ ...r, type: r.type || 'product' })),
               ];
           // Restore uploaded reference photos: convert the persisted base64 back
           // into a File so the preview shows and Create re-uploads it.
@@ -217,7 +219,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             sceneFrames={sceneFrames}
             scriptData={scriptData}
             framesLoading={framesLoading}
-            onRegenerate={regenerateFrame}
+            onRegenerateScript={regenerateFrameScript}
             onApprove={approveFrames}
             onDelete={deleteScene}
             onGenerateFrames={generateFrames}

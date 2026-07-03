@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
  * - Controlled: pass `value` (0–100) and it renders that width.
  * - Indeterminate: omit `value` (or pass null) and it trickles forward on its
  *   own toward ~90%, so a bar still moves even when the backend reports no
- *   percentage (e.g. scene-frame generation).
+ *   percentage (e.g. scene-frame generation). Pass `estimatedMs` to pace that
+ *   trickle to the expected wait so the bar doesn't shoot to ~90% in seconds.
  *
  * `showPercent` toggles the % label. `className` sizes/positions the wrapper.
  * `note` renders a small reassurance line under the bar (e.g. "you can close
@@ -21,6 +22,7 @@ export default function ProgressBar({
   showPercent = true,
   className = "",
   note = null,
+  estimatedMs = 30000,
 }) {
   const indeterminate = value == null;
   const [sim, setSim] = useState(0);
@@ -28,12 +30,18 @@ export default function ProgressBar({
   useEffect(() => {
     if (!indeterminate) return;
     setSim(0);
+    const start = Date.now();
     const id = setInterval(() => {
-      // Ease toward 90% and hold — real completion swaps this out for a value.
-      setSim((prev) => (prev >= 90 ? prev : prev + (90 - prev) * 0.04));
+      // Time-based ease toward ~90% over `estimatedMs`, then hold. Driving off
+      // elapsed time (not a per-tick step) paces the climb to the real wait and
+      // survives setInterval throttling in a backgrounded tab. Asymptotic, so a
+      // job that overruns its estimate never looks frozen at 100%. Real
+      // completion swaps this out for a controlled value.
+      const t = (Date.now() - start) / estimatedMs;
+      setSim(90 * (1 - Math.exp(-2.5 * t)));
     }, 200);
     return () => clearInterval(id);
-  }, [indeterminate]);
+  }, [indeterminate, estimatedMs]);
 
   const pct = Math.max(
     0,
