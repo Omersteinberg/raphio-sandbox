@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Film, Mic, Layers, Music, Check, Loader2, Image, ArrowRight } from "lucide-react";
-import ProgressBar, { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
+import { Film, Mic, Layers, Music, Image } from "lucide-react";
+import ProgressChecklist from "@/components/session/ProgressChecklist";
 
 export default function GeneratingStep({ session, scriptData, generationError, onRegenerate }) {
   const navigate = useNavigate();
@@ -115,173 +114,29 @@ export default function GeneratingStep({ session, scriptData, generationError, o
 
   if (failed) {
     return (
-      <div className="w-full h-full flex flex-col items-center overflow-y-auto px-4 py-6 md:p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-lg text-center my-auto"
-        >
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
-            <Film className="w-10 h-10 text-red-500" />
-          </div>
-          <h1 className="text-2xl font-bold text-ink mb-2">Generation Failed</h1>
-          <p className="text-ink-muted mb-4">We couldn't finish generating your video.</p>
-          <div className="p-4 bg-red-50 rounded-lg border border-red-200 text-left mb-6">
-            <p className="text-sm text-red-800 break-words">{errorMessage}</p>
-          </div>
-          <p className="text-sm text-ink-muted mb-6">
-            Your credits were refunded. You can try generating again.
-          </p>
-          <button
-            onClick={onRegenerate}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
-            style={{ background: "var(--gradient-brand)" }}
-          >
-            <Film className="w-5 h-5" />
-            Regenerate Video
-          </button>
-        </motion.div>
-      </div>
+      <ProgressChecklist
+        headerIcon={Film}
+        failure={{
+          title: "Generation Failed",
+          subtitle: "We couldn't finish generating your video.",
+          message: errorMessage,
+          hint: "Your credits were refunded. You can try generating again.",
+          onRetry: onRegenerate,
+          retryLabel: "Regenerate Video",
+        }}
+      />
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center overflow-y-auto px-4 py-6 md:p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg my-auto"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="inline-flex items-center justify-center w-20 h-20 bg-terra/10 rounded-full mb-4"
-          >
-            <Film className="w-10 h-10 text-terra" />
-          </motion.div>
-          <h1 className="text-2xl font-bold text-ink mb-2">
-            Creating Your Video
-          </h1>
-          <p className="text-ink-muted">
-            {scriptData?.title || "Your video"} is being generated
-          </p>
-          <p className="text-ink-muted text-sm mt-1">
-            This can take {estimatedLabel} depending on model and clip count.
-          </p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-ink-muted mb-2">
-            <span>Progress</span>
-            <span>{progress}%</span>
-          </div>
-          <ProgressBar value={progress} showPercent={false} note={EMAIL_WAIT_NOTE} />
-        </div>
-
-        {/* Stage List */}
-        <div className="space-y-4">
-          {stages.map((stage, index) => {
-            const Icon = stage.icon;
-            const isActive = stage.status === "processing";
-            const isComplete = stage.status === "completed";
-
-            return (
-              <motion.div
-                key={stage.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex items-center gap-4 p-4 rounded-lg border ${
-                  isActive
-                    ? "border-terra bg-terra/5"
-                    : isComplete
-                    ? "border-green-200 bg-green-50"
-                    : "border-border bg-surface-alt"
-                }`}
-              >
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    isActive
-                      ? "bg-terra/10"
-                      : isComplete
-                      ? "bg-green-100"
-                      : "bg-surface-alt"
-                  }`}
-                >
-                  {isActive ? (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Loader2
-                        className={`w-6 h-6 ${
-                          isActive ? "text-terra" : "text-ink-muted"
-                        }`}
-                      />
-                    </motion.div>
-                  ) : isComplete ? (
-                    <Check className="w-6 h-6 text-green-600" />
-                  ) : (
-                    <Icon className="w-6 h-6 text-ink-muted" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`font-medium ${
-                      isActive
-                        ? "text-terra"
-                        : isComplete
-                        ? "text-green-900"
-                        : "text-ink-muted"
-                    }`}
-                  >
-                    {stage.name}
-                  </h3>
-                  <p
-                    className={`text-sm ${
-                      isActive
-                        ? "text-terra"
-                        : isComplete
-                        ? "text-green-600"
-                        : "text-ink-muted"
-                    }`}
-                  >
-                    {stage.description}
-                  </p>
-                </div>
-                {isComplete && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"
-                  >
-                    <Check className="w-5 h-5 text-white" />
-                  </motion.div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Processing Note */}
-        <div className="mt-8 p-4 bg-terra/5 rounded-lg border border-terra/20 text-center">
-          <p className="text-sm text-terra-dark">
-            You can leave this page; your video will keep generating in the background.
-            Come back to My Videos to check progress.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/videos")}
-            className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-terra/25 bg-white text-sm font-medium text-terra hover:bg-terra/5 transition-colors"
-          >
-            Go to My Videos
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    <ProgressChecklist
+      title="Creating Your Video"
+      subtitle={`${scriptData?.title || "Your video"} is being generated`}
+      caption={`This can take ${estimatedLabel} depending on model and clip count.`}
+      progress={progress}
+      tasks={stages}
+      headerIcon={Film}
+      onLeave={() => navigate("/videos")}
+    />
   );
 }

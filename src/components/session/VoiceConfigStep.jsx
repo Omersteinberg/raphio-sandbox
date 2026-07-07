@@ -1,21 +1,24 @@
 import { motion } from 'framer-motion';
-import VoiceSelector from './VoiceSelector';
+import { Mic, Music } from 'lucide-react';
 import { creditsForDuration } from '@/lib/limits';
 
+// Voice and background music are now chosen up front on the prompt step, so this
+// step is a final review + the "generate" action. It shows a read-only summary
+// of those choices for confidence.
 export default function VoiceConfigStep({
   voiceId,
-  setVoiceId,
   backgroundMusic,
-  setBackgroundMusic,
   sceneFrames,
   targetDuration,
   onStartGeneration,
   loading,
-  insufficientCredits,
 }) {
   const clipCount = sceneFrames?.length || 0;
   // Cost is priced by the selected video duration, not the clip count.
   const totalCredits = creditsForDuration(targetDuration);
+  const voiceLabel = voiceId
+    ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1)
+    : 'Default voice';
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -26,38 +29,41 @@ export default function VoiceConfigStep({
         className="max-w-3xl mx-auto space-y-6"
       >
         <div>
-          <h2 className="text-2xl font-bold text-ink mb-2">Voice & Music</h2>
-          <p className="text-ink-muted">Choose a voice for narration and enable background music.</p>
+          <h2 className="text-2xl font-bold text-ink mb-2">Review &amp; Generate</h2>
+          <p className="text-ink-muted">Confirm your settings and start generating your video.</p>
         </div>
 
-        {/* Voice Selector */}
-        <div className="border border-border rounded-xl p-5 bg-surface-alt">
-          <h3 className="text-lg font-medium text-ink mb-3">Narration Voice</h3>
-          <VoiceSelector value={voiceId} onChange={setVoiceId} />
-        </div>
-
-        {/* Background Music */}
-        <div className="border border-border rounded-xl p-5 bg-surface-alt">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium text-ink">Background Music</h3>
-              <p className="text-ink-muted text-sm">AI-generated music to match your video</p>
+        {/* Sound summary (chosen on the first step) */}
+        <div className="border border-border rounded-xl bg-surface-alt overflow-hidden">
+          <div className="flex items-center gap-3 p-5">
+            <div className="w-10 h-10 rounded-lg bg-terra/10 flex items-center justify-center">
+              <Mic className="w-5 h-5 text-terra" />
             </div>
-            <button
-              onClick={() => setBackgroundMusic(!backgroundMusic)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${backgroundMusic ? 'bg-terra' : 'bg-ink/20'}`}
-            >
-              <span
-                className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${backgroundMusic ? 'left-7' : 'left-1'}`}
-              />
-            </button>
+            <div>
+              <p className="font-medium text-ink">Narration Voice</p>
+              <p className="text-sm text-ink-muted">{voiceLabel}</p>
+            </div>
           </div>
+          <div className="flex items-center gap-3 p-5 border-t border-border">
+            <div className="w-10 h-10 rounded-lg bg-terra/10 flex items-center justify-center">
+              <Music className="w-5 h-5 text-terra" />
+            </div>
+            <div>
+              <p className="font-medium text-ink">Background Music</p>
+              <p className="text-sm text-ink-muted">
+                {backgroundMusic ? 'AI-generated music to match your video' : 'No background music'}
+              </p>
+            </div>
+          </div>
+          <p className="px-5 pb-4 text-xs text-ink-muted">
+            Voice and music are chosen on the first step. Go back if you want to change them.
+          </p>
         </div>
 
         {/* Summary */}
         <div className="bg-surface-alt border border-border rounded-xl p-5">
           <h3 className="text-lg font-medium text-ink mb-2">Generation Summary</h3>
-          <ul className="text-ink-muted text-sm space-y-1">
+          <ul className="text-ink-muted text-sm space-y-1 list-disc list-inside">
             <li>{clipCount} {clipCount === 1 ? 'scene' : 'scenes'} will be generated from your scene frames</li>
             <li>Narration will be generated for all scenes</li>
             {backgroundMusic && <li>Background music will be generated</li>}

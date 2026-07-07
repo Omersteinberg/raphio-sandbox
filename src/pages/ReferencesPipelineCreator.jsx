@@ -1,9 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Wand2, Sparkles, Image as ImageIcon, Film } from "lucide-react";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
+import ProgressChecklist from "@/components/session/ProgressChecklist";
 import { useReferencesSession } from "@/hooks/session/useReferencesSession";
 import { loadPending } from "@/lib/pendingSession";
+import JourneyTimeline from "@/components/session/JourneyTimeline";
+import { buildReferencesTasks } from "@/lib/journeyTasks";
+import { getAutoApprove } from "@/lib/preferences";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -16,17 +22,8 @@ import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 
-const STEP_NAMES = [
-  "Prompt",
-  "References",
-  "Script",
-  "Frames",
-  "Voice",
-  "Processing",
-  "Complete",
-];
-
-export default function ReferencesPipelineCreator({ onModeChange }) {
+export default function ReferencesPipelineCreator({ onModeChange, onBackToChooser }) {
+  const navigate = useNavigate();
   const session = useReferencesSession();
 
   const {
@@ -67,9 +64,9 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     // Frames step
     sceneFrames,
     framesLoading,
+    framesError,
     generateFrames,
     regenerateFrame,
-    approveFrames,
     deleteScene,
 
     // Voice step
@@ -103,6 +100,133 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     insufficientCredits,
     dismissInsufficientCredits,
   } = session;
+
+  // Auto-approve (skip steps) preferences — read once on mount (Settings page).
+  const [autoApprovePrefs] = useState(getAutoApprove);
+  const prevStepRef = useRef(null);
+  const enteredForwardRef = useRef(false);
+  const autoFiredRef = useRef(new Set());
+
+  // References are ready to approve once every one has a locked image and no lock
+  // is still running — mirrors ReferenceLockStep's own `allLocked` check.
+  const refLockReady = (() => {
+    if (!referenceData) return false;
+    const allRefs = [
+      ...(referenceData.characters || []),
+      ...(referenceData.settings || []),
+      ...(referenceData.logos || []),
+    ];
+    return allRefs.length > 0 && allRefs.every((r) => r.lockedUrl) && (lockLoading?.size ?? 0) === 0;
+  })();
+
+  // Auto-advance past review gates the user chose to skip. Only fires on a gate
+  // reached by forward progress (+1), never a resume jump or step-back.
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    if (prev !== step) {
+      enteredForwardRef.current = prev !== null && step === prev + 1;
+      prevStepRef.current = step;
+    }
+    if (!enteredForwardRef.current) return;
+    if (loading || generationError || insufficientCredits) return;
+
+    const fireOnce = (key, fn) => {
+      if (autoFiredRef.current.has(key)) return;
+      autoFiredRef.current.add(key);
+      fn();
+    };
+
+    // Scene frames auto-generate on entry (below), so the frames gate only needs
+    // to auto-approve once they're ready — which starts video generation.
+    if (step === 1 && autoApprovePrefs.references && refLockReady) {
+      fireOnce("1", () => approveAllReferences());
+    } else if (step === 2 && autoApprovePrefs.script && scriptData) {
+      fireOnce("2", () => approveScript());
+    } else if (step === 3 && autoApprovePrefs.frames && (sceneFrames?.length ?? 0) > 0) {
+      fireOnce("3:approve", () => startGeneration());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, loading, generationError, insufficientCredits, scriptData, referenceData, lockLoading, sceneFrames, framesLoading]);
+
+  // Scene frames generate automatically when you reach the frames step, so there's
+  // no separate "Generate Scene Frames" click. Fires once per entry.
+  const framesGenRef = useRef(false);
+  useEffect(() => {
+    if (step !== 3) {
+      framesGenRef.current = false;
+      return;
+    }
+    if (framesGenRef.current) return;
+    if (framesLoading || (sceneFrames?.length ?? 0) > 0 || generationError) return;
+    framesGenRef.current = true;
+    generateFrames();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, framesLoading, sceneFrames, generationError]);
+
+  const journeyTasks = buildReferencesTasks({
+    step,
+    loading,
+    scriptProgress,
+    framesLoading,
+    sceneFrames,
+    session: session.session,
+    finalVideoUrl,
+    prefs: autoApprovePrefs,
+  });
+
+  // ONE persistent checklist across every phase (references -> script -> scenes ->
+  // video): rows stack, title/icon change per phase, the page never swaps. It's
+  // shown during every AUTOMATIC stretch and only steps aside when parked on a
+  // review the user must act on — so consecutive auto phases read as one page,
+  // and in full-auto it's one page the whole way through.
+  const refPhase =
+    step >= 5 ? "video"
+    : step === 3 || step === 4 ? "scenes"
+    : step === 2 ? "script"
+    : "refs";
+  const REF_PHASE_ORDER = ["refs", "script", "scenes", "video"];
+  const refPhaseIdx = REF_PHASE_ORDER.indexOf(refPhase);
+  const refStatus = (p) => {
+    const i = REF_PHASE_ORDER.indexOf(p);
+    if (p === "video") return finalVideoUrl ? "completed" : i === refPhaseIdx ? "processing" : "pending";
+    return i < refPhaseIdx ? "completed" : i === refPhaseIdx ? "processing" : "pending";
+  };
+  const refMergedTasks = [
+    { id: "refs", name: "Preparing references", description: "Locking in characters and settings", icon: Wand2, status: refStatus("refs") },
+    { id: "script", name: "Writing script", description: "Turning your brief into a story", icon: Sparkles, status: refStatus("script") },
+    { id: "scenes", name: "Creating scenes", description: "Designing a frame for each scene", icon: ImageIcon, status: refStatus("scenes") },
+    { id: "video", name: "Generating video", description: "Animating the scenes into a video", icon: Film, status: refStatus("video") },
+  ];
+  const refVideoPct = session.session?.video?.progressData?.percentage;
+  const refMergedProgress =
+    refPhase === "video" ? 70 + (typeof refVideoPct === "number" ? refVideoPct * 0.3 : 0)
+    : refPhase === "scenes" ? 60
+    : refPhase === "script" ? 45
+    : 20;
+  const refMergedTitle =
+    refPhase === "video" ? "Creating your video"
+    : refPhase === "scenes" ? "Creating your scenes"
+    : refPhase === "script" ? "Writing your script"
+    : "Preparing your references";
+  const refMergedIcon =
+    refPhase === "video" ? Film
+    : refPhase === "scenes" ? ImageIcon
+    : refPhase === "script" ? Sparkles
+    : Wand2;
+  // Parked on a review the user must act on -> step aside and show that review.
+  const atManualReview =
+    (step === 1 && !loading && refLockReady && !autoApprovePrefs.references) ||
+    (step === 2 && !loading && !!scriptData && !autoApprovePrefs.script) ||
+    (step === 3 && !framesLoading && (
+      ((sceneFrames?.length ?? 0) > 0 && !autoApprovePrefs.frames) ||
+      framesError // only a genuine failure (not first entry) hands the screen to the retry UI
+    ));
+  const showRefMergedRun =
+    step <= 5 &&
+    (loading || framesLoading || (sessionId && step >= 1)) &&
+    !atManualReview &&
+    !generationError &&
+    !insufficientCredits;
 
   useEffect(() => {
     let cancelled = false;
@@ -167,6 +291,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
           <PromptStep
             pipelineMode="references"
             onModeChange={!sessionId ? onModeChange : undefined}
+            onBackToChooser={!sessionId ? onBackToChooser : undefined}
             references={references}
             onReferencesChange={setReferences}
             userPrompt={userPrompt}
@@ -178,6 +303,10 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             setTargetDuration={setTargetDuration}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
+            voiceId={voiceId}
+            setVoiceId={setVoiceId}
+            backgroundMusic={backgroundMusic}
+            setBackgroundMusic={setBackgroundMusic}
             onStart={startReferencesSession}
             loading={loading}
             error={error}
@@ -218,7 +347,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             scriptData={scriptData}
             framesLoading={framesLoading}
             onRegenerate={regenerateFrame}
-            onApprove={approveFrames}
+            onApprove={startGeneration}
             onDelete={deleteScene}
             onGenerateFrames={generateFrames}
             error={error}
@@ -282,9 +411,7 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
     }
   };
 
-  const showProgressBar = step >= 1 && step <= 4;
-  const progressSteps = STEP_NAMES.slice(1, 5);
-  const progressIndex = step - 1;
+  const showProgressBar = (step >= 1 && step <= 5) || showRefMergedRun;
 
   const REFERENCES_SUB_STEPS = [
     { id: "session",    label: "Setting up your session",    range: [0, 15]  },
@@ -307,55 +434,10 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
       style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
     >
       {showProgressBar && (
-        <div
-          className="px-3 md:px-6 py-3 border-b"
-          style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              {progressSteps.map((name, index) => (
-                <div
-                  key={name}
-                  className={`flex items-center ${index < progressSteps.length - 1 ? "flex-1" : ""}`}
-                >
-                  <div
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"
-                    style={
-                      progressIndex > index
-                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
-                        : progressIndex === index
-                        ? { background: "#FFF0E6", color: "#C1440E", border: "2px solid #C1440E" }
-                        : { background: "#F0EAE5", color: "#7A6A62" }
-                    }
-                  >
-                    {index + 1}
-                  </div>
-                  {index < progressSteps.length - 1 && (
-                    <div
-                      className="flex-1 h-1 mx-2 rounded-full"
-                      style={{
-                        background: progressIndex > index
-                          ? "linear-gradient(135deg, #C1440E, #E8603C)"
-                          : "#F0EAE5",
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="hidden sm:flex justify-between text-xs">
-              {progressSteps.map((name, index) => (
-                <span
-                  key={name}
-                  className="font-medium"
-                  style={{ color: progressIndex === index ? "#C1440E" : "#7A6A62" }}
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <JourneyTimeline
+          tasks={journeyTasks}
+          onStepClick={(t) => { if (t.navStep != null) goToStep(t.navStep); }}
+        />
       )}
 
       <div className="flex-1 relative overflow-y-auto">
@@ -373,23 +455,45 @@ export default function ReferencesPipelineCreator({ onModeChange }) {
             <div className="w-full h-full">{renderStep()}</div>
           </motion.div>
         </AnimatePresence>
+
+        {/* Fully-automatic run: one persistent checklist across all phases. */}
+        {showRefMergedRun && (
+          <motion.div
+            key="ref-merged-run"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0 z-40"
+            style={{ background: "#F5F0EB" }}
+          >
+            <ProgressChecklist
+              title={refMergedTitle}
+              headerIcon={refMergedIcon}
+              progress={refMergedProgress}
+              tasks={refMergedTasks}
+              onLeave={refPhase === "video" ? () => navigate("/videos") : undefined}
+            />
+          </motion.div>
+        )}
       </div>
 
-      {loading && step !== 5 && step === 0 && (
+      {!showRefMergedRun && loading && step !== 5 && step === 0 && (
         <ScriptLoadingScreen
           progress={scriptProgress}
           subSteps={REFERENCES_SUB_STEPS}
           estimate="~7 minutes"
+          title="Preparing your references"
         />
       )}
-      {loading && step !== 5 && step === 1 && (
+      {!showRefMergedRun && loading && step !== 5 && step === 1 && (
         <ScriptLoadingScreen
           progress={scriptProgress}
           subSteps={SCRIPT_GEN_SUB_STEPS}
           estimate="~7 minutes"
         />
       )}
-      {loading && step !== 5 && step !== 0 && step !== 1 && (
+      {!showRefMergedRun && loading && step !== 5 && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
             step === 2 ? "Generating script..."

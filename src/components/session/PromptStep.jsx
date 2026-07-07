@@ -4,11 +4,12 @@ import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play,
-  Loader2, RotateCcw,
+  Loader2, RotateCcw, Mic, Music, ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import PromptMentionField from "./PromptMentionField";
+import VoiceSelector from "./VoiceSelector";
 import { scorePrompt } from "@/lib/promptStrength";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
@@ -300,7 +301,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
         {isDuplicateName && (
           <p className="text-[11px] font-semibold -mt-1.5 flex items-center gap-1" style={{ color: '#dc2626' }}>
             <X className="w-3 h-3" strokeWidth={3} />
-            This name is already used — give each reference a unique name so @mentions map correctly.
+            This name is already used. Give each reference a unique name so @mentions map correctly.
           </p>
         )}
 
@@ -472,12 +473,20 @@ export default function PromptStep({
   setAspectRatio,
   pipelineMode,
   onModeChange,
+  onBackToChooser,
   references = [],
   onReferencesChange,
   onLabelsChange,
+  voiceId,
+  setVoiceId,
+  backgroundMusic,
+  setBackgroundMusic,
   error,
 }) {
   const isReferencesMode = pipelineMode === 'references';
+  // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
+  // photo upload, advanced settings, and image-count duration advisory.
+  const isPromptOnly = pipelineMode === 'prompt';
   const [showInspiration, setShowInspiration] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [editingLabel, setEditingLabel] = useState(null);
@@ -491,6 +500,7 @@ export default function PromptStep({
   const [showPromptGuide, setShowPromptGuide] = useState(false);
   const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('shot');
   const [template, setTemplate] = useState('general');
   const [targetSlot, setTargetSlot] = useState(null);
@@ -669,6 +679,8 @@ export default function PromptStep({
 
   const canStart = isReferencesMode
     ? userPrompt?.trim() && style && references.some(r => r.name?.trim() && r.description?.trim()) && refAffordable
+    : isPromptOnly
+    ? userPrompt?.trim() && style && refAffordable
     : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -704,7 +716,7 @@ export default function PromptStep({
     () => scorePrompt({ userPrompt, references: mentionTargets, mode: isReferencesMode ? 'references' : 'image' }),
     [userPrompt, mentionTargets, isReferencesMode]
   );
-  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
+  const [showStrengthDetail, setShowStrengthDetail] = useState(true);
 
   // "Improve prompt" AI action. Stashes the previous value so the change is undoable.
   const [improving, setImproving] = useState(false);
@@ -779,12 +791,30 @@ export default function PromptStep({
         <HelpCircle className="w-7 h-7" strokeWidth={2.5} />
       </button>
 
-      <div className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6 py-6 sm:py-12 md:py-16 pb-12">
+      {/* Change mode: return to the 3-card chooser (fresh session only). Anchored
+          to the top-left of the creator canvas (this root is position:relative),
+          NOT the viewport, so it sits below the app header instead of behind it.
+          The old inline mode pill was replaced by the chooser page. */}
+      {onBackToChooser && (
+        <button
+          type="button"
+          onClick={onBackToChooser}
+          aria-label="Back to mode selection"
+          className="absolute top-4 left-4 z-40 w-10 h-10 rounded-full inline-flex items-center justify-center"
+          style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(45,34,53,0.10)', color: '#7A6A62', boxShadow: '0 2px 10px rgba(45,34,53,0.08)', transition: 'color 0.18s ease, background 0.18s ease' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; }}
+        >
+          <ArrowLeft style={{ width: 18, height: 18 }} />
+        </button>
+      )}
+
+      <div className="min-h-full flex flex-col items-center justify-start px-2 sm:px-4 py-6 sm:py-12 md:py-16 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-3xl space-y-3 sm:space-y-5"
+          className="w-full max-w-4xl space-y-3 sm:space-y-5"
         >
         {/* Hero headline */}
         <div className="text-center mb-1">
@@ -829,47 +859,6 @@ export default function PromptStep({
           </p>
         </div>
 
-          {/* Mode toggle */}
-          {onModeChange && (
-            <div
-              data-tour="mode-toggle"
-              className="relative flex w-full p-1 rounded-full"
-              style={{
-                background: '#EAE4DC',
-                boxShadow: 'inset 0 1px 3px rgba(28,25,23,0.10)',
-              }}
-            >
-              
-              {[
-                { id: 'image',      label: 'From my photos',  Icon: ImageIcon },
-                { id: 'references', label: 'Generate with references', Icon: Wand2     },
-                // 'intro' (Brand Intro) is hidden while the pipeline is still in progress.
-              ].map((mode) => {
-                const isActive = pipelineMode === mode.id;
-                return (
-                  <button
-                    key={mode.id}
-                    onClick={() => onModeChange(mode.id)}
-                    className="relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-full text-xs font-bold tracking-wide"
-                    style={{ color: isActive ? '#FFFAF7' : '#7A6A62', transition: 'color 0.18s ease', background: 'transparent' }}
-                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = '#2D1F16'; e.currentTarget.style.background = 'rgba(193,68,14,0.07)'; } }}
-                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'transparent'; } }}
-                  >
-                    {isActive && (
-                      <motion.span
-                        layoutId="tabPill"
-                        className="absolute inset-0 rounded-full"
-                        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 10px rgba(193,68,14,0.30)' }}
-                        transition={{ type: 'tween', duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                      />
-                    )}
-                    <mode.Icon style={{ width: 15, height: 15, flexShrink: 0, position: 'relative', zIndex: 1 }} />
-                    <span style={{ position: 'relative', zIndex: 1 }}>{mode.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
           {/* Zone 1 — Prompt (the hero) */}
           <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
@@ -926,7 +915,7 @@ export default function PromptStep({
                   value={userPrompt}
                   onChange={(e) => setUserPrompt(e.target.value)}
                   references={references}
-                  placeholder="e.g. @Sarah discovers @Acme in her workshop — warm and hopeful. Type @ to add a reference."
+                  placeholder="e.g. @Sarah discovers @Acme in her workshop, warm and hopeful. Type @ to add a reference."
                   className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
                   style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
                 />
@@ -1241,8 +1230,8 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Zone 2: Upload your photos (image mode only) */}
-          {!isReferencesMode && (
+          {/* Zone 2: Upload your photos (image mode only, hidden in prompt-only) */}
+          {!isReferencesMode && !isPromptOnly && (
             <div
               data-tour="upload"
               className="rounded-3xl p-4 sm:p-7 space-y-4 relative"
@@ -1690,8 +1679,8 @@ export default function PromptStep({
               </div>
             )}
 
-            {/* Advanced Controls Accordion Section (image mode only) */}
-            {!isReferencesMode && (
+            {/* Advanced Controls Accordion Section (image mode only, hidden in prompt-only) */}
+            {!isReferencesMode && !isPromptOnly && (
               <div className="pt-3 border-t" style={{ borderColor: 'rgba(193,68,14,0.08)' }}>
                 <button
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
@@ -1742,7 +1731,7 @@ export default function PromptStep({
                               <Wand2 style={{ width: 16, height: 16, color: enableBridges ? "#fff" : "#C1440E" }} />
                             </div>
                             <div>
-                              <span className="font-extrabold text-sm block text-stone-800">Smooth Scene Transitions</span>
+                              <span className="font-extrabold text-sm block text-stone-800">Bridge Scene</span>
                               <span className="text-xs text-stone-400 block leading-relaxed">
                                 {hasEnoughImages
                                   ? "Your images already fill the video, so no AI clips are needed."
@@ -2081,8 +2070,83 @@ export default function PromptStep({
 
           </div>
 
-          {/* Duration vs. image-count advisory + CTA gate (image mode only) */}
-          {!isReferencesMode && (
+          {/* Zone 4 — Voice & Music (both modes). Configured up front here so the
+              later steps go straight to review + generate. State lives in the
+              session hook, so setting it here flows through to generation. */}
+          {setVoiceId && setBackgroundMusic && (
+            <div data-tour="sound" className="rounded-3xl p-4 sm:p-6 space-y-3" style={CARD_SHADOW}>
+              <div>
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                  Voice &amp; Music
+                </h2>
+                <p className="text-xs font-medium mt-1" style={{ color: '#9C8F85' }}>
+                  Pick the narration voice and choose whether to add background music.
+                </p>
+              </div>
+
+              {/* Narration voice — opens the picker modal (works on mobile too) */}
+              <button
+                onClick={() => setVoiceModalOpen(true)}
+                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left"
+                style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'border-color 0.2s ease, background 0.2s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)'; e.currentTarget.style.background = '#FFF9F5'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.25)' }}>
+                    <Mic className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Narration voice</span>
+                    <span className="text-xs block truncate" style={{ color: '#9C8F85' }}>
+                      {voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default voice'}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold flex items-center gap-1 flex-shrink-0" style={{ color: '#C1440E' }}>
+                  Change <ChevronDown className="w-3 h-3" />
+                </span>
+              </button>
+
+              {/* Background music toggle */}
+              <button
+                onClick={() => setBackgroundMusic(!backgroundMusic)}
+                aria-pressed={!!backgroundMusic}
+                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left"
+                style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)' }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                    style={backgroundMusic
+                      ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.25)' }
+                      : { background: 'rgba(193,68,14,0.06)' }}
+                  >
+                    <Music className="w-4 h-4" style={{ color: backgroundMusic ? '#fff' : '#C1440E' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Background music</span>
+                    <span className="text-xs block" style={{ color: '#9C8F85' }}>
+                      {backgroundMusic ? 'AI music matched to your video' : 'No background music'}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                  style={{ background: backgroundMusic ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                >
+                  <motion.span
+                    className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                    animate={{ left: backgroundMusic ? 26 : 4 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Duration vs. image-count advisory + CTA gate (image mode only, hidden in prompt-only) */}
+          {!isReferencesMode && !isPromptOnly && (
             <DurationEstimate
               imageCount={images?.length ?? 0}
               targetDuration={targetDuration}
@@ -2098,9 +2162,10 @@ export default function PromptStep({
             />
           )}
 
-          {/* Credit cost / affordability (references mode). Tells the user in
-              place instead of redirecting to the pricing page. */}
-          {isReferencesMode && refRequiredCredits > 0 && (
+          {/* Credit cost / affordability (references + prompt-only modes, which
+              have no DurationEstimate). Tells the user in place instead of
+              redirecting to the pricing page. */}
+          {(isReferencesMode || isPromptOnly) && refRequiredCredits > 0 && (
             <div
               className="rounded-2xl border p-4 flex items-center justify-between gap-2"
               style={{
@@ -2169,12 +2234,54 @@ export default function PromptStep({
                     : "Add your characters and describe your video to get started")
                 : durationStatus === 'too_many_images'
                 ? "Remove images or choose a longer length to continue"
-                : "Usually ready in 30-60 seconds"}
+                : "Usually ready in 30 to 60 seconds"}
             </p>
           </div>
 
         </motion.div>
       </div>
+
+      {/* Voice picker modal — a bottom sheet on phones, centered card on desktop */}
+      <AnimatePresence>
+        {voiceModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+            onClick={() => setVoiceModalOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <h3 className="text-base font-black" style={{ color: '#1C1917' }}>Choose a voice</h3>
+                <button
+                  onClick={() => setVoiceModalOpen(false)}
+                  aria-label="Close"
+                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <VoiceSelector value={voiceId} onChange={setVoiceId} />
+              </div>
+              <Button
+                onClick={() => setVoiceModalOpen(false)}
+                className="w-full mt-4 text-white border-0 shrink-0"
+                style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+              >
+                Done
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Prompt Guide Modal */}
       <AnimatePresence>

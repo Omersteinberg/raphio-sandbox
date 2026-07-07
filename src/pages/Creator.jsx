@@ -2,9 +2,12 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
+import ModeChooser from "@/components/session/ModeChooser";
 
 // Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
-const ENABLED_MODES = ["image", "references"];
+// "prompt" is the simplified text-to-video mode; it reuses the image pipeline
+// (ImagePipelineCreator) with photos + advanced settings hidden.
+const ENABLED_MODES = ["prompt", "image", "references"];
 
 export default function Creator() {
   const [searchParams] = useSearchParams();
@@ -14,6 +17,7 @@ export default function Creator() {
   // renders the wrong creator and the resume drops the user on step 0 of the
   // wrong pipeline. Read once at mount; resume always remounts via /videos.
   const resumeMode = searchParams.get("mode");
+  const resumeSession = searchParams.get("session");
 
   const [pipelineMode, setPipelineMode] = useState(() => {
     if (ENABLED_MODES.includes(resumeMode)) return resumeMode;
@@ -21,14 +25,46 @@ export default function Creator() {
     return ENABLED_MODES.includes(stored) ? stored : "image";
   });
 
+  // A resume (either ?session= or a valid ?mode=) must bypass the chooser and
+  // load straight into the pipeline. A bare /create (the "New video" button)
+  // starts with no mode chosen, so the chooser shows first.
+  const [chosen, setChosen] = useState(
+    () => Boolean(resumeSession) || ENABLED_MODES.includes(resumeMode)
+  );
+
   const handleModeChange = (mode) => {
     const next = ENABLED_MODES.includes(mode) ? mode : "image";
     localStorage.setItem("raphio_pipeline_mode", next);
     setPipelineMode(next);
+    setChosen(true);
   };
 
-  if (pipelineMode === "references") {
-    return <ReferencesPipelineCreator onModeChange={handleModeChange} />;
+  if (!chosen) {
+    return (
+      <ModeChooser
+        initialMode={localStorage.getItem("raphio_pipeline_mode")}
+        onPick={handleModeChange}
+      />
+    );
   }
-  return <ImagePipelineCreator onModeChange={handleModeChange} />;
+
+  const backToChooser = () => setChosen(false);
+
+  if (pipelineMode === "references") {
+    return (
+      <ReferencesPipelineCreator
+        onModeChange={handleModeChange}
+        onBackToChooser={backToChooser}
+      />
+    );
+  }
+  // Both "prompt" and "image" render the image pipeline; the mode distinguishes
+  // the simplified prompt-only variant (photos + advanced hidden).
+  return (
+    <ImagePipelineCreator
+      mode={pipelineMode}
+      onModeChange={handleModeChange}
+      onBackToChooser={backToChooser}
+    />
+  );
 }

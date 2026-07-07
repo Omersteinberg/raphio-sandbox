@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
  * this tab — we'll email you"). Pass `EMAIL_WAIT_NOTE` for the standard copy.
  */
 export const EMAIL_WAIT_NOTE =
-  "You don't have to keep this tab open. We'll email you a link when it's ready.";
+  "";
 
 export default function ProgressBar({
   value = null,

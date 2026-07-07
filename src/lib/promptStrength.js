@@ -114,7 +114,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
         ? (namedRefs.length
             ? 'Type "@" to mention each reference by name so the AI keeps them consistent.'
             : 'Add a reference, then type "@" to mention it in your prompt.')
-        : 'Type "@" to reference a scene by its label — helps the AI order your shots.',
+        : 'Type "@" to reference a scene by its label, which helps the AI order your shots.',
     });
   }
 
@@ -125,7 +125,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
     points: detailPoints,
     met: detailPoints >= 1,
     detail: `${words} words`,
-    hint: 'Aim for about 25–70 words — enough to paint the scene without rambling.',
+    hint: 'Aim for about 25 to 70 words, enough to paint the scene without rambling.',
   });
   factors.push({
     id: 'setting',
@@ -133,7 +133,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
     weight: isRefMode ? 20 : 25,
     points: hasSetting ? 1 : 0,
     met: hasSetting,
-    hint: 'Say where it happens — a place, time of day, or environment.',
+    hint: 'Say where it happens: a place, time of day, or environment.',
   });
   factors.push({
     id: 'toneAction',

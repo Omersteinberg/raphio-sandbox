@@ -74,6 +74,9 @@ export function useReferencesSession() {
   const [sceneFrames, setSceneFrames] = useState([]);
   const [lockLoading, setLockLoading] = useState(new Set());
   const [framesLoading, setFramesLoading] = useState(false);
+  // True only after a scene-frame generation attempt fails (not on first entry),
+  // so the UI can tell "about to auto-generate" from "failed, needs retry".
+  const [framesError, setFramesError] = useState(false);
 
   // Style options (fetched from API; references mode supports the full style palette,
   // unlike the image pipeline which is restricted to styles that work on real photos)
@@ -420,6 +423,7 @@ export function useReferencesSession() {
     if (!sessionId) return;
 
     setFramesLoading(true);
+    setFramesError(false);
     try {
       console.log("[useReferencesSession] Generating scene frames...");
       const result = await referenceApi.generateSceneFrames(sessionId);
@@ -433,6 +437,7 @@ export function useReferencesSession() {
           available: err.response.data?.available ?? credits ?? 0,
         });
       } else {
+        setFramesError(true);
         toast.error(err.response?.data?.error || "Failed to generate scene frames");
       }
     } finally {
@@ -562,6 +567,7 @@ export function useReferencesSession() {
     setSceneFrames,
     lockLoading,
     framesLoading,
+    framesError,
     styleOptions,
 
     // References-specific actions

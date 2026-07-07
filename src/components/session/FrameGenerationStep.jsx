@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import ProgressBar, { EMAIL_WAIT_NOTE } from '@/components/ui/ProgressBar';
+import { Image as ImageIcon } from 'lucide-react';
+import ProgressChecklist from '@/components/session/ProgressChecklist';
 
 export default function FrameGenerationStep({
   sceneFrames,
@@ -24,7 +24,38 @@ export default function FrameGenerationStep({
 
   const allFramesComplete = sceneFrames.length > 0 && sceneFrames.every(f => f.status === 'completed' || f.status === 'success');
 
-  console.log("[FrameGenerationStep] render, sceneFrames:", sceneFrames.length, "framesLoading:", framesLoading, "allFramesComplete:", allFramesComplete);
+  // Scene frames auto-generate on entry. While generating, show the same shared
+  // checklist as the rest of the journey (consistent progress UI).
+  if (sceneFrames.length === 0 && framesLoading) {
+    return (
+      <ProgressChecklist
+        title="Creating your scenes"
+        caption="Estimated time: ~5 minutes"
+        headerIcon={ImageIcon}
+        tasks={[
+          { id: "scenes", name: "Generating scene frames", description: "Designing a frame for each scene", icon: ImageIcon, status: "processing" },
+        ]}
+      />
+    );
+  }
+
+  // Empty and not generating: either about to auto-start, or a previous attempt
+  // failed. Offer a manual generate so the flow can never get permanently stuck.
+  if (sceneFrames.length === 0) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+        <p className="text-ink font-medium mb-1">Preparing your scenes</p>
+        {error && <p className="text-red-500 text-sm mb-3 max-w-sm">{error}</p>}
+        <button
+          onClick={() => onGenerateFrames?.()}
+          className="mt-2 text-white font-medium py-2.5 px-6 rounded-xl transition-opacity hover:opacity-90"
+          style={{ background: "var(--gradient-brand)" }}
+        >
+          Generate scene frames
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -35,28 +66,6 @@ export default function FrameGenerationStep({
             Review the generated frames for your story. Regenerate any frame with feedback or approve all to continue.
           </p>
         </div>
-
-        {/* Generate button if no frames yet */}
-        {sceneFrames.length === 0 && !framesLoading && (
-          <button
-            onClick={() => onGenerateFrames()}
-            className="w-full text-white font-medium py-3 rounded-xl"
-            style={{ background: "var(--gradient-brand)" }}
-          >
-            Generate Scene Frames
-          </button>
-        )}
-
-        {/* Loading state — show a progress bar (consistent with the app's other
-            long-wait screens) instead of a bare spinner. No backend percentage
-            is reported here, so ProgressBar trickles on its own. */}
-        {framesLoading && sceneFrames.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-ink font-medium mb-1">Generating scene frames…</p>
-            <p className="text-ink-muted text-sm mb-4">Estimated time: ~5 minutes</p>
-            <ProgressBar className="mx-auto w-full max-w-xs" note={EMAIL_WAIT_NOTE} />
-          </div>
-        )}
 
         {/* Frame Grid */}
         {sceneFrames.length > 0 && (
@@ -157,13 +166,15 @@ export default function FrameGenerationStep({
           <p className="text-red-500 text-sm">{error}</p>
         )}
 
-        {/* Approve Button */}
+        {/* Approve + generate. Voice and music are already set on the first page,
+            so approving the frames goes straight to video generation. */}
         {allFramesComplete && (
           <button
             onClick={onApprove}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-xl transition-colors"
+            className="w-full text-white font-medium py-3 rounded-xl transition-opacity hover:opacity-90"
+            style={{ background: "var(--gradient-brand)" }}
           >
-            Approve Frames & Continue
+            Approve &amp; Generate Video
           </button>
         )}
       </div>

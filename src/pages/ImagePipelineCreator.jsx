@@ -1,8 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Film, Sparkles } from "lucide-react";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useSession } from "@/hooks/session/useSession";
 import { loadPending } from "@/lib/pendingSession";
+import JourneyTimeline from "@/components/session/JourneyTimeline";
+import ProgressChecklist from "@/components/session/ProgressChecklist";
+import { buildImageTasks } from "@/lib/journeyTasks";
+import { buildScriptTasks, buildVideoTasks } from "@/lib/progressTasks";
+import { getAutoApprove } from "@/lib/preferences";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -14,12 +21,27 @@ import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 
-// Step names for progress bar: dynamic based on whether bridges are enabled
-const STEP_NAMES_WITH_BRIDGES = ["Prompt", "Script", "Bridges", "Generate", "Processing", "Complete"];
-const STEP_NAMES_NO_BRIDGES = ["Prompt", "Script", "Generate", "Processing", "Complete"];
+// Sub-steps for the ScriptLoadingScreen in prompt-only mode: there's no photo
+// upload / analyze / restyle, so those default labels would be nonsensical.
+const PROMPT_ONLY_SUB_STEPS = [
+  { id: "session", label: "Setting up your session", range: [0, 20] },
+  { id: "story",   label: "Planning your story",     range: [20, 55] },
+  { id: "script",  label: "Writing your script",     range: [55, 100] },
+];
 
-export default function ImagePipelineCreator({ onModeChange }) {
-  const session = useSession();
+// Script-phase rows for the merged full-auto checklist (photos flow).
+const IMAGE_SCRIPT_SUB_STEPS = [
+  { id: "session", label: "Setting up your session", range: [0, 15]  },
+  { id: "upload",  label: "Uploading your images",   range: [15, 40] },
+  { id: "analyze", label: "Analyzing images",         range: [40, 55] },
+  { id: "restyle", label: "Restyling images",         range: [55, 70] },
+  { id: "script",  label: "Generating script",        range: [70, 100] },
+];
+
+export default function ImagePipelineCreator({ mode = "image", onModeChange, onBackToChooser }) {
+  const isPromptOnly = mode === "prompt";
+  const navigate = useNavigate();
+  const session = useSession({ promptOnly: isPromptOnly });
 
   const {
     step,
@@ -136,6 +158,26 @@ export default function ImagePipelineCreator({ onModeChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // "Approve & Generate": the frames/voice review screen was merged into the
+  // script step, so approving the final script now configures frames and kicks
+  // off generation in one action. Landing back on the frames step only happens
+  // on failure (e.g. insufficient credits), where FramesStep's button retries.
+  // Each step is guarded on the previous one's success (the approve/configure
+  // handlers return a boolean) so a failed approve never triggers generation.
+  const generateNow = async () => {
+    const configured = await configureFrames();
+    if (configured) await startGeneration();
+  };
+  const approveOutlineAndGenerate = async () => {
+    const ok = await approveOutline();
+    // Bridges mode still stops at the bridge-review step after approving.
+    if (ok && !enableBridges) await generateNow();
+  };
+  const approveScriptAndGenerate = async () => {
+    const ok = await approveScript();
+    if (ok) await generateNow();
+  };
+
   // Animation variants
   const slideVariants = {
     enter: (direction) => ({
@@ -165,13 +207,90 @@ export default function ImagePipelineCreator({ onModeChange }) {
   const completedStep = enableBridges ? 5 : 4;
   const editingStep = enableBridges ? 6 : 5;
 
+  // Auto-approve (skip steps) preferences — read once on mount (Settings page).
+  const [autoApprovePrefs] = useState(getAutoApprove);
+  const prevStepRef = useRef(null);
+  const enteredForwardRef = useRef(false);
+  const autoFiredRef = useRef(new Set());
+
+  // Auto-advance past review gates the user chose to skip. Only fires on a gate
+  // reached by normal forward progress (+1), never a resume jump (0 -> middle) or
+  // a step-back, so resuming a session never silently approves or spends credits.
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    if (prev !== step) {
+      enteredForwardRef.current = prev !== null && step === prev + 1;
+      prevStepRef.current = step;
+    }
+    if (!enteredForwardRef.current) return;
+    if (loading || generationError || insufficientCredits) return;
+    if (autoFiredRef.current.has(step)) return;
+
+    const backend = session.session;
+    let fire = null;
+    if (step === 1 && autoApprovePrefs.script && scriptData) {
+      fire = () => approveOutline();
+    } else if (
+      enableBridges && step === 2 && autoApprovePrefs.bridges &&
+      scriptData && !backend?.hasBridgeFailures
+    ) {
+      fire = () => approveScript();
+    } else if (step === framesStep && autoApprovePrefs.generate) {
+      fire = async () => { await configureFrames(); await startGeneration(); };
+    }
+    if (!fire) return;
+    autoFiredRef.current.add(step);
+    fire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, loading, generationError, insufficientCredits, scriptData, session.session, enableBridges, framesStep]);
+
+  const journeyTasks = buildImageTasks({
+    step,
+    loading,
+    scriptProgress,
+    enableBridges,
+    framesStep,
+    generatingStep,
+    session: session.session,
+    finalVideoUrl,
+    hasBridgeFailures: session.session?.hasBridgeFailures,
+    prefs: autoApprovePrefs,
+  });
+
+  // ONE continuous checklist across the script and video phases. It shows during
+  // every automatic stretch and only steps aside when parked on a review the user
+  // must act on — so consecutive auto phases read as one page, and in full-auto
+  // it's one page the whole way through.
+  const videoStarted = step >= generatingStep;
+  const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
+  const { tasks: mergedVideoTasks, realProgress: mergedVideoProgress } = buildVideoTasks(
+    session.session,
+    scriptData,
+    { started: videoStarted }
+  );
+  const mergedTasks = [...buildScriptTasks(scriptSubSteps, scriptProgress), ...mergedVideoTasks];
+  const mergedProgress = videoStarted ? 40 + mergedVideoProgress * 0.6 : scriptProgress * 0.4;
+  // Parked on a review the user must act on -> step aside and show it.
+  const atManualReview =
+    (step === 1 && !loading && !!scriptData && !autoApprovePrefs.script) ||
+    (enableBridges && step === 2 && !autoApprovePrefs.bridges) ||
+    (step === framesStep && !autoApprovePrefs.generate);
+  const showMergedRun =
+    step < completedStep &&
+    (session.sessionId != null || loading) &&
+    (step > 0 || loading) &&
+    !atManualReview &&
+    !generationError &&
+    !insufficientCredits;
+
   // Render current step component
   const renderStep = () => {
     if (step === 0) {
       return (
         <PromptStep
-          pipelineMode="image"
+          pipelineMode={mode}
           onModeChange={!session.sessionId ? onModeChange : undefined}
+          onBackToChooser={!session.sessionId ? onBackToChooser : undefined}
           userPrompt={userPrompt}
           setUserPrompt={setUserPrompt}
           style={style}
@@ -185,6 +304,10 @@ export default function ImagePipelineCreator({ onModeChange }) {
           removeImage={removeImage}
           reorderImages={reorderImages}
           onLabelsChange={setImageLabels}
+          voiceId={voiceId}
+          setVoiceId={setVoiceId}
+          backgroundMusic={backgroundMusic}
+          setBackgroundMusic={setBackgroundMusic}
           onStart={startSession}
           loading={loading}
           openingFrame={openingFrame}
@@ -207,7 +330,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setEditRequest={setEditRequest}
           generateScript={generateScript}
           editScriptWithAI={editScriptWithAI}
-          approveOutline={approveOutline}
+          approveOutline={approveOutlineAndGenerate}
           session={session.session}
           loading={loading}
           images={images}
@@ -230,7 +353,7 @@ export default function ImagePipelineCreator({ onModeChange }) {
           setScriptData={setScriptData}
           editRequest={editRequest}
           setEditRequest={setEditRequest}
-          approveScript={approveScript}
+          approveScript={approveScriptAndGenerate}
           retryBridgeFrames={retryBridgeFrames}
           uploadBridgeImage={uploadBridgeImage}
           session={session.session}
@@ -307,69 +430,20 @@ export default function ImagePipelineCreator({ onModeChange }) {
     return null;
   };
 
-  // Show progress bar for content steps (before generating)
-  const stepNames = enableBridges ? STEP_NAMES_WITH_BRIDGES : STEP_NAMES_NO_BRIDGES;
-  const showProgressBar = step > 0 && step < generatingStep;
-  const progressSteps = stepNames.slice(0, enableBridges ? 4 : 3);
+  // The journey timeline spans the content steps through generation (hidden on the
+  // prompt screen and the final result/editing screens).
+  const showProgressBar = (step > 0 && step <= generatingStep) || showMergedRun;
 
   return (
     <div
       className="h-full flex flex-col font-figtree"
       style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
     >
-      {/* Progress Bar */}
       {showProgressBar && (
-        <div
-          className="px-3 md:px-6 py-3 border-b"
-          style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              {progressSteps.map((name, index) => (
-                <div
-                  key={name}
-                  className={`flex items-center ${
-                    index < progressSteps.length - 1 ? "flex-1" : ""
-                  }`}
-                >
-                  <div
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"
-                    style={
-                      step > index
-                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
-                        : step === index
-                        ? { background: "#FFF0E6", color: "#C1440E", border: "2px solid #C1440E" }
-                        : { background: "#F0EAE5", color: "#7A6A62" }
-                    }
-                  >
-                    {index + 1}
-                  </div>
-                  {index < progressSteps.length - 1 && (
-                    <div
-                      className="flex-1 h-1 mx-2 rounded-full"
-                      style={{
-                        background: step > index
-                          ? "linear-gradient(135deg, #C1440E, #E8603C)"
-                          : "#F0EAE5",
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="hidden sm:flex justify-between text-xs">
-              {progressSteps.map((name, index) => (
-                <span
-                  key={name}
-                  className="font-medium"
-                  style={{ color: step === index ? "#C1440E" : "#7A6A62" }}
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <JourneyTimeline
+          tasks={journeyTasks}
+          onStepClick={(t) => { if (t.navStep != null) goToStep(t.navStep); }}
+        />
       )}
 
       {/* Main Content */}
@@ -389,16 +463,40 @@ export default function ImagePipelineCreator({ onModeChange }) {
           </motion.div>
         </AnimatePresence>
 
-        {/* ScriptLoadingScreen lives here, outside the slide animation */}
+        {/* Progress overlay, outside the slide animation. A fully-automatic run
+            shows ONE continuous checklist across script + video; otherwise the
+            per-phase script loading screen. */}
         <AnimatePresence>
-          {loading && (step === 0 || step === 1) && (
-            <ScriptLoadingScreen progress={scriptProgress} />
-          )}
+          {showMergedRun ? (
+            <motion.div
+              key="merged-run"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="absolute inset-0 z-40"
+              style={{ background: "#F5F0EB" }}
+            >
+              <ProgressChecklist
+                title={videoStarted ? "Creating your video" : "Writing your script"}
+                headerIcon={videoStarted ? Film : Sparkles}
+                progress={mergedProgress}
+                tasks={mergedTasks}
+                onLeave={videoStarted ? () => navigate("/videos") : undefined}
+              />
+            </motion.div>
+          ) : loading && (step === 0 || step === 1) ? (
+            <ScriptLoadingScreen
+              progress={scriptProgress}
+              subSteps={isPromptOnly ? PROMPT_ONLY_SUB_STEPS : undefined}
+            />
+          ) : null}
         </AnimatePresence>
       </div>
 
-      {/* Loading overlay: steps 0/1 handled by ScriptLoadingScreen */}
-      {loading && step !== generatingStep && step !== 0 && step !== 1 && (
+      {/* Loading overlay: steps 0/1 handled by ScriptLoadingScreen; suppressed
+          entirely during a merged full-auto run */}
+      {!showMergedRun && loading && step !== generatingStep && step !== 0 && step !== 1 && (
         <MergeLoadingOverlay
           text={
             enableBridges && step === 2

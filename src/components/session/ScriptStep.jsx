@@ -155,8 +155,8 @@ export default function ScriptStep({
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {loading
-                    ? (enableBridges ? "Generating Bridge Images..." : "Approving...")
-                    : (enableBridges ? "Approve Outline" : "Approve Script")}
+                    ? (enableBridges ? "Generating Bridge Images..." : "Starting...")
+                    : (enableBridges ? "Approve Outline" : "Approve & Generate")}
                 </Button>
               ) : phase === "bridges" ? (
                 <Button
@@ -167,7 +167,7 @@ export default function ScriptStep({
                   title={hasBridgeFailures ? "Fix failed bridge frames first" : ""}
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Approve Script
+                  {loading ? "Starting..." : "Approve & Generate"}
                 </Button>
               ) : null}
             </div>

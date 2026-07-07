@@ -12,6 +12,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 // import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
+import SettingsPage from "./pages/SettingsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import AppLayout from "./components/AppLayout";
@@ -44,6 +45,7 @@ function App() {
             <Route path="/create" element={<Creator />} />
             <Route path="/buy-credits" element={<BuyCreditsPage />} />
             <Route path="/videos" element={<MyVideosPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
             <Route path="/video/:id/edit" element={<EditorPage />} />
             <Route path="/timeline-test" element={<TimelineTest />} />

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import AppHeader from './AppHeader';
 import ProtectedRoute from './ProtectedRoute';
+import MockModeBadge from './MockModeBadge';
 
 export default function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </div>
+      <MockModeBadge />
     </ProtectedRoute>
   );
 }

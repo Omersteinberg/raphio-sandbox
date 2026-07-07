@@ -1,29 +1,15 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Music, ArrowRight, Zap, ChevronDown, Check, X } from "lucide-react";
+import { ArrowRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/useMediaQuery";
-import VoiceSelector from "./VoiceSelector";
 
+// Voice and background music are chosen up front on the prompt step, so this
+// step is just a final review + the "start generation" action.
 export default function FramesStep({
   openingFrame,
   closingFrame,
-  voiceId,
-  setVoiceId,
   backgroundMusic,
-  setBackgroundMusic,
   configureFrames,
   startGeneration,
 }) {
-  const [expandedSection, setExpandedSection] = useState(null);
-  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
-  // On phones the voice list opens in a modal instead of an inline accordion.
-  const isMobile = useIsMobile();
-
-  const toggleSection = (section) => {
-    setExpandedSection((prev) => (prev === section ? null : section));
-  };
-
   const handleStartGeneration = async () => {
     try {
       await configureFrames();
@@ -44,86 +30,6 @@ export default function FramesStep({
           </p>
         </div>
 
-        {/* Narration Voice Accordion */}
-        <div className="bg-white rounded-xl border border-border overflow-hidden">
-          <button
-            onClick={() => (isMobile ? setVoiceModalOpen(true) : toggleSection("voice"))}
-            className="w-full flex items-center justify-between p-4 hover:bg-surface-alt transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-terra/10 flex items-center justify-center">
-                <Mic className="w-4 h-4 text-terra" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-ink">Narration Voice</p>
-                <p className="text-sm text-ink-muted">
-                  {voiceId || "Default voice"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {voiceId && (
-                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check className="w-3.5 h-3.5 text-green-600" />
-                </div>
-              )}
-              <motion.div
-                animate={{ rotate: expandedSection === "voice" ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ChevronDown className="w-5 h-5 text-ink-muted" />
-              </motion.div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {!isMobile && expandedSection === "voice" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4">
-                  <VoiceSelector value={voiceId} onChange={setVoiceId} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Background Music Toggle */}
-        <div className="bg-white rounded-xl border border-border overflow-hidden">
-          <button
-            onClick={() => setBackgroundMusic(!backgroundMusic)}
-            className="w-full flex items-center justify-between p-4 hover:bg-surface-alt transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-terra/10 flex items-center justify-center">
-                <Music className="w-4 h-4 text-terra" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-ink">Background Music</p>
-                <p className="text-sm text-ink-muted">
-                  {backgroundMusic ? "AI-generated instrumental music" : "No background music"}
-                </p>
-              </div>
-            </div>
-            <div
-              className={`w-11 h-6 rounded-full transition-colors ${
-                backgroundMusic ? "bg-terra" : "bg-ink/20"
-              } relative`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${
-                  backgroundMusic ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </div>
-          </button>
-        </div>
-
         {/* Start Generation Button */}
         <Button
           onClick={handleStartGeneration}
@@ -142,54 +48,16 @@ export default function FramesStep({
           <p className="text-sm text-terra">
             <strong>What happens next:</strong>
           </p>
-          <ul className="text-xs text-terra mt-2 space-y-1">
-            {openingFrame?.enabled && <li>- Opening frame generated</li>}
-            <li>- Each section converted to video clips</li>
-            <li>- Narration generated with AI voice</li>
-            {backgroundMusic && <li>- Background music generated with AI</li>}
-            {closingFrame?.enabled && <li>- Closing frame generated</li>}
-            <li>- Final video assembled automatically</li>
+          <ul className="text-xs text-terra mt-2 space-y-1 list-disc list-inside">
+            {openingFrame?.enabled && <li>Opening frame generated</li>}
+            <li>Each section converted to video clips</li>
+            <li>Narration generated with AI voice</li>
+            {backgroundMusic && <li>Background music generated with AI</li>}
+            {closingFrame?.enabled && <li>Closing frame generated</li>}
+            <li>Final video assembled automatically</li>
           </ul>
         </div>
       </div>
-
-      {/* Mobile voice picker modal */}
-      <AnimatePresence>
-        {isMobile && voiceModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
-            onClick={() => setVoiceModalOpen(false)}
-          >
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4 shrink-0">
-                <h3 className="text-base font-semibold text-ink">Choose a voice</h3>
-                <button onClick={() => setVoiceModalOpen(false)} aria-label="Close" className="text-ink-muted">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <VoiceSelector value={voiceId} onChange={setVoiceId} />
-              </div>
-              <Button
-                onClick={() => setVoiceModalOpen(false)}
-                className="w-full mt-4 text-white border-0 shrink-0"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                Done
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

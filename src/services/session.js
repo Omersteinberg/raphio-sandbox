@@ -4,6 +4,19 @@ import { API_BASE as BASE } from "../config.js";
 const API_BASE = `${BASE}/video`;
 
 /**
+ * Whether the backend is running in MOCK_AI mode (dummy data, no credits, no real
+ * generation). Public endpoint; failures are treated as "not mock".
+ */
+export async function getMockStatus() {
+  try {
+    const res = await axios.get(`${API_BASE}/mock-status`);
+    return res.data?.mockMode === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Create a new session
  */
 export async function startSession({ userPrompt, style, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio }) {

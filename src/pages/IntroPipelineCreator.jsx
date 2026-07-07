@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import IntroBriefStep from "@/components/session/IntroBriefStep";
@@ -6,14 +7,50 @@ import GeneratingStep from "@/components/session/GeneratingStep";
 import ResultStep from "@/components/session/ResultStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import { useIntroSession } from "@/hooks/session/useIntroSession";
+import JourneyTimeline from "@/components/session/JourneyTimeline";
+import { buildIntroTasks } from "@/lib/journeyTasks";
+import { getAutoApprove } from "@/lib/preferences";
 
-const STEP_NAMES = ["Brief", "Script", "Generate"];
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
 
 export default function IntroPipelineCreator({ onModeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
+
+  // Auto-approve (skip steps) — Intro fuses approve+generate, so it only respects
+  // the "Generate" preference. Only fires on forward progress, never on resume.
+  const [autoApprovePrefs] = useState(getAutoApprove);
+  const prevStepRef = useRef(null);
+  const enteredForwardRef = useRef(false);
+  const autoFiredRef = useRef(new Set());
+
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    if (prev !== step) {
+      enteredForwardRef.current = prev !== null && step === prev + 1;
+      prevStepRef.current = step;
+    }
+    if (!enteredForwardRef.current) return;
+    if (loading || intro.error || intro.insufficientCredits) return;
+    if (autoFiredRef.current.has(step)) return;
+
+    if (step === 1 && autoApprovePrefs.generate && intro.introScript) {
+      autoFiredRef.current.add(step);
+      intro.approveAndGenerate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, loading, intro.error, intro.insufficientCredits, intro.introScript]);
+
+  const journeyTasks = buildIntroTasks({
+    step,
+    loading,
+    scriptProgress: intro.scriptProgress,
+    generatingStep: GENERATING_STEP,
+    session: intro.session,
+    finalVideoUrl: intro.finalVideoUrl,
+    prefs: autoApprovePrefs,
+  });
 
   const slideVariants = {
     enter: (d) => ({ x: d > 0 ? 1000 : -1000, opacity: 0 }),
@@ -74,41 +111,15 @@ export default function IntroPipelineCreator({ onModeChange }) {
     return null;
   };
 
-  const showProgressBar = step > 0 && step < GENERATING_STEP;
+  const showProgressBar = step > 0 && step <= GENERATING_STEP;
 
   return (
     <div className="h-full flex flex-col font-figtree" style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}>
       {showProgressBar && (
-        <div className="px-3 md:px-6 py-3 border-b" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}>
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              {STEP_NAMES.map((name, index) => (
-                <div key={name} className={`flex items-center ${index < STEP_NAMES.length - 1 ? "flex-1" : ""}`}>
-                  <div
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"
-                    style={
-                      step > index
-                        ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", color: "#fff" }
-                        : step === index
-                        ? { background: "#FFF0E6", color: "#C1440E", border: "2px solid #C1440E" }
-                        : { background: "#F0EAE5", color: "#7A6A62" }
-                    }
-                  >
-                    {index + 1}
-                  </div>
-                  {index < STEP_NAMES.length - 1 && (
-                    <div className="flex-1 h-1 mx-2 rounded-full" style={{ background: step > index ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#F0EAE5" }} />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="hidden sm:flex justify-between text-xs">
-              {STEP_NAMES.map((name, index) => (
-                <span key={name} className="font-medium" style={{ color: step === index ? "#C1440E" : "#7A6A62" }}>{name}</span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <JourneyTimeline
+          tasks={journeyTasks}
+          onStepClick={(t) => { if (t.navStep != null) intro.goToStep(t.navStep); }}
+        />
       )}
 
       <div className="flex-1 relative overflow-hidden">

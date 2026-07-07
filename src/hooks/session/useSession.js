@@ -67,7 +67,7 @@ function getStageToStep(bridgesEnabled) {
 }
 
 
-export function useSession() {
+export function useSession({ promptOnly = false } = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -231,6 +231,8 @@ export function useSession() {
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
             // Wrong creator: this is a references (or other) session, bounce to it.
+            // NOTE: "prompt" (text-to-video) intentionally stays here — it runs in
+            // this same image pipeline, so it must NOT be added to this whitelist.
             if (data.pipelineMode && data.pipelineMode !== "image"
                 && ["image", "references"].includes(data.pipelineMode)) {
               navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
@@ -437,7 +439,9 @@ export function useSession() {
       return;
     }
 
-    if (images.length === 0) {
+    // Prompt-only (text-to-video) creates with zero photos; every other mode
+    // requires at least one.
+    if (!promptOnly && images.length === 0) {
       console.log("[useSession] No images added, aborting");
       toast.error("Please add at least one image");
       return;
@@ -533,8 +537,13 @@ export function useSession() {
           userPrompt,
           style,
           voiceId,
-          enableBridges,
+          // Prompt-only records "smooth scene transitions" as on (product intent);
+          // it's inert for zero-image videos today but harmless, and we keep the
+          // frontend enableBridges STATE false so the wizard skips the Bridges step.
+          enableBridges: promptOnly ? true : enableBridges,
           targetDuration,
+          aspectRatio,
+          pipelineMode: promptOnly ? "prompt" : "image",
         };
         console.log("[useSession] Request payload:", payload);
 
@@ -547,67 +556,76 @@ export function useSession() {
         setSessionId(targetSessionId);
         setSession(newSession);
 
-        // Step 2: Upload the images that were already selected
-        console.log("[useSession] Uploading images to session...");
-        setScriptProgress(20);
-        const files = images.map((img) => img.file);
-        const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files, imageLabels);
-        console.log("[useSession] Images uploaded:", sessionAfterUpload);
+        if (promptOnly) {
+          // Prompt-only (text-to-video): no photos to upload/analyze/restyle.
+          // Jump straight to script generation — the backend builds scenes from
+          // the prompt alone (analysis is skipped server-side when there are no
+          // images). Drop any stale local draft copy.
+          try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+          setScriptProgress(70);
+        } else {
+          // Step 2: Upload the images that were already selected
+          console.log("[useSession] Uploading images to session...");
+          setScriptProgress(20);
+          const files = images.map((img) => img.file);
+          const sessionAfterUpload = await sessionService.uploadImages(targetSessionId, files, imageLabels);
+          console.log("[useSession] Images uploaded:", sessionAfterUpload);
 
-        // The upload connection can drop mid-transfer (a refresh, or a proxy
-        // resetting a large request), leaving zero images persisted. Verify the
-        // backend actually has them before continuing. We keep the IndexedDB
-        // copy until this check passes, so on failure the user returns to the
-        // prompt with their photos intact to retry, instead of crashing
-        // downstream with "No images to analyze".
-        if (!sessionAfterUpload.images?.length) {
-          console.warn("[useSession] Upload persisted no images, aborting before analyze");
-          setSession(null);
-          setSessionId(null);
-          setScriptProgress(0);
-          setDirection(-1);
-          setStep(0);
-          setError("Your photos didn't finish uploading. Please try again.");
-          toast.error("Your photos didn't finish uploading. Please tap Create my video again.");
-          return;
+          // The upload connection can drop mid-transfer (a refresh, or a proxy
+          // resetting a large request), leaving zero images persisted. Verify the
+          // backend actually has them before continuing. We keep the IndexedDB
+          // copy until this check passes, so on failure the user returns to the
+          // prompt with their photos intact to retry, instead of crashing
+          // downstream with "No images to analyze".
+          if (!sessionAfterUpload.images?.length) {
+            console.warn("[useSession] Upload persisted no images, aborting before analyze");
+            setSession(null);
+            setSessionId(null);
+            setScriptProgress(0);
+            setDirection(-1);
+            setStep(0);
+            setError("Your photos didn't finish uploading. Please try again.");
+            toast.error("Your photos didn't finish uploading. Please tap Create my video again.");
+            return;
+          }
+
+          // Photos are safely persisted on the backend now, drop the local copy.
+          try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+
+          setSession(sessionAfterUpload);
+          setScriptProgress(35);
+
+          // Step 3: Start image analysis
+          console.log("[useSession] Starting image analysis...");
+          setScriptProgress(40);
+          const sessionAfterAnalysis = await sessionService.analyzeImages(targetSessionId);
+          console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
+          setSession(sessionAfterAnalysis);
+          setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
+          setScriptProgress(55);
+
+          // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
+          // finish. /analyze submits the jobs and returns immediately, so we have
+          // to poll before generating the script, otherwise the script would be
+          // built from the pre-restyle (e.g. photo) images.
+          console.log("[useSession] Waiting for restyle jobs to complete...");
+          const restyleResult = await sessionService.pollRestyleUntilDone(targetSessionId, {
+            onProgress: (status) => {
+              console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
+              // Map restyle progress into the 55-70 band of the overall progress bar.
+              if (status.total > 0) {
+                const settled = status.complete + status.skipped + status.failed;
+                const ratio = settled / status.total;
+                setScriptProgress(55 + Math.round(ratio * 15));
+              }
+            },
+          });
+          console.log("[useSession] Restyle complete:", restyleResult);
+          if (restyleResult.failed > 0) {
+            toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
+          }
+          setScriptProgress(70);
         }
-
-        // Photos are safely persisted on the backend now, drop the local copy.
-        try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
-
-        setSession(sessionAfterUpload);
-        setScriptProgress(35);
-
-        // Step 3: Start image analysis
-        console.log("[useSession] Starting image analysis...");
-        setScriptProgress(40);
-        const sessionAfterAnalysis = await sessionService.analyzeImages(targetSessionId);
-        console.log("[useSession] Image analysis complete:", sessionAfterAnalysis);
-        setSession(sessionAfterAnalysis);
-        setImageAnalysis(sessionAfterAnalysis.imageAnalysis);
-        setScriptProgress(55);
-
-        // Step 3a: Wait for Flux Kontext restyle jobs (kicked off by /analyze) to
-        // finish. /analyze submits the jobs and returns immediately, so we have
-        // to poll before generating the script, otherwise the script would be
-        // built from the pre-restyle (e.g. photo) images.
-        console.log("[useSession] Waiting for restyle jobs to complete...");
-        const restyleResult = await sessionService.pollRestyleUntilDone(targetSessionId, {
-          onProgress: (status) => {
-            console.log(`[useSession] Restyle progress: ${status.complete}/${status.total} complete, ${status.pending} pending, ${status.failed} failed`);
-            // Map restyle progress into the 55-70 band of the overall progress bar.
-            if (status.total > 0) {
-              const settled = status.complete + status.skipped + status.failed;
-              const ratio = settled / status.total;
-              setScriptProgress(55 + Math.round(ratio * 15));
-            }
-          },
-        });
-        console.log("[useSession] Restyle complete:", restyleResult);
-        if (restyleResult.failed > 0) {
-          toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
-        }
-        setScriptProgress(70);
       }
 
       // Step 4: Generate frame images (if AI generate is selected) BEFORE script generation
@@ -789,7 +807,7 @@ export function useSession() {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, credits, navigate, sessionId, session, refreshCredits]);
+  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, aspectRatio, targetDuration, promptOnly, credits, navigate, sessionId, session, refreshCredits]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -1066,6 +1084,7 @@ export function useSession() {
 
       setSession(updatedSession);
       toast.success("Script approved!");
+      return true;
     } catch (err) {
       console.error("[useSession] approveScript failed:", err);
       console.error("[useSession] Error details:", {
@@ -1074,6 +1093,7 @@ export function useSession() {
         status: err.response?.status,
       });
       toast.error("Failed to approve script");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -1100,8 +1120,10 @@ export function useSession() {
       } else {
         toast.success("Outline approved! Bridge images generated.");
       }
+      return true;
     } catch (err) {
       toast.error("Failed to approve outline");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -1198,6 +1220,7 @@ export function useSession() {
       console.log("[useSession] configureFrames response:", updatedSession);
       setSession(updatedSession);
       toast.success("Frame configuration saved!");
+      return true;
     } catch (err) {
       console.error("[useSession] configureFrames failed:", err);
       console.error("[useSession] Error details:", {
@@ -1206,6 +1229,7 @@ export function useSession() {
         status: err.response?.status,
       });
       toast.error("Failed to configure frames");
+      return false;
     } finally {
       setLoading(false);
     }

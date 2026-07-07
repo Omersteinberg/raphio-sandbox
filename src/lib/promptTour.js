@@ -3,21 +3,11 @@ import { runTour } from "./tourCore";
 // First-run onboarding tours for the creation screen (PromptStep). Two separate
 // tours, one per pipeline mode, mirroring the editor's overview/clip split.
 // Steps target `[data-tour="..."]` anchors in PromptStep.jsx; any step whose
-// anchor isn't in the DOM (e.g. the mode toggle on a resumed session) is dropped
-// by runTour. Parameterized by `isMobile` for future per-platform copy.
+// anchor isn't in the DOM (e.g. the photo upload, which is hidden in prompt-only
+// mode) is dropped by runTour. Parameterized by `isMobile` for future per-platform copy.
 
 export function startImageTour(isMobile) {
   const steps = [
-    {
-      element: '[data-tour="mode-toggle"]',
-      popover: {
-        title: "Two ways to create",
-        description:
-          "Make a video from your own photos, or generate one from references. You're in photo mode.",
-        side: "bottom",
-        align: "center",
-      },
-    },
     {
       element: '[data-tour="prompt"]',
       popover: {
@@ -73,16 +63,6 @@ export function startImageTour(isMobile) {
 
 export function startReferencesTour(isMobile) {
   const steps = [
-    {
-      element: '[data-tour="mode-toggle"]',
-      popover: {
-        title: "References mode",
-        description:
-          "Describe your video, then define reusable characters, settings, logos or products. You're in references mode.",
-        side: "bottom",
-        align: "center",
-      },
-    },
     {
       element: '[data-tour="prompt"]',
       popover: {
