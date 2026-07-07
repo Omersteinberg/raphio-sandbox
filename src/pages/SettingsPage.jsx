@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { PREF_KEYS, getBoolPref, setBoolPref } from "@/lib/preferences";
 
 // ── Design tokens (mirrors MyVideosPage) ──────────────────────────
@@ -92,6 +93,8 @@ function ToggleRow({ title, desc, on, onChange, danger }) {
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+
   // Read persisted flags once into local state; each toggle writes through.
   const [flags, setFlags] = useState(() => {
     const all = [...AUTO_APPROVE_ROWS, GENERATE_ROW];
@@ -106,6 +109,17 @@ export default function SettingsPage() {
   return (
     <div className="h-full w-full overflow-y-auto font-figtree" style={{ background: C.bg }}>
       <div className="mx-auto w-full max-w-2xl px-4 py-8 md:py-12">
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold transition-colors mb-6"
+          style={{ color: C.muted }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = C.terra; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = C.muted; }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
         <h1 className="font-extrabold tracking-tight mb-1" style={{ color: C.dark, fontSize: 28, letterSpacing: "-0.02em" }}>
           Settings
         </h1>

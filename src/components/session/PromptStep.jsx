@@ -4,7 +4,7 @@ import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
-  Loader2, RotateCcw, Mic, Music, ArrowLeft,
+  Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -220,6 +220,23 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   const gradientEnd = isCharacter ? '#E8603C' : isSetting ? '#A855F7' : isLogo ? '#3B82F6' : '#10B981';
 
   const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
+
+  // What this card still needs before it counts as a usable reference. Shown as
+  // a gentle amber footer so it's obvious why the "Create" button stays disabled
+  // (mirrors the red duplicate-name line above). A reference is "complete" when
+  // it has a name AND (an uploaded image or a description), the same test the
+  // parent uses to gate the CTA.
+  const missingParts = [];
+  if (!item.name?.trim()) missingParts.push('a name');
+  if (item.useUpload ? !item.referenceFile : !item.description?.trim()) {
+    missingParts.push(item.useUpload ? 'an uploaded image' : 'a description');
+  }
+  const incompleteHint =
+    missingParts.length === 0
+      ? null
+      : missingParts.length === 1
+        ? `Still needs ${missingParts[0]}`
+        : `Still needs ${missingParts.slice(0, -1).join(', ')} and ${missingParts[missingParts.length - 1]}`;
 
   return (
     <motion.div
@@ -444,6 +461,20 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Incomplete-reference hint: tells the user exactly what's missing on
+            this card so the disabled "Create" button never feels mysterious. */}
+        {incompleteHint && (
+          <div
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+            style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)' }}
+          >
+            <AlertCircle className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} style={{ color: '#B45309' }} />
+            <span className="text-[11px] font-semibold" style={{ color: '#B45309' }}>
+              {incompleteHint}
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -699,6 +730,28 @@ export default function PromptStep({
     : isPromptOnly
     ? userPrompt?.trim() && style && refAffordable
     : userPrompt?.trim() && images?.length > 0 && durationOk && affordable;
+
+  // The concrete list of what still blocks the CTA, so the disabled button's
+  // reason is explicit instead of a vague hint. Credit and duration problems are
+  // deliberately left to the dedicated advisory cards (the references
+  // affordability card and <DurationEstimate>), which carry their own fix
+  // actions, so we never double-report them here.
+  const blockers = [];
+  if (isReferencesMode) {
+    if (!userPrompt?.trim()) blockers.push('Describe your video in the prompt box above');
+    if (!style) blockers.push('Choose a style');
+    const completeRefs = references.filter(
+      (r) => r.name?.trim() && (r.useUpload ? !!r.referenceFile : r.description?.trim())
+    );
+    if (references.length === 0) {
+      blockers.push('Add at least one reference (character, setting, logo, or product)');
+    } else if (completeRefs.length === 0) {
+      blockers.push('Finish a reference: each needs a name plus an image or description');
+    }
+  } else {
+    if (!userPrompt?.trim()) blockers.push('Describe your video in the prompt box above');
+    if (!(images?.length > 0)) blockers.push('Upload at least one photo');
+  }
 
   const wordCount = userPrompt?.trim() ? userPrompt.trim().split(/\s+/).filter(Boolean).length : 0;
 
@@ -1884,11 +1937,10 @@ export default function PromptStep({
                                   </div>
                                 ) : (
                                   <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
                                     <input ref={openingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "opening")} />
                                     {openingFrame.uploadedImage ? (
-                                      <div className="relative inline-block mt-1">
-                                        <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
+                                      <div className="relative">
+                                        <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
                                         <button onClick={() => removeFrameImage("opening")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
@@ -2037,11 +2089,10 @@ export default function PromptStep({
                                   </div>
                                 ) : (
                                   <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Your image</label>
                                     <input ref={closingFileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => handleFrameFileChange(e, "closing")} />
                                     {closingFrame.uploadedImage ? (
-                                      <div className="relative inline-block mt-1">
-                                        <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-32 h-20 object-cover rounded-xl border border-stone-200 shadow-sm" />
+                                      <div className="relative">
+                                        <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
                                         <button onClick={() => removeFrameImage("closing")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
@@ -2220,6 +2271,34 @@ export default function PromptStep({
             </div>
           )}
 
+          {/* "What's left" checklist: spells out exactly why the Create button
+              is disabled, for both modes. Credit and duration problems are
+              covered by their own advisory cards, so they're not repeated here. */}
+          {!loading && blockers.length > 0 && (
+            <div
+              className="rounded-2xl border p-4"
+              style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}
+              role="status"
+              aria-live="polite"
+            >
+              <p className="flex items-center gap-1.5 text-xs font-black mb-2.5" style={{ color: "#B45309" }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2.5} />
+                Before you can continue
+              </p>
+              <ul className="space-y-1.5">
+                {blockers.map((blocker, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs font-semibold" style={{ color: "#92400E" }}>
+                    <span
+                      className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: "#D97706" }}
+                    />
+                    <span>{blocker}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Inline CTA: the only "Create my video" action on the page */}
           <div ref={ctaRef} data-tour="cta" className="w-full sm:max-w-[480px] sm:mx-auto">
             <Button
@@ -2245,13 +2324,15 @@ export default function PromptStep({
               )}
             </Button>
             <p className="text-center text-xs font-bold mt-2" style={{ color: '#9C8F85' }}>
-              {isReferencesMode
-                ? (!refAffordable
-                    ? "Top up your credits to continue"
-                    : "Add your characters and describe your video to get started")
+              {canStart
+                ? "Looks good, create your video"
+                : blockers.length > 0
+                ? "Complete the checklist above to continue"
+                : (isReferencesMode ? !refAffordable : !affordable)
+                ? "Top up your credits to continue"
                 : durationStatus === 'too_many_images'
                 ? "Remove images or choose a longer length to continue"
-                : "Usually ready in 30 to 60 seconds"}
+                : "Getting things ready..."}
             </p>
           </div>
 

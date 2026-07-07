@@ -139,6 +139,18 @@ export default function BuyCreditsPage() {
 
       <div className="max-w-5xl w-full mx-auto pt-6">
 
+        {/* Back */}
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold transition-colors mb-4"
+          style={{ color: C.muted }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = C.terra; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = C.muted; }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-4">
           <h1 className="text-4xl font-extrabold mb-3 leading-tight" style={{ color: C.charcoal }}>

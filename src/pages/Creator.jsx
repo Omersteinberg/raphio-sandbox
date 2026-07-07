@@ -10,7 +10,7 @@ import ModeChooser from "@/components/session/ModeChooser";
 const ENABLED_MODES = ["prompt", "image", "references"];
 
 export default function Creator() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // When resuming a session (?session=&mode=), the session's own pipeline mode is
   // authoritative, otherwise the last-selected "new video" mode (localStorage)
@@ -35,6 +35,12 @@ export default function Creator() {
   const handleModeChange = (mode) => {
     const next = ENABLED_MODES.includes(mode) ? mode : "image";
     localStorage.setItem("raphio_pipeline_mode", next);
+    // Reflect the picked mode in the URL so the selection survives a route
+    // change (e.g. visiting /settings and pressing Back): the /create history
+    // entry then carries ?mode=, which re-initializes `chosen` to true instead
+    // of dropping the user back on the chooser. A bare /create ("New video")
+    // still has no mode param, so it correctly shows the chooser.
+    setSearchParams({ mode: next }, { replace: true });
     setPipelineMode(next);
     setChosen(true);
   };
