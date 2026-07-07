@@ -9,7 +9,7 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h4 className="font-semibold text-ink">{reference.name}</h4>
-          <p className="text-sm text-ink-muted mt-1">{reference.description}</p>
+          {reference.description && <p className="text-sm text-ink-muted mt-1">{reference.description}</p>}
         </div>
         <span
           className="text-xs px-2 py-1 rounded-full"
@@ -50,8 +50,19 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
             ) : reference.lockedUrl ? (
               <img src={reference.lockedUrl} alt="Locked" className="w-full aspect-square object-cover" />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center text-ink-muted text-sm">
-                Processing...
+              // No locked image and nothing running: this reference's generation
+              // was interrupted or failed (e.g. a timed-out/aborted generate left
+              // the session at REF_REFERENCES_ADDED). Offer a retry so the user
+              // isn't stranded on a dead "Processing…" state with no way forward.
+              <div className="w-full aspect-square flex flex-col items-center justify-center gap-2 p-3 text-center">
+                <span className="text-sm text-ink-muted">Generation didn’t finish</span>
+                <button
+                  onClick={() => onRegenerate(reference.id, '')}
+                  className="text-sm px-4 py-2 rounded-lg font-medium text-white transition-all"
+                  style={{ background: 'var(--gradient-brand)' }}
+                >
+                  Retry
+                </button>
               </div>
             )}
           </div>
@@ -159,7 +170,7 @@ export default function ReferenceLockStep({
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h4 className="font-semibold text-ink">{logo.name}</h4>
-                      <p className="text-sm text-ink-muted mt-1">{logo.description}</p>
+                      {logo.description && <p className="text-sm text-ink-muted mt-1">{logo.description}</p>}
                     </div>
                     <span className="text-xs px-2 py-1 rounded-full bg-terra/5 text-terra">
                       Preserved Exactly

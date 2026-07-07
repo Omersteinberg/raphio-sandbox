@@ -6,7 +6,7 @@ export default function FrameGenerationStep({
   sceneFrames,
   scriptData,
   framesLoading,
-  onRegenerate,
+  onRegenerateScript,
   onApprove,
   onDelete,
   onGenerateFrames,
@@ -15,9 +15,14 @@ export default function FrameGenerationStep({
   const [feedbackByIndex, setFeedbackByIndex] = useState({});
   const [regeneratingIndex, setRegeneratingIndex] = useState(null);
 
-  const handleRegenerate = async (index) => {
+  // Regenerate a scene from the user's feedback: the AI rewrites this scene's
+  // script (narration, visual, scene prompt) and re-renders its still. Feedback
+  // is required, so the button stays disabled until the user types what to change.
+  const handleRegenerateFrame = async (index) => {
+    const feedback = (feedbackByIndex[index] || '').trim();
+    if (!feedback) return;
     setRegeneratingIndex(index);
-    await onRegenerate(index, feedbackByIndex[index] || '');
+    await onRegenerateScript(index, feedback);
     setFeedbackByIndex(prev => ({ ...prev, [index]: '' }));
     setRegeneratingIndex(null);
   };
@@ -121,27 +126,33 @@ export default function FrameGenerationStep({
                       const isFailed = frame.status === 'failed' || frame.status === 'error';
                       if (!isDone && !isFailed) return null;
                       const busy = regeneratingIndex === index;
+                      const hasFeedback = !!(feedbackByIndex[index] || '').trim();
+                      // Colored (brand gradient) when the button can be clicked or is
+                      // already working; muted grey when it can't be clicked yet
+                      // (no feedback typed). Gives a clear enabled vs disabled look.
+                      const active = hasFeedback || busy;
                       return (
                         <div className="space-y-2 pt-1 border-t border-border">
                           <input
                             type="text"
                             value={feedbackByIndex[index] || ''}
                             onChange={(e) => setFeedbackByIndex(prev => ({ ...prev, [index]: e.target.value }))}
-                            placeholder={isFailed ? "Optional: guidance for another try..." : "Feedback for regeneration..."}
+                            placeholder={isFailed ? "Describe what to change, then retry..." : "Describe what to change..."}
                             className="w-full bg-surface-alt border border-border rounded px-2 py-1 text-ink/80 text-xs placeholder-gray-400 focus:outline-none focus:border-terra"
                           />
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleRegenerate(index)}
-                              disabled={busy}
-                              className={`flex-1 text-xs py-1.5 rounded transition-colors disabled:opacity-50 ${
-                                isFailed
-                                  ? 'text-white hover:opacity-90'
-                                  : 'bg-surface-alt hover:bg-surface-alt text-ink/80'
+                              onClick={() => handleRegenerateFrame(index)}
+                              disabled={!hasFeedback || busy}
+                              title={hasFeedback ? "Rewrite this scene from your feedback, then re-render the frame" : "Type what to change to enable"}
+                              className={`flex-1 text-xs py-1.5 rounded transition-colors ${
+                                active
+                                  ? 'text-white hover:opacity-90 disabled:opacity-70'
+                                  : 'bg-surface-alt text-ink/40 cursor-not-allowed'
                               }`}
-                              style={isFailed ? { background: 'var(--gradient-brand)' } : undefined}
+                              style={active ? { background: 'var(--gradient-brand)' } : undefined}
                             >
-                              {busy ? (isFailed ? 'Retrying…' : 'Regenerating…') : (isFailed ? 'Retry' : 'Regenerate')}
+                              {busy ? 'Regenerating…' : (isFailed ? 'Retry' : 'Regen frame')}
                             </button>
                             <button
                               onClick={() => onDelete(index)}

@@ -11,7 +11,7 @@ export async function addReference(sessionId, { type, name, description, imageFi
   const formData = new FormData();
   formData.append('type', type);
   formData.append('name', name);
-  formData.append('description', description);
+  formData.append('description', description || '');
   if (imageFile) {
     formData.append('image', imageFile);
   }
@@ -36,6 +36,18 @@ export async function removeReference(sessionId, refId) {
 export async function generateReferenceImage(sessionId, refId) {
   const response = await axios.post(`${API}/${sessionId}/references/${refId}/generate`);
   return response.data;
+}
+
+/**
+ * AI-generate images for ALL references that need it, in a single job-backed
+ * batch. Uses the detached job + poll pattern so a slow image provider can't
+ * time out the HTTP request mid-generation (the failure mode that stranded
+ * sessions at the reference-lock step). Resolves once the batch finishes;
+ * individual refs that fail keep null URLs and are recoverable via Retry.
+ */
+export async function generateAllReferenceImages(sessionId) {
+  await axios.post(`${API}/${sessionId}/references/generate-all`);
+  return await pollJobUntilDone(sessionId);
 }
 
 /**
@@ -95,5 +107,24 @@ export async function regenerateSceneFrame(sessionId, index, { feedback } = {}) 
     `${API}/${sessionId}/references/scene-frames/${index}/regenerate`,
     { feedback }
   );
+  return response.data;
+}
+
+/**
+ * Regenerate a single scene's script (narration/visual/scene prompt) + its frame
+ */
+export async function regenerateSceneFrameScript(sessionId, index, { feedback } = {}) {
+  const response = await axios.post(
+    `${API}/${sessionId}/references/scene-frames/${index}/regenerate-script`,
+    { feedback }
+  );
+  return response.data;
+}
+
+/**
+ * Delete a scene (persists to the backend so the generated video respects it)
+ */
+export async function deleteSceneFrame(sessionId, index) {
+  const response = await axios.delete(`${API}/${sessionId}/references/scene-frames/${index}`);
   return response.data;
 }
