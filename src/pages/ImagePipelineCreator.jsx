@@ -10,6 +10,7 @@ import ProgressChecklist from "@/components/session/ProgressChecklist";
 import { buildImageTasks } from "@/lib/journeyTasks";
 import { buildScriptTasks, buildVideoTasks } from "@/lib/progressTasks";
 import { getAutoApprove } from "@/lib/preferences";
+import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -146,6 +147,21 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
               })
           );
           if (files.length > 0) addImages(files);
+        }
+        // Restore saved frame defaults. Skipped when resuming an existing
+        // session (?session=): the session's own frames load from the
+        // backend. The pending draft above doesn't carry frames, so there is
+        // no overlap; draft prompt/style still win over saved defaults.
+        if (!new URLSearchParams(window.location.search).has("session")) {
+          const savedFrames = await loadSavedFrames();
+          if (!cancelled && savedFrames.opening) {
+            const config = await hydrateFrameConfig(savedFrames.opening);
+            if (!cancelled) setOpeningFrame(config);
+          }
+          if (!cancelled && savedFrames.closing) {
+            const config = await hydrateFrameConfig(savedFrames.closing);
+            if (!cancelled) setClosingFrame(config);
+          }
         }
       } catch (err) {
         console.warn("[ImagePipelineCreator] rehydrate failed:", err);
@@ -335,6 +351,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
           loading={loading}
           images={images}
           onNext={handleNext}
+          pipelineMode={mode}
           openingFrame={openingFrame}
           closingFrame={closingFrame}
           generatedFrameImages={generatedFrameImages}
@@ -360,6 +377,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
           loading={loading}
           images={images}
           onNext={handleNext}
+          pipelineMode={mode}
           openingFrame={openingFrame}
           closingFrame={closingFrame}
           generatedFrameImages={generatedFrameImages}

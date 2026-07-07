@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
+import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
 
@@ -43,12 +44,16 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
 
   // ── Form state ─────────────────────────────────────────────────────
   const [userPrompt, setUserPrompt] = useState("");
-  const [style, setStyle] = useState("realistic");
-  const [targetDuration, setTargetDuration] = useState(30);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [voiceId, setVoiceId] = useState("adam");
+  // Last-used creation choices (saved defaults) — read once on mount. The
+  // references pipeline supports the full style palette, so no style
+  // validation here (unlike useSession.js).
+  const [savedDefaults] = useState(getCreationDefaults);
+  const [style, setStyle] = useState(savedDefaults.style);
+  const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
+  const [aspectRatio, setAspectRatio] = useState(savedDefaults.aspectRatio);
+  const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
   const [videoModel, setVideoModel] = useState("KLING");
-  const [backgroundMusic, setBackgroundMusic] = useState(true);
+  const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
 
   // ── Script state ───────────────────────────────────────────────────
   const [scriptData, setScriptData] = useState(null);
@@ -60,6 +65,12 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
   const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [generationError, setGenerationError] = useState(null);
+
+  // Auto-save last-used choices so the next new video starts from them.
+  // Also fires when a resumed session loads its values ("last touched wins").
+  useEffect(() => {
+    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic });
+  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic]);
 
   // ── Sync sessionId to URL so refresh restores the session ──────────
   useEffect(() => {
@@ -493,11 +504,16 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
     setSession(null);
     setDirection(0);
     setUserPrompt("");
-    setStyle("cinematic");
-    setAspectRatio("16:9");
-    setVoiceId("adam");
+    // Restore saved defaults, not factory values — otherwise the auto-save
+    // effect would overwrite the user's saved choices on every reset. (This
+    // also aligns the reset style with the mount default; it was "cinematic"
+    // here but "realistic" on mount.)
+    const defaults = getCreationDefaults();
+    setStyle(defaults.style);
+    setAspectRatio(defaults.aspectRatio);
+    setVoiceId(defaults.voiceId);
     setVideoModel("KLING");
-    setBackgroundMusic(true);
+    setBackgroundMusic(defaults.backgroundMusic);
     setScriptData(null);
     setEditRequest("");
     setScriptProgress(0);

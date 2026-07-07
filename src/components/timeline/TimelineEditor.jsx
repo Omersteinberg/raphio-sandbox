@@ -25,7 +25,8 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { startOverviewTour, startClipTour } from "@/lib/editorTour";
-import { tourSeen, markTourSeen, clearTourSeen, TOUR_KEYS } from "@/lib/tourState";
+import { TOUR_KEYS } from "@/lib/tourState";
+import { useStepTour } from "@/lib/useStepTour";
 import { estimatedProgress } from "@/lib/progressEstimate";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
 import * as sessionService from "@/services/session";
@@ -168,47 +169,25 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     timeline.removeItem, timeline.zoomIn, timeline.zoomOut, timeline.play, timeline.pause,
   ]);
 
-  // Interactive onboarding tours (driver.js). Fire-once guards live in refs so a
-  // re-render can't re-trigger them.
-  const overviewShownRef = useRef(false);
-  const clipTourShownRef = useRef(false);
+  // Interactive onboarding tours (driver.js), managed by useStepTour.
+  // Overview: first editor entry only. Clip: the first time a clip is ever
+  // selected; `enabled` passes the raw selected id so that, after rearm(),
+  // the next selection change fires it again.
+  const overviewTour = useStepTour(TOUR_KEYS.editorOverview, startOverviewTour, {
+    enabled: !timeline.loading && !!timeline.timeline,
+    isMobile,
+  });
+  const clipTour = useStepTour(TOUR_KEYS.editorClip, startClipTour, {
+    enabled: timeline.selectedItem,
+    delay: 250,
+    isMobile,
+  });
 
-  // Overview tour: first editor entry only (persisted in localStorage). After
-  // that it won't auto-run again — the "How to use" button replays it on demand.
-  // Wait a frame so the anchors are painted before driver.js measures them.
-  useEffect(() => {
-    if (overviewShownRef.current) return;
-    if (timeline.loading || !timeline.timeline) return;
-    overviewShownRef.current = true; // once per mount, regardless
-    if (tourSeen(TOUR_KEYS.editorOverview)) return; // already seen — don't auto-run
-    const id = window.setTimeout(() => {
-      startOverviewTour(isMobile);
-      markTourSeen(TOUR_KEYS.editorOverview);
-    }, 350);
-    return () => window.clearTimeout(id);
-  }, [timeline.loading, timeline.timeline, isMobile]);
-
-  // Clip tour: the first time a clip is ever selected (persisted). It won't
-  // repeat on later clip selections — only the "How to use" button re-arms it.
-  useEffect(() => {
-    if (clipTourShownRef.current) return;
-    if (!timeline.selectedItem) return;
-    clipTourShownRef.current = true; // once per mount
-    if (tourSeen(TOUR_KEYS.editorClip)) return; // already seen — don't repeat
-    const id = window.setTimeout(() => {
-      startClipTour(isMobile);
-      markTourSeen(TOUR_KEYS.editorClip);
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [timeline.selectedItem, isMobile]);
-
-  // "How to use" button: replay the overview now, and re-arm the clip tour so it
-  // shows again the next time a clip is selected (the only way to see the tours
-  // again after the first run).
+  // "How to use" button: replay the overview now, and re-arm the clip tour so
+  // it shows again the next time a clip is selected.
   const handleReplayTour = () => {
-    clipTourShownRef.current = false;
-    clearTourSeen(TOUR_KEYS.editorClip);
-    startOverviewTour(isMobile);
+    clipTour.rearm();
+    overviewTour.replay();
   };
 
   // Commit a playback speed for the selected clip. Re-times its timeline length

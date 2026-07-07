@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
+import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
+import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
 // IndexedDB as data URLs (not raw File handles) because a File restored from
@@ -66,6 +68,14 @@ function getStageToStep(bridgesEnabled) {
   };
 }
 
+// Image pipeline only supports original 4 styles
+const IMAGE_PIPELINE_STYLES = ['realistic', 'animated', 'cinematic', 'surreal'];
+
+// A saved style can come from the references pipeline (full palette); the
+// image pipeline falls back rather than starting on an unsupported style.
+function imageSafeStyle(style) {
+  return IMAGE_PIPELINE_STYLES.includes(style) ? style : "realistic";
+}
 
 export function useSession({ promptOnly = false } = {}) {
   const navigate = useNavigate();
@@ -86,12 +96,14 @@ export function useSession({ promptOnly = false } = {}) {
 
   // Form state
   const [userPrompt, setUserPrompt] = useState("");
-  const [style, setStyle] = useState("realistic");
-  const [targetDuration, setTargetDuration] = useState(30);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [voiceId, setVoiceId] = useState("adam");
+  // Last-used creation choices (saved defaults) — read once on mount.
+  const [savedDefaults] = useState(getCreationDefaults);
+  const [style, setStyle] = useState(() => imageSafeStyle(savedDefaults.style));
+  const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
+  const [aspectRatio, setAspectRatio] = useState(savedDefaults.aspectRatio);
+  const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
   const [videoModel, setVideoModel] = useState("KLING");
-  const [backgroundMusic, setBackgroundMusic] = useState(true);
+  const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
   const [enableBridges, setEnableBridges] = useState(false);
 
   // Images state
@@ -130,6 +142,30 @@ export function useSession({ promptOnly = false } = {}) {
     opening: null, // { imageUrl, prompt }
     closing: null, // { imageUrl, prompt }
   });
+
+  // Auto-save last-used choices so the next new video starts from them.
+  // Also fires when a resumed session loads its values ("last touched wins").
+  useEffect(() => {
+    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic });
+  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic]);
+
+  // Persist frame configs (incl. the uploaded image's data URL) as defaults
+  // for the next video. Empty configs are skipped: the mount-time initial
+  // state and reset() would otherwise wipe the saved frames before the
+  // restore in ImagePipelineCreator applies them.
+  useEffect(() => {
+    if (isEmptyFrame(openingFrame)) return;
+    saveSavedFrame("opening", toSavedFrame(openingFrame)).catch((err) =>
+      console.warn("[useSession] frame autosave failed:", err)
+    );
+  }, [openingFrame]);
+
+  useEffect(() => {
+    if (isEmptyFrame(closingFrame)) return;
+    saveSavedFrame("closing", toSavedFrame(closingFrame)).catch((err) =>
+      console.warn("[useSession] frame autosave failed:", err)
+    );
+  }, [closingFrame]);
 
   // Generation state
   const [generationProgress, setGenerationProgress] = useState(null);
@@ -185,9 +221,6 @@ export function useSession({ promptOnly = false } = {}) {
 
   // Style options (fetched from API)
   const [styleOptions, setStyleOptions] = useState([]);
-
-  // Image pipeline only supports original 4 styles
-  const IMAGE_PIPELINE_STYLES = ['realistic', 'animated', 'cinematic', 'surreal'];
 
   useEffect(() => {
     fetchStyles()
@@ -1492,10 +1525,11 @@ export function useSession({ promptOnly = false } = {}) {
     setStep(0);
     setDirection(0);
     setUserPrompt("");
-    setStyle("realistic");
-    setVoiceId("adam");
+    const defaults = getCreationDefaults();
+    setStyle(imageSafeStyle(defaults.style));
+    setVoiceId(defaults.voiceId);
     setVideoModel("KLING");
-    setBackgroundMusic(true);
+    setBackgroundMusic(defaults.backgroundMusic);
     setEnableBridges(false);
     setImages([]);
     setImageAnalysis(null);
