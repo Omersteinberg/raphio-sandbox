@@ -29,7 +29,9 @@ import { saveReturnTo } from "@/lib/returnTo";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { startImageTour, startReferencesTour } from "@/lib/promptTour";
-import { tourSeen, markTourSeen, TOUR_KEYS } from "@/lib/tourState";
+import { TOUR_KEYS } from "@/lib/tourState";
+import { useStepTour } from "@/lib/useStepTour";
+import HelpFab from "@/components/ui/HelpFab";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -604,35 +606,17 @@ export default function PromptStep({
     prevImagesLengthRef.current = currentLength;
   }, [images?.length]);
 
-  // First-run onboarding tour for this creation screen. Auto-runs once per mode
-  // (persisted in localStorage) and only for a fresh creation: the parent passes
-  // `onModeChange` only when there's no session yet, so resuming a draft never
-  // triggers it. Switching modes remounts this component (Creator swaps the two
-  // pipeline creators), so each mode shows its own tour on first entry. Wait a
-  // frame so the [data-tour] anchors are painted before driver.js measures them.
-  const tourShownRef = useRef(false);
-  useEffect(() => {
-    if (tourShownRef.current) return;
-    if (!onModeChange) return; // resumed session, or no toggle: skip
-    tourShownRef.current = true; // once per mount
-    const key = isReferencesMode ? TOUR_KEYS.promptReferences : TOUR_KEYS.promptImage;
-    if (tourSeen(key)) return; // already seen
-    const isMobile = window.innerWidth < 768;
-    const start = isReferencesMode ? startReferencesTour : startImageTour;
-    const id = window.setTimeout(() => {
-      start(isMobile);
-      markTourSeen(key);
-    }, 350);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // "How to use" button: replay the current mode's tour on demand. Unlike the
-  // auto-run above, this ignores the localStorage guard so it always shows.
-  const handleShowTour = () => {
-    const isMobile = window.innerWidth < 768;
-    (isReferencesMode ? startReferencesTour : startImageTour)(isMobile);
-  };
+  // First-run onboarding tour for this creation screen. Auto-runs once per
+  // mode (persisted) and only for a fresh creation: the parent passes
+  // `onModeChange` only when there's no session yet, so resuming a draft
+  // never triggers it. Switching modes remounts this component (Creator swaps
+  // the two pipeline creators), so each mode shows its own tour on first
+  // entry. The help FAB replays it via promptTour.replay.
+  const promptTour = useStepTour(
+    isReferencesMode ? TOUR_KEYS.promptReferences : TOUR_KEYS.promptImage,
+    isReferencesMode ? startReferencesTour : startImageTour,
+    { enabled: !!onModeChange }
+  );
 
   const handleFrameFileChange = (e, frameType) => {
     const file = validateImageFile(e.target.files?.[0]);
@@ -748,6 +732,9 @@ export default function PromptStep({
     } else if (completeRefs.length === 0) {
       blockers.push('Finish a reference: each needs a name plus an image or description');
     }
+  } else if (isPromptOnly) {
+    if (!userPrompt?.trim()) blockers.push('Describe your video in the prompt box above');
+    if (!style) blockers.push('Choose a style');
   } else {
     if (!userPrompt?.trim()) blockers.push('Describe your video in the prompt box above');
     if (!(images?.length > 0)) blockers.push('Upload at least one photo');
@@ -847,19 +834,8 @@ export default function PromptStep({
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
 
-      {/* Help FAB: fixed to the bottom-right, replays the current mode's tour.
-          `data-tour="help"` lets the tour's final step point back at it. */}
-      <button
-        onClick={handleShowTour}
-        aria-label="How to use"
-        data-tour="help"
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 6px 20px rgba(193,68,14,0.45)', transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(193,68,14,0.55)'; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(193,68,14,0.45)'; }}
-      >
-        <HelpCircle className="w-7 h-7" strokeWidth={2.5} />
-      </button>
+      {/* Help FAB: replays the current mode's tour on demand. */}
+      <HelpFab onClick={promptTour.replay} />
 
       {/* Change mode: return to the 3-card chooser (fresh session only). Anchored
           to the top-left of the creator canvas (this root is position:relative),
@@ -995,7 +971,9 @@ export default function PromptStep({
                   onChange={(e) => setUserPrompt(e.target.value)}
                   references={imageMentionItems}
                   title="Your scenes"
-                  placeholder="e.g. A warm birthday montage from our photos. Type @ to add a scene."
+                  placeholder={isPromptOnly
+                    ? "e.g. A cinematic reveal of a handcrafted watch in a sunlit workshop, warm and hopeful."
+                    : "e.g. A warm birthday montage from our photos. Type @ to add a scene."}
                   className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
                   style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
                 />

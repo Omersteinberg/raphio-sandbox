@@ -10,6 +10,9 @@ export const TOUR_KEYS = {
   myVideos: "myVideos:v1",
   promptImage: "promptImage:v1",
   promptReferences: "promptReferences:v1",
+  scriptReview: "scriptReview:v1",
+  referenceLock: "referenceLock:v1",
+  sceneFrames: "sceneFrames:v1",
 };
 
 export function tourSeen(key) {

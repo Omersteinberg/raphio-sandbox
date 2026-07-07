@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import HelpFab from '@/components/ui/HelpFab';
+import { useStepTour } from '@/lib/useStepTour';
+import { TOUR_KEYS } from '@/lib/tourState';
+import { startReferenceLockTour } from '@/lib/referencesTour';
 
-function ReferenceCard({ reference, isLoading, onRegenerate }) {
+function ReferenceCard({ reference, isLoading, onRegenerate, dataTour }) {
   const [feedback, setFeedback] = useState('');
 
   return (
-    <div className="border border-border rounded-xl p-4 bg-white">
+    <div className="border border-border rounded-xl p-4 bg-white" data-tour={dataTour}>
       <div className="flex items-center justify-between mb-3">
         <div>
           <h4 className="font-semibold text-ink">{reference.name}</h4>
@@ -71,7 +75,7 @@ function ReferenceCard({ reference, isLoading, onRegenerate }) {
 
       {/* Regenerate feedback */}
       {reference.lockedUrl && !isLoading && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex gap-2" data-tour={dataTour ? 'ref-regen' : undefined}>
           <input
             type="text"
             value={feedback}
@@ -101,6 +105,24 @@ export default function ReferenceLockStep({
   onRegenerate,
   loading,
 }) {
+  // Hoisted above the early return: the tour hook must run unconditionally.
+  const allRefs = [
+    ...(referenceData?.characters || []),
+    ...(referenceData?.settings || []),
+    ...(referenceData?.logos || []),
+  ];
+  const allLocked = allRefs.every(r => r.lockedUrl);
+  // Fire only when every reference is locked and nothing is regenerating:
+  // before that the regenerate rows and Approve All button don't exist, and
+  // the user is just watching spinners.
+  const tourReady = allRefs.length > 0 && allLocked && lockLoading.size === 0;
+  // First rendered card: render order (characters, settings, logos) matches
+  // allRefs order, so allRefs[0] is the top-left card on screen.
+  const firstRefId = allRefs[0]?.id;
+  const lockTour = useStepTour(TOUR_KEYS.referenceLock, startReferenceLockTour, {
+    enabled: tourReady,
+  });
+
   if (!referenceData) {
     return (
       <div className="flex items-center justify-center h-full text-ink-muted">
@@ -108,9 +130,6 @@ export default function ReferenceLockStep({
       </div>
     );
   }
-
-  const allRefs = [...(referenceData.characters || []), ...(referenceData.settings || []), ...(referenceData.logos || [])];
-  const allLocked = allRefs.every(r => r.lockedUrl);
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
@@ -137,6 +156,7 @@ export default function ReferenceLockStep({
                   reference={char}
                   isLoading={lockLoading.has('__all__') || lockLoading.has(char.id)}
                   onRegenerate={onRegenerate}
+                  dataTour={char.id === firstRefId ? 'ref-card' : undefined}
                 />
               ))}
             </div>
@@ -154,6 +174,7 @@ export default function ReferenceLockStep({
                   reference={setting}
                   isLoading={lockLoading.has('__all__') || lockLoading.has(setting.id)}
                   onRegenerate={onRegenerate}
+                  dataTour={setting.id === firstRefId ? 'ref-card' : undefined}
                 />
               ))}
             </div>
@@ -166,7 +187,7 @@ export default function ReferenceLockStep({
             <h3 className="text-lg font-semibold text-ink mb-3">Logos</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {referenceData.logos.map((logo) => (
-                <div key={logo.id} className="border border-border rounded-xl p-4 bg-white">
+                <div key={logo.id} className="border border-border rounded-xl p-4 bg-white" data-tour={logo.id === firstRefId ? 'ref-card' : undefined}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h4 className="font-semibold text-ink">{logo.name}</h4>
@@ -200,6 +221,7 @@ export default function ReferenceLockStep({
             <button
               onClick={onApproveAll}
               disabled={loading}
+              data-tour="ref-approve"
               className="px-8 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
               style={{ background: "var(--gradient-brand)" }}
             >
@@ -208,6 +230,8 @@ export default function ReferenceLockStep({
           </div>
         )}
       </motion.div>
+
+      {tourReady && <HelpFab onClick={lockTour.replay} />}
     </div>
   );
 }

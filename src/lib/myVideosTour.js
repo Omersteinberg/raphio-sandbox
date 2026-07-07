@@ -78,7 +78,8 @@ function startDesktopTour() {
       element: '[data-tour="nav-account"]',
       popover: {
         title: "Your account",
-        description: "Manage your account and sign out from this menu.",
+        description:
+          "Manage your account and sign out from this menu. Settings lives here too, where you can auto-approve review steps to skip the pauses.",
         side: "bottom",
         align: "end",
       },
@@ -170,6 +171,16 @@ function startMobileTour() {
       popover: {
         title: "My Videos",
         description: "Your video library — you're here now.",
+        side: "left",
+        align: "start",
+      },
+    },
+    {
+      element: '[data-tour="drawer-settings"]',
+      popover: {
+        title: "Settings",
+        description:
+          "Auto-approve review steps here if you'd rather skip the pauses while your video generates.",
         side: "left",
         align: "start",
       },

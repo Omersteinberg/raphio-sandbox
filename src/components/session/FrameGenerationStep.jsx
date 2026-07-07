@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import ProgressChecklist from '@/components/session/ProgressChecklist';
+import HelpFab from '@/components/ui/HelpFab';
+import { useStepTour } from '@/lib/useStepTour';
+import { TOUR_KEYS } from '@/lib/tourState';
+import { startSceneFramesTour } from '@/lib/referencesTour';
 
 export default function FrameGenerationStep({
   sceneFrames,
@@ -28,6 +32,12 @@ export default function FrameGenerationStep({
   };
 
   const allFramesComplete = sceneFrames.length > 0 && sceneFrames.every(f => f.status === 'completed' || f.status === 'success');
+
+  // First-run tour of the scene-frames review. Fires only when every frame
+  // finished: that is when the per-card actions and Approve button exist.
+  const framesTour = useStepTour(TOUR_KEYS.sceneFrames, startSceneFramesTour, {
+    enabled: allFramesComplete,
+  });
 
   // Scene frames auto-generate on entry. While generating, show the same shared
   // checklist as the rest of the journey (consistent progress UI).
@@ -80,6 +90,7 @@ export default function FrameGenerationStep({
               return (
                 <div
                   key={index}
+                  data-tour={index === 0 ? 'frame-card' : undefined}
                   className="border border-border rounded-xl overflow-hidden bg-white shadow-sm"
                 >
                   {/* Image */}
@@ -132,7 +143,7 @@ export default function FrameGenerationStep({
                       // (no feedback typed). Gives a clear enabled vs disabled look.
                       const active = hasFeedback || busy;
                       return (
-                        <div className="space-y-2 pt-1 border-t border-border">
+                        <div className="space-y-2 pt-1 border-t border-border" data-tour={index === 0 ? 'frame-regen' : undefined}>
                           <input
                             type="text"
                             value={feedbackByIndex[index] || ''}
@@ -157,6 +168,7 @@ export default function FrameGenerationStep({
                             <button
                               onClick={() => onDelete(index)}
                               disabled={sceneFrames.length <= 2 || busy}
+                              data-tour={index === 0 ? 'frame-delete' : undefined}
                               className="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded transition-colors disabled:opacity-30"
                             >
                               Delete
@@ -182,6 +194,7 @@ export default function FrameGenerationStep({
         {allFramesComplete && (
           <button
             onClick={onApprove}
+            data-tour="frames-approve"
             className="w-full text-white font-medium py-3 rounded-xl transition-opacity hover:opacity-90"
             style={{ background: "var(--gradient-brand)" }}
           >
@@ -189,6 +202,8 @@ export default function FrameGenerationStep({
           </button>
         )}
       </div>
+
+      {allFramesComplete && <HelpFab onClick={framesTour.replay} />}
     </div>
   );
 }

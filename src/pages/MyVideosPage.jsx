@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Video, ArrowRight, LayoutGrid,
-  List, ChevronRight, SlidersHorizontal, HelpCircle, Clock
+  List, ChevronRight, SlidersHorizontal, Clock
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listSessions } from "@/services/session";
@@ -12,7 +12,9 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { STYLE_OPTIONS } from "@/constants/styles";
 import VideoCard from "@/components/videos/VideoCard";
 import { startMyVideosTour } from "@/lib/myVideosTour";
-import { tourSeen, markTourSeen, TOUR_KEYS } from "@/lib/tourState";
+import { TOUR_KEYS } from "@/lib/tourState";
+import { useStepTour } from "@/lib/useStepTour";
+import HelpFab from "@/components/ui/HelpFab";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const C = {
@@ -541,7 +543,6 @@ export default function MyVideosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const tourStartedRef = useRef(false);
 
   const [activeTab,       setActiveTab]       = useState("completed");
   const [sessions,        setSessions]        = useState([]);
@@ -602,16 +603,11 @@ export default function MyVideosPage() {
   // First-run onboarding tour for users who just signed up (no videos yet).
   // Runs once (persisted), after the welcome state + header have settled. On
   // mobile the tour opens/closes the nav drawer itself (see myVideosTour.js).
-  useEffect(() => {
-    if (!checkedNew || !isNewUser) return;
-    if (tourStartedRef.current || tourSeen(TOUR_KEYS.myVideos)) return;
-    tourStartedRef.current = true;
-    const t = setTimeout(() => {
-      markTourSeen(TOUR_KEYS.myVideos);
-      startMyVideosTour(isMobile);
-    }, 650);
-    return () => clearTimeout(t);
-  }, [checkedNew, isNewUser, isMobile]);
+  const myVideosTour = useStepTour(TOUR_KEYS.myVideos, startMyVideosTour, {
+    enabled: checkedNew && isNewUser,
+    delay: 650,
+    isMobile,
+  });
 
   const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
   const handleCardClick = session => {
@@ -774,20 +770,8 @@ export default function MyVideosPage() {
         </AnimatePresence>
       </div>
 
-      {/* Help FAB — same design as the Create screen's help button (bottom-right
-          gradient circle) for a consistent look; replays the tour on demand.
-          `data-tour="help"` lets the tour's final step point back at it. */}
-      <button
-        onClick={() => startMyVideosTour(isMobile)}
-        aria-label="How to use"
-        data-tour="help"
-        className="fixed bottom-5 right-5 z-50 w-11 h-11 rounded-full flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 4px 14px rgba(193,68,14,0.42)', transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(193,68,14,0.52)'; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; }}
-      >
-        <HelpCircle className="w-5 h-5" strokeWidth={2.5} />
-      </button>
+      {/* Help FAB: replays the tour on demand (shared HelpFab component). */}
+      <HelpFab onClick={myVideosTour.replay} />
     </div>
   );
 }

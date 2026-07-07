@@ -6,6 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import BridgeSectionCard from "./BridgeSectionCard";
+import HelpFab from "@/components/ui/HelpFab";
+import { useStepTour } from "@/lib/useStepTour";
+import { TOUR_KEYS } from "@/lib/tourState";
+import { startScriptReviewTour } from "@/lib/scriptTour";
 
 export default function ScriptStep({
   scriptData,
@@ -31,6 +35,10 @@ export default function ScriptStep({
   scriptGenFailed,
 }) {
   const isReferencesPipeline = pipelineMode === "references";
+  // Prompt-only (T2V) sections have no source photos, so the per-section
+  // image column would only ever show an empty "Add Image" placeholder.
+  const isPromptOnly = pipelineMode === "prompt";
+  const showImageColumn = !isReferencesPipeline && !isPromptOnly;
   const [editingSection, setEditingSection] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(null);
@@ -45,6 +53,13 @@ export default function ScriptStep({
   const hasBridgeFailures = (scriptData?.sections || []).some(
     s => s.source === "bridge" && s.bridgeStatus === "failed"
   );
+
+  // First-run tour of the script review UI. Not for the bridges phase (a
+  // different UI), the pre-generation empty state, or after approval.
+  const scriptTourEnabled = isGenerated && !isApproved && phase !== "bridges";
+  const scriptTour = useStepTour(TOUR_KEYS.scriptReview, startScriptReviewTour, {
+    enabled: scriptTourEnabled,
+  });
 
   console.log("[ScriptStep] render, scriptData:", scriptData);
   console.log("[ScriptStep] render, scriptData?.sections:", scriptData?.sections);
@@ -136,7 +151,7 @@ export default function ScriptStep({
             </p>
           </div>
           {isGenerated && !isApproved && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="script-approve">
               {isReferencesPipeline ? (
                 <Button
                   onClick={approveScript}
@@ -228,7 +243,7 @@ export default function ScriptStep({
             </Button>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4" data-tour="script-sections">
             {/* Opening Frame - optional; shown only when the script has one (hidden for references pipeline) */}
             {!isReferencesPipeline && hasOpening && (
               <motion.div
@@ -384,8 +399,8 @@ export default function ScriptStep({
                   }`}
                 >
                   <div className="flex gap-4">
-                    {/* Image Thumbnail: hidden for references pipeline */}
-                    {!isReferencesPipeline && (
+                    {/* Image Thumbnail: hidden for references + prompt-only pipelines */}
+                    {showImageColumn && (
                     <div className="flex-shrink-0">
                       {sectionImage ? (
                         <div className="relative group">
@@ -435,6 +450,7 @@ export default function ScriptStep({
                           <Button
                             variant="ghost"
                             size="sm"
+                            data-tour={contentIndex === 0 ? "script-edit" : undefined}
                             onClick={() => setEditingSection(editingSection === originalIndex ? null : originalIndex)}
                           >
                             <Edit3 className="w-4 h-4" />
@@ -630,6 +646,12 @@ export default function ScriptStep({
         )}
       </div>
 
+      {/* Help FAB: replays the script review tour. Stacked above the
+          Edit-with-AI FAB on compact screens, standard corner on desktop. */}
+      {scriptTourEnabled && (
+        <HelpFab onClick={scriptTour.replay} positionClass="bottom-24 right-6 lg:bottom-6" />
+      )}
+
       {/* Mobile backdrop for the AI editor sheet */}
       {isCompact && aiModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setAiModalOpen(false)} />
@@ -638,6 +660,7 @@ export default function ScriptStep({
       {/* Right Side - AI Edit / Bridge Status.
           Desktop (lg+): inline sidebar. Mobile (<lg): a bottom-sheet opened by the FAB. */}
       <div
+        data-tour="script-ai"
         className={
           isCompact
             ? `${aiModalOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl shadow-2xl flex-col bg-surface-alt p-6`
@@ -772,6 +795,7 @@ export default function ScriptStep({
       {isCompact && showAiFab && !aiModalOpen && (
         <button
           onClick={() => setAiModalOpen(true)}
+          data-tour="script-ai-fab"
           className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 h-12 rounded-full text-white shadow-lg"
           style={{ background: "var(--gradient-brand)" }}
         >

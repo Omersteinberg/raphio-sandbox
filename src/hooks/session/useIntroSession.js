@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { toast } from "react-toastify";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
+import { getCreationDefaults } from "@/lib/preferences";
 
 // Map backend intro-pipeline stages to frontend step numbers.
 const INTRO_STAGE_TO_STEP = {
@@ -34,6 +35,7 @@ export function useIntroSession() {
     sessionId, setSessionId, session, setSession,
     setDirection, setLoading, setError,
     voiceId, setVoiceId,
+    aspectRatio, setAspectRatio,
     setScriptProgress, setFinalVideoUrl,
     navigate, credits,
     startGeneration: baseStartGeneration,
@@ -46,7 +48,8 @@ export function useIntroSession() {
   const [description, setDescription] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [style, setStyle] = useState("cinematic");
-  const [aspectRatio, setAspectRatio] = useState("16:9");
+  // aspectRatio comes from useSessionBase (shared saved default + auto-save);
+  // style stays intro-specific ("cinematic") and is intentionally not persisted.
   const [showcaseFiles, setShowcaseFiles] = useState([]);
 
   // Script state
@@ -216,7 +219,7 @@ export function useIntroSession() {
     setDescription("");
     setTargetAudience("");
     setStyle("cinematic");
-    setAspectRatio("16:9");
+    setAspectRatio(getCreationDefaults().aspectRatio);
     setShowcaseFiles([]);
     setIntroScript(EMPTY_SCRIPT);
     setEditRequest("");
