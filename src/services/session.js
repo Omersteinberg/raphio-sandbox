@@ -1,6 +1,5 @@
 import axios from "./api.js";
 import { API_BASE as BASE } from "../config.js";
-import { getAutoApprove } from "../lib/preferences.js";
 
 const API_BASE = `${BASE}/video`;
 
@@ -30,10 +29,9 @@ export async function startSession({ userPrompt, style, voiceId, pipelineMode, e
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
-    // Snapshot the user's auto-approve toggles so the backend can skip the
-    // "step ready" review emails for steps they chose to auto-approve. Sent for
-    // every mode (image/prompt/references/intro) since they all use this call.
-    autoApprove: getAutoApprove(),
+    // Auto-approve toggles are no longer sent from the client — the backend
+    // snapshots them from the user's saved settings (setting_preference) when
+    // the session is created.
   };
   
   console.log("[sessionService] POST", url);

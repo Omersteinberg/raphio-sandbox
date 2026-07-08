@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import PromptMentionField from "./PromptMentionField";
 import VoiceSelector from "./VoiceSelector";
+import AutoApproveIntroModal from "./AutoApproveIntroModal";
 import { scorePrompt } from "@/lib/promptStrength";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
@@ -32,6 +33,7 @@ import { startImageTour, startReferencesTour } from "@/lib/promptTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 import HelpFab from "@/components/ui/HelpFab";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -537,6 +539,9 @@ export default function PromptStep({
   // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
   // photo upload, advanced settings, and image-count duration advisory.
   const isPromptOnly = pipelineMode === 'prompt';
+  // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
+  // (so page scrolling still works), so the hint must tell users to hold first.
+  const isMobile = useIsMobile();
   const [showInspiration, setShowInspiration] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [editingLabel, setEditingLabel] = useState(null);
@@ -561,7 +566,16 @@ export default function PromptStep({
   // Affordability reported by <DurationEstimate>. Defaults true so the CTA isn't
   // blocked before an estimate resolves; flips false only when cost > balance.
   const [affordable, setAffordable] = useState(true);
-  const { credits } = useAuth();
+  const {
+    credits,
+    updateAutoApprove,
+    autoApproveIntroSeen,
+    markAutoApproveIntroSeen,
+    settingsReady,
+  } = useAuth();
+  // One-time "approve everything automatically" modal, gating the very first
+  // generation (see handleStart / handleAutoApproveConfirm below).
+  const [showAutoApproveModal, setShowAutoApproveModal] = useState(false);
   const navigate = useNavigate();
   const handleTopUp = () => {
     saveReturnTo(window.location.pathname + window.location.search);
@@ -681,6 +695,32 @@ export default function PromptStep({
 
   const handleStart = () => {
     console.log("[PromptStep] Start button clicked");
+    // First video ever: offer the one-time "approve everything" modal before we
+    // kick off generation. Only gate once settings have loaded, so returning
+    // users who've already dismissed it are never nagged on a slow load.
+    if (settingsReady && !autoApproveIntroSeen) {
+      setShowAutoApproveModal(true);
+      return;
+    }
+    onStart();
+  };
+
+  // The user answered the one-time modal. `enableAll` turns on every auto-approve
+  // toggle (including the credit-spending final generate). Either way we record
+  // that they've seen it, then proceed into generation. We persist the toggles
+  // BEFORE onStart() because the backend snapshots them when the session starts.
+  const handleAutoApproveConfirm = async (enableAll) => {
+    setShowAutoApproveModal(false);
+    markAutoApproveIntroSeen();
+    if (enableAll) {
+      await updateAutoApprove({
+        references: true,
+        script: true,
+        bridges: true,
+        frames: true,
+        generate: true,
+      });
+    }
     onStart();
   };
 
@@ -836,6 +876,11 @@ export default function PromptStep({
 
       {/* Help FAB: replays the current mode's tour on demand. */}
       <HelpFab onClick={promptTour.replay} />
+
+      {/* One-time first-video modal: offers to auto-approve every step. */}
+      {showAutoApproveModal && (
+        <AutoApproveIntroModal onConfirm={handleAutoApproveConfirm} busy={loading} />
+      )}
 
       {/* Change mode: return to the 3-card chooser (fresh session only). Anchored
           to the top-left of the creator canvas (this root is position:relative),
@@ -1315,7 +1360,9 @@ export default function PromptStep({
                 {(images?.length ?? 0) > 0 && (
                   <span className="text-xs font-medium" style={{ color: '#9C8F85' }}>
                     {images.length} of {MAX_IMAGES}
-                    {images.length >= 2 && (
+                    {/* Desktop: subtle inline hint (mouse drag starts instantly).
+                        Mobile needs the press-and-hold hint, shown on its own line below. */}
+                    {images.length >= 2 && !isMobile && (
                       <span className="ml-2" style={{ color: '#C8BFB5' }}>
                         · drag to reorder
                       </span>
@@ -1323,6 +1370,18 @@ export default function PromptStep({
                   </span>
                 )}
               </div>
+
+              {/* Mobile reorder hint — the TouchSensor requires a press-and-hold
+                  before dragging, which isn't discoverable, so spell it out. */}
+              {isMobile && (images?.length ?? 0) >= 2 && (
+                <div
+                  className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5"
+                  style={{ color: '#C1440E', background: 'rgba(193,68,14,0.07)' }}
+                >
+                  <Grid className="w-3.5 h-3.5 shrink-0" />
+                  Press &amp; hold a photo, then drag to reorder
+                </div>
+              )}
 
               {/* Hidden file input */}
               <input

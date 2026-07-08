@@ -9,7 +9,7 @@ import InsufficientCreditsModal from "@/components/session/InsufficientCreditsMo
 import { useIntroSession } from "@/hooks/session/useIntroSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildIntroTasks } from "@/lib/journeyTasks";
-import { getAutoApprove } from "@/lib/preferences";
+import { useAuth } from "@/hooks/useAuth";
 
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
@@ -19,8 +19,9 @@ export default function IntroPipelineCreator({ onModeChange }) {
   const { step, direction, loading } = intro;
 
   // Auto-approve (skip steps) — Intro fuses approve+generate, so it only respects
-  // the "Generate" preference. Only fires on forward progress, never on resume.
-  const [autoApprovePrefs] = useState(getAutoApprove);
+  // the "Generate" preference. Loaded from the user's account. Only fires on
+  // forward progress, never on resume.
+  const { autoApprove: autoApprovePrefs } = useAuth();
   const prevStepRef = useRef(null);
   const enteredForwardRef = useRef(false);
   const autoFiredRef = useRef(new Set());

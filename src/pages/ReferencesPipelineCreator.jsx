@@ -10,7 +10,7 @@ import { loadPending } from "@/lib/pendingSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
 import { buildVideoTasks } from "@/lib/progressTasks";
-import { getAutoApprove } from "@/lib/preferences";
+import { useAuth } from "@/hooks/useAuth";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -103,8 +103,8 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     dismissInsufficientCredits,
   } = session;
 
-  // Auto-approve (skip steps) preferences — read once on mount (Settings page).
-  const [autoApprovePrefs] = useState(getAutoApprove);
+  // Auto-approve (skip steps) preferences — loaded from the user's account (Settings page).
+  const { autoApprove: autoApprovePrefs } = useAuth();
   const prevStepRef = useRef(null);
   const enteredForwardRef = useRef(false);
   const autoFiredRef = useRef(new Set());

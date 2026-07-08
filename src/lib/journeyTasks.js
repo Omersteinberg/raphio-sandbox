@@ -8,7 +8,7 @@
 //        review->auto flip happens)
 //   navStep: for manual (clickable) nodes, the wizard step to jump back to.
 //
-// `prefs` is the object from getAutoApprove(): { references, script, bridges, frames, generate }.
+// `prefs` is the auto-approve map from the useAuth context: { references, script, bridges, frames, generate }.
 
 // Manual node state from the current step vs the step this node owns.
 function manualState(step, ownStep) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, Sparkles, Images } from "lucide-react";
@@ -9,7 +9,7 @@ import JourneyTimeline from "@/components/session/JourneyTimeline";
 import ProgressChecklist from "@/components/session/ProgressChecklist";
 import { buildImageTasks } from "@/lib/journeyTasks";
 import { buildScriptTasks, buildVideoTasks } from "@/lib/progressTasks";
-import { getAutoApprove } from "@/lib/preferences";
+import { useAuth } from "@/hooks/useAuth";
 import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
 
 // Step components
@@ -224,8 +224,8 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   const completedStep = enableBridges ? 5 : 4;
   const editingStep = enableBridges ? 6 : 5;
 
-  // Auto-approve (skip steps) preferences — read once on mount (Settings page).
-  const [autoApprovePrefs] = useState(getAutoApprove);
+  // Auto-approve (skip steps) preferences — loaded from the user's account (Settings page).
+  const { autoApprove: autoApprovePrefs } = useAuth();
   const prevStepRef = useRef(null);
   const enteredForwardRef = useRef(false);
   const autoFiredRef = useRef(new Set());

@@ -10,6 +10,7 @@ import HelpFab from "@/components/ui/HelpFab";
 import { useStepTour } from "@/lib/useStepTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { startScriptReviewTour } from "@/lib/scriptTour";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ScriptStep({
   scriptData,
@@ -55,8 +56,11 @@ export default function ScriptStep({
   );
 
   // First-run tour of the script review UI. Not for the bridges phase (a
-  // different UI), the pre-generation empty state, or after approval.
-  const scriptTourEnabled = isGenerated && !isApproved && phase !== "bridges";
+  // different UI), the pre-generation empty state, or after approval. Also
+  // suppressed when this step is auto-approved — otherwise the tour flickers up
+  // and marks itself "seen" while the wizard auto-advances past the review.
+  const { autoApprove } = useAuth();
+  const scriptTourEnabled = isGenerated && !isApproved && phase !== "bridges" && !autoApprove.script;
   const scriptTour = useStepTour(TOUR_KEYS.scriptReview, startScriptReviewTour, {
     enabled: scriptTourEnabled,
   });

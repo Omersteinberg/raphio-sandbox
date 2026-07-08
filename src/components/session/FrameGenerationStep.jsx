@@ -5,6 +5,7 @@ import HelpFab from '@/components/ui/HelpFab';
 import { useStepTour } from '@/lib/useStepTour';
 import { TOUR_KEYS } from '@/lib/tourState';
 import { startSceneFramesTour } from '@/lib/referencesTour';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function FrameGenerationStep({
   sceneFrames,
@@ -32,11 +33,13 @@ export default function FrameGenerationStep({
   };
 
   const allFramesComplete = sceneFrames.length > 0 && sceneFrames.every(f => f.status === 'completed' || f.status === 'success');
+  const { autoApprove } = useAuth();
 
   // First-run tour of the scene-frames review. Fires only when every frame
-  // finished: that is when the per-card actions and Approve button exist.
+  // finished: that is when the per-card actions and Approve button exist. Skipped
+  // when frames are auto-approved, so it doesn't flicker as the wizard advances.
   const framesTour = useStepTour(TOUR_KEYS.sceneFrames, startSceneFramesTour, {
-    enabled: allFramesComplete,
+    enabled: allFramesComplete && !autoApprove.frames,
   });
 
   // Scene frames auto-generate on entry. While generating, show the same shared

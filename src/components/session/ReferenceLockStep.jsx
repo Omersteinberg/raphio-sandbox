@@ -4,6 +4,7 @@ import HelpFab from '@/components/ui/HelpFab';
 import { useStepTour } from '@/lib/useStepTour';
 import { TOUR_KEYS } from '@/lib/tourState';
 import { startReferenceLockTour } from '@/lib/referencesTour';
+import { useAuth } from '@/hooks/useAuth';
 
 function ReferenceCard({ reference, isLoading, onRegenerate, dataTour }) {
   const [feedback, setFeedback] = useState('');
@@ -112,6 +113,7 @@ export default function ReferenceLockStep({
     ...(referenceData?.logos || []),
   ];
   const allLocked = allRefs.every(r => r.lockedUrl);
+  const { autoApprove } = useAuth();
   // Fire only when every reference is locked and nothing is regenerating:
   // before that the regenerate rows and Approve All button don't exist, and
   // the user is just watching spinners.
@@ -119,8 +121,11 @@ export default function ReferenceLockStep({
   // First rendered card: render order (characters, settings, logos) matches
   // allRefs order, so allRefs[0] is the top-left card on screen.
   const firstRefId = allRefs[0]?.id;
+  // Suppress the auto-run when references are auto-approved — the wizard skips
+  // this review, so the tour would only flicker (and mark itself seen). The
+  // HelpFab still uses `tourReady` so a manual replay stays available.
   const lockTour = useStepTour(TOUR_KEYS.referenceLock, startReferenceLockTour, {
-    enabled: tourReady,
+    enabled: tourReady && !autoApprove.references,
   });
 
   if (!referenceData) {

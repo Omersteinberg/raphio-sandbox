@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
-import { PREF_KEYS, getBoolPref, setBoolPref } from "@/lib/preferences";
+import { useAuth } from "@/hooks/useAuth";
 
 // ── Design tokens (mirrors MyVideosPage) ──────────────────────────
 const C = {
@@ -16,29 +15,29 @@ const C = {
 // The skippable checkpoints. Order = the order they appear across the wizards.
 const AUTO_APPROVE_ROWS = [
   {
-    key: PREF_KEYS.autoApproveReferences,
+    key: "references",
     title: "References lock",
     desc: "Approve generated character and setting references automatically (references mode).",
   },
   {
-    key: PREF_KEYS.autoApproveScript,
+    key: "script",
     title: "Script review",
     desc: "Approve the generated script without stopping to review it.",
   },
   {
-    key: PREF_KEYS.autoApproveBridges,
+    key: "bridges",
     title: "Bridge frames",
     desc: "Approve AI bridge frames automatically (only when smooth transitions are on, and never if a frame failed).",
   },
   {
-    key: PREF_KEYS.autoApproveFrames,
+    key: "frames",
     title: "Scene frames",
     desc: "Approve generated scene frames automatically (references mode).",
   },
 ];
 
 const GENERATE_ROW = {
-  key: PREF_KEYS.autoApproveGenerate,
+  key: "generate",
   title: "Generate video",
   desc: "Start the final video generation automatically. This spends credits with no final confirmation.",
 };
@@ -95,15 +94,12 @@ function ToggleRow({ title, desc, on, onChange, danger }) {
 export default function SettingsPage() {
   const navigate = useNavigate();
 
-  // Read persisted flags once into local state; each toggle writes through.
-  const [flags, setFlags] = useState(() => {
-    const all = [...AUTO_APPROVE_ROWS, GENERATE_ROW];
-    return Object.fromEntries(all.map((r) => [r.key, getBoolPref(r.key)]));
-  });
+  // Toggles live in the database (per user). The auth context loads them on
+  // login; each switch writes the change straight back to the server.
+  const { autoApprove: flags, updateAutoApprove } = useAuth();
 
   const setFlag = (key, value) => {
-    setBoolPref(key, value);
-    setFlags((prev) => ({ ...prev, [key]: value }));
+    updateAutoApprove({ [key]: value });
   };
 
   return (
@@ -123,7 +119,7 @@ export default function SettingsPage() {
         <h1 className="font-extrabold tracking-tight mb-1" style={{ color: C.dark, fontSize: 28, letterSpacing: "-0.02em" }}>
           Settings
         </h1>
-        <p style={{ color: C.muted, fontSize: 14 }}>Preferences are saved on this device.</p>
+        <p style={{ color: C.muted, fontSize: 14 }}>Preferences are saved to your account.</p>
 
         {/* Skip steps (auto-approve) */}
         <div
