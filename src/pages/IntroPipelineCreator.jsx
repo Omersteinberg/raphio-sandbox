@@ -18,7 +18,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
 
-  // Auto-approve (skip steps) — Intro fuses approve+generate, so it only respects
+  // Auto-approve (skip steps) - Intro fuses approve+generate, so it only respects
   // the "Generate" preference. Loaded from the user's account. Only fires on
   // forward progress, never on resume.
   const { autoApprove: autoApprovePrefs } = useAuth();

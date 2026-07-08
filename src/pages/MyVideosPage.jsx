@@ -85,7 +85,7 @@ function sortAndFilter(sessions, sort, styleFilter) {
 
 function getStageBadge(session) {
   const stage = session.stage;
-  // COMPLETED and EDITING both live on the Completed tab — neither needs a
+  // COMPLETED and EDITING both live on the Completed tab - neither needs a
   // status badge (EDITING previously showed a "Ready to Edit" pill).
   if (!stage || stage === 'COMPLETED' || stage === 'EDITING') return null;
   if (['PROMPT_ENTERED','IMAGES_UPLOADED','IMAGES_ANALYZED','SCRIPT_GENERATED'].includes(stage))

@@ -224,7 +224,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   const completedStep = enableBridges ? 5 : 4;
   const editingStep = enableBridges ? 6 : 5;
 
-  // Auto-approve (skip steps) preferences — loaded from the user's account (Settings page).
+  // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
   const { autoApprove: autoApprovePrefs } = useAuth();
   const prevStepRef = useRef(null);
   const enteredForwardRef = useRef(false);
@@ -276,7 +276,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
 
   // ONE continuous checklist across the script and video phases. It shows during
   // every automatic stretch and only steps aside when parked on a review the user
-  // must act on — so consecutive auto phases read as one page, and in full-auto
+  // must act on - so consecutive auto phases read as one page, and in full-auto
   // it's one page the whole way through.
   const videoStarted = step >= generatingStep;
   const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
@@ -286,7 +286,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     { started: videoStarted, musicRequested: backgroundMusic }
   );
   // Bridge scenes (transition frames) are generated AFTER the script and BEFORE
-  // the video render, as a background job — so the card sits between the two.
+  // the video render, as a background job - so the card sits between the two.
   // Total is known up front from the outline; the live "X/Y" count comes from the
   // APPROVE_OUTLINE job's progress (bridgeProgress). It ticks complete once every
   // bridge section has a status, or once video generation has started.

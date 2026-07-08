@@ -61,7 +61,7 @@ export default function TimelineControls({
         </div>
       </div>
 
-      {/* Edit + Zoom controls — on mobile these live in the bottom action bar */}
+      {/* Edit + Zoom controls - on mobile these live in the bottom action bar */}
       {!compact && (
         <>
           <div className="flex items-center gap-2">

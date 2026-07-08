@@ -17,7 +17,7 @@ export default function MockModeBadge() {
       setMock(on);
       if (on && !toasted.current) {
         toasted.current = true;
-        toast.warn("Mock mode is ON — dummy data, no credits, no real videos.", {
+        toast.warn("Mock mode is ON: dummy data, no credits, no real videos.", {
           autoClose: 6000,
         });
       }

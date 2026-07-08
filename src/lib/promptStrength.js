@@ -1,6 +1,6 @@
 // Scores how "complete" a references-mode story prompt is, and returns a
 // transparent checklist so the UI can double as guidance (tooltips go unread).
-// Pure + synchronous — no AI call. The four factors mirror what actually drives
+// Pure + synchronous - no AI call. The four factors mirror what actually drives
 // good reference-pipeline output: naming the references you added (their names
 // flow verbatim into the AI script), enough detail, a described setting, and a
 // tone + story beat rather than a bare list of nouns.
@@ -74,7 +74,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
   );
   const coverageRatio = namedRefs.length ? usedRefs.length / namedRefs.length : 0;
 
-  // Detail: healthy band ~25–70 words. Partial credit below/above.
+  // Detail: healthy band ~25-70 words. Partial credit below/above.
   let detailPoints;
   if (words >= 25 && words <= 90) detailPoints = 1;
   else if (words >= 15) detailPoints = 0.6;
@@ -93,7 +93,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
 
   const factors = [];
 
-  // Coverage — how many mentionable targets appear in the prompt. In references
+  // Coverage - how many mentionable targets appear in the prompt. In references
   // mode the targets are named references (exact-match consistency, weighted
   // heavily). In image mode the targets are uploaded scenes (a softer ordering
   // hint, lighter weight). Image mode only shows it once photos are uploaded;
@@ -144,7 +144,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
     hint: 'Add a mood (e.g. warm, dramatic) and a clear action or story beat.',
   });
 
-  // Weighted average → 0–100, robust to whichever factors are present.
+  // Weighted average → 0-100, robust to whichever factors are present.
   const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
   const score = Math.round(
     (factors.reduce((sum, f) => sum + f.weight * f.points, 0) / totalWeight) * 100

@@ -132,7 +132,7 @@ export default function FrameGenerationStep({
                       </>
                     )}
 
-                    {/* Feedback + Actions — shown for completed AND failed frames.
+                    {/* Feedback + Actions - shown for completed AND failed frames.
                         A failed frame MUST be retryable, otherwise (since Approve
                         needs every frame to succeed) the user gets stuck. */}
                     {(() => {

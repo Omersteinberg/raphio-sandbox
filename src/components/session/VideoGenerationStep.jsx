@@ -9,7 +9,7 @@ export default function VideoGenerationStep({ session, scriptData, generationErr
   const progressData = session?.video?.progressData || {};
 
   // The render-phase rows (clips, narration, music, assembly) come from the shared
-  // buildVideoTasks helper — the single source of truth also used by the image,
+  // buildVideoTasks helper - the single source of truth also used by the image,
   // prompt and reference pipelines. Generation is already running when this screen
   // shows directly, so `started` is true.
   const { tasks: stages, realProgress } = buildVideoTasks(session, scriptData, { started: true });

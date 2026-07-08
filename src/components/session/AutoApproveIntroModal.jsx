@@ -5,7 +5,7 @@ import { Zap, AlertTriangle, Check } from "lucide-react";
 // Shown once, before a user's first video generation. Offers a single switch
 // that turns on ALL of the auto-approve toggles at once (references, script,
 // bridges, scene frames, and the credit-spending final generate). Default OFF so
-// nobody enables hands-off credit spending by accident — they must opt in.
+// nobody enables hands-off credit spending by accident - they must opt in.
 const C = {
   dark: "#2D2235",
   terra: "#C1440E",
@@ -90,7 +90,7 @@ export default function AutoApproveIntroModal({ onConfirm, busy = false }) {
               <Switch on={on} onChange={setOn} />
             </div>
 
-            {/* Credit warning only when enabled — this includes auto-Generate */}
+            {/* Credit warning only when enabled - this includes auto-Generate */}
             <AnimatePresence>
               {on && (
                 <motion.div

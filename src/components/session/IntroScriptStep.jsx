@@ -32,7 +32,7 @@ export default function IntroScriptStep({
 
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
-      {/* Left — editable script */}
+      {/* Left - editable script */}
       <div className="flex-1 flex flex-col p-4 md:p-6 lg:border-r border-border overflow-hidden">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <div>
@@ -96,7 +96,7 @@ export default function IntroScriptStep({
         </div>
       </div>
 
-      {/* Right — AI editor */}
+      {/* Right - AI editor */}
       <div className="w-full lg:w-80 flex flex-col bg-surface-alt p-4 md:p-6">
         <h3 className="font-semibold text-ink mb-4">AI Script Editor</h3>
         <p className="text-sm text-ink-muted mb-4">Describe a change and AI will revise the whole script.</p>

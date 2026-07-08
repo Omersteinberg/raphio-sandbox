@@ -131,7 +131,7 @@
   border-radius: 4px;
 }
 
-/* ── Interactive editor tour (driver.js) — themed to the warm light brand ──
+/* ── Interactive editor tour (driver.js) - themed to the warm light brand ──
    driver.js base styles are imported in src/lib/editorTour.js; these override
    them so the popover matches the terracotta/cream design tokens. Scoped to the
    `raphio-tour` popoverClass set when launching the tour. */
@@ -193,7 +193,7 @@
    Smaller, tighter toasts in ONE consistent brand color. With the
    `colored` theme, react-toastify derives every variant's background from
    its own --toastify-color-* variables, so we point them ALL at the
-   terracotta brand token — the app never flashes green/red (the icon still
+   terracotta brand token - the app never flashes green/red (the icon still
    hints the status). Overriding the variables beats fighting theme-selector
    specificity. */
 :root {

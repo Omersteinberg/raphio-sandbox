@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 /**
  * Responsive breakpoint convention (matches Tailwind defaults):
  *   phone   : < md   (< 768px)
- *   tablet  : md–lg  (768px – 1023px)
+ *   tablet  : md-lg  (768px - 1023px)
  *   desktop : >= lg  (>= 1024px)
  *
  * useMediaQuery / useIsMobile are the single source of truth for
@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
  * rely on Tailwind's `sm:`/`md:` responsive prefixes.
  */
 
-// SSR-safe initial read — guards against a missing `window`/`matchMedia`.
+// SSR-safe initial read - guards against a missing `window`/`matchMedia`.
 function getMatches(query) {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return false;

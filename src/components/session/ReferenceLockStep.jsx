@@ -121,7 +121,7 @@ export default function ReferenceLockStep({
   // First rendered card: render order (characters, settings, logos) matches
   // allRefs order, so allRefs[0] is the top-left card on screen.
   const firstRefId = allRefs[0]?.id;
-  // Suppress the auto-run when references are auto-approved — the wizard skips
+  // Suppress the auto-run when references are auto-approved - the wizard skips
   // this review, so the tour would only flicker (and mark itself seen). The
   // HelpFab still uses `tourReady` so a manual replay stays available.
   const lockTour = useStepTour(TOUR_KEYS.referenceLock, startReferenceLockTour, {

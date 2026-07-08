@@ -60,7 +60,7 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
       {/* Playhead line */}
       <div className="w-0.5 h-full bg-primary" />
 
-      {/* Playhead handle — visible triangle with a larger invisible touch target */}
+      {/* Playhead handle - visible triangle with a larger invisible touch target */}
       <div
         className="absolute -top-1 -left-4 w-8 h-7 pointer-events-auto cursor-ew-resize flex justify-center touch-none"
         onMouseDown={handleDown}

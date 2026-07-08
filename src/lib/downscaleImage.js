@@ -15,7 +15,7 @@ function loadImage(src) {
 /**
  * @param {string|File} source - a blob/object URL, data URL, or File
  * @param {number} [maxDim=768] - longest edge of the output
- * @param {number} [quality=0.7] - JPEG quality 0–1
+ * @param {number} [quality=0.7] - JPEG quality 0-1
  * @returns {Promise<string|null>} JPEG data URL, or null if it can't be processed
  */
 export async function downscaleImageToDataUrl(source, maxDim = 768, quality = 0.7) {

@@ -44,7 +44,7 @@ const MODES = [
 
 /**
  * The video-creation entry point: three selectable cards. Picking a card calls
- * onPick(modeId) — the parent (Creator) persists the mode and enters the pipeline.
+ * onPick(modeId) - the parent (Creator) persists the mode and enters the pipeline.
  * `initialMode` (the user's last-used mode) gets a subtle highlight; it does NOT
  * auto-advance.
  */
@@ -151,7 +151,7 @@ export default function ModeChooser({ onPick, initialMode = null }) {
                       className="flex-shrink-0 mt-0.5 flex items-center justify-center"
                       style={{ width: 16, height: 16, color: C.muted, fontSize: 14, lineHeight: 1 }}
                     >
-                      –
+                      -
                     </span>
                     <span style={{ color: C.muted, fontSize: 12.5, lineHeight: 1.5 }}>{mode.con}</span>
                   </div>

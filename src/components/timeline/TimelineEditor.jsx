@@ -58,8 +58,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [exportProgress, setExportProgress] = useState(null); // { percentage, label } while exporting
   const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
   const [volumeSheetOpen, setVolumeSheetOpen] = useState(false);
-  const [volumeDraft, setVolumeDraft] = useState(1); // 0–1.5 while the volume sheet is open
-  const [speedDraft, setSpeedDraft] = useState(1); // 0.25–6 while the speed sheet is open
+  const [volumeDraft, setVolumeDraft] = useState(1); // 0-1.5 while the volume sheet is open
+  const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
   const [regenerating, setRegenerating] = useState(false);
@@ -191,7 +191,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   };
 
   // Commit a playback speed for the selected clip. Re-times its timeline length
-  // (duration = kept source ÷ speed), so faster → shorter. Clamped 0.25–6× to
+  // (duration = kept source ÷ speed), so faster → shorter. Clamped 0.25-6× to
   // match the backend; supports the exact fractional speeds the AI narration-fit
   // produces (e.g. 1.33×), not just the presets.
   const SPEED_MIN = 0.25;
@@ -270,7 +270,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     }
   };
 
-  // Handle audio upload complete — drop the new clip onto the music track at the
+  // Handle audio upload complete - drop the new clip onto the music track at the
   // playhead (same placement as the Add-assets sheet).
   const handleAudioUploaded = (asset) => {
     if (asset) {
@@ -280,7 +280,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     setShowAudioUpload(false);
   };
 
-  // Handle TTS generation complete — drop the new narration onto the narration
+  // Handle TTS generation complete - drop the new narration onto the narration
   // track at the playhead.
   const handleTTSGenerated = (asset) => {
     if (asset) {
@@ -348,7 +348,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
     // The backend reports no progress for clip regeneration and it can take a
     // few minutes, so we predict the duration and ramp EVENLY toward it (then
-    // creep on overrun) — feels like steady, consistent movement instead of
+    // creep on overrun) - feels like steady, consistent movement instead of
     // racing ahead and freezing. Estimate mirrors VideoGenerationStep's batch model
     // (~one clip-batch of generation time).
     const start = Date.now();
@@ -360,7 +360,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         elapsed < 25000
           ? "Regenerating clip with AI…"
           : elapsed < 120000
-          ? "Still working — this usually takes a few minutes…"
+          ? "Still working. This usually takes a few minutes…"
           : "Hang tight, almost there…";
       setRegenProgress({ percentage, label });
     }, 1000);
@@ -385,7 +385,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   if (timeline.loading && !timeline.timeline) {
     // Skeleton that mirrors the real editor layout, so the chrome appears
-    // instantly and only the content fills in — feels incremental instead of a
+    // instantly and only the content fills in - feels incremental instead of a
     // blank spinner that looks stuck. Matches the responsive layout below.
     return (
       <div className="w-full h-full flex flex-col bg-background text-foreground">
@@ -560,7 +560,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             />
           </div>
 
-          {/* Timeline Canvas — fills remaining height on mobile, fixed on desktop */}
+          {/* Timeline Canvas - fills remaining height on mobile, fixed on desktop */}
           <div className={`${isMobile ? "flex-1 min-h-0" : "h-64 flex-shrink-0"} overflow-hidden`}>
             <TimelineCanvas
               videoItems={timeline.videoItems}
@@ -590,28 +590,28 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             </button>
           )}
 
-          {/* Bottom action bar (CapCut/VLLO style) — on mobile and desktop.
+          {/* Bottom action bar (CapCut/VLLO style) - on mobile and desktop.
               Swaps to clip actions when a clip is selected. */}
             <div data-tour="action-bar" className="bg-card border-t border-border shrink-0 flex items-center justify-around px-1 py-1.5">
               {(timeline.selectedItem
                 ? [
                     { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
                     { Icon: Gauge, label: "Speed", onClick: () => { const s = timeline.items.find((i) => i.id === timeline.selectedItem); setSpeedDraft(Number(s?.speed) || 1); setSpeedSheetOpen(true); } },
-                    // Volume — only for audio clips (narration / audio / music).
+                    // Volume - only for audio clips (narration / audio / music).
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
                       return sel && sel.trackType === "AUDIO"
                         ? [{ Icon: Volume2, label: "Volume", onClick: () => { setVolumeDraft(sel.volume ?? 1); setVolumeSheetOpen(true); } }]
                         : [];
                     })(),
-                    // Regenerate — only for a video clip backed by a section.
+                    // Regenerate - only for a video clip backed by a section.
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
                       return sel && sel.trackType === "VIDEO" && sel.sectionId
                         ? [{ Icon: RefreshCw, label: "Regenerate", onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) }]
                         : [];
                     })(),
-                    // Narration edit — only for a narration audio clip (has a section).
+                    // Narration edit - only for a narration audio clip (has a section).
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
                       return sel && sel.trackType === "AUDIO" && sel.sectionId
@@ -699,7 +699,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               </button>
             </div>
             <div className="space-y-4">
-              {/* Exact current speed — shows the AI narration-fit's fractional
+              {/* Exact current speed - shows the AI narration-fit's fractional
                   value (e.g. 1.33×), which the presets alone can't represent. */}
               <div className="text-center">
                 <span className="text-2xl font-bold text-foreground tabular-nums">
@@ -725,7 +725,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 <span>{SPEED_MAX}×</span>
               </div>
 
-              {/* Quick presets — set the value and commit, keeping the sheet open
+              {/* Quick presets - set the value and commit, keeping the sheet open
                   so you can then fine-tune with the slider. */}
               <div className="grid grid-cols-3 gap-2">
                 {[0.5, 1, 1.5, 2, 3, 4].map((s) => (
@@ -792,7 +792,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         </div>
       )}
 
-      {/* Add-assets sheet — touch-friendly version of the desktop asset panel.
+      {/* Add-assets sheet - touch-friendly version of the desktop asset panel.
           Tap an item to append it to its track (no drag needed). */}
       {assetsSheetOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setAssetsSheetOpen(false)}>

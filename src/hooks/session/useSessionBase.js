@@ -44,7 +44,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
 
   // ── Form state ─────────────────────────────────────────────────────
   const [userPrompt, setUserPrompt] = useState("");
-  // Last-used creation choices (saved defaults) — read once on mount. The
+  // Last-used creation choices (saved defaults) - read once on mount. The
   // references pipeline supports the full style palette, so no style
   // validation here (unlike useSession.js).
   const [savedDefaults] = useState(getCreationDefaults);
@@ -120,7 +120,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
             // loader's sub-steps, which is already done by this point.
             // The checklist's script rows are driven by this tab-local
             // progress state, so a resumed/retried session must reflect the
-            // steps that already happened on the backend — derive the floor
+            // steps that already happened on the backend - derive the floor
             // from the session's durable state (images, analysis, script).
             const resumedProgress = scriptProgressForResumedSession(data);
             const jobState = detectScriptJobOnResume(data);
@@ -523,7 +523,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
     setSession(null);
     setDirection(0);
     setUserPrompt("");
-    // Restore saved defaults, not factory values — otherwise the auto-save
+    // Restore saved defaults, not factory values - otherwise the auto-save
     // effect would overwrite the user's saved choices on every reset. (This
     // also aligns the reset style with the mount default; it was "cinematic"
     // here but "realistic" on mount.)

@@ -711,7 +711,7 @@ function HowItWorks() {
 
   // On phones the widescreen demo cards (fixed 360px, two-column) and the
   // tab/rail step-switcher don't fit. Show a clean stacked list of the three
-  // steps instead — number, title, description — no cramped animations.
+  // steps instead - number, title, description - no cramped animations.
   if (isMobile) {
     return (
       <section ref={sectionRef} id="how-it-works" style={{ background: C.bg, padding: '56px 20px' }}>
@@ -747,7 +747,7 @@ function HowItWorks() {
                   </p>
                 </div>
               </div>
-              {/* The step's animated demo — stacked full-width on mobile */}
+              {/* The step's animated demo - stacked full-width on mobile */}
               {STEP_VISUALS[i].visual}
             </motion.div>
           ))}

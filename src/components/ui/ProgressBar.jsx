@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 /**
- * Shared progress bar — one consistent look (brand gradient) for every long
+ * Shared progress bar - one consistent look (brand gradient) for every long
  * wait in the app, so no screen shows a bare spinner.
  *
- * - Controlled: pass `value` (0–100) and it renders that width.
+ * - Controlled: pass `value` (0-100) and it renders that width.
  * - Indeterminate: omit `value` (or pass null) and it trickles forward on its
  *   own toward ~90%, so a bar still moves even when the backend reports no
  *   percentage (e.g. scene-frame generation). Pass `estimatedMs` to pace that
@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
  *
  * `showPercent` toggles the % label. `className` sizes/positions the wrapper.
  * `note` renders a small reassurance line under the bar (e.g. "you can close
- * this tab — we'll email you"). Pass `EMAIL_WAIT_NOTE` for the standard copy.
+ * this tab - we'll email you"). Pass `EMAIL_WAIT_NOTE` for the standard copy.
  */
 export const EMAIL_WAIT_NOTE =
   "";

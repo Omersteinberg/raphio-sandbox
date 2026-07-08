@@ -103,14 +103,14 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     dismissInsufficientCredits,
   } = session;
 
-  // Auto-approve (skip steps) preferences — loaded from the user's account (Settings page).
+  // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
   const { autoApprove: autoApprovePrefs } = useAuth();
   const prevStepRef = useRef(null);
   const enteredForwardRef = useRef(false);
   const autoFiredRef = useRef(new Set());
 
   // References are ready to approve once every one has a locked image and no lock
-  // is still running — mirrors ReferenceLockStep's own `allLocked` check.
+  // is still running - mirrors ReferenceLockStep's own `allLocked` check.
   const refLockReady = (() => {
     if (!referenceData) return false;
     const allRefs = [
@@ -139,7 +139,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     };
 
     // Scene frames auto-generate on entry (below), so the frames gate only needs
-    // to auto-approve once they're ready — which starts video generation.
+    // to auto-approve once they're ready - which starts video generation.
     if (step === 1 && autoApprovePrefs.references && refLockReady) {
       fireOnce("1", () => approveAllReferences());
     } else if (step === 2 && autoApprovePrefs.script && scriptData) {
@@ -179,7 +179,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // ONE persistent checklist across every phase (references -> script -> scenes ->
   // video): rows stack, title/icon change per phase, the page never swaps. It's
   // shown during every AUTOMATIC stretch and only steps aside when parked on a
-  // review the user must act on — so consecutive auto phases read as one page,
+  // review the user must act on - so consecutive auto phases read as one page,
   // and in full-auto it's one page the whole way through.
   // Card ticks follow REAL backend completion, not the wizard step counter. The
   // old step-based mapping only flipped "references" to done at the instant the
@@ -200,8 +200,8 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     if (refDone[p]) return "completed";
     return p === refPhase ? "processing" : "pending";
   };
-  // The video phase reuses the shared buildVideoTasks helper — the SAME rows the
-  // image and prompt pipelines show (clips, narration, music, assembly) — instead
+  // The video phase reuses the shared buildVideoTasks helper - the SAME rows the
+  // image and prompt pipelines show (clips, narration, music, assembly) - instead
   // of a single coarse "Generating video" card. This removes the duplicate music
   // logic that used to live here. `musicRequested` passes the wizard toggle so the
   // music card shows from the start, before the backend video row exists.

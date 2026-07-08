@@ -106,7 +106,7 @@ export default function VideoDetailPage() {
     <div className="min-h-full font-figtree" style={{ background: "var(--gradient-app)" }}>
       <main className="py-8 pb-12 px-6">
         <div className="max-w-4xl mx-auto">
-          {/* Shared "video ready" view — identical to the wizard's final step. */}
+          {/* Shared "video ready" view - identical to the wizard's final step. */}
           <VideoResult
             sessionId={id}
             finalVideoUrl={finalVideoUrl}

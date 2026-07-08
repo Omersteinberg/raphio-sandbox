@@ -5,11 +5,11 @@
 //
 // These are device-local, throwaway conveniences (last-used creation choices).
 // Account-level settings such as the wizard's auto-approve toggles live in the
-// database instead — see src/api/settings.js and the useAuth context.
+// database instead - see src/api/settings.js and the useAuth context.
 const PREFIX = "merge:pref:";
 
 export const PREF_KEYS = {
-  // Last-used creation choices ("saved defaults") — auto-saved by the session
+  // Last-used creation choices ("saved defaults") - auto-saved by the session
   // hooks, restored as the initial values for the next new video.
   lastStyle: "lastStyle:v1",
   lastDuration: "lastDuration:v1",
@@ -32,7 +32,7 @@ export function setJsonPref(key, value) {
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value));
   } catch {
-    /* storage unavailable — ignore */
+    /* storage unavailable - ignore */
   }
 }
 

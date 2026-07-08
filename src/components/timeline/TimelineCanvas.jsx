@@ -50,7 +50,7 @@ export default function TimelineCanvas({
   const audioRowItems = audioItems.filter((i) => audioKind(i) === "audio");
   const musicItems = audioItems.filter((i) => audioKind(i) === "music");
 
-  // Underlying source length for a clip — used to clamp trimming.
+  // Underlying source length for a clip - used to clamp trimming.
   const getSourceDuration = (item) => {
     if (item.trackType === "VIDEO") {
       const s = item.sectionId ? getSection(item.sectionId) : null;
@@ -64,7 +64,7 @@ export default function TimelineCanvas({
 
   // Snap points: the edges of EVERY clip on EVERY track (so a clip lines up with
   // clips above/below it, like CapCut), plus the playhead, the timeline start,
-  // and the timeline end. No fine grid — that made dragging feel steppy and
+  // and the timeline end. No fine grid - that made dragging feel steppy and
   // drowned out the meaningful alignment points.
   const getSnapPoints = useCallback(
     (draggedItem) => {
@@ -345,7 +345,7 @@ export default function TimelineCanvas({
       const clientX = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragStartX;
       const deltaX = clientX - dragStartX;
 
-      // A click/tap with no real movement must not persist anything — otherwise
+      // A click/tap with no real movement must not persist anything - otherwise
       // selecting a clip re-saves its position and flashes a "Saving…" spinner.
       if (Math.abs(deltaX) < 3) {
         setIsDragging(false);
@@ -495,7 +495,7 @@ export default function TimelineCanvas({
           />
         </div>
 
-        {/* Tracks Container — tapping empty space deselects (clips stopPropagation) */}
+        {/* Tracks Container - tapping empty space deselects (clips stopPropagation) */}
         <div className="relative" onClick={() => onSelectItem(null)}>
           {/* Video Track */}
           <TimelineTrack

@@ -259,7 +259,7 @@ export function useReferencesSession() {
       setSession(newSession);
       try { await clearPending("references"); } catch (e) { console.warn(e); }
 
-      // Step 2: Add all references (metadata + any uploaded image only — no AI
+      // Step 2: Add all references (metadata + any uploaded image only - no AI
       // image generation here, so this loop stays fast and can't be killed by a
       // proxy timeout mid-generation).
       const totalRefs = validRefs.length;

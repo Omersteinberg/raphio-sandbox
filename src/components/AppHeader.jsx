@@ -295,7 +295,7 @@ export default function AppHeader() {
       </button>
     </header>
 
-      {/* Mobile drawer — rendered as a SIBLING of <header>, not a child:
+      {/* Mobile drawer - rendered as a SIBLING of <header>, not a child:
           the header's backdrop-filter makes position:fixed descendants anchor
           to the header box (56px tall) instead of the viewport, which crammed
           the whole drawer into the header bar. */}
@@ -342,7 +342,7 @@ export default function AppHeader() {
               </button>
             </div>
 
-            {/* Page links — top */}
+            {/* Page links - top */}
             <nav className="flex flex-col px-3 pt-2 gap-1">
               <button
                 data-tour="drawer-create"

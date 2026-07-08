@@ -166,7 +166,7 @@ function Thumbnail({ item, width }) {
         overflow: "hidden",
       }}
     >
-      {/* ── Top colour bar — mimics video player chapter strip ── */}
+      {/* ── Top colour bar - mimics video player chapter strip ── */}
       <div
         style={{
           position: "absolute",
@@ -301,13 +301,13 @@ export function FrameStream() {
         gap: 16,
       }}
     >
-      {/* Left cluster — 2 columns */}
+      {/* Left cluster - 2 columns */}
       <div style={{ display: "flex", gap: 14, marginTop: "-8%" }}>
         <StreamColumn items={COL_A} reverse={false} speed={32} width={155} />
         <StreamColumn items={COL_B} reverse={true} speed={40} width={140} />
       </div>
 
-      {/* Right cluster — 2 columns */}
+      {/* Right cluster - 2 columns */}
       <div style={{ display: "flex", gap: 14, marginTop: "-4%" }}>
         <StreamColumn items={COL_B} reverse={true} speed={36} width={140} />
         <StreamColumn items={COL_A} reverse={false} speed={28} width={155} />

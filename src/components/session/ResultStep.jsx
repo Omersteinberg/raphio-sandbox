@@ -1,6 +1,6 @@
 import VideoResult from "@/components/video/VideoResult";
 
-// Thin wrapper — the whole "video ready" view lives in the shared VideoResult
+// Thin wrapper - the whole "video ready" view lives in the shared VideoResult
 // component so this (the wizard's final step) and the standalone /video/:id page
 // are identical. The wizard passes its in-place handlers: enterEditingMode and
 // reset ("Create New").

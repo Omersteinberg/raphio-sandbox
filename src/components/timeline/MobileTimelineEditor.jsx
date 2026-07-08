@@ -252,7 +252,7 @@ export default function MobileTimelineEditor({ timeline, onBack, onExport, expor
         </div>
       )}
 
-      {/* Trim modal (reused — its sliders already work on touch) */}
+      {/* Trim modal (reused - its sliders already work on touch) */}
       {editingItem && (
         <ItemEditModal
           item={editingItem}

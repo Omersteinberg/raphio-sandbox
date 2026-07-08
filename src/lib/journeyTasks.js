@@ -4,7 +4,7 @@
 //
 // Task shape: { id, label, kind, state, progress?, navStep? }
 //   kind 'input' | 'review' | 'auto'   (a 'review' flips to 'auto' when its
-//        matching auto-approve preference is ON — that is the single place the
+//        matching auto-approve preference is ON - that is the single place the
 //        review->auto flip happens)
 //   navStep: for manual (clickable) nodes, the wizard step to jump back to.
 //
@@ -60,7 +60,7 @@ export function buildImageTasks({
     reviewNode({ id: "script", label: "Script", step, ownStep: 1, skip: !!prefs.script })
   );
 
-  // 3. Bridges review (approveScript) — only when bridges enabled. Never
+  // 3. Bridges review (approveScript) - only when bridges enabled. Never
   //    auto-skipped while there are bridge failures the user must resolve.
   if (enableBridges) {
     tasks.push(

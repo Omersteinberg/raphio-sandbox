@@ -57,7 +57,7 @@ export default function ScriptStep({
 
   // First-run tour of the script review UI. Not for the bridges phase (a
   // different UI), the pre-generation empty state, or after approval. Also
-  // suppressed when this step is auto-approved — otherwise the tour flickers up
+  // suppressed when this step is auto-approved - otherwise the tour flickers up
   // and marks itself "seen" while the wizard auto-advances past the review.
   const { autoApprove } = useAuth();
   const scriptTourEnabled = isGenerated && !isApproved && phase !== "bridges" && !autoApprove.script;
@@ -795,7 +795,7 @@ export default function ScriptStep({
         )}
       </div>
 
-      {/* Mobile FAB — opens the AI editor sheet */}
+      {/* Mobile FAB - opens the AI editor sheet */}
       {isCompact && showAiFab && !aiModalOpen && (
         <button
           onClick={() => setAiModalOpen(true)}

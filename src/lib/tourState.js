@@ -19,7 +19,7 @@ export function tourSeen(key) {
   try {
     return localStorage.getItem(PREFIX + key) === "1";
   } catch {
-    return false; // storage unavailable — treat as not seen (tour may re-show, harmless)
+    return false; // storage unavailable, treat as not seen (tour may re-show, harmless)
   }
 }
 
@@ -27,7 +27,7 @@ export function markTourSeen(key) {
   try {
     localStorage.setItem(PREFIX + key, "1");
   } catch {
-    /* storage unavailable — ignore */
+    /* storage unavailable, ignore */
   }
 }
 
@@ -36,6 +36,6 @@ export function clearTourSeen(key) {
   try {
     localStorage.removeItem(PREFIX + key);
   } catch {
-    /* storage unavailable — ignore */
+    /* storage unavailable, ignore */
   }
 }

@@ -38,7 +38,7 @@ export default function VideoPreview({
   });
 
   // A gap (no clip under the playhead) renders as black, just like a real video
-  // editor — empty timeline space is treated as intentional, not filled by
+  // editor - empty timeline space is treated as intentional, not filled by
   // holding the previous frame. This matches the exported video's black-fill.
   const displayVideo = activeVideo || null;
   const displaySection = displayVideo?.sectionId ? getSection(displayVideo.sectionId) : null;
@@ -86,7 +86,7 @@ export default function VideoPreview({
           const ahead = el.currentTime - sourceTime;
           if (ahead > 0.5) {
             // The marker stalled (or is slower than this clip) and the video ran
-            // ahead. Do NOT seek it backward — a backward seek replays the same
+            // ahead. Do NOT seek it backward - a backward seek replays the same
             // stretch, which is the "clip keeps repeating" bug. Just hold this
             // frame; native playback resumes once the marker catches up.
             if (!el.paused) el.pause();
@@ -110,7 +110,7 @@ export default function VideoPreview({
       } else {
         // Non-active clip: pause it AND keep it parked at its in-point, so when
         // the playhead crosses into it (a cut / split) the element is already on
-        // the right frame — no seek, no stall, a seamless handoff. Only re-seek
+        // the right frame - no seek, no stall, a seamless handoff. Only re-seek
         // when it has drifted and isn't already seeking, so this doesn't thrash.
         if (!el.paused) el.pause();
         const inPoint = item.trimStart || 0;
@@ -146,7 +146,7 @@ export default function VideoPreview({
           if (Math.abs(el.currentTime - sourceTime) > 0.5) {
             try { el.currentTime = sourceTime; } catch (_) {}
           }
-          // HTML media volume must be 0–1; clamp (the export can still boost >1).
+          // HTML media volume must be 0-1; clamp (the export can still boost >1).
           el.volume = Math.max(0, Math.min(1, item.volume ?? 1));
           if (isPlaying && el.paused) {
             el.play().catch(() => {});

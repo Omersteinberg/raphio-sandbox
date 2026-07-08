@@ -1,6 +1,6 @@
 import { TimelineEditor } from "@/components/timeline";
 
-// The old "Edit Clips" list was removed — editing now happens entirely in the
+// The old "Edit Clips" list was removed - editing now happens entirely in the
 // timeline editor. This thin wrapper drops the user straight into it and keeps
 // the same prop signature the pipeline creators already pass.
 export default function EditingStep({

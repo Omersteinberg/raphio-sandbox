@@ -60,7 +60,7 @@ function startDesktopTour() {
       element: '[data-tour="nav-videos"]',
       popover: {
         title: "My Videos",
-        description: "Your whole video library lives here — you're on it right now.",
+        description: "Your whole video library lives here, and you're on it right now.",
         side: "bottom",
         align: "start",
       },
@@ -88,7 +88,7 @@ function startDesktopTour() {
       element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
-        description: "This help button is always here — click it anytime to replay this tour.",
+        description: "This help button is always here. Click it anytime to replay this tour.",
         side: "left",
         align: "end",
       },
@@ -170,7 +170,7 @@ function startMobileTour() {
       element: '[data-tour="drawer-videos"]',
       popover: {
         title: "My Videos",
-        description: "Your video library — you're here now.",
+        description: "Your video library. You're here now.",
         side: "left",
         align: "start",
       },
@@ -214,7 +214,7 @@ function startMobileTour() {
       element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
-        description: "This help button is always here — tap it anytime to replay this tour.",
+        description: "This help button is always here. Tap it anytime to replay this tour.",
         side: "left",
         align: "end",
         // If the user steps back into the drawer section, re-open the drawer.

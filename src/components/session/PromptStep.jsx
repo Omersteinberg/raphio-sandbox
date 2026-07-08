@@ -339,7 +339,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           </p>
         )}
 
-        {/* Description field — only for AI-generate refs. Uploaded references
+        {/* Description field - only for AI-generate refs. Uploaded references
             (and logos, which are upload-only) carry their identity in the image
             itself, so no description is needed. */}
         {!item.useUpload && (
@@ -484,7 +484,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   );
 }
 
-// Sortable photo tile — dnd-kit so reordering works with mouse AND touch
+// Sortable photo tile - dnd-kit so reordering works with mouse AND touch
 // (long-press to start dragging on touch, so page scrolling still works).
 function SortableTile({ id, className, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -796,7 +796,7 @@ export default function PromptStep({
   );
 
   // Lift the effective per-image labels (aligned to `images`) up to the pipeline
-  // hook so they can be sent to the backend at upload — that's what lets a
+  // hook so they can be sent to the backend at upload - that's what lets a
   // "@Opening shot" mention bind to the right photo during generation.
   useEffect(() => {
     onLabelsChange?.(imageMentionItems.map((it) => it.name));
@@ -807,7 +807,7 @@ export default function PromptStep({
   // strength "coverage" factor.
   const mentionTargets = isReferencesMode ? references : imageMentionItems;
 
-  // Prompt strength — a transparent checklist that doubles as guidance.
+  // Prompt strength - a transparent checklist that doubles as guidance.
   // Pure/synchronous; recomputed as the prompt, references, or scenes change.
   const strength = useMemo(
     () => scorePrompt({ userPrompt, references: mentionTargets, mode: isReferencesMode ? 'references' : 'image' }),
@@ -950,7 +950,7 @@ export default function PromptStep({
           </p>
         </div>
 
-          {/* Zone 1 — Prompt (the hero) */}
+          {/* Zone 1 - Prompt (the hero) */}
           <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1023,7 +1023,7 @@ export default function PromptStep({
                   style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
                 />
               )}
-              {/* Improve button — anchored bottom-left INSIDE the box so it's
+              {/* Improve button - anchored bottom-left INSIDE the box so it's
                   clearly tied to the prompt. Always shows its label (mobile too)
                   so it's never a mystery icon. */}
               <button
@@ -1371,7 +1371,7 @@ export default function PromptStep({
                 )}
               </div>
 
-              {/* Mobile reorder hint — the TouchSensor requires a press-and-hold
+              {/* Mobile reorder hint - the TouchSensor requires a press-and-hold
                   before dragging, which isn't discoverable, so spell it out. */}
               {isMobile && (images?.length ?? 0) >= 2 && (
                 <div
@@ -1601,7 +1601,7 @@ export default function PromptStep({
             </div>
           )}
 
-          {/* Zone 3 — Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
+          {/* Zone 3 - Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
           <div data-tour="settings" className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
             {/* Style Selection (renders in both image and references modes) */}
@@ -2175,7 +2175,7 @@ export default function PromptStep({
 
           </div>
 
-          {/* Zone 4 — Voice & Music (both modes). Configured up front here so the
+          {/* Zone 4 - Voice & Music (both modes). Configured up front here so the
               later steps go straight to review + generate. State lives in the
               session hook, so setting it here flows through to generation. */}
           {setVoiceId && setBackgroundMusic && (
@@ -2189,7 +2189,7 @@ export default function PromptStep({
                 </p>
               </div>
 
-              {/* Narration voice — opens the picker modal (works on mobile too) */}
+              {/* Narration voice - opens the picker modal (works on mobile too) */}
               <button
                 onClick={() => setVoiceModalOpen(true)}
                 className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left"
@@ -2376,7 +2376,7 @@ export default function PromptStep({
         </motion.div>
       </div>
 
-      {/* Voice picker modal — a bottom sheet on phones, centered card on desktop */}
+      {/* Voice picker modal - a bottom sheet on phones, centered card on desktop */}
       <AnimatePresence>
         {voiceModalOpen && (
           <motion.div

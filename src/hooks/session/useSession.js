@@ -96,7 +96,7 @@ export function useSession({ promptOnly = false } = {}) {
 
   // Form state
   const [userPrompt, setUserPrompt] = useState("");
-  // Last-used creation choices (saved defaults) — read once on mount.
+  // Last-used creation choices (saved defaults) - read once on mount.
   const [savedDefaults] = useState(getCreationDefaults);
   const [style, setStyle] = useState(() => imageSafeStyle(savedDefaults.style));
   const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
@@ -269,7 +269,7 @@ export function useSession({ promptOnly = false } = {}) {
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
             // Wrong creator: this is a references (or other) session, bounce to it.
-            // NOTE: "prompt" (text-to-video) intentionally stays here — it runs in
+            // NOTE: "prompt" (text-to-video) intentionally stays here - it runs in
             // this same image pipeline, so it must NOT be added to this whitelist.
             if (data.pipelineMode && data.pipelineMode !== "image"
                 && ["image", "references"].includes(data.pipelineMode)) {
@@ -346,7 +346,7 @@ export function useSession({ promptOnly = false } = {}) {
             //
             // The checklist's script rows are driven by this tab-local
             // progress state, so a resumed/retried session must reflect the
-            // steps that already happened on the backend — derive the floor
+            // steps that already happened on the backend - derive the floor
             // from the session's durable state (images, analysis, script).
             const resumedProgress = scriptProgressForResumedSession(data);
             const jobState = detectScriptJobOnResume(data);
@@ -606,7 +606,7 @@ export function useSession({ promptOnly = false } = {}) {
 
         if (promptOnly) {
           // Prompt-only (text-to-video): no photos to upload/analyze/restyle.
-          // Jump straight to script generation — the backend builds scenes from
+          // Jump straight to script generation - the backend builds scenes from
           // the prompt alone (analysis is skipped server-side when there are no
           // images). Drop any stale local draft copy.
           try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
@@ -1339,7 +1339,7 @@ export function useSession({ promptOnly = false } = {}) {
         return;
       }
       // 409 = a generation for this session is already running (e.g. a
-      // duplicate submit): that's success from the user's perspective — stay
+      // duplicate submit): that's success from the user's perspective - stay
       // on the generating step and let polling pick up its progress.
       if (err.response?.status === 409) {
         console.log("[useSession] 409 - generation already in progress, staying on generating step");

@@ -13,7 +13,7 @@ export default function NarrationEditModal({
   onRegenerateNarration,
 }) {
   // The voice is stored on the Video (currentVoiceId), not per-section, so default
-  // to it — otherwise editing narration always reset the voice to "adam".
+  // to it - otherwise editing narration always reset the voice to "adam".
   const initialVoiceId = section?.voiceId || currentVoiceId || "adam";
   const [narrationText, setNarrationText] = useState(section?.narrationText || "");
   const [voiceId, setVoiceId] = useState(initialVoiceId);

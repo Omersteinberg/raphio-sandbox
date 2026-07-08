@@ -237,7 +237,7 @@ export function useTimeline(sessionId) {
   // Undo the last editing action by restoring the previous item snapshot. The
   // whole snapshot is sent to the backend in one call (replaceTimelineItems),
   // which preserves item ids so repeated undos stay consistent. Playhead and
-  // zoom are intentionally left untouched. Undo-only — there is no redo.
+  // zoom are intentionally left untouched. Undo-only - there is no redo.
   const undo = useCallback(async () => {
     const stack = historyRef.current;
     if (stack.length === 0) return;
@@ -419,12 +419,12 @@ export function useTimeline(sessionId) {
 
         // Only a genuinely un-buffered element (readyState < 2) holds the clock.
         // We deliberately do NOT gate on `el.seeking`: a transient catch-up seek
-        // shouldn't freeze the whole timeline — that was the "video sticks and the
+        // shouldn't freeze the whole timeline - that was the "video sticks and the
         // marker stops but audio keeps playing" stutter. With per-frame re-seeking
         // now removed (see VideoPreview), a playing element stays readyState >= 2,
         // so this only pauses for real buffering. An element that has errored
         // (`el.error`) is excluded so a single failed source can't deadlock the
-        // whole clock forever — we'd rather coast past it than hang.
+        // whole clock forever - we'd rather coast past it than hang.
         const stalled = gating.some((el) => el.readyState < 2 && !el.error);
 
         let next = stalled ? prev : prev + wallDelta;

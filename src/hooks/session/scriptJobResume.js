@@ -15,7 +15,7 @@ export const SCRIPT_JOB_TYPES = new Set([
  * Classify the freshly loaded session's job slot for resume purposes.
  *
  * Script generation runs detached in the backend, so leaving the page never
- * stops it — but it also means the session a user resumes into can hold a
+ * stops it - but it also means the session a user resumes into can hold a
  * script job in any state:
  *  - "running": still generating; the UI should show progress and re-attach
  *  - "failed":  it failed while the user was away and no script exists, so
@@ -52,7 +52,7 @@ export function scriptProgressForResumedSession(sessionData) {
 /**
  * Re-attach to a script job that is still RUNNING in the backend after the
  * user navigated away and resumed the session. Read-only on the backend: it
- * polls the session's existing job slot — it never starts a job, never
+ * polls the session's existing job slot - it never starts a job, never
  * creates a session, and never charges.
  *
  * The caller keeps its `loading` flag up while awaiting this, which keeps the
@@ -114,7 +114,7 @@ export async function attachToRunningScriptJob({
 /**
  * The user resumed a session whose script job FAILED while they were away.
  * Tell them, and tell the team (Slack via the client-error telemetry) that a
- * user has actually landed on the retry screen — the backend already alerted
+ * user has actually landed on the retry screen - the backend already alerted
  * at failure time, this adds the "a user saw it" signal.
  */
 export function notifyScriptJobFailedOnResume(sessionData) {

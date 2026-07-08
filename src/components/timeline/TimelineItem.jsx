@@ -134,7 +134,7 @@ export default function TimelineItem({
         </div>
       </div>
 
-      {/* Move handle — full clip. Trim via the edge handles (or double-tap for the modal). */}
+      {/* Move handle - full clip. Trim via the edge handles (or double-tap for the modal). */}
       <div
         className="absolute inset-0 cursor-move touch-none"
         onMouseDown={(e) => {
@@ -147,7 +147,7 @@ export default function TimelineItem({
         }}
       />
 
-      {/* Trim handles — shown when selected; drag the edges to trim (right edge
+      {/* Trim handles - shown when selected; drag the edges to trim (right edge
           stays put when trimming the left). They sit above the move handle. */}
       {isSelected && (
         <>

@@ -8,7 +8,7 @@ import { Check, Loader2 } from "lucide-react";
 //   kind:  'input'  manual data entry (Prompt/Brief)
 //          'review' manual checkpoint the user approves (Script/Frames/Generate)
 //          'auto'   machine task (script/scene/video gen) OR a review that the
-//                   user set to auto-approve — always shown, never clickable
+//                   user set to auto-approve - always shown, never clickable
 //   state: 'pending' | 'active' | 'done' | 'running'
 //   progress?: 0-100, optional caption under the single running auto node
 //
@@ -51,7 +51,7 @@ function TaskNode({ task, manualNumber, clickable, onClick }) {
       </div>
     );
   } else {
-    // manual node (input/review), pending or active — numbered
+    // manual node (input/review), pending or active - numbered
     circle = (
       <div
         className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-bold transition-all"

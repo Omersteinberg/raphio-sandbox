@@ -7,7 +7,7 @@ import { getShareUrl } from "@/services/session";
 import { API_BASE } from "@/config";
 
 /**
- * The single "your video is ready" view — used identically by the wizard's
+ * The single "your video is ready" view - used identically by the wizard's
  * final step (ResultStep) and the standalone /video/:id page. It renders the
  * whole thing: ready header, player, Download, Edit / Share / Create-New
  * actions, and the Video Details grid (incl. Model). The hosts only pass data +
@@ -61,7 +61,7 @@ export default function VideoResult({
 
   const handleDownload = async () => {
     if (!finalVideoUrl) {
-      toast.info("Your video is still processing — check back in a moment.");
+      toast.info("Your video is still processing. Check back in a moment.");
       return;
     }
     const filename = `${title || "video"}.mp4`;
@@ -226,9 +226,9 @@ export default function VideoResult({
         <h3 className="font-semibold text-foreground mb-4">Video Details</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Detail label="Title" value={displayTitle} />
-          <Detail label="Style" value={style || "—"} capitalize />
+          <Detail label="Style" value={style || "-"} capitalize />
           <Detail label="Sections" value={sectionsCount ?? 0} />
-          <Detail label="Model" value={model || "—"} />
+          <Detail label="Model" value={model || "-"} />
         </div>
       </div>
 

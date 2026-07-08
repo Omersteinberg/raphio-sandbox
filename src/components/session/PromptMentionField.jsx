@@ -7,7 +7,7 @@ import { getCaretCoordinates } from "@/lib/caretCoordinates";
 // generator looks references up by exact name match, so an inserted "@Barista"
 // keeps that character consistent where a hand-typed variant would be dropped.
 //
-// No rich-text editor — it's a real <textarea>. We detect the active "@token"
+// No rich-text editor - it's a real <textarea>. We detect the active "@token"
 // from the caret, anchor a popover at the caret (via getCaretCoordinates), and
 // on select splice the exact name back into the value the parent controls.
 

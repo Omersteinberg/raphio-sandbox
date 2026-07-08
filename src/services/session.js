@@ -29,7 +29,7 @@ export async function startSession({ userPrompt, style, voiceId, pipelineMode, e
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
-    // Auto-approve toggles are no longer sent from the client — the backend
+    // Auto-approve toggles are no longer sent from the client - the backend
     // snapshots them from the user's saved settings (setting_preference) when
     // the session is created.
   };
@@ -229,7 +229,7 @@ export async function pollRestyleUntilDone(sessionId, options = {}) {
       status = await getRestyleStatus(sessionId);
       consecutiveFailures = 0;
     } catch (err) {
-      // Restyle jobs run detached too — tolerate a few failed polls (server
+      // Restyle jobs run detached too - tolerate a few failed polls (server
       // restart, network blip) before giving up.
       consecutiveFailures += 1;
       console.warn(`[sessionService] restyle-status poll failed (${consecutiveFailures}/5): ${err.message}`);
@@ -268,7 +268,7 @@ export async function getJobStatus(sessionId) {
  * @param {string} [options.expectedJobType] - if set, ignore states belonging to
  *   a different job. A session has ONE job slot shared by export/reassemble, so
  *   without this an export's poller could react to a reassemble's DONE/FAILED
- *   (and vice-versa) — e.g. a stray "Reassemble failed" during an export.
+ *   (and vice-versa) - e.g. a stray "Reassemble failed" during an export.
  */
 export async function pollJobUntilDone(sessionId, options = {}) {
   const { intervalMs = 3000, timeoutMs = 600000, onProgress, expectedJobType } = options;
@@ -291,7 +291,7 @@ export async function pollJobUntilDone(sessionId, options = {}) {
       continue;
     }
 
-    // The slot now holds a DIFFERENT job than the one we started — another
+    // The slot now holds a DIFFERENT job than the one we started - another
     // operation took over. Stop quietly rather than reporting its result as ours.
     if (expectedJobType && status.jobType && status.jobType !== expectedJobType) {
       return null;
@@ -525,7 +525,7 @@ export async function regenerateClip(sessionId, clipId, { prompt, model, style, 
     style,
     imageUrl,
   });
-  // Another job already owns this video's single slot — don't poll its result.
+  // Another job already owns this video's single slot - don't poll its result.
   if (data && data.jobType && data.jobType !== 'REGENERATE_CLIP') {
     throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
   }
@@ -577,7 +577,7 @@ export async function reassembleVideo(sessionId, { regenerateAudio, voiceId } = 
     regenerateAudio,
     voiceId,
   });
-  // Another job already owns this video's single slot — don't poll its result.
+  // Another job already owns this video's single slot - don't poll its result.
   if (data && data.jobType && data.jobType !== 'REASSEMBLE_VIDEO') {
     throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
   }
@@ -770,9 +770,9 @@ export async function deleteAudioAsset(sessionId, audioId) {
  *   show a real progress bar + stage label.
  */
 export async function exportTimeline(sessionId, onProgress) {
-  const { data } = await axios.post(`${API_BASE}/${sessionId}/timeline/export`); // 202 — starts the job
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/timeline/export`); // 202 - starts the job
   // If another job already owns this video's single slot, the API hands back
-  // that job's type instead of starting ours. Don't poll — say so clearly.
+  // that job's type instead of starting ours. Don't poll - say so clearly.
   if (data && data.jobType && data.jobType !== 'EXPORT_TIMELINE') {
     throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
   }
