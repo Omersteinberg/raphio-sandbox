@@ -20,6 +20,8 @@ export default function GeneratingStep({ session, scriptData, generationError, o
   const completedTTS = progressData.completedTTS || 0;
   const totalTTS = progressData.totalTTS || 0;
   const musicState = progressData.musicState || null;
+  // Count of clips the backend flags as rendering longer than usual (> ~4 min).
+  const slowClips = progressData.slowClips || 0;
 
   const musicEnabled = musicState ? musicState !== "skipped" : !!session?.video?.backgroundMusicEnabled;
   const isDone = !!session?.video?.finalVideoUrl;
@@ -132,7 +134,11 @@ export default function GeneratingStep({ session, scriptData, generationError, o
     <ProgressChecklist
       title="Creating Your Video"
       subtitle={`${scriptData?.title || "Your video"} is being generated`}
-      caption={`This can take ${estimatedLabel} depending on model and clip count.`}
+      caption={
+        slowClips > 0 && !after
+          ? "Some clips are taking longer than usual to render. Hang tight, your video is still generating."
+          : `This can take ${estimatedLabel} depending on model and clip count.`
+      }
       progress={progress}
       tasks={stages}
       headerIcon={Film}

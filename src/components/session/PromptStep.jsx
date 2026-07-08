@@ -1738,7 +1738,7 @@ export default function PromptStep({
                     Advanced
                     {(enableBridges || openingEnabled || closingEnabled)
                       ? ` · ${[enableBridges && 'Smooth transitions', openingEnabled && 'Intro', closingEnabled && 'Outro'].filter(Boolean).join(' + ')} on`
-                      : ' · Intro, Outro, Smooth transitions'}
+                      : ' · Intro, Outro, Bridge Scenes'}
                   </span>
                   {frameConfigExpanded ? (
                     <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#9C8F85' }} />

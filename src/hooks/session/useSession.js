@@ -6,7 +6,7 @@ import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
-import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
+import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession } from "./scriptJobResume";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 
@@ -338,6 +338,12 @@ export function useSession({ promptOnly = false } = {}) {
             // "Ready to Generate Script" screen. Keeping `loading` true here
             // keeps the ScriptLoadingScreen up; 75-98 is the band the kickoff
             // path uses for the script phase of the overall progress bar.
+            //
+            // The checklist's script rows are driven by this tab-local
+            // progress state, so a resumed/retried session must reflect the
+            // steps that already happened on the backend — derive the floor
+            // from the session's durable state (images, analysis, script).
+            const resumedProgress = scriptProgressForResumedSession(data);
             const jobState = detectScriptJobOnResume(data);
             if (jobState === "running") {
               const ok = await attachToRunningScriptJob({
@@ -346,7 +352,9 @@ export function useSession({ promptOnly = false } = {}) {
                 setSession,
                 setScriptData,
                 setScriptProgress,
-                progressBand: [75, 98],
+                // Start no lower than the already-done floor so completed
+                // rows (upload/analyze/restyle) light up immediately.
+                progressBand: [Math.max(75, resumedProgress), 98],
               });
               if (!ok) setScriptGenFailed(true);
               // A failure refund may have landed while polling.
@@ -354,6 +362,8 @@ export function useSession({ promptOnly = false } = {}) {
             } else if (jobState === "failed") {
               setScriptGenFailed(true);
               notifyScriptJobFailedOnResume(data);
+            } else {
+              setScriptProgress(resumedProgress);
             }
           }
         } catch (err) {
