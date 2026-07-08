@@ -209,9 +209,22 @@ export async function getRestyleStatus(sessionId) {
 export async function pollRestyleUntilDone(sessionId, options = {}) {
   const { intervalMs = 3000, timeoutMs = 600000, onProgress } = options;
   const startedAt = Date.now();
+  let consecutiveFailures = 0;
 
   while (true) {
-    const status = await getRestyleStatus(sessionId);
+    let status;
+    try {
+      status = await getRestyleStatus(sessionId);
+      consecutiveFailures = 0;
+    } catch (err) {
+      // Restyle jobs run detached too — tolerate a few failed polls (server
+      // restart, network blip) before giving up.
+      consecutiveFailures += 1;
+      console.warn(`[sessionService] restyle-status poll failed (${consecutiveFailures}/5): ${err.message}`);
+      if (consecutiveFailures >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
+    }
     if (typeof onProgress === 'function') onProgress(status);
     if (status.done) return status;
     if (Date.now() - startedAt > timeoutMs) {
@@ -248,9 +261,23 @@ export async function getJobStatus(sessionId) {
 export async function pollJobUntilDone(sessionId, options = {}) {
   const { intervalMs = 3000, timeoutMs = 600000, onProgress, expectedJobType } = options;
   const startedAt = Date.now();
+  let consecutiveFailures = 0;
 
   while (true) {
-    const status = await getJobStatus(sessionId);
+    let status;
+    try {
+      status = await getJobStatus(sessionId);
+      consecutiveFailures = 0;
+    } catch (err) {
+      // The backend job runs detached, so one failed poll (server restart,
+      // network blip) must not fail the whole flow. Only give up after several
+      // failures in a row.
+      consecutiveFailures += 1;
+      console.warn(`[sessionService] job-status poll failed (${consecutiveFailures}/5): ${err.message}`);
+      if (consecutiveFailures >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
+    }
 
     // The slot now holds a DIFFERENT job than the one we started — another
     // operation took over. Stop quietly rather than reporting its result as ours.

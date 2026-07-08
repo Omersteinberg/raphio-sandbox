@@ -5,7 +5,7 @@ import * as sessionService from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { STYLE_OPTIONS } from '../../constants/styles';
-import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume } from "./scriptJobResume";
+import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession } from "./scriptJobResume";
 
 // Session stages matching backend
 export const STAGES = {
@@ -118,6 +118,11 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
             // `loading` true keeps the pipeline's loading screen up. 20-98
             // sits past the "approving references" band of the references
             // loader's sub-steps, which is already done by this point.
+            // The checklist's script rows are driven by this tab-local
+            // progress state, so a resumed/retried session must reflect the
+            // steps that already happened on the backend — derive the floor
+            // from the session's durable state (images, analysis, script).
+            const resumedProgress = scriptProgressForResumedSession(data);
             const jobState = detectScriptJobOnResume(data);
             if (jobState === "running") {
               await attachToRunningScriptJob({
@@ -126,12 +131,18 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
                 setSession,
                 setScriptData,
                 setScriptProgress,
-                progressBand: [20, 98],
+                // Start from the already-done floor so completed rows (e.g.
+                // upload/analyze in the photos flow) light up immediately;
+                // never below 20, which sits past the references loader's
+                // "approving references" band that is already done here.
+                progressBand: [Math.max(20, resumedProgress), 98],
               });
               // A failure refund may have landed while polling.
               refreshCredits();
             } else if (jobState === "failed") {
               notifyScriptJobFailedOnResume(data);
+            } else {
+              setScriptProgress(resumedProgress);
             }
           }
         } catch (err) {
@@ -300,6 +311,14 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
           available: err.response.data.available,
         });
         return { success: false, reason: "insufficient_credits", error: err };
+      }
+      // 409 = a generation for this session is already running (e.g. a
+      // duplicate submit): treat as success so the caller stays on the
+      // generating step and polling picks up its progress.
+      if (err.response?.status === 409) {
+        console.log("[useSessionBase] 409 - generation already in progress");
+        toast.info("Generation already in progress...");
+        return { success: true, alreadyRunning: true };
       }
       // Network errors (timeout/CORS) likely mean generation is still running
       if (err.code === "ERR_NETWORK" || !err.response) {

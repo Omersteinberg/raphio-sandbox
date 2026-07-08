@@ -1320,6 +1320,14 @@ export function useSession({ promptOnly = false } = {}) {
         setStep(framesStep);
         return;
       }
+      // 409 = a generation for this session is already running (e.g. a
+      // duplicate submit): that's success from the user's perspective — stay
+      // on the generating step and let polling pick up its progress.
+      if (err.response?.status === 409) {
+        console.log("[useSession] 409 - generation already in progress, staying on generating step");
+        toast.info("Generation already in progress...");
+        return;
+      }
       // Network errors (timeout/CORS) likely mean generation is still running
       // in the background - stay on generating step and let polling pick up the result
       if (err.code === "ERR_NETWORK" || !err.response) {

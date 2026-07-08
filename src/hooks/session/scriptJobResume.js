@@ -31,6 +31,25 @@ export function detectScriptJobOnResume(sessionData) {
 }
 
 /**
+ * Derive how far the script PHASE already progressed for a freshly resumed
+ * session, from its durable backend state (not the live job slot). The merged
+ * checklist's script rows are threshold bands over this 0-100 value (see
+ * PROMPT_ONLY_SUB_STEPS / IMAGE_SCRIPT_SUB_STEPS), so each value below is
+ * picked to complete exactly the rows whose work is provably done:
+ *  - script written                   -> 100 (all script rows done)
+ *  - images analyzed (restyle kicked) -> 70  (upload + analyze + restyle done)
+ *  - images uploaded                  -> 40  (session + upload done)
+ *  - session exists                   -> 20  (session row done)
+ */
+export function scriptProgressForResumedSession(sessionData) {
+  if (!sessionData) return 0;
+  if (sessionData.scriptData) return 100;
+  if (sessionData.imageAnalysis) return 70;
+  if (sessionData.images?.length > 0) return 40;
+  return 20;
+}
+
+/**
  * Re-attach to a script job that is still RUNNING in the backend after the
  * user navigated away and resumed the session. Read-only on the backend: it
  * polls the session's existing job slot — it never starts a job, never
