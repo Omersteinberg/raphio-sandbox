@@ -9,6 +9,7 @@ import { useReferencesSession } from "@/hooks/session/useReferencesSession";
 import { loadPending } from "@/lib/pendingSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
+import { buildVideoTasks } from "@/lib/progressTasks";
 import { getAutoApprove } from "@/lib/preferences";
 
 // Step components
@@ -17,7 +18,7 @@ import ReferenceLockStep from "@/components/session/ReferenceLockStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FrameGenerationStep from "@/components/session/FrameGenerationStep";
 import VoiceConfigStep from "@/components/session/VoiceConfigStep";
-import GeneratingStep from "@/components/session/GeneratingStep";
+import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
@@ -180,27 +181,44 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // shown during every AUTOMATIC stretch and only steps aside when parked on a
   // review the user must act on — so consecutive auto phases read as one page,
   // and in full-auto it's one page the whole way through.
-  const refPhase =
-    step >= 5 ? "video"
-    : step === 3 || step === 4 ? "scenes"
-    : step === 2 ? "script"
-    : "refs";
+  // Card ticks follow REAL backend completion, not the wizard step counter. The
+  // old step-based mapping only flipped "references" to done at the instant the
+  // step advanced to "script", so the two appeared to tick together even though
+  // references had actually finished earlier. Each phase now checks its own
+  // completion signal; the `step >= N` fallbacks keep a card marked done if that
+  // signal isn't loaded in this view (so it never regresses below the old logic).
   const REF_PHASE_ORDER = ["refs", "script", "scenes", "video"];
-  const refPhaseIdx = REF_PHASE_ORDER.indexOf(refPhase);
-  const refStatus = (p) => {
-    const i = REF_PHASE_ORDER.indexOf(p);
-    if (p === "video") return finalVideoUrl ? "completed" : i === refPhaseIdx ? "processing" : "pending";
-    return i < refPhaseIdx ? "completed" : i === refPhaseIdx ? "processing" : "pending";
+  const refDone = {
+    refs: refLockReady || step >= 2,
+    script: !!scriptData || step >= 3,
+    scenes: (sceneFrames?.length ?? 0) > 0 || step >= 5,
+    video: !!finalVideoUrl,
   };
+  // The active (spinning) phase is the first one that isn't done yet.
+  const refPhase = REF_PHASE_ORDER.find((p) => !refDone[p]) || "video";
+  const refStatus = (p) => {
+    if (refDone[p]) return "completed";
+    return p === refPhase ? "processing" : "pending";
+  };
+  // The video phase reuses the shared buildVideoTasks helper — the SAME rows the
+  // image and prompt pipelines show (clips, narration, music, assembly) — instead
+  // of a single coarse "Generating video" card. This removes the duplicate music
+  // logic that used to live here. `musicRequested` passes the wizard toggle so the
+  // music card shows from the start, before the backend video row exists.
+  const videoStarted = refPhase === "video";
+  const { tasks: videoPhaseTasks, realProgress: videoRealProgress } = buildVideoTasks(
+    session.session,
+    scriptData,
+    { started: videoStarted, musicRequested: backgroundMusic }
+  );
   const refMergedTasks = [
     { id: "refs", name: "Preparing references", description: "Locking in characters and settings", icon: Wand2, status: refStatus("refs") },
     { id: "script", name: "Writing script", description: "Turning your brief into a story", icon: Sparkles, status: refStatus("script") },
     { id: "scenes", name: "Creating scenes", description: "Designing a frame for each scene", icon: ImageIcon, status: refStatus("scenes") },
-    { id: "video", name: "Generating video", description: "Animating the scenes into a video", icon: Film, status: refStatus("video") },
+    ...videoPhaseTasks,
   ];
-  const refVideoPct = session.session?.video?.progressData?.percentage;
   const refMergedProgress =
-    refPhase === "video" ? 70 + (typeof refVideoPct === "number" ? refVideoPct * 0.3 : 0)
+    refPhase === "video" ? 70 + videoRealProgress * 0.3
     : refPhase === "scenes" ? 60
     : refPhase === "script" ? 45
     : 20;
@@ -374,7 +392,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
 
       case 5:
         return (
-          <GeneratingStep
+          <VideoGenerationStep
             session={session.session}
             scriptData={scriptData}
             generationError={generationError}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import IntroBriefStep from "@/components/session/IntroBriefStep";
 import IntroScriptStep from "@/components/session/IntroScriptStep";
-import GeneratingStep from "@/components/session/GeneratingStep";
+import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import { useIntroSession } from "@/hooks/session/useIntroSession";
@@ -87,7 +87,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
     }
     if (step === GENERATING_STEP) {
       return (
-        <GeneratingStep
+        <VideoGenerationStep
           session={intro.session}
           scriptData={null}
           openingFrame={null}

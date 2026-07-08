@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Sparkles } from "lucide-react";
+import { Film, Sparkles, Images } from "lucide-react";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
 import { useSession } from "@/hooks/session/useSession";
 import { loadPending } from "@/lib/pendingSession";
@@ -16,7 +16,7 @@ import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
 import PromptStep from "@/components/session/PromptStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FramesStep from "@/components/session/FramesStep";
-import GeneratingStep from "@/components/session/GeneratingStep";
+import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
@@ -103,6 +103,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     enterEditingMode,
     reset,
     scriptProgress,
+    bridgeProgress,
 
     // Editing step
     updateClip,
@@ -282,9 +283,41 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   const { tasks: mergedVideoTasks, realProgress: mergedVideoProgress } = buildVideoTasks(
     session.session,
     scriptData,
-    { started: videoStarted }
+    { started: videoStarted, musicRequested: backgroundMusic }
   );
-  const mergedTasks = [...buildScriptTasks(scriptSubSteps, scriptProgress), ...mergedVideoTasks];
+  // Bridge scenes (transition frames) are generated AFTER the script and BEFORE
+  // the video render, as a background job — so the card sits between the two.
+  // Total is known up front from the outline; the live "X/Y" count comes from the
+  // APPROVE_OUTLINE job's progress (bridgeProgress). It ticks complete once every
+  // bridge section has a status, or once video generation has started.
+  const bridgeSections = (scriptData?.sections || []).filter((s) => s.source === "bridge");
+  const totalBridges = bridgeSections.length;
+  const bridgesDone = totalBridges > 0 && bridgeSections.every((s) => s.bridgeStatus);
+  const bridgeCardStatus = bridgesDone || videoStarted
+    ? "completed"
+    : bridgeProgress
+      ? "processing"
+      : "pending";
+  const bridgePlural = totalBridges > 1 ? "s" : "";
+  const bridgeDescription = bridgeCardStatus === "completed"
+    ? `${totalBridges} bridge scene${bridgePlural} ready`
+    : bridgeCardStatus === "processing"
+      ? (bridgeProgress?.label || `Generating ${totalBridges} bridge scene${bridgePlural}`)
+      : `Transition scenes between your clips`;
+  const bridgeTask = enableBridges && totalBridges > 0
+    ? [{
+        id: "bridges",
+        name: "Bridge scenes",
+        description: bridgeDescription,
+        icon: Images,
+        status: bridgeCardStatus,
+      }]
+    : [];
+  const mergedTasks = [
+    ...buildScriptTasks(scriptSubSteps, scriptProgress),
+    ...bridgeTask,
+    ...mergedVideoTasks,
+  ];
   const mergedProgress = videoStarted ? 40 + mergedVideoProgress * 0.6 : scriptProgress * 0.4;
   // Parked on a review the user must act on -> step aside and show it.
   const atManualReview =
@@ -404,7 +437,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
 
     if (step === generatingStep) {
       return (
-        <GeneratingStep
+        <VideoGenerationStep
           session={session.session}
           scriptData={scriptData}
           openingFrame={openingFrame}
@@ -518,12 +551,14 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
         <MergeLoadingOverlay
           text={
             enableBridges && step === 2
-              ? "Generating bridge images..."
+              ? (bridgeProgress?.label
+                  ? `Generating bridge scenes (${bridgeProgress.label})`
+                  : "Generating bridge images...")
               : step === framesStep
               ? "Saving settings..."
               : "Processing..."
           }
-          progress={null}
+          progress={enableBridges && step === 2 ? (bridgeProgress?.percentage ?? null) : null}
         />
       )}
 

@@ -367,9 +367,11 @@ export async function generateOutline(sessionId, frameOptions = null, options = 
 /**
  * Approve outline and trigger bridge frame image generation
  */
-export async function approveOutline(sessionId) {
+export async function approveOutline(sessionId, options = {}) {
   await axios.post(`${API_BASE}/${sessionId}/approve-outline`); // 202
-  return await pollJobUntilDone(sessionId);
+  return await pollJobUntilDone(sessionId, {
+    onProgress: (status) => options.onProgress?.(status.jobProgress),
+  });
 }
 
 /**

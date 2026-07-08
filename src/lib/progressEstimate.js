@@ -5,7 +5,7 @@
 // estimate, so it never hard-stops at a number and looks stuck. Snap to 100
 // yourself when the job actually finishes.
 //
-// Mirrors the estimate philosophy already used by GeneratingStep (clips run in
+// Mirrors the estimate philosophy already used by VideoGenerationStep (clips run in
 // batches; ~minutes per batch), just expressed as a smooth curve.
 //
 // @param {number} elapsedMs  time since the job started

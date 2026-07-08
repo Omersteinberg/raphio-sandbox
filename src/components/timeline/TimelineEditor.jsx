@@ -349,7 +349,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     // The backend reports no progress for clip regeneration and it can take a
     // few minutes, so we predict the duration and ramp EVENLY toward it (then
     // creep on overrun) — feels like steady, consistent movement instead of
-    // racing ahead and freezing. Estimate mirrors GeneratingStep's batch model
+    // racing ahead and freezing. Estimate mirrors VideoGenerationStep's batch model
     // (~one clip-batch of generation time).
     const start = Date.now();
     const ESTIMATE_MS = 4 * 60 * 1000; // ~4 min for a single clip; tune if regen is consistently faster/slower

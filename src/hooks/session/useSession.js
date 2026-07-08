@@ -176,6 +176,11 @@ export function useSession({ promptOnly = false } = {}) {
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
 
+  // Bridge-image generation progress: { percentage, label } from the backend job
+  // while APPROVE_OUTLINE runs, or null when idle. Drives the checklist's bridge
+  // card so it can show a live "X/Y bridge scenes" count.
+  const [bridgeProgress, setBridgeProgress] = useState(null);
+
   // A script job failed while the user was away (detected on resume). Drives
   // the explicit "this is a retry" state on ScriptStep instead of the normal
   // "Ready to Generate Script" screen.
@@ -1142,7 +1147,9 @@ export function useSession({ promptOnly = false } = {}) {
         await sessionService.updateScript(sessionId, { scriptData });
       }
 
-      const updatedSession = await sessionService.approveOutline(sessionId);
+      const updatedSession = await sessionService.approveOutline(sessionId, {
+        onProgress: (jobProgress) => setBridgeProgress(jobProgress || null),
+      });
       setSession(updatedSession);
       setScriptData(updatedSession.scriptData);
 
@@ -1158,6 +1165,7 @@ export function useSession({ promptOnly = false } = {}) {
       toast.error("Failed to approve outline");
       return false;
     } finally {
+      setBridgeProgress(null);
       setLoading(false);
     }
   }, [sessionId, scriptData]);
@@ -1283,10 +1291,10 @@ export function useSession({ promptOnly = false } = {}) {
     // Clear any prior failure so the generating screen shows progress and polling resumes
     setGenerationError(null);
 
-    // Immediately transition to GeneratingStep so user sees
+    // Immediately transition to VideoGenerationStep so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
     const genStep = enableBridges ? 4 : 3;
-    console.log(`[useSession] Transitioning to GeneratingStep (step ${genStep}) immediately`);
+    console.log(`[useSession] Transitioning to VideoGenerationStep (step ${genStep}) immediately`);
     setDirection(1);
     setStep(genStep);
 
@@ -1605,6 +1613,7 @@ export function useSession({ promptOnly = false } = {}) {
     generationError,
     finalVideoUrl,
     scriptProgress,
+    bridgeProgress,
     scriptGenFailed,
     insufficientCredits,
     dismissInsufficientCredits: () => setInsufficientCredits(null),

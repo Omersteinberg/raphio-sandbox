@@ -1,7 +1,7 @@
 // Builders for the shared ProgressChecklist task lists. Used to compose a single
 // continuous checklist across phases (script generation -> video generation) when
 // a run is fully automatic, so the user sees one list instead of two screens.
-import { Film, Mic, Layers, Music, Image } from "lucide-react";
+import { Film, Mic, Layers, Music } from "lucide-react";
 
 export function statusForRange(range, progress) {
   if (progress >= range[1]) return "completed";
@@ -20,8 +20,13 @@ export function buildScriptTasks(subSteps, progress) {
 
 // Video-generation phase rows from the backend progressData. `started` gates the
 // rows to "pending" until generation actually begins (so they don't show as
-// running while an earlier phase is still going).
-export function buildVideoTasks(session, scriptData, { started = true } = {}) {
+// running while an earlier phase is still going). `musicRequested` is the user's
+// in-wizard music toggle: before the video row exists (early phases) the backend
+// `backgroundMusicEnabled` flag isn't available yet, so we fall back to the
+// requested toggle. That keeps the music card visible from the start in every
+// mode instead of only appearing once generation is underway. Once the backend
+// says music was "skipped" (e.g. no music prompt), the card correctly disappears.
+export function buildVideoTasks(session, scriptData, { started = true, musicRequested } = {}) {
   const sections = session?.video?.sections || [];
   const completedSections = sections.filter((s) => s.status === "COMPLETED").length;
   const totalSections = sections.length;
@@ -32,7 +37,9 @@ export function buildVideoTasks(session, scriptData, { started = true } = {}) {
   const completedTTS = progressData.completedTTS || 0;
   const totalTTS = progressData.totalTTS || 0;
   const musicState = progressData.musicState || null;
-  const musicEnabled = musicState ? musicState !== "skipped" : !!session?.video?.backgroundMusicEnabled;
+  const musicEnabled = musicState
+    ? musicState !== "skipped"
+    : !!(session?.video?.backgroundMusicEnabled ?? musicRequested);
   const isDone = !!session?.video?.finalVideoUrl;
   const isAssembly = currentStage === "ASSEMBLY";
   const after = isDone || isAssembly;
@@ -44,10 +51,12 @@ export function buildVideoTasks(session, scriptData, { started = true } = {}) {
   const musicStatus = after || musicState === "done" || musicState === "failed" ? "completed" : "processing";
   const assemblyStatus = isDone ? "completed" : isAssembly ? "processing" : "pending";
 
+  // NOTE: image restyle is a pre-generation step (it runs before the script, see
+  // IMAGE_SCRIPT_SUB_STEPS "restyle"), so it is NOT a render-phase row. It used to
+  // be duplicated here as a hardcoded "completed" card, which showed twice in the
+  // image checklist (once from the script sub-steps, once from here). It lives only
+  // in the script/setup phase now.
   let tasks = [
-    ...(session?.restyled
-      ? [{ id: "restyle", name: "Restyling Images", description: "Applying visual style to uploaded images", icon: Image, status: "completed" }]
-      : []),
     { id: "clips", name: "Creating Video Clips", description: `${completedClips}/${totalClips} clips complete`, icon: Film, status: clipsStatus },
     {
       id: "tts",
