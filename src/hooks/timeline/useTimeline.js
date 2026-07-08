@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 
 const PIXELS_PER_SECOND_BASE = 50;

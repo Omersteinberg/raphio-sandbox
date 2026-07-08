@@ -27,7 +27,7 @@ const AUTO_APPROVE_ROWS = [
   {
     key: "bridges",
     title: "Bridge frames",
-    desc: "Approve AI bridge frames automatically (only when smooth transitions are on, and never if a frame failed).",
+    desc: "Approve AI bridge frames automatically (only when Bridge Frames are on, and never if a frame failed).",
   },
   {
     key: "frames",

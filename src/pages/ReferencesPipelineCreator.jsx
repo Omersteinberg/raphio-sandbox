@@ -19,6 +19,7 @@ import ScriptStep from "@/components/session/ScriptStep";
 import FrameGenerationStep from "@/components/session/FrameGenerationStep";
 import VoiceConfigStep from "@/components/session/VoiceConfigStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
+import useSmoothProgress from "@/hooks/useSmoothProgress";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
@@ -206,7 +207,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // logic that used to live here. `musicRequested` passes the wizard toggle so the
   // music card shows from the start, before the backend video row exists.
   const videoStarted = refPhase === "video";
-  const { tasks: videoPhaseTasks, realProgress: videoRealProgress } = buildVideoTasks(
+  const { tasks: videoPhaseTasks } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
@@ -217,11 +218,6 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     { id: "scenes", name: "Creating scenes", description: "Designing a frame for each scene", icon: ImageIcon, status: refStatus("scenes") },
     ...videoPhaseTasks,
   ];
-  const refMergedProgress =
-    refPhase === "video" ? 70 + videoRealProgress * 0.3
-    : refPhase === "scenes" ? 60
-    : refPhase === "script" ? 45
-    : 20;
   const refMergedTitle =
     refPhase === "video" ? "Creating your video"
     : refPhase === "scenes" ? "Creating your scenes"
@@ -246,6 +242,11 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     !atManualReview &&
     !generationError &&
     !insufficientCredits;
+
+  const refMergedProgress = useSmoothProgress({
+    active: showRefMergedRun,
+    done: !!finalVideoUrl,
+  });
 
   useEffect(() => {
     let cancelled = false;

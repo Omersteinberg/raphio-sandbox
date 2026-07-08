@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, Music, Loader2 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 
 const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|flac|aiff?|caf|opus|weba|webm)$/i;

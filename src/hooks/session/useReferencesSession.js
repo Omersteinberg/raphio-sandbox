@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import * as referenceApi from "@/services/reference";
 import { fetchStyles } from "@/services/session";

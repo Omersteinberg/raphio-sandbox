@@ -5,7 +5,7 @@ import {
   Plus, Video, ArrowRight, LayoutGrid,
   List, ChevronRight, SlidersHorizontal, Clock
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import { listSessions } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";

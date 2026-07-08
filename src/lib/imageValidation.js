@@ -1,4 +1,4 @@
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 
 // The only raster formats the pipeline accepts. WebP (and everything else) is rejected.
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];

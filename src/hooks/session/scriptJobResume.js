@@ -1,4 +1,4 @@
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { reportClientError } from "@/services/errorReporter";
 

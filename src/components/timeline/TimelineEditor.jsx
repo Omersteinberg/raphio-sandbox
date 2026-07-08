@@ -21,7 +21,7 @@ import {
   Layers,
   Undo2,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { startOverviewTour, startClipTour } from "@/lib/editorTour";

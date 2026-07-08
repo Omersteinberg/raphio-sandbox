@@ -120,9 +120,6 @@ export default function JourneyTimeline({ tasks = [], onStepClick, className = "
             return (
               <span key={task.id} className="font-medium" style={{ color: isActive ? "#C1440E" : "#7A6A62" }}>
                 {task.label}
-                {task.state === "running" && typeof task.progress === "number" && (
-                  <span style={{ opacity: 0.7 }}> {Math.round(task.progress)}%</span>
-                )}
               </span>
             );
           })}

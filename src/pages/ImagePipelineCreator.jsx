@@ -17,6 +17,7 @@ import PromptStep from "@/components/session/PromptStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FramesStep from "@/components/session/FramesStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
+import useSmoothProgress from "@/hooks/useSmoothProgress";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
@@ -280,7 +281,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // it's one page the whole way through.
   const videoStarted = step >= generatingStep;
   const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
-  const { tasks: mergedVideoTasks, realProgress: mergedVideoProgress } = buildVideoTasks(
+  const { tasks: mergedVideoTasks } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
@@ -318,7 +319,6 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     ...bridgeTask,
     ...mergedVideoTasks,
   ];
-  const mergedProgress = videoStarted ? 40 + mergedVideoProgress * 0.6 : scriptProgress * 0.4;
   // Parked on a review the user must act on -> step aside and show it.
   const atManualReview =
     (step === 1 && !loading && !!scriptData && !autoApprovePrefs.script) ||
@@ -331,6 +331,11 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     !atManualReview &&
     !generationError &&
     !insufficientCredits;
+
+  const mergedProgress = useSmoothProgress({
+    active: showMergedRun,
+    done: !!finalVideoUrl,
+  });
 
   // Render current step component
   const renderStep = () => {

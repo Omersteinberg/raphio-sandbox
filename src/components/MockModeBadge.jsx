@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import { FlaskConical } from "lucide-react";
 import { getMockStatus } from "@/services/session";
 

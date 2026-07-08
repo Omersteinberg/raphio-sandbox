@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Download, Loader2, Check, Pencil, Share2, Plus } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import api from "@/services/api";
 import { getShareUrl } from "@/services/session";

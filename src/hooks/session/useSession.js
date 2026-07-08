@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
@@ -394,7 +394,13 @@ export function useSession({ promptOnly = false } = {}) {
         (session.video?.status === "FAILED" || session.video?.progressData?.stage === "FAILED") &&
         session.stage !== "GENERATING";
       const generatingStep = enableBridges ? 4 : 3;
-      const newStep = genFailed ? generatingStep : (stageMap[session.stage] ?? 0);
+      let newStep = genFailed ? generatingStep : (stageMap[session.stage] ?? 0);
+
+      const PRE_GENERATION_STAGES = ["SCRIPT_GENERATED", "SCRIPT_APPROVED", "FRAMES_CONFIGURED"];
+      if (step >= generatingStep && newStep < generatingStep && PRE_GENERATION_STAGES.includes(session.stage)) {
+        newStep = step;
+      }
+
       if (genFailed && !generationError) {
         setGenerationError(session.video?.progressData?.error || "Video generation failed. Please try again.");
       }

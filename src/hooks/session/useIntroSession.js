@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { getCreationDefaults } from "@/lib/preferences";

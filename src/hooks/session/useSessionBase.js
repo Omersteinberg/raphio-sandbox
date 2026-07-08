@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
