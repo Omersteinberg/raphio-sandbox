@@ -63,6 +63,15 @@ export async function getSession(sessionId) {
 }
 
 /**
+ * Get (or lazily create) the public /watch share URL for a finished video.
+ * Owner-only on the backend. Returns { shareUrl }.
+ */
+export async function getShareUrl(sessionId) {
+  const response = await axios.get(`${API_BASE}/${sessionId}/share`);
+  return response.data;
+}
+
+/**
  * List sessions
  * @returns {{ data: Array, total: number }}
  */

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, Loader2, Check, Pencil, Share2, Plus } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import api from "@/services/api";
+import { getShareUrl } from "@/services/session";
 import { API_BASE } from "@/config";
 
 /**
@@ -36,7 +37,27 @@ export default function VideoResult({
   className = "",
 }) {
   const [downloading, setDownloading] = useState(false);
+  const [publicShareUrl, setPublicShareUrl] = useState(null);
   const displayTitle = title || "Untitled";
+
+  // Pre-fetch the public /watch link as soon as the video is ready, so the Share
+  // click handler stays synchronous. iOS Safari requires navigator.share to run
+  // inside the user gesture, an await before it silently breaks the native sheet.
+  useEffect(() => {
+    let cancelled = false;
+    if (sessionId && finalVideoUrl) {
+      getShareUrl(sessionId)
+        .then((res) => {
+          if (!cancelled && res && res.shareUrl) setPublicShareUrl(res.shareUrl);
+        })
+        .catch(() => {
+          /* leave publicShareUrl null; shareUrl falls back to the /video link */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, finalVideoUrl]);
 
   const handleDownload = async () => {
     if (!finalVideoUrl) {
@@ -86,9 +107,12 @@ export default function VideoResult({
     }
   };
 
-  const shareUrl = sessionId
-    ? `${window.location.origin}/video/${sessionId}`
-    : finalVideoUrl;
+  // Prefer the public /watch link (works for logged-out viewers). Fall back to
+  // the canonical in-app /video link only if the pre-fetch hasn't landed / failed,
+  // so Share is never dead.
+  const shareUrl =
+    publicShareUrl ||
+    (sessionId ? `${window.location.origin}/video/${sessionId}` : finalVideoUrl);
 
   const handleShare = async () => {
     if (!shareUrl) return;
