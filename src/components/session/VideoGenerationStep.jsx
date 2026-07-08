@@ -26,6 +26,12 @@ export default function VideoGenerationStep({ session, scriptData, generationErr
     : null;
   const estimatedLabel = estimatedMinutes ? `~${estimatedMinutes} minutes` : "a few minutes";
 
+  // Count of clips the backend flags as rendering longer than usual (> ~4 min).
+  // While any are slow (and we're not yet assembling/done), swap the estimate
+  // caption for a reassurance message.
+  const slowClips = progressData.slowClips || 0;
+  const isAfter = !!session?.video?.finalVideoUrl || (progressData.stage || "GENERATING") === "ASSEMBLY";
+
   // Simulated progress: +1% every 5 seconds so the bar doesn't sit at 0.
   const [simulatedProgress, setSimulatedProgress] = useState(0);
   useEffect(() => {
@@ -60,7 +66,11 @@ export default function VideoGenerationStep({ session, scriptData, generationErr
     <ProgressChecklist
       title="Creating Your Video"
       subtitle={`${scriptData?.title || "Your video"} is being generated`}
-      caption={`This can take ${estimatedLabel} depending on model and clip count.`}
+      caption={
+        slowClips > 0 && !isAfter
+          ? "Some clips are taking longer than usual to render. Hang tight, your video is still generating."
+          : `This can take ${estimatedLabel} depending on model and clip count.`
+      }
       progress={progress}
       tasks={stages}
       headerIcon={Film}
