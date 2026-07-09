@@ -243,9 +243,13 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     !generationError &&
     !insufficientCredits;
 
+  // 12-minute ramp: the references run is longer than the image pipeline's
+  // (references -> script -> scenes -> video), so the default 10 pins at the
+  // ceiling too early.
   const refMergedProgress = useSmoothProgress({
     active: showRefMergedRun,
     done: !!finalVideoUrl,
+    rampMs: 12 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -489,12 +493,18 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
             className="absolute inset-0 z-40"
             style={{ background: "#F5F0EB" }}
           >
+            {/* The leave hint shows from the script phase on: those phases are
+                detached backend jobs (script, REF_SCENE_FRAMES, video) that keep
+                running and that resume re-attaches to. It is withheld during the
+                "refs" phase because the browser still chains generate-all ->
+                restyle there, so leaving mid-phase means restyle never fires and
+                the session strands at the lock step with unstyled references. */}
             <ProgressChecklist
               title={refMergedTitle}
               headerIcon={refMergedIcon}
               progress={refMergedProgress}
               tasks={refMergedTasks}
-              onLeave={refPhase === "video" ? () => navigate("/videos") : undefined}
+              onLeave={refPhase === "refs" ? undefined : () => navigate("/videos")}
             />
           </motion.div>
         )}
