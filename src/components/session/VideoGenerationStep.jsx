@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Film } from "lucide-react";
 import ProgressChecklist from "@/components/session/ProgressChecklist";
-import { buildVideoTasks } from "@/lib/progressTasks";
+import { buildVideoTasks, progressFromTasks } from "@/lib/progressTasks";
+import useSmoothProgress from "@/hooks/useSmoothProgress";
 
 export default function VideoGenerationStep({ session, failedSession, scriptData, generationError, onRegenerate }) {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
   // buildVideoTasks helper - the single source of truth also used by the image,
   // prompt and reference pipelines. Generation is already running when this screen
   // shows directly, so `started` is true.
-  const { tasks: stages, realProgress, failure } = buildVideoTasks(activeSession, scriptData, { started: true });
+  const { tasks: stages, failure } = buildVideoTasks(activeSession, scriptData, { started: true });
 
   // Estimated time: clips generate in batches of 3 (~6 min per batch), plus a
   // buffer for final assembly. Narration + music run in parallel with the clips,
@@ -39,15 +39,15 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
   const slowClips = progressData.slowClips || 0;
   const isAfter = !!activeSession?.video?.finalVideoUrl || (progressData.stage || "GENERATING") === "ASSEMBLY";
 
-  // Simulated progress: +1% every 5 seconds so the bar doesn't sit at 0.
-  const [simulatedProgress, setSimulatedProgress] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSimulatedProgress((prev) => Math.min(prev + 1, 40));
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-  const progress = Math.max(simulatedProgress, realProgress);
+  // The bar is a weighted function of the rows, which come from the backend
+  // snapshot - so it resumes at the real percentage. This screen only spans the
+  // render phase, so the rows above are the whole 0-100.
+  const { target, ceiling } = progressFromTasks(stages);
+  const progress = useSmoothProgress({
+    target,
+    ceiling,
+    done: !!activeSession?.video?.finalVideoUrl,
+  });
 
   const fatal = !!generationError || !!failure?.fatal || activeSession?.video?.status === "FAILED";
 

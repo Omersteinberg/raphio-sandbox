@@ -9,7 +9,7 @@ import { useReferencesSession } from "@/hooks/session/useReferencesSession";
 import { loadPending } from "@/lib/pendingSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
-import { buildVideoTasks } from "@/lib/progressTasks";
+import { buildVideoTasks, progressFromTasks, REF_PHASE_WEIGHTS } from "@/lib/progressTasks";
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 
 // Step components
@@ -33,6 +33,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     loading,
     error,
     sessionId,
+    sessionRestoring,
 
     // Prompt step
     userPrompt,
@@ -237,7 +238,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // logic that used to live here. `musicRequested` passes the wizard toggle so the
   // music card shows from the start, before the backend video row exists.
   const videoStarted = refPhase === "video";
-  const { tasks: videoPhaseTasks, realProgress: videoRealProgress, failure: videoFailure } = buildVideoTasks(
+  const { tasks: videoPhaseTasks, failure: videoFailure } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
@@ -245,10 +246,12 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // Mirrors VideoGenerationStep's `fatal`, so the overlay steps aside for exactly
   // the states in which that component renders its failure card.
   const videoFatal = !!videoFailure?.fatal || session.session?.video?.status === "FAILED";
+  // These three rows have no sub-progress to read, so they carry no `partial` -
+  // the smoother's creep is what moves the bar within each one.
   const refMergedTasks = [
-    { id: "refs", name: "Preparing references", description: "Locking in characters and settings", icon: Wand2, status: refStatus("refs") },
-    { id: "script", name: "Writing script", description: "Turning your brief into a story", icon: Sparkles, status: refStatus("script") },
-    { id: "scenes", name: "Creating scenes", description: "Designing a frame for each scene", icon: ImageIcon, status: refStatus("scenes") },
+    { id: "refs", name: "Preparing references", description: "Locking in characters and settings", icon: Wand2, status: refStatus("refs"), weight: REF_PHASE_WEIGHTS.refs },
+    { id: "script", name: "Writing script", description: "Turning your brief into a story", icon: Sparkles, status: refStatus("script"), weight: REF_PHASE_WEIGHTS.script },
+    { id: "scenes", name: "Creating scenes", description: "Designing a frame for each scene", icon: ImageIcon, status: refStatus("scenes"), weight: REF_PHASE_WEIGHTS.scenes },
     ...videoPhaseTasks,
   ];
   const refMergedTitle =
@@ -280,14 +283,15 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     !videoFatal &&
     !insufficientCredits;
 
-  // 12-minute ramp: the references run is longer than the image pipeline's
-  // (references -> script -> scenes -> video), so the default 10 pins at the
-  // ceiling too early.
+  // The bar is a weighted function of the rows above, all of which are derived
+  // from durable backend state - so a reload or a resume lands on the real
+  // percentage instead of restarting a mount-time ramp.
+  const { target: refMergedTarget, ceiling: refMergedCeiling } = progressFromTasks(refMergedTasks);
   const refMergedProgress = useSmoothProgress({
     active: showRefMergedRun,
     done: !!finalVideoUrl,
-    floor: videoStarted ? videoRealProgress : 0,
-    rampMs: 12 * 60 * 1000,
+    target: refMergedTarget,
+    ceiling: refMergedCeiling,
   });
 
   useEffect(() => {
@@ -526,7 +530,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
             <ProgressChecklist
               title={refMergedTitle}
               headerIcon={refMergedIcon}
-              progress={refMergedProgress}
+              progress={sessionRestoring ? null : refMergedProgress}
               tasks={refMergedTasks}
               sessionId={session.sessionId}
               logPhase={refPhase === "refs" ? "references" : "script"}

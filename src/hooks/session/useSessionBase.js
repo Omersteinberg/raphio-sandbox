@@ -595,6 +595,10 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setSessionId,
     session,
     setSession,
+    // True from mount until the `?session=` fetch lands. Progress derived from
+    // `session` reads 0 in that window, so the bar must stay hidden rather than
+    // flash 0% at someone resuming a run that is 60% done.
+    sessionRestoring: !!resumeSessionId && !sessionId,
     direction,
     setDirection,
     loading,

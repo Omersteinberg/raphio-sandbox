@@ -9,6 +9,56 @@ export function statusForRange(range, progress) {
   return "pending";
 }
 
+const clamp01 = (n) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
+
+// Share of the overall progress bar owned by each row. Clip rendering and the
+// ffmpeg assembly dominate the wall clock, so the bar reads ~40% by the time the
+// clips row starts spinning. Rows that don't exist for a given run (bridges off,
+// music off) simply drop out and the rest renormalize.
+export const SCRIPT_PHASE_WEIGHT = 0.35;
+export const BRIDGE_PHASE_WEIGHT = 0.05;
+export const REF_PHASE_WEIGHTS = { refs: 0.08, script: 0.12, scenes: 0.2 };
+const VIDEO_ROW_WEIGHTS = { clips: 0.4, tts: 0.05, music: 0.03, assembly: 0.12 };
+
+/**
+ * The overall bar as a function of the checklist rows, which are themselves
+ * derived from durable backend state. That is what makes the bar survive a
+ * reload: there is no mount-time clock in the number.
+ *
+ * `target` is what has actually happened. `ceiling` is what the bar would read
+ * if every row currently spinning advanced by ONE increment of its own
+ * granularity (the next clip, the next narration section, the end of the current
+ * script band). The smoother creeps between the two, so it stays alive during a
+ * long wait without ever claiming a clip that hasn't rendered.
+ *
+ * A row carries `weight`, `partial` (0-1, only read while "processing") and
+ * `partialStep` (how much one increment moves `partial`, default: the whole row).
+ * Failed and warning rows count as settled - they're done, one way or the other.
+ */
+export function progressFromTasks(tasks = []) {
+  let total = 0;
+  let now = 0;
+  let ahead = 0;
+
+  for (const task of tasks) {
+    const weight = task.weight ?? 1;
+    total += weight;
+    if (task.status === "pending") continue;
+
+    if (task.status === "processing") {
+      const partial = clamp01(task.partial);
+      now += weight * partial;
+      ahead += weight * clamp01(partial + (task.partialStep ?? 1));
+    } else {
+      now += weight;
+      ahead += weight;
+    }
+  }
+
+  if (total <= 0) return { target: 0, ceiling: 0 };
+  return { target: (now / total) * 100, ceiling: (ahead / total) * 100 };
+}
+
 // The backend overwrites progressData with {stage:'FAILED', percentage:0, error}
 // when a run dies, destroying the clip/TTS counters and musicState. The only
 // signals that survive a failure are video.status, progressData.error and the
@@ -116,12 +166,21 @@ function applyFailure(tasks, failure) {
 }
 
 // Script-generation phase rows from the sub-step ranges + the 0-100 script progress.
+// Each row's weight is its share of the phase, taken from its own range span.
 export function buildScriptTasks(subSteps, progress) {
-  return subSteps.map((s) => ({
-    id: `script-${s.id}`,
-    name: s.label,
-    status: statusForRange(s.range, progress),
-  }));
+  const spans = subSteps.map((s) => Math.max(1, s.range[1] - s.range[0]));
+  const spanTotal = spans.reduce((a, b) => a + b, 0);
+
+  return subSteps.map((s, i) => {
+    const status = statusForRange(s.range, progress);
+    return {
+      id: `script-${s.id}`,
+      name: s.label,
+      status,
+      weight: SCRIPT_PHASE_WEIGHT * (spans[i] / spanTotal),
+      partial: status === "processing" ? (progress - s.range[0]) / spans[i] : 0,
+    };
+  });
 }
 
 // Video-generation phase rows from the backend progressData. `started` gates the
@@ -165,18 +224,48 @@ export function buildVideoTasks(session, scriptData, { started = true, musicRequ
   // image checklist (once from the script sub-steps, once from here). It lives only
   // in the script/setup phase now.
   let tasks = [
-    { id: "clips", name: "Creating Video Clips", description: `${completedClips}/${totalClips} clips complete`, icon: Film, status: clipsStatus },
+    {
+      id: "clips",
+      name: "Creating Video Clips",
+      description: `${completedClips}/${totalClips} clips complete`,
+      icon: Film,
+      status: clipsStatus,
+      weight: VIDEO_ROW_WEIGHTS.clips,
+      partial: totalClips > 0 ? completedClips / totalClips : 0,
+      partialStep: 1 / Math.max(totalClips, 1),
+    },
     {
       id: "tts",
       name: "Generating Narration",
       description: totalTTS > 0 ? `${completedTTS}/${totalTTS} sections narrated` : "Converting script to speech with AI voice",
       icon: Mic,
       status: ttsStatus,
+      weight: VIDEO_ROW_WEIGHTS.tts,
+      partial: totalTTS > 0 ? completedTTS / totalTTS : 0,
+      partialStep: 1 / Math.max(totalTTS, 1),
     },
     ...(musicEnabled
-      ? [{ id: "music", name: "Generating Music", description: "Composing background music for your video", icon: Music, status: musicStatus }]
+      ? [{
+          id: "music",
+          name: "Generating Music",
+          description: "Composing background music for your video",
+          icon: Music,
+          status: musicStatus,
+          weight: VIDEO_ROW_WEIGHTS.music,
+          partial: musicState === "processing" ? 0.5 : 0,
+        }]
       : []),
-    { id: "assembly", name: "Assembling Final Video", description: "Combining clips and audio", icon: Layers, status: assemblyStatus },
+    // ffmpeg reports no sub-progress, so the assembly row has no `partial` to
+    // read - the smoother's creep is the only motion here.
+    {
+      id: "assembly",
+      name: "Assembling Final Video",
+      description: "Combining clips and audio",
+      icon: Layers,
+      status: assemblyStatus,
+      weight: VIDEO_ROW_WEIGHTS.assembly,
+      partial: 0,
+    },
   ];
 
   if (!started) {
@@ -186,11 +275,9 @@ export function buildVideoTasks(session, scriptData, { started = true, musicRequ
   const failure = deriveFailedStep(session);
   tasks = applyFailure(tasks, failure);
 
-  const realProgress = progressData.percentage ?? Math.round(
-    ((completedSections / Math.max(totalSections, 1)) * 70) +
-    (session?.video?.narrationUrl ? 15 : 0) +
-    (session?.video?.finalVideoUrl ? 15 : 0)
-  );
-
-  return { tasks, realProgress, failure };
+  // No `realProgress` here: the bar comes from progressFromTasks(tasks) so that
+  // every caller weighs the same rows the user is looking at. The backend's own
+  // `progressData.percentage` spans only the render phase and is already folded
+  // into the row statuses and counters above.
+  return { tasks, failure };
 }

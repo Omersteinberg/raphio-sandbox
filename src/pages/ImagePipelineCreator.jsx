@@ -8,7 +8,7 @@ import { loadPending } from "@/lib/pendingSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import ProgressChecklist from "@/components/session/ProgressChecklist";
 import { buildImageTasks } from "@/lib/journeyTasks";
-import { buildScriptTasks, buildVideoTasks } from "@/lib/progressTasks";
+import { buildScriptTasks, buildVideoTasks, progressFromTasks, BRIDGE_PHASE_WEIGHT } from "@/lib/progressTasks";
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 import { logObserve } from "@/lib/genLog";
 import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
@@ -51,6 +51,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     direction,
     loading,
     handlePrev,
+    sessionRestoring,
 
     // Prompt step
     userPrompt,
@@ -335,7 +336,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // it's one page the whole way through.
   const videoStarted = step >= generatingStep;
   const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
-  const { tasks: mergedVideoTasks, realProgress: videoRealProgress, failure: videoFailure } = buildVideoTasks(
+  const { tasks: mergedVideoTasks, failure: videoFailure } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
@@ -370,6 +371,9 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
         description: bridgeDescription,
         icon: Images,
         status: bridgeCardStatus,
+        weight: BRIDGE_PHASE_WEIGHT,
+        partial: (bridgeProgress?.percentage ?? 0) / 100,
+        partialStep: 1 / Math.max(totalBridges, 1),
       }]
     : [];
   const mergedTasks = [
@@ -394,10 +398,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     !videoFatal &&
     !insufficientCredits;
 
+  // The bar is a weighted function of the rows above, all of which are derived
+  // from durable backend state - so a reload or a resume lands on the real
+  // percentage instead of restarting a mount-time ramp.
+  const { target: mergedTarget, ceiling: mergedCeiling } = progressFromTasks(mergedTasks);
   const mergedProgress = useSmoothProgress({
     active: showMergedRun,
     done: !!finalVideoUrl,
-    floor: videoStarted ? videoRealProgress : 0,
+    target: mergedTarget,
+    ceiling: mergedCeiling,
   });
 
   // Render current step component
@@ -602,7 +611,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
               <ProgressChecklist
                 title={videoStarted ? "Creating your video" : "Writing your script"}
                 headerIcon={videoStarted ? Film : Sparkles}
-                progress={mergedProgress}
+                progress={sessionRestoring ? null : mergedProgress}
                 tasks={mergedTasks}
                 sessionId={session.sessionId}
                 logPhase={videoStarted ? "video" : "script"}
