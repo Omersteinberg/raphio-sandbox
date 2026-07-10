@@ -21,27 +21,36 @@ export default function IntroPipelineCreator({ onModeChange }) {
   // Auto-approve (skip steps) - Intro fuses approve+generate, so it only respects
   // the "Generate" preference. Loaded from the user's account. Only fires on
   // forward progress, never on resume.
-  const { autoApprove: autoApprovePrefs } = useAuth();
-  const prevStepRef = useRef(null);
-  const enteredForwardRef = useRef(false);
-  const autoFiredRef = useRef(new Set());
+  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  const maxStepRef = useRef(0);
+  const attemptRef = useRef({ step: -1, keys: new Set() });
+  const [autoDisabled, setAutoDisabled] = useState(false);
 
+  // Fires on forward progress AND on a resumed session; never on a step-back.
+  // `settingsReady` gates it because `autoApprove` defaults to all-false and only
+  // resolves two network hops after mount.
   useEffect(() => {
-    const prev = prevStepRef.current;
-    if (prev !== step) {
-      enteredForwardRef.current = prev !== null && step === prev + 1;
-      prevStepRef.current = step;
+    if (step === 0) {
+      maxStepRef.current = 0;
+      if (autoDisabled) setAutoDisabled(false);
+      return;
     }
-    if (!enteredForwardRef.current) return;
-    if (loading || intro.error || intro.insufficientCredits) return;
-    if (autoFiredRef.current.has(step)) return;
+    if (step < maxStepRef.current) {
+      if (!autoDisabled) setAutoDisabled(true);
+      return;
+    }
+    maxStepRef.current = step;
+    if (attemptRef.current.step !== step) attemptRef.current = { step, keys: new Set() };
 
-    if (step === 1 && autoApprovePrefs.generate && intro.introScript) {
-      autoFiredRef.current.add(step);
+    if (!settingsReady || autoDisabled) return;
+    if (loading || intro.error || intro.insufficientCredits) return;
+
+    if (step === 1 && autoApprovePrefs.generate && intro.introScript && !attemptRef.current.keys.has("generate")) {
+      attemptRef.current.keys.add("generate");
       intro.approveAndGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, loading, intro.error, intro.insufficientCredits, intro.introScript]);
+  }, [step, loading, intro.error, intro.insufficientCredits, intro.introScript, settingsReady, autoDisabled, autoApprovePrefs.generate]);
 
   const journeyTasks = buildIntroTasks({
     step,

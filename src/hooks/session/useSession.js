@@ -77,6 +77,29 @@ function imageSafeStyle(style) {
   return IMAGE_PIPELINE_STYLES.includes(style) ? style : "realistic";
 }
 
+// Tell the user about any photo we chose not to extend, and why. A photo with
+// text in it is never extended on purpose: extending a screenshot, logo or sign
+// makes the model invent garbled words in the new space. Such a photo may still
+// have been restyled, so say we didn't extend it, not that we left it alone.
+function reportSkippedPhotos(restyleResult) {
+  const conform = restyleResult?.images || [];
+  const textHeavy = conform.filter((i) => i.conformStatus === "SKIPPED_TEXT").length;
+  const extendFailed = conform.filter((i) => i.conformStatus === "SKIPPED_FAILED").length;
+
+  if (textHeavy > 0) {
+    const plural = textHeavy > 1;
+    toast.info(
+      `${textHeavy} photo${plural ? "s" : ""} contain text, so we didn't extend ${plural ? "them" : "it"} and the words stay readable. Expect black bars on ${plural ? "those scenes" : "that scene"}.`,
+    );
+  }
+  if (extendFailed > 0) {
+    const plural = extendFailed > 1;
+    toast.warn(
+      `We couldn't extend ${extendFailed} photo${plural ? "s" : ""}, so ${plural ? "they'll" : "it'll"} play with black bars.`,
+    );
+  }
+}
+
 export function useSession({ promptOnly = false } = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
@@ -105,6 +128,9 @@ export function useSession({ promptOnly = false } = {}) {
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
   const [enableBridges, setEnableBridges] = useState(false);
+  // Whether photos that don't match the video's frame get extended outward by AI
+  // so they fill it. Off means they play untouched, with bars. Default on.
+  const [extendPhotos, setExtendPhotos] = useState(true);
 
   // Images state
   const [images, setImages] = useState([]);
@@ -581,6 +607,7 @@ export function useSession({ promptOnly = false } = {}) {
           if (restyleResult.failed > 0) {
             toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
           }
+          reportSkippedPhotos(restyleResult);
           setScriptProgress(70);
         }
       } else {
@@ -649,6 +676,15 @@ export function useSession({ promptOnly = false } = {}) {
           setSession(sessionAfterUpload);
           setScriptProgress(35);
 
+          // Step 2a: Record whether off-ratio photos should be extended by AI.
+          // Must land before /analyze, which is what kicks off the outpaint jobs.
+          // Non-fatal: the session already defaults to extending them.
+          try {
+            await sessionService.setFillMode(targetSessionId, extendPhotos ? "ai" : "none");
+          } catch (err) {
+            console.warn("[useSession] setFillMode failed, using session default:", err);
+          }
+
           // Step 3: Start image analysis
           console.log("[useSession] Starting image analysis...");
           setScriptProgress(40);
@@ -678,6 +714,7 @@ export function useSession({ promptOnly = false } = {}) {
           if (restyleResult.failed > 0) {
             toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
           }
+          reportSkippedPhotos(restyleResult);
           setScriptProgress(70);
         }
       }
@@ -861,7 +898,7 @@ export function useSession({ promptOnly = false } = {}) {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, aspectRatio, targetDuration, promptOnly, credits, navigate, sessionId, session, refreshCredits]);
+  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, extendPhotos, aspectRatio, targetDuration, promptOnly, credits, navigate, sessionId, session, refreshCredits]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -883,6 +920,21 @@ export function useSession({ promptOnly = false } = {}) {
       if (rejected.length > 0) {
         toast(`Only added ${accepted.length}, limit is ${MAX_IMAGES} per video`);
       }
+
+      // Measure each photo so the prompt step can warn, before upload, that some
+      // of them don't match the video's frame. The backend does its own
+      // authoritative check at upload; this is only for the warning + toggle.
+      accepted.forEach((img) => {
+        const probe = new Image();
+        probe.onload = () => {
+          const { naturalWidth: width, naturalHeight: height } = probe;
+          setImages((current) =>
+            current.map((i) => (i.preview === img.preview ? { ...i, width, height } : i)),
+          );
+        };
+        probe.src = img.preview;
+      });
+
       return [...prev, ...accepted];
     });
   }, []);
@@ -1602,6 +1654,8 @@ export function useSession({ promptOnly = false } = {}) {
     setBackgroundMusic,
     enableBridges,
     setEnableBridges,
+    extendPhotos,
+    setExtendPhotos,
 
     // Images
     images,

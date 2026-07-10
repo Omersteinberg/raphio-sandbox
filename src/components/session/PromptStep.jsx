@@ -4,7 +4,7 @@ import {
   Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
-  Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle,
+  Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -519,6 +519,8 @@ export default function PromptStep({
   styleOptions = [],
   enableBridges,
   setEnableBridges,
+  extendPhotos = true,
+  setExtendPhotos,
   targetDuration,
   setTargetDuration,
   aspectRatio,
@@ -583,6 +585,20 @@ export default function PromptStep({
   };
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
+
+  // Photos whose shape doesn't match the video's frame. Mirrors the backend's
+  // 8% tolerance (video.service uploadImages), which is the authoritative check;
+  // this one only drives the warning and the toggle below the grid. Dimensions
+  // are measured as each photo is added, so a photo is "on ratio" until it lands.
+  const offRatioCount = useMemo(() => {
+    const [w, h] = String(aspectRatio || '16:9').split(':').map(Number);
+    if (!w || !h) return 0;
+    const target = w / h;
+    return (images ?? []).filter((img) => {
+      if (!img.width || !img.height) return false;
+      return Math.abs(img.width / img.height - target) / target > 0.08;
+    }).length;
+  }, [images, aspectRatio]);
   const ctaRef = useRef(null);
   const prevImagesLengthRef = useRef(images?.length ?? 0);
 
@@ -1557,6 +1573,73 @@ export default function PromptStep({
                     </div>
                     </SortableContext>
                     </DndContext>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Off-ratio photos: warn, and let the user choose how they're handled */}
+              <AnimatePresence>
+                {offRatioCount > 0 && setExtendPhotos && (
+                  <motion.div
+                    key="off-ratio"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="rounded-2xl border p-4 space-y-3"
+                    style={
+                      extendPhotos
+                        ? { background: 'rgba(193,68,14,0.05)', borderColor: 'rgba(193,68,14,0.20)' }
+                        : { background: '#FFF7ED', borderColor: '#FED7AA' }
+                    }
+                  >
+                    <p
+                      className="font-semibold flex items-center gap-1.5"
+                      style={{ color: extendPhotos ? '#C1440E' : '#C2410C', fontSize: 14.5 }}
+                    >
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      {offRatioCount} of your photos {offRatioCount > 1 ? "aren't" : "isn't"} {aspectRatio}
+                    </p>
+                    <p className="text-xs text-stone-500 leading-relaxed">
+                      {extendPhotos
+                        ? "We'll extend them outward with AI so they fill the frame. Photos with text in them stay untouched, so their words don't get garbled."
+                        : "They'll play with bars down the sides. Turn this on to have AI fill the frame instead."}
+                    </p>
+
+                    <button
+                      onClick={() => setExtendPhotos(!extendPhotos)}
+                      aria-pressed={extendPhotos}
+                      className="w-full flex items-center justify-between gap-4 p-3 rounded-xl transition-colors text-left"
+                      style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                          style={
+                            extendPhotos
+                              ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.30)' }
+                              : { background: 'rgba(193,68,14,0.06)' }
+                          }
+                        >
+                          <Sparkles style={{ width: 16, height: 16, color: extendPhotos ? '#fff' : '#C1440E' }} />
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-sm block text-stone-800">Extend photos with AI</span>
+                          <span className="text-xs text-stone-400 block leading-relaxed">
+                            Fill the frame instead of showing bars
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                        style={{ background: extendPhotos ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                      >
+                        <motion.span
+                          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                          animate={{ left: extendPhotos ? 26 : 4 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        />
+                      </div>
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

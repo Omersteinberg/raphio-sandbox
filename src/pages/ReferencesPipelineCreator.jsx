@@ -17,7 +17,6 @@ import PromptStep from "@/components/session/PromptStep";
 import ReferenceLockStep from "@/components/session/ReferenceLockStep";
 import ScriptStep from "@/components/session/ScriptStep";
 import FrameGenerationStep from "@/components/session/FrameGenerationStep";
-import VoiceConfigStep from "@/components/session/VoiceConfigStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import useSmoothProgress from "@/hooks/useSmoothProgress";
 import ResultStep from "@/components/session/ResultStep";
@@ -105,10 +104,28 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   } = session;
 
   // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
-  const { autoApprove: autoApprovePrefs } = useAuth();
-  const prevStepRef = useRef(null);
-  const enteredForwardRef = useRef(false);
-  const autoFiredRef = useRef(new Set());
+  // `settingsReady` matters: `autoApprove` defaults to all-false and is filled in two
+  // network hops after mount, so any gate decided before it resolves is decided wrong.
+  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  const maxStepRef = useRef(0);
+  const attemptRef = useRef({ step: -1, keys: new Set() });
+  // Set when the user navigates back to an earlier gate: from then on they drive the
+  // wizard by hand rather than having it approve out from under them.
+  const [autoDisabled, setAutoDisabled] = useState(false);
+  // The gate whose auto-approve call failed. We never retry automatically (a retry
+  // loop trips the backend rate limiter); we hand the step back to the user instead.
+  const [failedGate, setFailedGate] = useState(null);
+
+  // Derived during render (not in the effect) so the overlay never covers a manual
+  // gate for the frame between stepping back and the effect latching `autoDisabled`.
+  const steppedBack = step > 0 && step < maxStepRef.current;
+
+  // The single predicate behind both the auto-approve effect and `atManualReview`.
+  // If this is false for a gate, that gate MUST show its manual UI - otherwise the
+  // merged-run overlay covers a button that nothing else is going to press.
+  const autoActive = (key) =>
+    settingsReady && !!autoApprovePrefs[key] && !steppedBack && !autoDisabled && failedGate !== key;
+  const manualGate = (key) => settingsReady && !autoActive(key);
 
   // References are ready to approve once every one has a locked image and no lock
   // is still running - mirrors ReferenceLockStep's own `allLocked` check.
@@ -122,34 +139,46 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     return allRefs.length > 0 && allRefs.every((r) => r.lockedUrl) && (lockLoading?.size ?? 0) === 0;
   })();
 
-  // Auto-advance past review gates the user chose to skip. Only fires on a gate
-  // reached by forward progress (+1), never a resume jump or step-back.
+  // Auto-advance past review gates the user chose to skip. Fires on forward progress
+  // AND on a resumed session (a reload used to strand the run: the gate never fired
+  // and its manual button was hidden behind the overlay). Never fires on a step-back.
   useEffect(() => {
-    const prev = prevStepRef.current;
-    if (prev !== step) {
-      enteredForwardRef.current = prev !== null && step === prev + 1;
-      prevStepRef.current = step;
+    if (step === 0) {
+      maxStepRef.current = 0;
+      if (autoDisabled) setAutoDisabled(false);
+      if (failedGate) setFailedGate(null);
+      return;
     }
-    if (!enteredForwardRef.current) return;
+    if (step < maxStepRef.current) {
+      if (!autoDisabled) setAutoDisabled(true);
+      return;
+    }
+    maxStepRef.current = step;
+    // Each arrival at a step gets one attempt per gate, so coming back around after
+    // an edit can re-approve, while a single arrival can never double-fire.
+    if (attemptRef.current.step !== step) attemptRef.current = { step, keys: new Set() };
+
+    if (!settingsReady) return;
     if (loading || generationError || insufficientCredits) return;
 
-    const fireOnce = (key, fn) => {
-      if (autoFiredRef.current.has(key)) return;
-      autoFiredRef.current.add(key);
-      fn();
+    const run = (key, ready, fn) => {
+      if (!ready || !autoActive(key) || attemptRef.current.keys.has(key)) return;
+      attemptRef.current.keys.add(key);
+      Promise.resolve(fn()).then(
+        (ok) => { if (ok === false) setFailedGate(key); },
+        () => setFailedGate(key)
+      );
     };
 
     // Scene frames auto-generate on entry (below), so the frames gate only needs
     // to auto-approve once they're ready - which starts video generation.
-    if (step === 1 && autoApprovePrefs.references && refLockReady) {
-      fireOnce("1", () => approveAllReferences());
-    } else if (step === 2 && autoApprovePrefs.script && scriptData) {
-      fireOnce("2", () => approveScript());
-    } else if (step === 3 && autoApprovePrefs.frames && (sceneFrames?.length ?? 0) > 0) {
-      fireOnce("3:approve", () => startGeneration());
-    }
+    if (step === 1) run("references", refLockReady, approveAllReferences);
+    else if (step === 2) run("script", !!scriptData, approveScript);
+    else if (step === 3) run("frames", (sceneFrames?.length ?? 0) > 0, startGeneration);
+    // Primitive pref deps: toggling an unrelated preference must not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, loading, generationError, insufficientCredits, scriptData, referenceData, lockLoading, sceneFrames, framesLoading]);
+  }, [step, loading, generationError, insufficientCredits, scriptData, referenceData, lockLoading, sceneFrames, framesLoading, settingsReady, autoDisabled, failedGate,
+      autoApprovePrefs.references, autoApprovePrefs.script, autoApprovePrefs.frames]);
 
   // Scene frames generate automatically when you reach the frames step, so there's
   // no separate "Generate Scene Frames" click. Fires once per entry.
@@ -229,11 +258,14 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     : refPhase === "script" ? Sparkles
     : Wand2;
   // Parked on a review the user must act on -> step aside and show that review.
+  // `manualGate` (not the raw pref) is what decides: a gate whose auto-approve is
+  // switched off, has already failed, or was reached by stepping back is a manual
+  // gate, and the overlay must never cover it.
   const atManualReview =
-    (step === 1 && !loading && refLockReady && !autoApprovePrefs.references) ||
-    (step === 2 && !loading && !!scriptData && !autoApprovePrefs.script) ||
+    (step === 1 && !loading && refLockReady && manualGate("references")) ||
+    (step === 2 && !loading && !!scriptData && manualGate("script")) ||
     (step === 3 && !framesLoading && (
-      ((sceneFrames?.length ?? 0) > 0 && !autoApprovePrefs.frames) ||
+      ((sceneFrames?.length ?? 0) > 0 && manualGate("frames")) ||
       framesError // only a genuine failure (not first entry) hands the screen to the retry UI
     ));
   const showRefMergedRun =
@@ -377,21 +409,6 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
             onDelete={deleteScene}
             onGenerateFrames={generateFrames}
             error={error}
-          />
-        );
-
-      case 4:
-        return (
-          <VoiceConfigStep
-            voiceId={voiceId}
-            setVoiceId={setVoiceId}
-            backgroundMusic={backgroundMusic}
-            setBackgroundMusic={setBackgroundMusic}
-            sceneFrames={sceneFrames}
-            targetDuration={targetDuration}
-            onStartGeneration={startGeneration}
-            loading={loading}
-            insufficientCredits={insufficientCredits}
           />
         );
 

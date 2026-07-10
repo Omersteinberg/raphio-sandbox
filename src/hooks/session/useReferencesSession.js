@@ -29,7 +29,7 @@ const REF_STAGE_TO_STEP = {
   REF_SCRIPT_APPROVED: 3,
   REF_FRAMES_GENERATED: 3,
   REF_FRAMES_APPROVED: 3,
-  REF_VOICE_CONFIGURED: 4,
+  REF_VOICE_CONFIGURED: 3,
   GENERATING: 5,
   COMPLETED: 6,
   EDITING: 7,
@@ -364,6 +364,7 @@ export function useReferencesSession() {
       setDirection(1);
       setStep(2);
       toast.success("References approved! Review your script.");
+      return true;
     } catch (err) {
       console.error("[useReferencesSession] Failed to approve references:", err);
       setScriptProgress(0);
@@ -375,6 +376,7 @@ export function useReferencesSession() {
       } else {
         toast.error(err.response?.data?.error || "Failed to approve references");
       }
+      return false;
     } finally {
       clearInterval(progressTimer);
       // The charge (or its failure refund) lands at the script kickoff.
@@ -399,9 +401,11 @@ export function useReferencesSession() {
       setDirection(1);
       setStep(3);
       toast.success("Script approved!");
+      return true;
     } catch (err) {
       console.error("[useReferencesSession] approveScript failed:", err);
       toast.error("Failed to approve script");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -511,12 +515,6 @@ export function useReferencesSession() {
     }
   }, [sessionId]);
 
-  // ── Approve frames ────────────────────────────────────────────────
-  const approveFrames = useCallback(() => {
-    setDirection(1);
-    setStep(4);
-  }, []);
-
   // ── Delete a scene (persists so the generated video respects it) ────
   const deleteScene = useCallback(async (index) => {
     if (!sessionId) return;
@@ -568,9 +566,15 @@ export function useReferencesSession() {
 
     if (result && !result.success) {
       setDirection(-1);
-      setStep(4);
+      setStep(3);
+      return false;
     }
+    return true;
   }, [sessionId, videoModel, voiceId, backgroundMusic, baseStartGeneration]);
+
+  // Voice and music are chosen on the prompt screen, so approving the frames goes
+  // straight to generation - the same 3 -> 5 jump the auto-approve path takes.
+  const approveFrames = startGeneration;
 
   // ── Navigation ─────────────────────────────────────────────────────
   const goToStep = useCallback((newStep) => {

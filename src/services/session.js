@@ -200,8 +200,20 @@ export async function analyzeImages(sessionId) {
 }
 
 /**
- * Check current state of Flux Kontext restyle jobs for a session.
- * Returns { total, complete, pending, failed, skipped, done }.
+ * Choose how off-ratio photos are conformed to the video's frame.
+ * 'ai' extends each photo outward so it fills the frame; 'none' leaves the
+ * photo untouched, so it plays with bars down the sides.
+ */
+export async function setFillMode(sessionId, fillMode) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/fill-mode`, { fillMode });
+  return response.data;
+}
+
+/**
+ * Check current state of the seedream restyle and outpaint jobs for a session.
+ * Returns { total, complete, pending, failed, skipped, done, images }, where
+ * each images[] entry carries { id, orderIndex, offRatio, conformStatus } so the
+ * caller can tell the user which photos were left as-is and why.
  */
 export async function getRestyleStatus(sessionId) {
   const response = await axios.get(`${API_BASE}/${sessionId}/restyle-status`);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, Sparkles, Images } from "lucide-react";
@@ -64,6 +64,8 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     styleOptions,
     enableBridges,
     setEnableBridges,
+    extendPhotos,
+    setExtendPhotos,
 
     // Images (from prompt)
     images,
@@ -226,41 +228,68 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   const editingStep = enableBridges ? 6 : 5;
 
   // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
-  const { autoApprove: autoApprovePrefs } = useAuth();
-  const prevStepRef = useRef(null);
-  const enteredForwardRef = useRef(false);
-  const autoFiredRef = useRef(new Set());
+  // `settingsReady` matters: `autoApprove` defaults to all-false and is filled in two
+  // network hops after mount, so any gate decided before it resolves is decided wrong.
+  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  const maxStepRef = useRef(0);
+  const attemptRef = useRef({ step: -1, keys: new Set() });
+  const [autoDisabled, setAutoDisabled] = useState(false);
+  const [failedGate, setFailedGate] = useState(null);
 
-  // Auto-advance past review gates the user chose to skip. Only fires on a gate
-  // reached by normal forward progress (+1), never a resume jump (0 -> middle) or
-  // a step-back, so resuming a session never silently approves or spends credits.
+  // Derived during render (not in the effect) so the overlay never covers a manual
+  // gate for the frame between stepping back and the effect latching `autoDisabled`.
+  const steppedBack = step > 0 && step < maxStepRef.current;
+
+  // The single predicate behind both the auto-approve effect and `atManualReview`.
+  // If this is false for a gate, that gate MUST show its manual UI - otherwise the
+  // merged-run overlay covers a button that nothing else is going to press.
+  const autoActive = (key) =>
+    settingsReady && !!autoApprovePrefs[key] && !steppedBack && !autoDisabled && failedGate !== key;
+  const manualGate = (key) => settingsReady && !autoActive(key);
+
+  // Auto-advance past review gates the user chose to skip. Fires on forward progress
+  // AND on a resumed session (a reload used to strand the run: the gate never fired
+  // and its manual button was hidden behind the overlay). Never fires on a step-back.
   useEffect(() => {
-    const prev = prevStepRef.current;
-    if (prev !== step) {
-      enteredForwardRef.current = prev !== null && step === prev + 1;
-      prevStepRef.current = step;
+    if (step === 0) {
+      maxStepRef.current = 0;
+      if (autoDisabled) setAutoDisabled(false);
+      if (failedGate) setFailedGate(null);
+      return;
     }
-    if (!enteredForwardRef.current) return;
+    if (step < maxStepRef.current) {
+      if (!autoDisabled) setAutoDisabled(true);
+      return;
+    }
+    maxStepRef.current = step;
+    // Each arrival at a step gets one attempt per gate, so coming back around after
+    // an edit can re-approve, while a single arrival can never double-fire.
+    if (attemptRef.current.step !== step) attemptRef.current = { step, keys: new Set() };
+
+    if (!settingsReady) return;
     if (loading || generationError || insufficientCredits) return;
-    if (autoFiredRef.current.has(step)) return;
 
     const backend = session.session;
-    let fire = null;
-    if (step === 1 && autoApprovePrefs.script && scriptData) {
-      fire = () => approveOutline();
-    } else if (
-      enableBridges && step === 2 && autoApprovePrefs.bridges &&
-      scriptData && !backend?.hasBridgeFailures
-    ) {
-      fire = () => approveScript();
-    } else if (step === framesStep && autoApprovePrefs.generate) {
-      fire = async () => { await configureFrames(); await startGeneration(); };
+    const run = (key, ready, fn) => {
+      if (!ready || !autoActive(key) || attemptRef.current.keys.has(key)) return;
+      attemptRef.current.keys.add(key);
+      Promise.resolve(fn()).then(
+        (ok) => { if (ok === false) setFailedGate(key); },
+        () => setFailedGate(key)
+      );
+    };
+
+    if (step === 1) {
+      run("script", !!scriptData, approveOutline);
+    } else if (enableBridges && step === 2) {
+      run("bridges", !!scriptData && !backend?.hasBridgeFailures, approveScript);
+    } else if (step === framesStep) {
+      run("generate", true, async () => { await configureFrames(); await startGeneration(); });
     }
-    if (!fire) return;
-    autoFiredRef.current.add(step);
-    fire();
+    // Primitive pref deps: toggling an unrelated preference must not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, loading, generationError, insufficientCredits, scriptData, session.session, enableBridges, framesStep]);
+  }, [step, loading, generationError, insufficientCredits, scriptData, session.session, enableBridges, framesStep, settingsReady, autoDisabled, failedGate,
+      autoApprovePrefs.script, autoApprovePrefs.bridges, autoApprovePrefs.generate]);
 
   const journeyTasks = buildImageTasks({
     step,
@@ -320,10 +349,13 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     ...mergedVideoTasks,
   ];
   // Parked on a review the user must act on -> step aside and show it.
+  // `manualGate` (not the raw pref) is what decides: a gate whose auto-approve is
+  // switched off, has already failed, or was reached by stepping back is a manual
+  // gate, and the overlay must never cover it.
   const atManualReview =
-    (step === 1 && !loading && !!scriptData && !autoApprovePrefs.script) ||
-    (enableBridges && step === 2 && !autoApprovePrefs.bridges) ||
-    (step === framesStep && !autoApprovePrefs.generate);
+    (step === 1 && !loading && !!scriptData && manualGate("script")) ||
+    (enableBridges && step === 2 && manualGate("bridges")) ||
+    (step === framesStep && manualGate("generate"));
   const showMergedRun =
     step < completedStep &&
     (session.sessionId != null || loading) &&
@@ -371,6 +403,8 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
           styleOptions={styleOptions}
           enableBridges={enableBridges}
           setEnableBridges={setEnableBridges}
+          extendPhotos={extendPhotos}
+          setExtendPhotos={setExtendPhotos}
         />
       );
     }
