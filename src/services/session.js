@@ -1,5 +1,6 @@
 import axios from "./api.js";
 import { API_BASE as BASE } from "../config.js";
+import { logFailure } from "../lib/genLog.js";
 
 const API_BASE = `${BASE}/video`;
 
@@ -311,7 +312,23 @@ export async function pollJobUntilDone(sessionId, options = {}) {
 
     if (typeof onProgress === 'function') onProgress(status);
     if (status.jobStatus === 'DONE') return status.result;
-    if (status.jobStatus === 'FAILED') throw new Error(status.jobError || 'Job failed');
+    if (status.jobStatus === 'FAILED') {
+      // The poll itself returned 200, so there is no err.response to carry the
+      // backend's explanation. jobError IS the backend's message; isJobError
+      // tells describeError it's safe to show the user.
+      const jobErr = new Error(status.jobError || 'Job failed');
+      jobErr.isJobError = true;
+      jobErr.jobType = status.jobType;
+      jobErr.jobStatus = status.jobStatus;
+      logFailure({
+        phase: 'job',
+        stepId: status.jobType || 'job',
+        reason: jobErr.message,
+        sessionId,
+        body: { jobType: status.jobType, jobError: status.jobError },
+      });
+      throw jobErr;
+    }
     if (Date.now() - startedAt > timeoutMs) {
       throw new Error(`Job polling timed out after ${Math.round(timeoutMs / 1000)}s`);
     }

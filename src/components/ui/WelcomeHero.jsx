@@ -610,7 +610,7 @@ export default function MyVideosPage() {
   const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
   const handleCardClick = session => {
     if (["COMPLETED","EDITING"].includes(session.stage)) navigate(`/video/${session.id}`);
-    else navigate(`/create?session=${session.id}`);
+    else navigate(`/create?session=${session.id}&mode=${session.pipelineMode || 'image'}`);
   };
 
   return (

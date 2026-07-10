@@ -3,9 +3,13 @@ import { useEffect, useRef, useState } from "react";
 // Time-based progress for long generation waits: ramps linearly 0 -> `ceil`
 // over `rampMs`, holds there, then eases to 100% once `done`. Monotonic, never
 // snaps 90 -> 100. The clock starts the first time `active` is true. Returns 0-100.
+//
+// `floor` lifts the bar to a known-real percentage. The clock restarts on every
+// mount, so without it a resumed run that is 80% done animates up from 0.
 export default function useSmoothProgress({
   done = false,
   active = true,
+  floor = 0,
   rampMs = 10 * 60 * 1000,
   ceil = 90,
   finishMs = 1800,
@@ -20,6 +24,8 @@ export default function useSmoothProgress({
   doneRef.current = done;
   const activeRef = useRef(active);
   activeRef.current = active;
+  const floorRef = useRef(floor);
+  floorRef.current = floor;
 
   useEffect(() => {
     const tick = () => {
@@ -39,7 +45,8 @@ export default function useSmoothProgress({
         next = doneFromRef.current + (100 - doneFromRef.current) * (1 - Math.pow(1 - t, 2));
       } else {
         const t = Math.min((now - startRef.current) / rampMs, 1);
-        next = ceil * t;
+        // Capped below 100 so only `done` can complete the bar.
+        next = Math.max(ceil * t, Math.min(floorRef.current || 0, 99));
       }
 
       if (next < displayedRef.current) next = displayedRef.current;

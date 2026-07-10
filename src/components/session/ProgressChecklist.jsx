@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Film, Loader2, Check } from "lucide-react";
+import { Film, Loader2, Check, X, AlertTriangle } from "lucide-react";
 import ProgressBar, { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
+import { useTaskTransitionLog } from "@/hooks/useTaskTransitionLog";
 
 // The single, shared progress screen for the whole creation journey. Every
 // automatic phase (script generation, scene generation, video generation) renders
@@ -8,7 +9,20 @@ import ProgressBar, { EMAIL_WAIT_NOTE } from "@/components/ui/ProgressBar";
 // phases, they're passed as one combined task list so the user sees a single
 // continuous checklist instead of two separate screens.
 //
-// task: { id, name, description, icon, status: 'pending'|'processing'|'completed' }
+// task: { id, name, description, reason, icon, status: 'pending'|'processing'|'completed'|'failed'|'warning' }
+//
+// 'failed' is a fatal step (the run stopped here). 'warning' is a degraded but
+// non-fatal step, e.g. music that could not be generated while the video still
+// finishes. `reason` carries the backend's explanation and takes the place of
+// `description` on the row when present.
+
+const ROW_STYLES = {
+  processing: { border: "border-terra bg-terra/5", circle: "bg-terra/10", title: "text-terra", body: "text-terra" },
+  completed: { border: "border-green-200 bg-green-50", circle: "bg-green-100", title: "text-green-900", body: "text-green-600" },
+  failed: { border: "border-red-200 bg-red-50", circle: "bg-red-100", title: "text-red-900", body: "text-red-700" },
+  warning: { border: "border-amber-200 bg-amber-50", circle: "bg-amber-100", title: "text-amber-900", body: "text-amber-700" },
+  pending: { border: "border-border bg-surface-alt", circle: "bg-surface-alt", title: "text-ink-muted", body: "text-ink-muted" },
+};
 
 export default function ProgressChecklist({
   title = "Creating your video",
@@ -18,12 +32,20 @@ export default function ProgressChecklist({
   tasks = [],
   note = EMAIL_WAIT_NOTE,
   headerIcon = Film,
-  failure = null, // { message, onRetry, retryLabel }
+  failure = null, // { title, subtitle, message, hint, onRetry, retryLabel }
+  sessionId,
+  logPhase = "video",
   onLeave, // optional: shows the "leave / go to My Videos" hint
   leaveLabel = "Go to My Videos",
 }) {
+  useTaskTransitionLog(tasks, { sessionId, phase: logPhase });
+
   const HeaderIcon = headerIcon;
-  if (failure) {
+
+  // With no rows to annotate there is nothing to keep on screen, so fall back to
+  // the standalone error card. This is the path for a failure we could not
+  // attribute to a specific step.
+  if (failure && tasks.length === 0) {
     return (
       <div className="w-full h-full flex flex-col items-center overflow-y-auto px-4 py-6 md:p-8">
         <motion.div
@@ -63,20 +85,32 @@ export default function ProgressChecklist({
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="inline-flex items-center justify-center w-20 h-20 bg-terra/10 rounded-full mb-4"
-          >
-            <HeaderIcon className="w-10 h-10 text-terra" />
-          </motion.div>
-          <h1 className="text-2xl font-bold text-ink mb-2">{title}</h1>
-          {subtitle && <p className="text-ink-muted">{subtitle}</p>}
-          {caption && <p className="text-ink-muted text-sm mt-1">{caption}</p>}
+          {failure ? (
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
+              <HeaderIcon className="w-10 h-10 text-red-500" />
+            </div>
+          ) : (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="inline-flex items-center justify-center w-20 h-20 bg-terra/10 rounded-full mb-4"
+            >
+              <HeaderIcon className="w-10 h-10 text-terra" />
+            </motion.div>
+          )}
+          <h1 className="text-2xl font-bold text-ink mb-2">{failure ? failure.title || "Something went wrong" : title}</h1>
+          {failure ? (
+            failure.subtitle && <p className="text-ink-muted">{failure.subtitle}</p>
+          ) : (
+            <>
+              {subtitle && <p className="text-ink-muted">{subtitle}</p>}
+              {caption && <p className="text-ink-muted text-sm mt-1">{caption}</p>}
+            </>
+          )}
         </div>
 
         {/* Progress Bar */}
-        {progress != null && (
+        {!failure && progress != null && (
           <div className="mb-8">
             <div className="flex justify-between text-sm text-ink-muted mb-2">
               <span>Progress</span>
@@ -90,8 +124,11 @@ export default function ProgressChecklist({
         <div className="space-y-4">
           {tasks.map((task, index) => {
             const Icon = task.icon;
+            const style = ROW_STYLES[task.status] || ROW_STYLES.pending;
             const isActive = task.status === "processing";
             const isComplete = task.status === "completed";
+            const isFailed = task.status === "failed";
+            const isWarning = task.status === "warning";
 
             return (
               <motion.div
@@ -99,56 +136,47 @@ export default function ProgressChecklist({
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.06 }}
-                className={`flex items-center gap-4 p-4 rounded-lg border ${
-                  isActive
-                    ? "border-terra bg-terra/5"
-                    : isComplete
-                    ? "border-green-200 bg-green-50"
-                    : "border-border bg-surface-alt"
-                }`}
+                className={`flex items-center gap-4 p-4 rounded-lg border ${style.border}`}
               >
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    isActive ? "bg-terra/10" : isComplete ? "bg-green-100" : "bg-surface-alt"
-                  }`}
-                >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${style.circle}`}>
                   {isActive ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                       <Loader2 className="w-6 h-6 text-terra" />
                     </motion.div>
                   ) : isComplete ? (
                     <Check className="w-6 h-6 text-green-600" />
+                  ) : isFailed ? (
+                    <X className="w-6 h-6 text-red-600" />
+                  ) : isWarning ? (
+                    <AlertTriangle className="w-6 h-6 text-amber-600" />
                   ) : Icon ? (
                     <Icon className="w-6 h-6 text-ink-muted" />
                   ) : (
                     <div className="w-2.5 h-2.5 rounded-full bg-ink-muted/30" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <h3
-                    className={`font-medium ${
-                      isActive ? "text-terra" : isComplete ? "text-green-900" : "text-ink-muted"
-                    }`}
-                  >
-                    {task.name}
-                  </h3>
-                  {task.description && (
-                    <p
-                      className={`text-sm ${
-                        isActive ? "text-terra" : isComplete ? "text-green-600" : "text-ink-muted"
-                      }`}
-                    >
-                      {task.description}
-                    </p>
+                <div className="flex-1 min-w-0">
+                  <h3 className={`font-medium ${style.title}`}>{task.name}</h3>
+                  {(task.reason || task.description) && (
+                    <p className={`text-sm break-words ${style.body}`}>{task.reason || task.description}</p>
                   )}
                 </div>
                 {isComplete && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"
+                    className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shrink-0"
                   >
                     <Check className="w-5 h-5 text-white" />
+                  </motion.div>
+                )}
+                {isFailed && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shrink-0"
+                  >
+                    <X className="w-5 h-5 text-white" />
                   </motion.div>
                 )}
               </motion.div>
@@ -156,8 +184,23 @@ export default function ProgressChecklist({
           })}
         </div>
 
+        {failure && (
+          <div className="mt-6 text-center">
+            {failure.hint && <p className="text-sm text-ink-muted mb-4">{failure.hint}</p>}
+            {failure.onRetry && (
+              <button
+                onClick={failure.onRetry}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                {failure.retryLabel || "Try Again"}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Leave hint */}
-        {onLeave && (
+        {!failure && onLeave && (
           <div className="mt-8 p-4 bg-terra/5 rounded-lg border border-terra/20 text-center">
             <p className="text-sm text-terra-dark">
               You can leave this page. Your video keeps generating in the background. Come back to My Videos to

@@ -2,6 +2,7 @@ import { API_BASE } from "../config.js";
 import { getToken } from "../api/auth.js";
 
 const ENDPOINT = `${API_BASE}/telemetry/client-error`;
+const GEN_LOG_ENDPOINT = `${API_BASE}/telemetry/gen-log`;
 
 // Light client-side dedup so one repeating error can't spam the endpoint
 // (the backend also rate-limits as a backstop).
@@ -48,6 +49,25 @@ export function reportClientError({ kind, message, status, url, stack } = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Reporting must never break the app.
+  }
+}
+
+/**
+ * Append one generation-trace line to the server's logs/generation.log.
+ * Fire-and-forget, same constraints as reportClientError. Callers must send
+ * transitions, not every poll: the endpoint's limiter allows 60 posts / 5 min,
+ * which a 5s poll would saturate on its own.
+ */
+export function postGenLog(event, data = {}) {
+  try {
+    fetch(GEN_LOG_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, data: { ...data, userId: decodeUserId() } }),
       keepalive: true,
     }).catch(() => {});
   } catch {

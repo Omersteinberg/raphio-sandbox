@@ -9,6 +9,10 @@ import { savePending, clearPending } from "@/lib/pendingSession";
 import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession } from "./scriptJobResume";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
+import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
+import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
+import { resumeModeFor } from "@/lib/pipelineMode";
+import { describeError } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
 // IndexedDB as data URLs (not raw File handles) because a File restored from
@@ -35,14 +39,28 @@ const STAGES = {
   EDITING: "EDITING",
 };
 
+// How long the stage-sync effect will hold the generating step while the session
+// still reads as pre-generation. Covers the optimistic hop -> backend stage flip ->
+// next 5s poll round trip, with room to spare; past it, treat it as a dead run.
+const STARTUP_GAP_MS = 60 * 1000;
+
+// Client-side backstop on the video poll. The backend watchdog fails a stuck
+// generation at 15 min (STALE_MS in sessionJob.service), so this only fires when
+// even that did not run. Mirrors useSessionBase.
+const GIVE_UP_MS = 20 * 60 * 1000;
+
 // Map backend stages to frontend step numbers.
 // When bridges are enabled the flow has an extra "bridges" step between
 // outline review and frames configuration, shifting later steps up by 1.
+// RESTYLING sits between IMAGES_UPLOADED and IMAGES_ANALYZED: the backend parks the
+// session there while Kontext restyle jobs are pending. Omitting it made
+// `stageMap[stage] ?? 0` drop a resuming user back on the prompt step.
 function getStageToStep(bridgesEnabled) {
   if (bridgesEnabled) {
     return {
       PROMPT_ENTERED: 1,
       IMAGES_UPLOADED: 1,
+      RESTYLING: 1,
       IMAGES_ANALYZED: 1,
       OUTLINE_GENERATED: 1,
       SCRIPT_GENERATED: 2,
@@ -57,6 +75,7 @@ function getStageToStep(bridgesEnabled) {
   return {
     PROMPT_ENTERED: 1,
     IMAGES_UPLOADED: 1,
+    RESTYLING: 1,
     IMAGES_ANALYZED: 1,
     OUTLINE_GENERATED: 1,
     SCRIPT_GENERATED: 2,   // goes straight to frames config
@@ -105,6 +124,9 @@ export function useSession({ promptOnly = false } = {}) {
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const skipResumeRef = useRef(false);
+  // When the session first read as pre-generation while we were already on the
+  // generating step. Bounds the startup clamp in the stage-sync effect.
+  const preGenSinceRef = useRef(null);
   // Cache of File -> data URL so re-saving the draft (e.g. on prompt edits)
   // doesn't re-encode photos that haven't changed.
   const pendingDataUrlCache = useRef(new Map());
@@ -198,6 +220,9 @@ export function useSession({ promptOnly = false } = {}) {
   const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [generationError, setGenerationError] = useState(null);
+  // The FAILED session payload, held separately from `session`. See the polling
+  // effect below for why it cannot go through setSession.
+  const [failedSession, setFailedSession] = useState(null);
 
   // Script generation progress (0-100)
   const [scriptProgress, setScriptProgress] = useState(0);
@@ -283,6 +308,7 @@ export function useSession({ promptOnly = false } = {}) {
 
   // Resume session from query param
   const resumeSessionId = searchParams.get("session");
+  const resumeModeParam = searchParams.get("mode");
   useEffect(() => {
     if (skipResumeRef.current) {
       skipResumeRef.current = false;
@@ -294,14 +320,23 @@ export function useSession({ promptOnly = false } = {}) {
           setLoading(true);
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
-            // Wrong creator: this is a references (or other) session, bounce to it.
-            // NOTE: "prompt" (text-to-video) intentionally stays here - it runs in
-            // this same image pipeline, so it must NOT be added to this whitelist.
-            if (data.pipelineMode && data.pipelineMode !== "image"
-                && ["image", "references"].includes(data.pipelineMode)) {
-              navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
+            // Wrong wizard for this session's mode: bounce so the URL carries it.
+            // "prompt" belongs here too, but under ?mode=prompt, not ?mode=image.
+            const correctedMode = resumeModeFor(data.pipelineMode, resumeModeParam);
+            if (correctedMode) {
+              navigate(`/create?session=${resumeSessionId}&mode=${correctedMode}`, { replace: true });
               return;
             }
+            logEvent("client.resume", {
+              sessionId: resumeSessionId,
+              stage: data.stage,
+              pipelineMode: data.pipelineMode,
+              videoStatus: data.video?.status ?? null,
+              jobType: data.jobType ?? null,
+              jobStatus: data.jobStatus ?? null,
+              generationAttempts: data.generationAttempts ?? 0,
+              autoApprove: data.autoApprove ?? null,
+            });
             setSessionId(resumeSessionId);
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
@@ -363,6 +398,39 @@ export function useSession({ promptOnly = false } = {}) {
               setGeneratedFrameImages(restoredGenerated);
             }
 
+            // Kontext restyle jobs run detached too, and the backend parks the
+            // session at RESTYLING until they settle. Re-attach rather than dropping
+            // the user on a step whose images are still being restyled. No script job
+            // can exist yet at this stage, so this returns instead of falling through.
+            if (data.stage === "RESTYLING") {
+              setScriptProgress(55);
+              try {
+                const restyleResult = await sessionService.pollRestyleUntilDone(resumeSessionId, {
+                  onProgress: (status) => {
+                    if (status.total > 0) {
+                      const settled = status.complete + status.skipped + status.failed;
+                      setScriptProgress(55 + Math.round((settled / status.total) * 15));
+                    }
+                  },
+                });
+                if (restyleResult.failed > 0) {
+                  toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
+                }
+                const refreshed = await sessionService.getSession(resumeSessionId);
+                if (refreshed) setSession(refreshed);
+              } catch (err) {
+                logFailure({
+                  phase: "script",
+                  stepId: "restyle",
+                  reason: err.message,
+                  sessionId: resumeSessionId,
+                  err,
+                });
+                toast.error("Restyling did not finish. You can continue with your original photos.");
+              }
+              return;
+            }
+
             // The script job runs detached in the backend, so it may still be
             // generating (or have failed) from before the user navigated away.
             // Re-attach to the OLD session's job instead of showing a dead
@@ -407,7 +475,7 @@ export function useSession({ promptOnly = false } = {}) {
       };
       loadSession();
     }
-  }, [resumeSessionId, sessionId, navigate]);
+  }, [resumeSessionId, resumeModeParam, sessionId, navigate]);
 
   // Sync step with session stage
   useEffect(() => {
@@ -416,15 +484,34 @@ export function useSession({ promptOnly = false } = {}) {
       // Resume/refresh after a failed generation: backend rolled the stage back to
       // SCRIPT_APPROVED but flagged the Video FAILED. Pin to the generating step so
       // the failure screen + Regenerate shows instead of silently dropping back.
-      const genFailed =
-        (session.video?.status === "FAILED" || session.video?.progressData?.stage === "FAILED") &&
-        session.stage !== "GENERATING";
+      const genFailed = isGenerationFailed(session) && session.stage !== "GENERATING";
       const generatingStep = enableBridges ? 4 : 3;
       let newStep = genFailed ? generatingStep : (stageMap[session.stage] ?? 0);
 
+      // Between the optimistic hop to the generating step and the backend's stage
+      // flip landing in a poll, the session still reads as pre-generation. Hold the
+      // generating step across that gap - but only for a bounded time. A generation
+      // that dies before its Video row is linked leaves NO failure marker, so
+      // `genFailed` stays false and an unbounded clamp would spin here forever.
       const PRE_GENERATION_STAGES = ["SCRIPT_GENERATED", "SCRIPT_APPROVED", "FRAMES_CONFIGURED"];
-      if (step >= generatingStep && newStep < generatingStep && PRE_GENERATION_STAGES.includes(session.stage)) {
+      const inStartupGap =
+        step >= generatingStep && newStep < generatingStep && PRE_GENERATION_STAGES.includes(session.stage);
+      if (inStartupGap) {
+        if (preGenSinceRef.current == null) preGenSinceRef.current = Date.now();
         newStep = step;
+        if (!genFailed && !generationError && Date.now() - preGenSinceRef.current > STARTUP_GAP_MS) {
+          const msg = "Generation stopped unexpectedly. Please try again.";
+          setGenerationError(msg);
+          logFailure({
+            phase: "video",
+            stepId: "generation",
+            reason: msg,
+            sessionId,
+            body: { swallowed: true, stage: session.stage, hasVideo: !!session.video },
+          });
+        }
+      } else {
+        preGenSinceRef.current = null;
       }
 
       if (genFailed && !generationError) {
@@ -463,20 +550,36 @@ export function useSession({ promptOnly = false } = {}) {
 
     const generatingStep = enableBridges ? 4 : 3;
     if (sessionId && step === generatingStep && !generationError) {
+      const startedAt = Date.now();
       pollInterval = setInterval(async () => {
         try {
           const updatedSession = await sessionService.getSession(sessionId);
+
+          logObserve(`${sessionId}:poll`, "client.poll", {
+            sessionId,
+            stage: updatedSession.stage,
+            videoStatus: updatedSession.video?.status ?? null,
+            progressStage: updatedSession.video?.progressData?.stage ?? null,
+          });
 
           // Generation failed: surface the error, stop polling, let the user retry.
           // Do NOT setSession here: the backend resets the stage to SCRIPT_APPROVED
           // on failure, which would bounce the user off the generating screen before
           // they see the error. generationError keeps them here with the message
-          // and a Regenerate button.
-          if ((updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED")
-              && updatedSession.stage !== "GENERATING") {
+          // and a Regenerate button. failedSession carries the FAILED payload the
+          // checklist needs to mark the step that died.
+          if (isGenerationFailed(updatedSession)) {
             clearInterval(pollInterval);
             const msg = updatedSession.video?.progressData?.error || "Video generation failed. Please try again.";
+            setFailedSession(updatedSession);
             setGenerationError(msg);
+            logFailure({
+              phase: "video",
+              stepId: "generation",
+              reason: msg,
+              sessionId,
+              body: updatedSession.video?.progressData,
+            });
             refreshCredits();
             toast.error(msg);
             return;
@@ -489,6 +592,23 @@ export function useSession({ promptOnly = false } = {}) {
             setFinalVideoUrl(updatedSession.video?.finalVideoUrl);
             refreshCredits();
             toast.success("Video generation complete!");
+            return;
+          }
+
+          // Nothing below the backend's own 15-min watchdog should reach this, so
+          // firing means the watchdog itself never ran. Stop rather than spin.
+          if (Date.now() - startedAt > GIVE_UP_MS) {
+            clearInterval(pollInterval);
+            const msg = "Generation is taking longer than expected. Please check back shortly or try again.";
+            setGenerationError(msg);
+            logFailure({
+              phase: "video",
+              stepId: "generation",
+              reason: msg,
+              sessionId,
+              body: { clientTimeoutMs: GIVE_UP_MS, lastStage: updatedSession.video?.progressData?.stage },
+            });
+            toast.error(msg);
           }
         } catch (err) {
           console.error("Error polling session:", err);
@@ -1115,7 +1235,9 @@ export function useSession({ promptOnly = false } = {}) {
       setScriptData(updatedSession.scriptData);
       toast.success("Outline generated!");
     } catch (err) {
-      toast.error("Failed to generate script");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to generate script");
+      logFailure({ phase: "script", stepId: "generate-outline", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
       setDirection(-1);
       setStep(0);
     } finally {
@@ -1192,13 +1314,9 @@ export function useSession({ promptOnly = false } = {}) {
       toast.success("Script approved!");
       return true;
     } catch (err) {
-      console.error("[useSession] approveScript failed:", err);
-      console.error("[useSession] Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      toast.error("Failed to approve script");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to approve script");
+      logFailure({ phase: "script", stepId: "approve-script", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
       return false;
     } finally {
       setLoading(false);
@@ -1358,6 +1476,9 @@ export function useSession({ promptOnly = false } = {}) {
 
     // Clear any prior failure so the generating screen shows progress and polling resumes
     setGenerationError(null);
+    setFailedSession(null);
+    setSession(clearVideoFailure);
+    resetGenLog();
 
     // Immediately transition to VideoGenerationStep so user sees
     // the detailed progress UI instead of generic "Processing..." overlay
@@ -1412,7 +1533,9 @@ export function useSession({ promptOnly = false } = {}) {
         return;
       }
       // Only go back for actual server errors (4xx/5xx with a response)
-      toast.error("Failed to start generation");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to start generation");
+      logFailure({ phase: "video", stepId: "start-generation", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
       setDirection(-1);
       setStep(framesStep);
     }
@@ -1478,13 +1601,9 @@ export function useSession({ promptOnly = false } = {}) {
       setSession(updatedSession);
       toast.success("Narration regenerated!");
     } catch (err) {
-      console.error("[useSession] regenerateNarration failed:", err);
-      console.error("[useSession] Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      toast.error("Failed to regenerate narration");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to regenerate narration");
+      logFailure({ phase: "editing", stepId: "regenerate-narration", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -1516,7 +1635,9 @@ export function useSession({ promptOnly = false } = {}) {
       setSession(updatedSession);
       toast.success("Video reassembled!");
     } catch (err) {
-      toast.error("Failed to reassemble video");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to reassemble video");
+      logFailure({ phase: "editing", stepId: "reassemble", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -1681,6 +1802,7 @@ export function useSession({ promptOnly = false } = {}) {
     // Generation
     generationProgress,
     generationError,
+    failedSession,
     finalVideoUrl,
     scriptProgress,
     bridgeProgress,

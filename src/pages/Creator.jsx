@@ -3,11 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
+import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 
 // Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
 // (ImagePipelineCreator) with photos + advanced settings hidden.
-const ENABLED_MODES = ["prompt", "image", "references"];
+// Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
+const ENABLED_MODES = RESUMABLE_MODES;
 
 export default function Creator() {
   const [searchParams, setSearchParams] = useSearchParams();

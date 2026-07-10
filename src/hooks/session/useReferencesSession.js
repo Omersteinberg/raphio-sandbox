@@ -7,6 +7,9 @@ import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
+import { logFailure } from "@/lib/genLog";
+import { isGenerationFailed } from "@/lib/progressTasks";
+import { describeError } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL so uploaded reference images survive a
 // refresh/navigation off the prompt step (a raw File handle doesn't reliably
@@ -48,7 +51,6 @@ export function useReferencesSession() {
   const base = useSessionBase({
     generatingStep: 5,
     currentStep: step,
-    expectedMode: "references",
     onSessionLoaded: (data) => {
       if (onSessionLoadedRef.current) onSessionLoadedRef.current(data);
     },
@@ -115,9 +117,7 @@ export function useReferencesSession() {
       // Resume/refresh after a failed generation: backend rolled the stage back to
       // REF_SCRIPT_APPROVED but flagged the Video FAILED. Pin to the generating
       // step (5) so the failure screen + Regenerate shows.
-      const genFailed =
-        (session.video?.status === "FAILED" || session.video?.progressData?.stage === "FAILED") &&
-        session.stage !== "GENERATING";
+      const genFailed = isGenerationFailed(session);
       const newStep = genFailed ? 5 : (REF_STAGE_TO_STEP[session.stage] ?? 0);
       if (genFailed && !base.generationError) {
         base.setGenerationError(session.video?.progressData?.error || "Video generation failed. Please try again.");
@@ -403,8 +403,9 @@ export function useReferencesSession() {
       toast.success("Script approved!");
       return true;
     } catch (err) {
-      console.error("[useReferencesSession] approveScript failed:", err);
-      toast.error("Failed to approve script");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to approve script");
+      logFailure({ phase: "script", stepId: "approve-script", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
       return false;
     } finally {
       setLoading(false);

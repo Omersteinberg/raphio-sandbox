@@ -74,9 +74,9 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
   );
   const coverageRatio = namedRefs.length ? usedRefs.length / namedRefs.length : 0;
 
-  // Detail: healthy band ~25-70 words. Partial credit below/above.
+  // Detail: full credit from 25 words up. Partial credit below.
   let detailPoints;
-  if (words >= 25 && words <= 90) detailPoints = 1;
+  if (words >= 25) detailPoints = 1;
   else if (words >= 15) detailPoints = 0.6;
   else if (words >= 8) detailPoints = 0.3;
   else detailPoints = 0;
@@ -125,7 +125,7 @@ export function scorePrompt({ userPrompt = '', references = [], mode = 'referenc
     points: detailPoints,
     met: detailPoints >= 1,
     detail: `${words} words`,
-    hint: 'Aim for about 25 to 70 words, enough to paint the scene without rambling.',
+    hint: 'Aim for 25 or more words, enough to paint the scene.',
   });
   factors.push({
     id: 'setting',

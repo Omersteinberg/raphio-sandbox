@@ -9,7 +9,7 @@ import InsufficientCreditsModal from "@/components/session/InsufficientCreditsMo
 import { useIntroSession } from "@/hooks/session/useIntroSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildIntroTasks } from "@/lib/journeyTasks";
-import { useAuth } from "@/hooks/useAuth";
+import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
@@ -21,7 +21,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
   // Auto-approve (skip steps) - Intro fuses approve+generate, so it only respects
   // the "Generate" preference. Loaded from the user's account. Only fires on
   // forward progress, never on resume.
-  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  const { prefs: autoApprovePrefs, ready: settingsReady } = useResolvedAutoApprove(intro.session);
   const maxStepRef = useRef(0);
   const attemptRef = useRef({ step: -1, keys: new Set() });
   const [autoDisabled, setAutoDisabled] = useState(false);
@@ -99,10 +99,11 @@ export default function IntroPipelineCreator({ onModeChange }) {
       return (
         <VideoGenerationStep
           session={intro.session}
+          failedSession={intro.failedSession}
           scriptData={null}
           openingFrame={null}
           closingFrame={null}
-          generationError={intro.error}
+          generationError={intro.generationError}
           onRegenerate={intro.approveAndGenerate}
         />
       );

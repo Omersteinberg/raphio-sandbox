@@ -10,7 +10,7 @@ import { loadPending } from "@/lib/pendingSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
 import { buildVideoTasks } from "@/lib/progressTasks";
-import { useAuth } from "@/hooks/useAuth";
+import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -78,6 +78,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     setBackgroundMusic,
     startGeneration,
     generationError,
+    failedSession,
 
     // Result step
     finalVideoUrl,
@@ -106,7 +107,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
   // `settingsReady` matters: `autoApprove` defaults to all-false and is filled in two
   // network hops after mount, so any gate decided before it resolves is decided wrong.
-  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  const { prefs: autoApprovePrefs, ready: settingsReady } = useResolvedAutoApprove(session.session);
   const maxStepRef = useRef(0);
   const attemptRef = useRef({ step: -1, keys: new Set() });
   // Set when the user navigates back to an earlier gate: from then on they drive the
@@ -236,11 +237,14 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   // logic that used to live here. `musicRequested` passes the wizard toggle so the
   // music card shows from the start, before the backend video row exists.
   const videoStarted = refPhase === "video";
-  const { tasks: videoPhaseTasks } = buildVideoTasks(
+  const { tasks: videoPhaseTasks, realProgress: videoRealProgress, failure: videoFailure } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
   );
+  // Mirrors VideoGenerationStep's `fatal`, so the overlay steps aside for exactly
+  // the states in which that component renders its failure card.
+  const videoFatal = !!videoFailure?.fatal || session.session?.video?.status === "FAILED";
   const refMergedTasks = [
     { id: "refs", name: "Preparing references", description: "Locking in characters and settings", icon: Wand2, status: refStatus("refs") },
     { id: "script", name: "Writing script", description: "Turning your brief into a story", icon: Sparkles, status: refStatus("script") },
@@ -273,6 +277,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     (loading || framesLoading || (sessionId && step >= 1)) &&
     !atManualReview &&
     !generationError &&
+    !videoFatal &&
     !insufficientCredits;
 
   // 12-minute ramp: the references run is longer than the image pipeline's
@@ -281,6 +286,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   const refMergedProgress = useSmoothProgress({
     active: showRefMergedRun,
     done: !!finalVideoUrl,
+    floor: videoStarted ? videoRealProgress : 0,
     rampMs: 12 * 60 * 1000,
   });
 
@@ -416,6 +422,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
         return (
           <VideoGenerationStep
             session={session.session}
+            failedSession={failedSession}
             scriptData={scriptData}
             generationError={generationError}
             onRegenerate={startGeneration}
@@ -521,6 +528,8 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
               headerIcon={refMergedIcon}
               progress={refMergedProgress}
               tasks={refMergedTasks}
+              sessionId={session.sessionId}
+              logPhase={refPhase === "refs" ? "references" : "script"}
               onLeave={refPhase === "refs" ? undefined : () => navigate("/videos")}
             />
           </motion.div>

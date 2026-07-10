@@ -6,6 +6,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { STYLE_OPTIONS } from '../../constants/styles';
 import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession } from "./scriptJobResume";
+import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
+import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
+import { resumeModeFor } from "@/lib/pipelineMode";
+import { describeError } from "@/lib/errorDetail";
 
 // Session stages matching backend
 export const STAGES = {
@@ -30,7 +34,7 @@ export const STAGES = {
  *   during URL-param resume, so the pipeline hook can restore pipeline-specific state
  *   (e.g. images, character data). Called with (sessionData).
  */
-export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, expectedMode } = {}) {
+export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,6 +69,9 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
   const [insufficientCredits, setInsufficientCredits] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [generationError, setGenerationError] = useState(null);
+  // The FAILED session payload, held separately from `session`. See the polling
+  // effect below for why it cannot go through setSession.
+  const [failedSession, setFailedSession] = useState(null);
 
   // Auto-save last-used choices so the next new video starts from them.
   // Also fires when a resumed session loads its values ("last touched wins").
@@ -87,6 +94,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
 
   // ── Resume session from query param ────────────────────────────────
   const resumeSessionId = searchParams.get("session");
+  const resumeModeParam = searchParams.get("mode");
   useEffect(() => {
     if (resumeSessionId && !sessionId) {
       const loadSession = async () => {
@@ -95,11 +103,24 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
           const data = await sessionService.getSession(resumeSessionId);
           if (data) {
             // Wrong creator for this session's pipeline, bounce to the right one.
-            if (expectedMode && data.pipelineMode && data.pipelineMode !== expectedMode
-                && ["image", "references"].includes(data.pipelineMode)) {
-              navigate(`/create?session=${resumeSessionId}&mode=${data.pipelineMode}`, { replace: true });
+            // Keyed on the URL's mode, not `expectedMode`: a "prompt" session landing
+            // here (WelcomeHero omits &mode=, so localStorage picks the creator) must
+            // bounce out to ?mode=prompt, and expectedMode alone never caught that.
+            const correctedMode = resumeModeFor(data.pipelineMode, resumeModeParam);
+            if (correctedMode) {
+              navigate(`/create?session=${resumeSessionId}&mode=${correctedMode}`, { replace: true });
               return;
             }
+            logEvent("client.resume", {
+              sessionId: resumeSessionId,
+              stage: data.stage,
+              pipelineMode: data.pipelineMode,
+              videoStatus: data.video?.status ?? null,
+              jobType: data.jobType ?? null,
+              jobStatus: data.jobStatus ?? null,
+              generationAttempts: data.generationAttempts ?? 0,
+              autoApprove: data.autoApprove ?? null,
+            });
             setSessionId(resumeSessionId);
             setSession(data);
             if (data.userPrompt) setUserPrompt(data.userPrompt);
@@ -155,7 +176,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       };
       loadSession();
     }
-  }, [resumeSessionId, sessionId, navigate]);
+  }, [resumeSessionId, resumeModeParam, sessionId, navigate]);
   // NOTE: onSessionLoaded intentionally omitted from deps, it is a stable ref
   // provided by the consuming hook and including it would cause infinite re-renders.
 
@@ -170,15 +191,31 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
         try {
           const updatedSession = await sessionService.getSession(sessionId);
 
-          // Failed (and the stage has rolled back, so this isn't a fresh re-gen
-          // still pointing at the previous FAILED video). Surface + stop polling.
-          const failed =
-            (updatedSession.video?.status === "FAILED" || updatedSession.video?.progressData?.stage === "FAILED") &&
-            updatedSession.stage !== "GENERATING";
-          if (failed) {
+          logObserve(`${sessionId}:poll`, "client.poll", {
+            sessionId,
+            stage: updatedSession.stage,
+            videoStatus: updatedSession.video?.status ?? null,
+            progressStage: updatedSession.video?.progressData?.stage ?? null,
+          });
+
+          // A fresh re-gen can no longer be pointing at the previous FAILED video:
+          // claimGenerationLock clears that marker as it flips to GENERATING.
+          if (isGenerationFailed(updatedSession)) {
             clearInterval(pollInterval);
             const msg = updatedSession.video?.progressData?.error || "Video generation failed. Please try again.";
+            // Capture the FAILED payload separately: setSession would apply the
+            // backend's stage rollback to SCRIPT_APPROVED and bounce the user off
+            // the generating screen before they read the error. The checklist
+            // needs this snapshot to know which step died.
+            setFailedSession(updatedSession);
             setGenerationError(msg);
+            logFailure({
+              phase: "video",
+              stepId: "generation",
+              reason: msg,
+              sessionId,
+              body: updatedSession.video?.progressData,
+            });
             refreshCredits();
             toast.error(msg);
             return;
@@ -198,6 +235,13 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
             clearInterval(pollInterval);
             const msg = "Generation is taking longer than expected. Please check back shortly or try again.";
             setGenerationError(msg);
+            logFailure({
+              phase: "video",
+              stepId: "generation",
+              reason: msg,
+              sessionId,
+              body: { clientTimeoutMs: GIVE_UP_MS, lastStage: updatedSession.video?.progressData?.stage },
+            });
             refreshCredits();
             toast.error(msg);
           }
@@ -261,13 +305,9 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       setSession(updatedSession);
       toast.success("Script approved!");
     } catch (err) {
-      console.error("[useSessionBase] approveScript failed:", err);
-      console.error("[useSessionBase] Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      toast.error("Failed to approve script");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to approve script");
+      logFailure({ phase: "script", stepId: "approve-script", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -283,6 +323,12 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       console.log("[useSessionBase] No sessionId, aborting startGeneration");
       return;
     }
+
+    // A retry must be able to report its own failures, not be deduped against
+    // the previous run's.
+    resetGenLog();
+    setFailedSession(null);
+    setSession(clearVideoFailure);
 
     try {
       console.log("[useSessionBase] Calling sessionService.startGeneration...");
@@ -327,7 +373,9 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
         return { success: false, reason: "network_error", error: err };
       }
       // Actual server error
-      toast.error("Failed to start generation");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to start generation");
+      logFailure({ phase: "video", stepId: "start-generation", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
       return { success: false, reason: "server_error", error: err };
     }
   }, [sessionId, videoModel, voiceId, backgroundMusic]);
@@ -411,13 +459,9 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       setSession(updatedSession);
       toast.success("Narration regenerated!");
     } catch (err) {
-      console.error("[useSessionBase] regenerateNarration failed:", err);
-      console.error("[useSessionBase] Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      toast.error("Failed to regenerate narration");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to regenerate narration");
+      logFailure({ phase: "editing", stepId: "regenerate-narration", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -449,7 +493,9 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
       setSession(updatedSession);
       toast.success("Video reassembled!");
     } catch (err) {
-      toast.error("Failed to reassemble video");
+      const { userMessage, logDetail, status } = describeError(err, "Failed to reassemble video");
+      logFailure({ phase: "editing", stepId: "reassemble", reason: userMessage, status, body: logDetail, err, sessionId });
+      toast.error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -589,6 +635,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded, e
     setFinalVideoUrl,
     generationError,
     setGenerationError,
+    failedSession,
+    setFailedSession,
     dismissInsufficientCredits,
 
     // Shared callbacks

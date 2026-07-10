@@ -9,7 +9,8 @@ import JourneyTimeline from "@/components/session/JourneyTimeline";
 import ProgressChecklist from "@/components/session/ProgressChecklist";
 import { buildImageTasks } from "@/lib/journeyTasks";
 import { buildScriptTasks, buildVideoTasks } from "@/lib/progressTasks";
-import { useAuth } from "@/hooks/useAuth";
+import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
+import { logObserve } from "@/lib/genLog";
 import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
 
 // Step components
@@ -100,6 +101,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     configureFrames,
     startGeneration,
     generationError,
+    failedSession,
 
     // Result step
     finalVideoUrl,
@@ -227,10 +229,11 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   const completedStep = enableBridges ? 5 : 4;
   const editingStep = enableBridges ? 6 : 5;
 
-  // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
-  // `settingsReady` matters: `autoApprove` defaults to all-false and is filled in two
-  // network hops after mount, so any gate decided before it resolves is decided wrong.
-  const { autoApprove: autoApprovePrefs, settingsReady } = useAuth();
+  // Auto-approve (skip steps) preferences. Resolved from the session's own snapshot
+  // when it has one, so a preference toggled mid-run cannot change how this run
+  // resumes, and the journey checklist below reads the exact flags the gates obey.
+  const { prefs: autoApprovePrefs, ready: settingsReady, source: prefsSource } =
+    useResolvedAutoApprove(session.session);
   const maxStepRef = useRef(0);
   const attemptRef = useRef({ step: -1, keys: new Set() });
   const [autoDisabled, setAutoDisabled] = useState(false);
@@ -271,7 +274,22 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
 
     const backend = session.session;
     const run = (key, ready, fn) => {
-      if (!ready || !autoActive(key) || attemptRef.current.keys.has(key)) return;
+      const active = autoActive(key);
+      const attempted = attemptRef.current.keys.has(key);
+      logObserve(`${session.sessionId}:gate:${key}`, "client.autoapprove.gate", {
+        sessionId: session.sessionId,
+        key,
+        step,
+        ready: !!ready,
+        autoActive: active,
+        alreadyAttempted: attempted,
+        pref: !!autoApprovePrefs[key],
+        prefsSource,
+        steppedBack,
+        autoDisabled,
+        failedGate,
+      });
+      if (!ready || !active || attempted) return;
       attemptRef.current.keys.add(key);
       Promise.resolve(fn()).then(
         (ok) => { if (ok === false) setFailedGate(key); },
@@ -284,7 +302,14 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     } else if (enableBridges && step === 2) {
       run("bridges", !!scriptData && !backend?.hasBridgeFailures, approveScript);
     } else if (step === framesStep) {
-      run("generate", true, async () => { await configureFrames(); await startGeneration(); });
+      // `failedGate` is component state, so it is lost on reload. Without the
+      // attempt check a resumed session whose generation already died would
+      // auto-fire another one on every page load. generationAttempts is the
+      // durable equivalent: the backend bumps it on every failed render.
+      run("generate", !(backend?.generationAttempts > 0), async () => {
+        await configureFrames();
+        await startGeneration();
+      });
     }
     // Primitive pref deps: toggling an unrelated preference must not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,11 +335,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // it's one page the whole way through.
   const videoStarted = step >= generatingStep;
   const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
-  const { tasks: mergedVideoTasks } = buildVideoTasks(
+  const { tasks: mergedVideoTasks, realProgress: videoRealProgress, failure: videoFailure } = buildVideoTasks(
     session.session,
     scriptData,
     { started: videoStarted, musicRequested: backgroundMusic }
   );
+  // Mirrors VideoGenerationStep's `fatal`. The overlay must step aside for exactly
+  // the states in which that component renders its failure card, or it covers the
+  // card with a spinning header and no way to retry.
+  const videoFatal = !!videoFailure?.fatal || session.session?.video?.status === "FAILED";
   // Bridge scenes (transition frames) are generated AFTER the script and BEFORE
   // the video render, as a background job - so the card sits between the two.
   // Total is known up front from the outline; the live "X/Y" count comes from the
@@ -362,11 +391,13 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     (step > 0 || loading) &&
     !atManualReview &&
     !generationError &&
+    !videoFatal &&
     !insufficientCredits;
 
   const mergedProgress = useSmoothProgress({
     active: showMergedRun,
     done: !!finalVideoUrl,
+    floor: videoStarted ? videoRealProgress : 0,
   });
 
   // Render current step component
@@ -478,6 +509,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
       return (
         <VideoGenerationStep
           session={session.session}
+          failedSession={failedSession}
           scriptData={scriptData}
           openingFrame={openingFrame}
           closingFrame={closingFrame}
@@ -572,6 +604,8 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
                 headerIcon={videoStarted ? Film : Sparkles}
                 progress={mergedProgress}
                 tasks={mergedTasks}
+                sessionId={session.sessionId}
+                logPhase={videoStarted ? "video" : "script"}
                 onLeave={videoStarted ? () => navigate("/videos") : undefined}
               />
             </motion.div>
