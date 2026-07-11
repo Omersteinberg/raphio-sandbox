@@ -124,6 +124,11 @@ export function useSession({ promptOnly = false } = {}) {
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const skipResumeRef = useRef(false);
+  // Set when resume discovers a script job that FAILED while the user was away.
+  // Consumed by the effect right after `generateScript` is defined, which fires
+  // exactly one automatic retry — a refresh should not require the user to
+  // notice the failure toast and click "Retry Script Generation" themselves.
+  const autoRetryPendingRef = useRef(false);
   // When the session first read as pre-generation while we were already on the
   // generating step. Bounds the startup clamp in the stage-sync effect.
   const preGenSinceRef = useRef(null);
@@ -344,7 +349,14 @@ export function useSession({ promptOnly = false } = {}) {
             if (data.aspectRatio) setAspectRatio(data.aspectRatio);
             if (data.voiceId) setVoiceId(data.voiceId);
             if (data.videoModel) setVideoModel(data.videoModel);
-            if (data.enableBridges != null) setEnableBridges(data.enableBridges);
+            // Prompt-only sessions always store enableBridges:true on the backend
+            // as product-intent metadata (see the payload below), but the backend
+            // now never actually runs bridges for a zero-image/text-to-video
+            // session (isPureTextToVideo guard in video.service.js) — that field
+            // is inert there. Don't let resuming/refreshing such a session flip
+            // this LOCAL flag true, or getStageToStep() inserts a "Bridges" step
+            // into the wizard nav that will never have anything in it.
+            if (!promptOnly && data.enableBridges != null) setEnableBridges(data.enableBridges);
             if (data.images?.length) {
               setImages(data.images.map((img) => ({
                 id: img.id,
@@ -461,6 +473,11 @@ export function useSession({ promptOnly = false } = {}) {
             } else if (jobState === "failed") {
               setScriptGenFailed(true);
               notifyScriptJobFailedOnResume(data);
+              // Arm the one-shot auto-retry (see autoRetryPendingRef) instead of
+              // stopping at the failure toast — a refresh should pick the script
+              // job back up on its own, the same way it would if the user
+              // clicked "Retry Script Generation" themselves.
+              autoRetryPendingRef.current = true;
             } else {
               setScriptProgress(resumedProgress);
             }
@@ -739,8 +756,9 @@ export function useSession({ promptOnly = false } = {}) {
           style,
           voiceId,
           // Prompt-only records "smooth scene transitions" as on (product intent);
-          // it's inert for zero-image videos today but harmless, and we keep the
-          // frontend enableBridges STATE false so the wizard skips the Bridges step.
+          // it's inert for zero-image videos (backend guard in video.service.js)
+          // and the frontend enableBridges STATE is kept false for promptOnly
+          // (see the resume effect above) so the wizard never shows a Bridges step.
           enableBridges: promptOnly ? true : enableBridges,
           targetDuration,
           aspectRatio,
@@ -1246,6 +1264,22 @@ export function useSession({ promptOnly = false } = {}) {
       setLoading(false);
     }
   }, [sessionId, buildFrameOptions, refreshCredits]);
+
+  // Consume the one-shot flag armed by the resume effect above when it finds a
+  // script job that FAILED while the user was away. Deliberately placed after
+  // `generateScript` (rather than called inline from the resume effect) so it
+  // reads sessionId/openingFrame/closingFrame from a render where those resumed
+  // values have actually flushed, instead of the stale pre-update closures the
+  // resume effect would otherwise capture. `generateScript` itself flips
+  // scriptGenFailed back to false as soon as it starts, so this can't loop; if
+  // the auto-retry also fails, generateScript's own failure handling (toast +
+  // bounce to the Prompt step) takes over exactly as it does for a manual click.
+  useEffect(() => {
+    if (autoRetryPendingRef.current && sessionId && scriptGenFailed) {
+      autoRetryPendingRef.current = false;
+      generateScript();
+    }
+  }, [sessionId, scriptGenFailed, generateScript]);
 
   // Update script directly
   const updateScript = useCallback(async (newScriptData) => {
