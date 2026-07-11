@@ -26,7 +26,10 @@ function getRelativeTime(dateString) {
 }
 
 export default function VideoCard({ session, onClick }) {
-  const thumbnail = session.images?.[0]?.imageUrl;
+  const thumbnail =
+    session.video?.posterUrl ||
+    session.video?.sections?.find((s) => s.imageUrl)?.imageUrl ||
+    session.images?.[0]?.imageUrl;
   const title = session.video?.title || session.scriptData?.title || "Untitled Video";
   
   // Real length = sum of the generated section clip durations (ffmpeg-probed

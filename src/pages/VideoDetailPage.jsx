@@ -114,7 +114,7 @@ export default function VideoDetailPage() {
             style={session?.style}
             sectionsCount={video?.sections?.length}
             model={video?.videoModel || session?.videoModel}
-            posterUrl={video?.sections?.[0]?.imageUrl}
+            posterUrl={video?.posterUrl || video?.sections?.find((s) => s.imageUrl)?.imageUrl}
             onEdit={handleEditVideo}
             onCreateNew={handleCreateOwn}
           />

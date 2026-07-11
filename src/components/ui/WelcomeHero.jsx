@@ -47,6 +47,15 @@ function getTitle(session) {
   );
 }
 
+function getThumbnail(session) {
+  return (
+    session.video?.posterUrl ||
+    session.video?.sections?.find((s) => s.imageUrl)?.imageUrl ||
+    session.images?.[0]?.imageUrl ||
+    null
+  );
+}
+
 function getRelativeTime(dateString) {
   const now      = new Date();
   const date     = new Date(dateString);
@@ -249,7 +258,7 @@ function SortDropdown({ value, onChange }) {
 
 // ── List row ──────────────────────────────────────────────────────
 function VideoListRow({ session, onClick }) {
-  const thumbnail = session.images?.[0]?.imageUrl;
+  const thumbnail = getThumbnail(session);
   const title     = getTitle(session);
   const badge     = getStageBadge(session);
   return (
