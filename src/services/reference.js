@@ -96,7 +96,10 @@ export async function generateSceneFrames(sessionId) {
  */
 export async function improvePrompt({ userPrompt, references, style, mode, imageDataUrls }) {
   const response = await axios.post(`${API}/improve-prompt`, { userPrompt, references, style, mode, imageDataUrls });
-  return response.data.improvedPrompt;
+  // Full contract: { improvedPrompt, recommendedVoiceKey, recommendedAccent,
+  // recommendedUseCase, recommendedReason }. Callers read .improvedPrompt plus
+  // the recommendation fields.
+  return response.data;
 }
 
 /**

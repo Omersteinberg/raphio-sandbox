@@ -88,7 +88,8 @@ function startDesktopTour() {
       element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
-        description: "This help button is always here. Click it anytime to replay this tour.",
+        description:
+          "This help button is always here. Click it anytime to replay this tour or rewatch the video.",
         side: "left",
         align: "end",
       },
@@ -214,7 +215,8 @@ function startMobileTour() {
       element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
-        description: "This help button is always here. Tap it anytime to replay this tour.",
+        description:
+          "This help button is always here. Tap it anytime to replay this tour or rewatch the video.",
         side: "left",
         align: "end",
         // If the user steps back into the drawer section, re-open the drawer.

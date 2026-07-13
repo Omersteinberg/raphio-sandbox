@@ -51,8 +51,8 @@ export function startImageTour(isMobile) {
       popover: {
         title: "Need a refresher?",
         description: isMobile
-          ? "Tap this button any time to see this guide again."
-          : "Click this button any time to see this guide again.",
+          ? "Tap this button any time to replay this guide or rewatch the video."
+          : "Click this button any time to replay this guide or rewatch the video.",
         side: "left",
         align: "end",
       },
@@ -106,8 +106,8 @@ export function startReferencesTour(isMobile) {
       popover: {
         title: "Need a refresher?",
         description: isMobile
-          ? "Tap this button any time to see this guide again."
-          : "Click this button any time to see this guide again.",
+          ? "Tap this button any time to replay this guide or rewatch the video."
+          : "Click this button any time to replay this guide or rewatch the video.",
         side: "left",
         align: "end",
       },

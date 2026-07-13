@@ -1,18 +1,65 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Search, Check, User, Loader2 } from "lucide-react";
+import { Play, Pause, Search, Check, User, Loader2, Sparkles, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   getVoiceSecondaryLabel,
   getVoiceStyleLabel,
+  getVoiceAccent,
+  getVoiceUseCase,
+  getVoiceGender,
+  getVoiceAge,
+  getVoiceDescriptive,
+  humanizeFacetValue,
+  collectVoiceFacet,
 } from "@/lib/voiceMetadata";
 import * as voicesService from "@/services/voices";
 
-export default function VoiceSelector({ value, onChange }) {
+const ALL = "all";
+
+// ElevenLabs' own voice-library facets, in the order a creator actually reaches for
+// them: the accent is the whole point of the recommendation, the style is what the
+// video needs, and gender and age are refinements on top. `descriptive` is left out
+// as a filter (too many values to narrow anything) but is still matched by search.
+const FACETS = [
+  { key: "accent", label: "Accent", read: getVoiceAccent },
+  { key: "useCase", label: "Style", read: getVoiceUseCase },
+  { key: "gender", label: "Gender", read: getVoiceGender },
+  { key: "age", label: "Age", read: getVoiceAge },
+];
+
+function FacetDropdown({ label, options, value, onChange }) {
+  if (options.length < 2) return null;
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-semibold text-ink-muted uppercase tracking-wide">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full rounded-lg border px-2.5 py-2 text-sm bg-white transition-colors ${
+          value === ALL ? "border-border text-ink/80" : "border-terra text-ink font-medium"
+        }`}
+      >
+        <option value={ALL}>All</option>
+        {options.map(({ value: option, count }) => (
+          <option key={option} value={option}>
+            {humanizeFacetValue(option)} ({count})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export default function VoiceSelector({ value, onChange, recommendation = null }) {
   const [voices, setVoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [genderFilter, setGenderFilter] = useState("all");
+  // One entry per ElevenLabs facet, each ALL until the user narrows it.
+  const [facetFilters, setFacetFilters] = useState({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [playingVoice, setPlayingVoice] = useState(null);
   const [previewUrls, setPreviewUrls] = useState({});
   const [loadingPreview, setLoadingPreview] = useState(null);
@@ -34,26 +81,57 @@ export default function VoiceSelector({ value, onChange }) {
     loadVoices();
   }, []);
 
-  // Filter voices based on search and gender
+  // Facet values come from the voices themselves, so an accent or use case added on
+  // the backend shows up as a chip with no frontend change.
+  const facetOptions = FACETS.map((facet) => ({
+    ...facet,
+    options: collectVoiceFacet(voices, facet.read),
+  }));
+
+  const setFacet = (key, value) =>
+    setFacetFilters((prev) => ({ ...prev, [key]: value }));
+
+  const activeFilterCount = FACETS.filter(
+    (facet) => (facetFilters[facet.key] || ALL) !== ALL,
+  ).length;
+
+  // Search and every facet compose.
   const filteredVoices = voices.filter((voice) => {
-    const styleText = getVoiceStyleLabel(voice).toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      voice.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      voice.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      voice.accent?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      styleText.includes(searchQuery.toLowerCase());
-    const matchesGender =
-      genderFilter === "all" || voice.gender === genderFilter;
-    return matchesSearch && matchesGender;
+      !query ||
+      [
+        voice.name,
+        voice.description,
+        getVoiceAccent(voice),
+        getVoiceUseCase(voice),
+        getVoiceDescriptive(voice),
+        getVoiceStyleLabel(voice),
+      ].some((field) => (field || "").toLowerCase().includes(query));
+
+    const matchesFacets = FACETS.every((facet) => {
+      const selected = facetFilters[facet.key] || ALL;
+      return selected === ALL || facet.read(voice) === selected;
+    });
+
+    return matchesSearch && matchesFacets;
   });
 
-  // Group by gender for display
-  const groupedVoices = filteredVoices.reduce((acc, voice) => {
-    const gender = voice.gender || "other";
-    if (!acc[gender]) acc[gender] = [];
-    acc[gender].push(voice);
-    return acc;
-  }, {});
+  // The recommendation is a suggestion, not a filter result, so it stays visible
+  // in its own section no matter what the filters are set to. Pull it out of the
+  // grouped list below so it is not listed twice.
+  const recommendedVoice = recommendation?.voiceKey
+    ? voices.find((v) => v.key === recommendation.voiceKey)
+    : null;
+
+  const groupedVoices = filteredVoices
+    .filter((voice) => voice.key !== recommendedVoice?.key)
+    .reduce((acc, voice) => {
+      const gender = voice.gender || "other";
+      if (!acc[gender]) acc[gender] = [];
+      acc[gender].push(voice);
+      return acc;
+    }, {});
 
   // Play voice preview
   const handlePlayPreview = async (voiceKey) => {
@@ -106,6 +184,88 @@ export default function VoiceSelector({ value, onChange }) {
     setPlayingVoice(null);
   };
 
+  const previewIcon = (voiceKey, size) => {
+    if (loadingPreview === voiceKey) return <Loader2 className={`${size} animate-spin`} />;
+    if (playingVoice === voiceKey) return <Pause className={size} />;
+    return <Play className={size} />;
+  };
+
+  // The avatar is decorative. If a voice has no image, or the image 404s, fall back
+  // to the icon this component used before rather than leaving a broken frame.
+  const Avatar = ({ voice, selected, size }) => {
+    const [broken, setBroken] = useState(false);
+    const box = size === "lg" ? "w-10 h-10" : "w-8 h-8";
+    const glyph = size === "lg" ? "w-5 h-5" : "w-4 h-4";
+
+    if (voice.avatarUrl && !broken) {
+      return (
+        <div className={`${box} rounded-full overflow-hidden shrink-0 bg-surface-alt relative`}>
+          <img
+            src={voice.avatarUrl}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+            onError={() => setBroken(true)}
+          />
+          {selected && (
+            <div className="absolute inset-0 bg-terra/70 flex items-center justify-center">
+              <Check className={`${glyph} text-white`} />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`${box} rounded-full flex items-center justify-center shrink-0 ${
+          selected ? "bg-terra" : "bg-surface-alt"
+        }`}
+      >
+        {selected ? (
+          <Check className={`${glyph} text-white`} />
+        ) : (
+          <User className={`${glyph} text-ink-muted`} />
+        )}
+      </div>
+    );
+  };
+
+  const renderVoiceRow = (voice) => (
+    <motion.button
+      key={voice.key}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={() => onChange(voice.key)}
+      className={`w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition-all ${
+        value === voice.key
+          ? "border-terra bg-terra/5"
+          : "border-border bg-white hover:border-border"
+      }`}
+    >
+      <Avatar voice={voice} selected={value === voice.key} />
+      <div className="flex-1 min-w-0">
+        <span className="font-medium text-ink block">{voice.name}</span>
+        <span className="text-xs text-ink-muted truncate block">
+          {getVoiceSecondaryLabel(voice)}
+        </span>
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePlayPreview(voice.key);
+        }}
+        className={`p-2 rounded-full transition-colors ${
+          playingVoice === voice.key
+            ? "bg-terra text-white"
+            : "bg-surface-alt text-ink-muted hover:bg-surface-alt"
+        }`}
+      >
+        {previewIcon(voice.key, "w-3 h-3")}
+      </button>
+    </motion.button>
+  );
+
   const selectedVoice = voices.find((v) => v.key === value);
 
   if (loading) {
@@ -127,9 +287,7 @@ export default function VoiceSelector({ value, onChange }) {
         <div className="bg-terra/5 border border-terra/30 rounded-lg p-3 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-terra rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
+              <Avatar voice={selectedVoice} size="lg" />
               <div>
                 <p className="font-medium text-terra">{selectedVoice.name}</p>
                 <p className="text-xs text-terra">{getVoiceStyleLabel(selectedVoice)}</p>
@@ -139,110 +297,110 @@ export default function VoiceSelector({ value, onChange }) {
               onClick={() => handlePlayPreview(selectedVoice.key)}
               className="p-2 rounded-full bg-terra text-white hover:bg-terra-dark transition-colors"
             >
-              {loadingPreview === selectedVoice.key ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : playingVoice === selectedVoice.key ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
+              {previewIcon(selectedVoice.key, "w-4 h-4")}
             </button>
           </div>
         </div>
       )}
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search voices..."
-            className="pl-9"
-          />
+      {/* Search and Filters */}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search voices..."
+              className="pl-9"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors shrink-0 ${
+              filtersOpen || activeFilterCount > 0
+                ? "border-terra bg-terra/5 text-terra"
+                : "border-border bg-surface-alt text-ink/80"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-terra text-white text-[10px] leading-4 text-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
-        <div className="flex gap-1">
-          {["all", "male", "female"].map((gender) => (
-            <button
-              key={gender}
-              onClick={() => setGenderFilter(gender)}
-              className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                genderFilter === gender
-                  ? "bg-terra text-white"
-                  : "bg-surface-alt text-ink/80 hover:bg-surface-alt"
-              }`}
+
+        <AnimatePresence initial={false}>
+          {filtersOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
             >
-              {gender.charAt(0).toUpperCase() + gender.slice(1)}
-            </button>
-          ))}
-        </div>
+              <div className="rounded-lg border border-border bg-surface-alt/50 p-3">
+                {/* One filter per row on mobile: a 2-up grid squeezes the selects too
+                    narrow to read a value like "Informative Educational". */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {facetOptions.map((facet) => (
+                    <FacetDropdown
+                      key={facet.key}
+                      label={facet.label}
+                      options={facet.options}
+                      value={facetFilters[facet.key] || ALL}
+                      onChange={(next) => setFacet(facet.key, next)}
+                    />
+                  ))}
+                </div>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFacetFilters({})}
+                    className="mt-3 flex items-center gap-1 text-xs font-medium text-terra hover:underline"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear {activeFilterCount === 1 ? "filter" : "all filters"}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Voice List */}
       <div className="max-h-64 overflow-y-auto space-y-1 pr-2">
+        {recommendedVoice && (
+          <div>
+            <div className="flex items-center gap-1.5 py-2">
+              <Sparkles className="w-3 h-3 text-terra" />
+              <p className="text-xs font-semibold text-terra uppercase tracking-wide">
+                Recommended for you
+              </p>
+            </div>
+            {renderVoiceRow(recommendedVoice)}
+            {recommendation.reason && (
+              <p className="text-xs text-ink-muted px-3 pt-1.5">{recommendation.reason}</p>
+            )}
+          </div>
+        )}
+
         {Object.entries(groupedVoices).map(([gender, genderVoices]) => (
           <div key={gender}>
             <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide py-2">
               {gender === "male" ? "Male Voices" : gender === "female" ? "Female Voices" : "Other"}
             </p>
-            <div className="space-y-1">
-              {genderVoices.map((voice) => (
-                <motion.button
-                  key={voice.key}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => onChange(voice.key)}
-                  className={`w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition-all ${
-                    value === voice.key
-                      ? "border-terra bg-terra/5"
-                      : "border-border bg-white hover:border-border"
-                  }`}
-                >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      value === voice.key ? "bg-terra" : "bg-surface-alt"
-                    }`}
-                  >
-                    {value === voice.key ? (
-                      <Check className="w-4 h-4 text-white" />
-                    ) : (
-                      <User className="w-4 h-4 text-ink-muted" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-ink block">{voice.name}</span>
-                    <span className="text-xs text-ink-muted truncate block">
-                      {getVoiceSecondaryLabel(voice)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePlayPreview(voice.key);
-                    }}
-                    className={`p-2 rounded-full transition-colors ${
-                      playingVoice === voice.key
-                        ? "bg-terra text-white"
-                        : "bg-surface-alt text-ink-muted hover:bg-surface-alt"
-                    }`}
-                  >
-                    {loadingPreview === voice.key ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : playingVoice === voice.key ? (
-                      <Pause className="w-3 h-3" />
-                    ) : (
-                      <Play className="w-3 h-3" />
-                    )}
-                  </button>
-                </motion.button>
-              ))}
-            </div>
+            <div className="space-y-1">{genderVoices.map(renderVoiceRow)}</div>
           </div>
         ))}
 
-        {filteredVoices.length === 0 && (
+        {filteredVoices.length === 0 && !recommendedVoice && (
           <div className="text-center py-8 text-ink-muted">
             <p>No voices found matching your search</p>
           </div>

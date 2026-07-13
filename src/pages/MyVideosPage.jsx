@@ -785,8 +785,8 @@ export default function MyVideosPage() {
         </AnimatePresence>
       </div>
 
-      {/* Help FAB: replays the tour on demand (shared HelpFab component). */}
-      <HelpFab onClick={myVideosTour.replay} />
+      {/* Help FAB: offers the video and the tour on demand (shared HelpFab component). */}
+      <HelpFab onStartTour={myVideosTour.replay} onPlayVideo={intro.replay} />
 
       <IntroVideoModal
         open={intro.open}

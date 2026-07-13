@@ -39,7 +39,7 @@ const AUTO_APPROVE_ROWS = [
 const GENERATE_ROW = {
   key: "generate",
   title: "Generate video",
-  desc: "Start the final video generation automatically. This spends credits with no final confirmation.",
+  desc: "Start the final video generation automatically.",
 };
 
 function Toggle({ on, onChange, danger }) {

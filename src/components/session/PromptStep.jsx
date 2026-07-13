@@ -14,6 +14,8 @@ import AutoApproveIntroModal from "./AutoApproveIntroModal";
 import { scorePrompt } from "@/lib/promptStrength";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
+import { getRegionDefault } from "@/services/voices";
+import { getJsonPref, PREF_KEYS } from "@/lib/preferences";
 
 // How many uploaded photos the "Improve" button sends to the vision model.
 // Capped so the call stays fast and cheap on a button click.
@@ -841,6 +843,44 @@ export default function PromptStep({
   );
   const [showStrengthDetail, setShowStrengthDetail] = useState(true);
 
+  // Voice recommendation. Two sources, weakest first: the caller's region (from
+  // their IP, available as soon as the voice list loads) and then the video's
+  // content (from the Improve pass, which wins because it knows the actual story).
+  // Either way it is only ever a suggestion: the moment the user picks a voice by
+  // hand, voiceUserSetRef latches and nothing may overwrite their choice again.
+  const [voiceRecommendation, setVoiceRecommendation] = useState(null);
+  const voiceUserSetRef = useRef(false);
+
+  // Read during render, not in the effect: useSession's auto-save effect writes
+  // lastVoiceId on mount, so by the time any effect runs there is always a saved
+  // value and this check would never be true.
+  const [hadSavedVoice] = useState(() => getJsonPref(PREF_KEYS.lastVoiceId, null) !== null);
+
+  const handleVoiceChange = (key) => {
+    voiceUserSetRef.current = true;
+    setVoiceId?.(key);
+  };
+
+  useEffect(() => {
+    // Only seed a region default for someone who has never picked a voice. A
+    // returning user's saved choice is theirs and outranks their geography.
+    if (hadSavedVoice || !setVoiceId) return;
+    let cancelled = false;
+    getRegionDefault().then((region) => {
+      if (cancelled || !region?.voiceKey || voiceUserSetRef.current) return;
+      setVoiceId(region.voiceKey);
+      setVoiceRecommendation({
+        voiceKey: region.voiceKey,
+        accent: region.accent,
+        useCase: null,
+        reason: region.accent ? `${region.accent} accent, for your region` : null,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hadSavedVoice, setVoiceId]);
+
   // "Improve prompt" AI action. Stashes the previous value so the change is undoable.
   const [improving, setImproving] = useState(false);
   const [prevPrompt, setPrevPrompt] = useState(null);
@@ -858,16 +898,28 @@ export default function PromptStep({
         );
         imageDataUrls = shots.filter(Boolean);
       }
-      const improved = await improvePromptApi({
+      const result = await improvePromptApi({
         userPrompt,
         references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
         style,
         mode: isReferencesMode ? 'references' : isPromptOnly ? 'prompt' : 'image',
         imageDataUrls,
       });
-      if (improved) {
+      if (result?.improvedPrompt) {
         setPrevPrompt(prev);
-        setUserPrompt(improved);
+        setUserPrompt(result.improvedPrompt);
+      }
+      // The content-based recommendation beats the region one, but never beats the
+      // user. If the model returned no recommendation (it degrades to plain text on
+      // a parse failure), leave whatever we already had in place.
+      if (result?.recommendedVoiceKey && !voiceUserSetRef.current) {
+        setVoiceId?.(result.recommendedVoiceKey);
+        setVoiceRecommendation({
+          voiceKey: result.recommendedVoiceKey,
+          accent: result.recommendedAccent,
+          useCase: result.recommendedUseCase,
+          reason: result.recommendedReason,
+        });
       }
     } catch (err) {
       console.error("[PromptStep] improve prompt failed", err);
@@ -900,8 +952,8 @@ export default function PromptStep({
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
 
-      {/* Help FAB: replays the current mode's tour on demand. */}
-      <HelpFab onClick={promptTour.replay} />
+      {/* Help FAB: offers the current mode's video and tour on demand. */}
+      <HelpFab onStartTour={promptTour.replay} onPlayVideo={intro.replay} />
 
       {/* One-time first-video modal: offers to auto-approve every step. */}
       {showAutoApproveModal && (
@@ -2505,7 +2557,11 @@ export default function PromptStep({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <VoiceSelector value={voiceId} onChange={setVoiceId} />
+                <VoiceSelector
+                  value={voiceId}
+                  onChange={handleVoiceChange}
+                  recommendation={voiceRecommendation}
+                />
               </div>
               <Button
                 onClick={() => setVoiceModalOpen(false)}

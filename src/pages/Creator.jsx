@@ -4,6 +4,7 @@ import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
 import IntroVideoModal from "@/components/IntroVideoModal";
+import HelpFab from "@/components/ui/HelpFab";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
@@ -67,6 +68,9 @@ export default function Creator() {
           onClose={intro.close}
           onDismissWithoutSeen={intro.dismissWithoutSeen}
         />
+        {/* No tour on this screen, so the FAB skips the menu and replays the
+            video straight into the modal above. */}
+        <HelpFab onPlayVideo={intro.replay} />
       </>
     );
   }
