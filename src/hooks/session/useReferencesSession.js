@@ -573,6 +573,12 @@ export function useReferencesSession() {
     return true;
   }, [sessionId, videoModel, voiceId, backgroundMusic, baseStartGeneration]);
 
+  const approveSceneFrames = useCallback(async () => {
+    if (!sessionId) return false;
+    await referenceApi.approveSceneFrames(sessionId);
+    return true;
+  }, [sessionId]);
+
   // Voice and music are chosen on the prompt screen, so approving the frames goes
   // straight to generation - the same 3 -> 5 jump the auto-approve path takes.
   const approveFrames = startGeneration;
@@ -632,6 +638,7 @@ export function useReferencesSession() {
     generateFrames,
     regenerateFrame,
     regenerateFrameScript,
+    approveSceneFrames,
     approveFrames,
     deleteScene,
     reorderScenes,

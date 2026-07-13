@@ -69,6 +69,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     framesError,
     generateFrames,
     regenerateFrameScript,
+    approveSceneFrames,
     approveFrames,
     deleteScene,
 
@@ -172,15 +173,21 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
       );
     };
 
-    // Scene frames auto-generate on entry (below), so the frames gate only needs
-    // to auto-approve once they're ready - which starts video generation.
+    const approveFramesAutomatically = async () => {
+      const ok = await approveSceneFrames();
+      if (ok && autoActive("generate")) return startGeneration();
+      return ok;
+    };
+
+    // Scene frames auto-generate on entry (below), so the frames gate only approves
+    // them. The credit-spending final render still requires the generate toggle.
     if (step === 1) run("references", refLockReady, approveAllReferences);
     else if (step === 2) run("script", !!scriptData, approveScript);
-    else if (step === 3) run("frames", (sceneFrames?.length ?? 0) > 0, startGeneration);
+    else if (step === 3) run("frames", (sceneFrames?.length ?? 0) > 0, approveFramesAutomatically);
     // Primitive pref deps: toggling an unrelated preference must not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, loading, generationError, insufficientCredits, scriptData, referenceData, lockLoading, sceneFrames, framesLoading, settingsReady, autoDisabled, failedGate,
-      autoApprovePrefs.references, autoApprovePrefs.script, autoApprovePrefs.frames]);
+      autoApprovePrefs.references, autoApprovePrefs.script, autoApprovePrefs.frames, autoApprovePrefs.generate]);
 
   // Scene frames generate automatically when you reach the frames step, so there's
   // no separate "Generate Scene Frames" click. Fires once per entry.
