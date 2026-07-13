@@ -67,6 +67,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   const [scriptProgress, setScriptProgress] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(null);
   const [insufficientCredits, setInsufficientCredits] = useState(null);
+  const [providerUnavailable, setProviderUnavailable] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [generationError, setGenerationError] = useState(null);
   // The FAILED session payload, held separately from `session`. See the polling
@@ -563,6 +564,10 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setInsufficientCredits(null);
   }, []);
 
+  const dismissProviderUnavailable = useCallback(() => {
+    setProviderUnavailable(null);
+  }, []);
+
   // Reset shared state: pipeline hooks should call this and then reset their own state
   const resetBase = useCallback(() => {
     setSessionId(null);
@@ -584,6 +589,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setScriptProgress(0);
     setGenerationProgress(null);
     setInsufficientCredits(null);
+    setProviderUnavailable(null);
     setFinalVideoUrl(null);
     setGenerationError(null);
     setError(null);
@@ -635,6 +641,8 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     setGenerationProgress,
     insufficientCredits,
     setInsufficientCredits,
+    providerUnavailable,
+    setProviderUnavailable,
     finalVideoUrl,
     setFinalVideoUrl,
     generationError,
@@ -642,6 +650,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
     failedSession,
     setFailedSession,
     dismissInsufficientCredits,
+    dismissProviderUnavailable,
 
     // Shared callbacks
     editScriptWithAI,

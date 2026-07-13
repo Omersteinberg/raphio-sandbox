@@ -18,6 +18,10 @@ api.interceptors.request.use((config) => {
 // errors (backend unreachable, the server never saw the request) and 5xx are
 // reported. 4xx is expected user error (auth, validation, insufficient credits)
 // and is intentionally skipped so it can't drown the real failures.
+//
+// PROVIDER_UNAVAILABLE is a 5xx by wire shape only: our PiAPI account being dry is
+// an expected block that already alerts Slack from the server, and it fires on every
+// click while the account is empty, so reporting it here would drown the real failures.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -29,7 +33,7 @@ api.interceptors.response.use(
           message: error?.message || "Network request failed",
           url: error?.config?.url,
         });
-      } else if (status >= 500) {
+      } else if (status >= 500 && error?.response?.data?.code !== "PROVIDER_UNAVAILABLE") {
         reportClientError({
           kind: `http-${status}`,
           message: error?.response?.data?.error || error?.message,

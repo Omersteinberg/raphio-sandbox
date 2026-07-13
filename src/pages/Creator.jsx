@@ -83,8 +83,13 @@ export default function Creator() {
   }
   // Both "prompt" and "image" render the image pipeline; the mode distinguishes
   // the simplified prompt-only variant (photos + advanced hidden).
+  // `key` forces a remount when the user switches between them: without it React
+  // keeps the same instance and useSession's state (prompt, photos, style) bleeds
+  // across modes — a photo picked in image mode then survives into prompt-only as
+  // an invisible @mention target ("@Opening shot").
   return (
     <ImagePipelineCreator
+      key={pipelineMode}
       mode={pipelineMode}
       onModeChange={handleModeChange}
       onBackToChooser={backToChooser}

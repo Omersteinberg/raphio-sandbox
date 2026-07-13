@@ -12,7 +12,7 @@ import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
 import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
 import { resumeModeFor } from "@/lib/pipelineMode";
-import { describeError } from "@/lib/errorDetail";
+import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
 // IndexedDB as data URLs (not raw File handles) because a File restored from
@@ -145,6 +145,11 @@ export function useSession({ promptOnly = false } = {}) {
   // doesn't re-encode photos that haven't changed.
   const pendingDataUrlCache = useRef(new Map());
 
+  // Prompt-only and image mode share this hook, so they must NOT share a draft:
+  // one key meant a photo picked in image mode reappeared as an invisible
+  // @mention target in prompt-only (and the prompt bled back the other way).
+  const draftKey = promptOnly ? "prompt" : "image";
+
   // Session state
   const [sessionId, setSessionId] = useState(null);
   const [session, setSession] = useState(null);
@@ -232,6 +237,7 @@ export function useSession({ promptOnly = false } = {}) {
   // Generation state
   const [generationProgress, setGenerationProgress] = useState(null);
   const [insufficientCredits, setInsufficientCredits] = useState(null);
+  const [providerUnavailable, setProviderUnavailable] = useState(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState(null);
   const [generationError, setGenerationError] = useState(null);
   // The FAILED session payload, held separately from `session`. See the polling
@@ -279,7 +285,7 @@ export function useSession({ promptOnly = false } = {}) {
         })
       );
       if (cancelled) return;
-      await savePending("image", { userPrompt, style, images: encoded });
+      await savePending(draftKey, { userPrompt, style, images: encoded });
     })().catch((err) => {
       console.warn("[useSession] autosave pending failed:", err);
     });
@@ -287,7 +293,7 @@ export function useSession({ promptOnly = false } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, step, userPrompt, style, images]);
+  }, [sessionId, step, userPrompt, style, images, draftKey]);
 
   // Style options (fetched from API)
   const [styleOptions, setStyleOptions] = useState([]);
@@ -753,6 +759,7 @@ export function useSession({ promptOnly = false } = {}) {
 
     setLoading(true);
     setError(null);
+    setProviderUnavailable(null);
     setScriptProgress(1);
 
     try {
@@ -835,7 +842,7 @@ export function useSession({ promptOnly = false } = {}) {
           // Jump straight to script generation - the backend builds scenes from
           // the prompt alone (analysis is skipped server-side when there are no
           // images). Drop any stale local draft copy.
-          try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+          try { await clearPending(draftKey); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
           setScriptProgress(70);
         } else {
           // Step 2: Upload the images that were already selected
@@ -864,7 +871,7 @@ export function useSession({ promptOnly = false } = {}) {
           }
 
           // Photos are safely persisted on the backend now, drop the local copy.
-          try { await clearPending("image"); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
+          try { await clearPending(draftKey); } catch (err) { console.warn("[useSession] clearPending failed:", err); }
 
           setSession(sessionAfterUpload);
           setScriptProgress(35);
@@ -1072,7 +1079,11 @@ export function useSession({ promptOnly = false } = {}) {
       setDirection(-1);
       setStep(0);
       setError(err.message);
-      if (err.response?.status === 402) {
+      if (isProviderUnavailable(err)) {
+        // Full-screen notice instead of a toast: nothing the user can fix, and the
+        // prompt/images state above is deliberately left intact so Try again works.
+        setProviderUnavailable({ message: err.response.data.error });
+      } else if (err.response?.status === 402) {
         try {
           await savePending("image", {
             userPrompt,
@@ -1091,7 +1102,7 @@ export function useSession({ promptOnly = false } = {}) {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, extendPhotos, aspectRatio, targetDuration, promptOnly, credits, navigate, sessionId, session, refreshCredits]);
+  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, extendPhotos, aspectRatio, targetDuration, promptOnly, draftKey, credits, navigate, sessionId, session, refreshCredits]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {
@@ -1827,6 +1838,7 @@ export function useSession({ promptOnly = false } = {}) {
     setEnableBridges(false);
     setImages([]);
     setImageAnalysis(null);
+    setProviderUnavailable(null);
     setScriptData(null);
     setEditRequest("");
     setOpeningFrame({ enabled: false, useUpload: false, customPrompt: "", textOverlay: "", description: "", uploadedImage: null, uploadedFile: null });
@@ -1902,6 +1914,8 @@ export function useSession({ promptOnly = false } = {}) {
     scriptGenFailed,
     insufficientCredits,
     dismissInsufficientCredits: () => setInsufficientCredits(null),
+    providerUnavailable,
+    dismissProviderUnavailable: () => setProviderUnavailable(null),
 
     // Actions
     startSession,

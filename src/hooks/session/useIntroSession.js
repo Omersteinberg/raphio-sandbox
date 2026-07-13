@@ -3,6 +3,7 @@ import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { getCreationDefaults } from "@/lib/preferences";
+import { isProviderUnavailable } from "@/lib/errorDetail";
 
 // Map backend intro-pipeline stages to frontend step numbers.
 const INTRO_STAGE_TO_STEP = {
@@ -38,6 +39,7 @@ export function useIntroSession() {
     aspectRatio, setAspectRatio,
     setScriptProgress, setFinalVideoUrl,
     navigate, credits,
+    setProviderUnavailable,
     startGeneration: baseStartGeneration,
     resetBase,
   } = base;
@@ -86,6 +88,7 @@ export function useIntroSession() {
 
     setLoading(true);
     setError(null);
+    setProviderUnavailable(null);
     setScriptProgress(1);
     try {
       setScriptProgress(8);
@@ -128,7 +131,9 @@ export function useIntroSession() {
       setDirection(-1);
       setStep(0);
       setError(err.response?.data?.error || err.message);
-      if (err.response?.status === 402) {
+      if (isProviderUnavailable(err)) {
+        setProviderUnavailable({ message: err.response.data.error });
+      } else if (err.response?.status === 402) {
         toast.info("You need at least 1 credit to generate an intro.");
         navigate("/buy-credits");
       } else {

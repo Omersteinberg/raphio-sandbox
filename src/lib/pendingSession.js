@@ -1,6 +1,7 @@
 // Stores per-pipeline-mode work-in-progress so that redirecting to
 // /buy-credits and coming back does not lose the user's inputs.
-// Mode: "image" | "references".
+// Mode: "prompt" | "image" | "references". One key per pipeline mode — prompt-only
+// and image mode share a hook and must not share a draft.
 
 const DB_NAME = "merge-pending-sessions";
 const STORE = "pending";

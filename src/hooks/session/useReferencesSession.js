@@ -9,7 +9,7 @@ import { creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { logFailure } from "@/lib/genLog";
 import { isGenerationFailed } from "@/lib/progressTasks";
-import { describeError } from "@/lib/errorDetail";
+import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL so uploaded reference images survive a
 // refresh/navigation off the prompt step (a raw File handle doesn't reliably
@@ -64,6 +64,7 @@ export function useReferencesSession() {
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
+    setProviderUnavailable,
     setFinalVideoUrl,
     navigate, credits, refreshCredits,
     startGeneration: baseStartGeneration,
@@ -240,6 +241,7 @@ export function useReferencesSession() {
 
     setLoading(true);
     setError(null);
+    setProviderUnavailable(null);
     setScriptProgress(0);
 
     try {
@@ -322,7 +324,9 @@ export function useReferencesSession() {
       setDirection(-1);
       setStep(0);
       setError(err.message);
-      if (err.response?.status === 402) {
+      if (isProviderUnavailable(err)) {
+        setProviderUnavailable({ message: err.response.data.error });
+      } else if (err.response?.status === 402) {
         setInsufficientCredits({
           required: err.response.data?.required ?? creditsForDuration(targetDuration),
           available: err.response.data?.available ?? credits ?? 0,

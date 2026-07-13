@@ -22,6 +22,7 @@ import useSmoothProgress from "@/hooks/useSmoothProgress";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
+import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 
 export default function ReferencesPipelineCreator({ onModeChange, onBackToChooser }) {
   const navigate = useNavigate();
@@ -103,6 +104,8 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     // Credits
     insufficientCredits,
     dismissInsufficientCredits,
+    providerUnavailable,
+    dismissProviderUnavailable,
   } = session;
 
   // Auto-approve (skip steps) preferences - loaded from the user's account (Settings page).
@@ -537,6 +540,15 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
               onLeave={refPhase === "refs" ? undefined : () => navigate("/videos")}
             />
           </motion.div>
+        )}
+
+        {providerUnavailable && (
+          <ProviderUnavailableScreen
+            message={providerUnavailable.message}
+            loading={loading}
+            onRetry={startReferencesSession}
+            onDismiss={dismissProviderUnavailable}
+          />
         )}
       </div>
 

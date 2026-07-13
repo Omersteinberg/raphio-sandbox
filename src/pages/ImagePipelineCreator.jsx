@@ -22,6 +22,7 @@ import useSmoothProgress from "@/hooks/useSmoothProgress";
 import ResultStep from "@/components/session/ResultStep";
 import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
+import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 
 // Sub-steps for the ScriptLoadingScreen in prompt-only mode: there's no photo
@@ -132,6 +133,8 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     // Credits
     insufficientCredits,
     dismissInsufficientCredits,
+    providerUnavailable,
+    dismissProviderUnavailable,
   } = session;
 
   // Rehydrate pending inputs after a credit-driven redirect
@@ -139,7 +142,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     let cancelled = false;
     (async () => {
       try {
-        const saved = await loadPending("image");
+        const saved = await loadPending(isPromptOnly ? "prompt" : "image");
         if (cancelled || !saved) return;
         if (saved.userPrompt) setUserPrompt(saved.userPrompt);
         if (saved.style) setStyle(saved.style);
@@ -654,6 +657,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
             />
           ) : null}
         </AnimatePresence>
+
+        {providerUnavailable && (
+          <ProviderUnavailableScreen
+            message={providerUnavailable.message}
+            loading={loading}
+            onRetry={startSession}
+            onDismiss={dismissProviderUnavailable}
+          />
+        )}
       </div>
 
       {/* Loading overlay: steps 0/1 handled by ScriptLoadingScreen; suppressed

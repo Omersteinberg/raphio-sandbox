@@ -808,14 +808,17 @@ export default function PromptStep({
   // Image mode: uploaded photos are the @mention targets. Each carries its slot
   // label (custom rename, else the template default) so the user can reference a
   // scene by name in the prompt, with a thumbnail in the dropdown.
+  // Prompt-only has no photos, so it must never produce mention targets: a stray
+  // image would otherwise surface as a phantom "@Opening shot" scene in a mode
+  // that cannot show, reorder, or upload one.
   const imageMentionItems = useMemo(
-    () => (images || []).map((img, i) => ({
+    () => (isPromptOnly ? [] : (images || []).map((img, i) => ({
       id: `img-${i}`,
       name: customLabels[i] || slotLabels[i] || `Scene ${i + 1}`,
       type: 'image',
       preview: img?.preview,
-    })),
-    [images, customLabels, slotLabels]
+    }))),
+    [isPromptOnly, images, customLabels, slotLabels]
   );
 
   // Lift the effective per-image labels (aligned to `images`) up to the pipeline
@@ -849,7 +852,7 @@ export default function PromptStep({
       // Image mode: let the AI actually see the uploaded photos (downscaled) so
       // it can ground the prompt in what they show. Failures fall back to text.
       let imageDataUrls = [];
-      if (!isReferencesMode && images?.length) {
+      if (!isReferencesMode && !isPromptOnly && images?.length) {
         const shots = await Promise.all(
           images.slice(0, IMPROVE_VISION_MAX_IMAGES).map((im) => downscaleImageToDataUrl(im?.preview || im?.file))
         );
@@ -859,7 +862,7 @@ export default function PromptStep({
         userPrompt,
         references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
         style,
-        mode: isReferencesMode ? 'references' : 'image',
+        mode: isReferencesMode ? 'references' : isPromptOnly ? 'prompt' : 'image',
         imageDataUrls,
       });
       if (improved) {
