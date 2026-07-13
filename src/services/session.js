@@ -64,6 +64,25 @@ export async function getSession(sessionId) {
 }
 
 /**
+ * Ask the backend to run the session's next pipeline step. Idempotent: it no-ops
+ * when a job already owns the session, so a resume can always call it.
+ * Returns the claimed job ({ jobStatus, jobType }), both null when nothing to do.
+ */
+export async function advance(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/advance`);
+  return response.data;
+}
+
+/**
+ * Persist the opening/closing frame intent without advancing the stage, so the
+ * backend can rebuild frameOptions itself if this tab goes away.
+ */
+export async function saveFrameConfigs(sessionId, { opening, closing }) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/frame-configs`, { opening, closing });
+  return response.data;
+}
+
+/**
  * Get (or lazily create) the public /watch share URL for a finished video.
  * Owner-only on the backend. Returns { shareUrl }.
  */

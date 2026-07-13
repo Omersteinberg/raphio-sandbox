@@ -6,7 +6,7 @@ import { fetchStyles } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
-import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession } from "./scriptJobResume";
+import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession, SCRIPT_JOB_TYPES } from "./scriptJobResume";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
@@ -48,6 +48,15 @@ const STARTUP_GAP_MS = 60 * 1000;
 // generation at 15 min (STALE_MS in sessionJob.service), so this only fires when
 // even that did not run. Mirrors useSessionBase.
 const GIVE_UP_MS = 20 * 60 * 1000;
+
+// Stages the backend must still work through before a script exists. Mirrors the
+// stages pipelineRunner.nextActionFor knows how to advance.
+const PRE_SCRIPT_STAGES = new Set([
+  "PROMPT_ENTERED",
+  "IMAGES_UPLOADED",
+  "RESTYLING",
+  "IMAGES_ANALYZED",
+]);
 
 // Map backend stages to frontend step numbers.
 // When bridges are enabled the flow has an extra "bridges" step between
@@ -428,6 +437,9 @@ export function useSession({ promptOnly = false } = {}) {
                 if (restyleResult.failed > 0) {
                   toast.warn(`${restyleResult.failed} image(s) failed to restyle, using originals.`);
                 }
+                // Restyle settled, so the backend can carry on to the outline. Without
+                // this the session parks at IMAGES_ANALYZED with nothing driving it.
+                await sessionService.advance(resumeSessionId);
                 const refreshed = await sessionService.getSession(resumeSessionId);
                 if (refreshed) setSession(refreshed);
               } catch (err) {
@@ -480,6 +492,26 @@ export function useSession({ promptOnly = false } = {}) {
               autoRetryPendingRef.current = true;
             } else {
               setScriptProgress(resumedProgress);
+              // No job and no script: the tab died before the outline was ever
+              // POSTed, so nothing on the backend knows there is a next step. Ask
+              // the runner to pick the session up, and attach if it started the
+              // script. Anything else it claims (e.g. analyze) is watched by the
+              // script-phase poll below.
+              if (!data.scriptData && PRE_SCRIPT_STAGES.has(data.stage)) {
+                const job = await sessionService.advance(resumeSessionId);
+                if (job?.jobStatus === "RUNNING" && SCRIPT_JOB_TYPES.has(job.jobType)) {
+                  const ok = await attachToRunningScriptJob({
+                    sessionId: resumeSessionId,
+                    jobType: job.jobType,
+                    setSession,
+                    setScriptData,
+                    setScriptProgress,
+                    progressBand: [Math.max(75, resumedProgress), 98],
+                  });
+                  if (!ok) setScriptGenFailed(true);
+                  refreshCredits();
+                }
+              }
             }
           }
         } catch (err) {
@@ -637,6 +669,29 @@ export function useSession({ promptOnly = false } = {}) {
       if (pollInterval) clearInterval(pollInterval);
     };
   }, [sessionId, step, generationError, enableBridges]);
+
+  // Observe a backend-driven script phase. The pre-script steps run server-side, so
+  // when nothing in this tab is awaiting them (no `loading`, no attached job) only a
+  // poll will notice the script land. The stage-sync effect above does the advancing;
+  // this just keeps `session` fresh. Stops as soon as scriptData exists.
+  useEffect(() => {
+    if (!sessionId || step !== 1 || scriptData || loading || scriptGenFailed) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const updated = await sessionService.getSession(sessionId);
+        setScriptProgress((prev) => Math.max(prev, scriptProgressForResumedSession(updated)));
+        setSession(updated);
+        if (!updated.scriptData && updated.jobStatus === "FAILED" && SCRIPT_JOB_TYPES.has(updated.jobType)) {
+          setScriptGenFailed(true);
+        }
+      } catch (err) {
+        console.error("[useSession] script phase poll failed:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [sessionId, step, scriptData, loading, scriptGenFailed]);
 
   // Start session with prompt
   const startSession = useCallback(async () => {

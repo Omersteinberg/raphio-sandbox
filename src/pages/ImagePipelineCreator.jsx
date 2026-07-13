@@ -32,6 +32,11 @@ const PROMPT_ONLY_SUB_STEPS = [
   { id: "script",  label: "Writing your script",     range: [55, 100] },
 ];
 
+// How long the script step must look idle before we treat it as a real deadlock and
+// uncover the manual button. Longer than the backend's job-to-job handoff, shorter
+// than a user's patience.
+const SCRIPT_STUCK_GRACE_MS = 8000;
+
 // Script-phase rows for the merged full-auto checklist (photos flow).
 const IMAGE_SCRIPT_SUB_STEPS = [
   { id: "session", label: "Setting up your session", range: [0, 15]  },
@@ -385,8 +390,32 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // `manualGate` (not the raw pref) is what decides: a gate whose auto-approve is
   // switched off, has already failed, or was reached by stepping back is a manual
   // gate, and the overlay must never cover it.
+  // A missing script does NOT mean the script phase is idle - a healthy run sits at
+  // step 1 with `scriptData` null while the backend writes it. Work is in flight when
+  // the client is driving (`loading`), the job slot is RUNNING, or the stage is one the
+  // backend has yet to leave. When none hold, nothing will ever advance this session, so
+  // the overlay MUST uncover ScriptStep's Generate/Retry button.
+  const backend = session.session;
+  const preScriptWorking =
+    backend?.jobStatus === "RUNNING" ||
+    backend?.stage === "IMAGES_UPLOADED" ||
+    backend?.stage === "RESTYLING";
+  // The backend hands off between jobs (analyze DONE -> outline claims the slot), and a
+  // poll landing inside that gap reads as stuck. Only a state that HOLDS is a deadlock.
+  const rawScriptStuck = step === 1 && !loading && !scriptData && !preScriptWorking;
+  const [scriptStuckConfirmed, setScriptStuckConfirmed] = useState(false);
+  useEffect(() => {
+    if (!rawScriptStuck) {
+      setScriptStuckConfirmed(false);
+      return;
+    }
+    const t = setTimeout(() => setScriptStuckConfirmed(true), SCRIPT_STUCK_GRACE_MS);
+    return () => clearTimeout(t);
+  }, [rawScriptStuck]);
+  const scriptStuckManual = rawScriptStuck && scriptStuckConfirmed;
   const atManualReview =
     (step === 1 && !loading && !!scriptData && manualGate("script")) ||
+    scriptStuckManual ||
     (enableBridges && step === 2 && manualGate("bridges")) ||
     (step === framesStep && manualGate("generate"));
   const showMergedRun =

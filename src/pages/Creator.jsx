@@ -3,6 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
+import IntroVideoModal from "@/components/IntroVideoModal";
+import { useIntroVideo } from "@/hooks/useIntroVideo";
+import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 
 // Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
@@ -13,6 +16,9 @@ const ENABLED_MODES = RESUMABLE_MODES;
 
 export default function Creator() {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Must run before the `!chosen` early return: hooks cannot be conditional.
+  const intro = useIntroVideo(INTRO_VIDEO_KEYS.modeChooser);
 
   // When resuming a session (?session=&mode=), the session's own pipeline mode is
   // authoritative, otherwise the last-selected "new video" mode (localStorage)
@@ -49,10 +55,19 @@ export default function Creator() {
 
   if (!chosen) {
     return (
-      <ModeChooser
-        initialMode={localStorage.getItem("raphio_pipeline_mode")}
-        onPick={handleModeChange}
-      />
+      <>
+        <ModeChooser
+          initialMode={localStorage.getItem("raphio_pipeline_mode")}
+          onPick={handleModeChange}
+        />
+        <IntroVideoModal
+          open={intro.open}
+          src={intro.src}
+          title={intro.title}
+          onClose={intro.close}
+          onDismissWithoutSeen={intro.dismissWithoutSeen}
+        />
+      </>
     );
   }
 

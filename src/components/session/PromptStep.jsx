@@ -33,6 +33,8 @@ import { startImageTour, startReferencesTour } from "@/lib/promptTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 import HelpFab from "@/components/ui/HelpFab";
+import IntroVideoModal from "@/components/IntroVideoModal";
+import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
 const SLOT_LABELS = {
@@ -636,16 +638,21 @@ export default function PromptStep({
     prevImagesLengthRef.current = currentLength;
   }, [images?.length]);
 
-  // First-run onboarding tour for this creation screen. Auto-runs once per
-  // mode (persisted) and only for a fresh creation: the parent passes
-  // `onModeChange` only when there's no session yet, so resuming a draft
-  // never triggers it. Switching modes remounts this component (Creator swaps
-  // the two pipeline creators), so each mode shows its own tour on first
-  // entry. The help FAB replays it via promptTour.replay.
+  // First-run onboarding for this creation screen. Both the intro video and the
+  // tour auto-run once per mode (persisted) and only for a fresh creation: the
+  // parent passes `onModeChange` only when there's no session yet, so resuming a
+  // draft triggers neither. Switching modes remounts this component (Creator
+  // swaps the two pipeline creators), so each mode shows its own video and tour
+  // on first entry. The help FAB replays the tour via promptTour.replay.
+  //
+  // pipelineMode is already exactly 'prompt' | 'image' | 'references', which are
+  // three of the five intro video keys, so this one mount covers all three.
+  const intro = useIntroVideo(pipelineMode, { enabled: !!onModeChange });
+
   const promptTour = useStepTour(
     isReferencesMode ? TOUR_KEYS.promptReferences : TOUR_KEYS.promptImage,
     isReferencesMode ? startReferencesTour : startImageTour,
-    { enabled: !!onModeChange }
+    { enabled: !!onModeChange && intro.tourEnabled }
   );
 
   const handleFrameFileChange = (e, frameType) => {
@@ -897,6 +904,14 @@ export default function PromptStep({
       {showAutoApproveModal && (
         <AutoApproveIntroModal onConfirm={handleAutoApproveConfirm} busy={loading} />
       )}
+
+      <IntroVideoModal
+        open={intro.open}
+        src={intro.src}
+        title={intro.title}
+        onClose={intro.close}
+        onDismissWithoutSeen={intro.dismissWithoutSeen}
+      />
 
       {/* Change mode: return to the 3-card chooser (fresh session only). Anchored
           to the top-left of the creator canvas (this root is position:relative),
