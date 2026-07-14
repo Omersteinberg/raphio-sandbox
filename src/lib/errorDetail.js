@@ -9,6 +9,19 @@
  * Errors thrown by pollJobUntilDone carry `isJobError` and no `response`; their
  * `message` is the backend's own jobError text and is worth showing.
  */
+
+/**
+ * Our own PiAPI account is out of credits, so the backend refused to start. An
+ * expected, user-facing block rather than a crash, and its message is written for
+ * the user, which is why describeError lets it past the 5xx body-drop below.
+ */
+export function isProviderUnavailable(err) {
+  return (
+    err?.response?.status === 503 &&
+    err?.response?.data?.code === "PROVIDER_UNAVAILABLE"
+  );
+}
+
 export function describeError(err, fallback = "Something went wrong. Please try again.") {
   const status = err?.response?.status ?? null;
   const body = err?.response?.data ?? null;
@@ -17,6 +30,8 @@ export function describeError(err, fallback = "Something went wrong. Please try 
   let userMessage;
   if (err?.isJobError) {
     userMessage = err.message || fallback;
+  } else if (isProviderUnavailable(err)) {
+    userMessage = backendMessage || fallback;
   } else if (!err?.response || status >= 500) {
     userMessage = fallback;
   } else {

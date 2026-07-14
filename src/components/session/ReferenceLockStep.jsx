@@ -236,7 +236,7 @@ export default function ReferenceLockStep({
         )}
       </motion.div>
 
-      {tourReady && <HelpFab onClick={lockTour.replay} />}
+      {tourReady && <HelpFab onStartTour={lockTour.replay} />}
     </div>
   );
 }

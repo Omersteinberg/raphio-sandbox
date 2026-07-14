@@ -14,6 +14,8 @@ import AutoApproveIntroModal from "./AutoApproveIntroModal";
 import { scorePrompt } from "@/lib/promptStrength";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
+import { getRegionDefault } from "@/services/voices";
+import { getJsonPref, PREF_KEYS } from "@/lib/preferences";
 
 // How many uploaded photos the "Improve" button sends to the vision model.
 // Capped so the call stays fast and cheap on a button click.
@@ -33,6 +35,8 @@ import { startImageTour, startReferencesTour } from "@/lib/promptTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 import HelpFab from "@/components/ui/HelpFab";
+import IntroVideoModal from "@/components/IntroVideoModal";
+import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
 const SLOT_LABELS = {
@@ -636,16 +640,21 @@ export default function PromptStep({
     prevImagesLengthRef.current = currentLength;
   }, [images?.length]);
 
-  // First-run onboarding tour for this creation screen. Auto-runs once per
-  // mode (persisted) and only for a fresh creation: the parent passes
-  // `onModeChange` only when there's no session yet, so resuming a draft
-  // never triggers it. Switching modes remounts this component (Creator swaps
-  // the two pipeline creators), so each mode shows its own tour on first
-  // entry. The help FAB replays it via promptTour.replay.
+  // First-run onboarding for this creation screen. Both the intro video and the
+  // tour auto-run once per mode (persisted) and only for a fresh creation: the
+  // parent passes `onModeChange` only when there's no session yet, so resuming a
+  // draft triggers neither. Switching modes remounts this component (Creator
+  // swaps the two pipeline creators), so each mode shows its own video and tour
+  // on first entry. The help FAB replays the tour via promptTour.replay.
+  //
+  // pipelineMode is already exactly 'prompt' | 'image' | 'references', which are
+  // three of the five intro video keys, so this one mount covers all three.
+  const intro = useIntroVideo(pipelineMode, { enabled: !!onModeChange });
+
   const promptTour = useStepTour(
     isReferencesMode ? TOUR_KEYS.promptReferences : TOUR_KEYS.promptImage,
     isReferencesMode ? startReferencesTour : startImageTour,
-    { enabled: !!onModeChange }
+    { enabled: !!onModeChange && intro.tourEnabled }
   );
 
   const handleFrameFileChange = (e, frameType) => {
@@ -801,14 +810,17 @@ export default function PromptStep({
   // Image mode: uploaded photos are the @mention targets. Each carries its slot
   // label (custom rename, else the template default) so the user can reference a
   // scene by name in the prompt, with a thumbnail in the dropdown.
+  // Prompt-only has no photos, so it must never produce mention targets: a stray
+  // image would otherwise surface as a phantom "@Opening shot" scene in a mode
+  // that cannot show, reorder, or upload one.
   const imageMentionItems = useMemo(
-    () => (images || []).map((img, i) => ({
+    () => (isPromptOnly ? [] : (images || []).map((img, i) => ({
       id: `img-${i}`,
       name: customLabels[i] || slotLabels[i] || `Scene ${i + 1}`,
       type: 'image',
       preview: img?.preview,
-    })),
-    [images, customLabels, slotLabels]
+    }))),
+    [isPromptOnly, images, customLabels, slotLabels]
   );
 
   // Lift the effective per-image labels (aligned to `images`) up to the pipeline
@@ -831,6 +843,44 @@ export default function PromptStep({
   );
   const [showStrengthDetail, setShowStrengthDetail] = useState(true);
 
+  // Voice recommendation. Two sources, weakest first: the caller's region (from
+  // their IP, available as soon as the voice list loads) and then the video's
+  // content (from the Improve pass, which wins because it knows the actual story).
+  // Either way it is only ever a suggestion: the moment the user picks a voice by
+  // hand, voiceUserSetRef latches and nothing may overwrite their choice again.
+  const [voiceRecommendation, setVoiceRecommendation] = useState(null);
+  const voiceUserSetRef = useRef(false);
+
+  // Read during render, not in the effect: useSession's auto-save effect writes
+  // lastVoiceId on mount, so by the time any effect runs there is always a saved
+  // value and this check would never be true.
+  const [hadSavedVoice] = useState(() => getJsonPref(PREF_KEYS.lastVoiceId, null) !== null);
+
+  const handleVoiceChange = (key) => {
+    voiceUserSetRef.current = true;
+    setVoiceId?.(key);
+  };
+
+  useEffect(() => {
+    // Only seed a region default for someone who has never picked a voice. A
+    // returning user's saved choice is theirs and outranks their geography.
+    if (hadSavedVoice || !setVoiceId) return;
+    let cancelled = false;
+    getRegionDefault().then((region) => {
+      if (cancelled || !region?.voiceKey || voiceUserSetRef.current) return;
+      setVoiceId(region.voiceKey);
+      setVoiceRecommendation({
+        voiceKey: region.voiceKey,
+        accent: region.accent,
+        useCase: null,
+        reason: region.accent ? `${region.accent} accent, for your region` : null,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hadSavedVoice, setVoiceId]);
+
   // "Improve prompt" AI action. Stashes the previous value so the change is undoable.
   const [improving, setImproving] = useState(false);
   const [prevPrompt, setPrevPrompt] = useState(null);
@@ -842,22 +892,34 @@ export default function PromptStep({
       // Image mode: let the AI actually see the uploaded photos (downscaled) so
       // it can ground the prompt in what they show. Failures fall back to text.
       let imageDataUrls = [];
-      if (!isReferencesMode && images?.length) {
+      if (!isReferencesMode && !isPromptOnly && images?.length) {
         const shots = await Promise.all(
           images.slice(0, IMPROVE_VISION_MAX_IMAGES).map((im) => downscaleImageToDataUrl(im?.preview || im?.file))
         );
         imageDataUrls = shots.filter(Boolean);
       }
-      const improved = await improvePromptApi({
+      const result = await improvePromptApi({
         userPrompt,
         references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
         style,
-        mode: isReferencesMode ? 'references' : 'image',
+        mode: isReferencesMode ? 'references' : isPromptOnly ? 'prompt' : 'image',
         imageDataUrls,
       });
-      if (improved) {
+      if (result?.improvedPrompt) {
         setPrevPrompt(prev);
-        setUserPrompt(improved);
+        setUserPrompt(result.improvedPrompt);
+      }
+      // The content-based recommendation beats the region one, but never beats the
+      // user. If the model returned no recommendation (it degrades to plain text on
+      // a parse failure), leave whatever we already had in place.
+      if (result?.recommendedVoiceKey && !voiceUserSetRef.current) {
+        setVoiceId?.(result.recommendedVoiceKey);
+        setVoiceRecommendation({
+          voiceKey: result.recommendedVoiceKey,
+          accent: result.recommendedAccent,
+          useCase: result.recommendedUseCase,
+          reason: result.recommendedReason,
+        });
       }
     } catch (err) {
       console.error("[PromptStep] improve prompt failed", err);
@@ -890,13 +952,21 @@ export default function PromptStep({
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
       `}</style>
 
-      {/* Help FAB: replays the current mode's tour on demand. */}
-      <HelpFab onClick={promptTour.replay} />
+      {/* Help FAB: offers the current mode's video and tour on demand. */}
+      <HelpFab onStartTour={promptTour.replay} onPlayVideo={intro.replay} />
 
       {/* One-time first-video modal: offers to auto-approve every step. */}
       {showAutoApproveModal && (
         <AutoApproveIntroModal onConfirm={handleAutoApproveConfirm} busy={loading} />
       )}
+
+      <IntroVideoModal
+        open={intro.open}
+        src={intro.src}
+        title={intro.title}
+        onClose={intro.close}
+        onDismissWithoutSeen={intro.dismissWithoutSeen}
+      />
 
       {/* Change mode: return to the 3-card chooser (fresh session only). Anchored
           to the top-left of the creator canvas (this root is position:relative),
@@ -2487,7 +2557,11 @@ export default function PromptStep({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <VoiceSelector value={voiceId} onChange={setVoiceId} />
+                <VoiceSelector
+                  value={voiceId}
+                  onChange={handleVoiceChange}
+                  recommendation={voiceRecommendation}
+                />
               </div>
               <Button
                 onClick={() => setVoiceModalOpen(false)}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
+import { describeError } from "@/lib/errorDetail";
 
 const PIXELS_PER_SECOND_BASE = 50;
 
@@ -71,7 +72,7 @@ export function useTimeline(sessionId) {
       setZoomLevel(data.zoomLevel || 1);
     } catch (err) {
       console.error("Failed to load timeline:", err);
-      toast.error("Failed to load timeline");
+      toast.error(describeError(err, "We couldn't load your timeline. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ export function useTimeline(sessionId) {
         );
       } catch (err) {
         console.error("Failed to update item:", err);
-        toast.error("Failed to update item");
+        toast.error(describeError(err, "We couldn't save that change. Please try again.").userMessage);
         // Revert optimistic update by reloading
         await loadTimeline();
       } finally {
@@ -162,7 +163,7 @@ export function useTimeline(sessionId) {
         await loadTimeline(); // Refresh to get updated duration
       } catch (err) {
         console.error("Failed to add item:", err);
-        toast.error("Failed to add item");
+        toast.error(describeError(err, "We couldn't add that to the timeline. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -187,7 +188,7 @@ export function useTimeline(sessionId) {
         await loadTimeline(); // Refresh to get updated duration
       } catch (err) {
         console.error("Failed to remove item:", err);
-        toast.error("Failed to remove item");
+        toast.error(describeError(err, "We couldn't remove that clip. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -226,7 +227,7 @@ export function useTimeline(sessionId) {
         });
       } catch (err) {
         console.error("Failed to split item:", err);
-        toast.error("Failed to split item");
+        toast.error(describeError(err, "We couldn't split that clip. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -255,7 +256,7 @@ export function useTimeline(sessionId) {
       if (typeof result?.duration === "number") setDuration(result.duration);
     } catch (err) {
       console.error("Failed to undo:", err);
-      toast.error("Failed to undo");
+      toast.error(describeError(err, "We couldn't undo that. Please try again.").userMessage);
       await loadTimeline(); // fall back to server truth
     } finally {
       setSaving(false);
@@ -275,7 +276,7 @@ export function useTimeline(sessionId) {
         return asset;
       } catch (err) {
         console.error("Failed to upload audio:", err);
-        toast.error("Failed to upload audio");
+        toast.error(describeError(err, "We couldn't upload that audio. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -300,7 +301,7 @@ export function useTimeline(sessionId) {
         return asset;
       } catch (err) {
         console.error("Failed to generate TTS:", err);
-        toast.error("Failed to generate TTS");
+        toast.error(describeError(err, "We couldn't generate that narration. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -323,7 +324,7 @@ export function useTimeline(sessionId) {
         toast.success("Audio deleted!");
       } catch (err) {
         console.error("Failed to delete audio:", err);
-        toast.error("Failed to delete audio");
+        toast.error(describeError(err, "We couldn't delete that audio. Please try again.").userMessage);
       } finally {
         setSaving(false);
       }
@@ -344,7 +345,9 @@ export function useTimeline(sessionId) {
       return video;
     } catch (err) {
       console.error("Failed to export timeline:", err);
-      toast.error(err?.message || "Failed to export timeline");
+      // describeError keeps the backend's jobError text (the useful part of an
+      // export failure) while suppressing axios's own "Request failed with..." string.
+      toast.error(describeError(err, "We couldn't export your video. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }

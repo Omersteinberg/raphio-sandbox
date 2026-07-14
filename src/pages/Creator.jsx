@@ -3,6 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
+import IntroVideoModal from "@/components/IntroVideoModal";
+import HelpFab from "@/components/ui/HelpFab";
+import { useIntroVideo } from "@/hooks/useIntroVideo";
+import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 
 // Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
@@ -13,6 +17,9 @@ const ENABLED_MODES = RESUMABLE_MODES;
 
 export default function Creator() {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Must run before the `!chosen` early return: hooks cannot be conditional.
+  const intro = useIntroVideo(INTRO_VIDEO_KEYS.modeChooser);
 
   // When resuming a session (?session=&mode=), the session's own pipeline mode is
   // authoritative, otherwise the last-selected "new video" mode (localStorage)
@@ -49,10 +56,22 @@ export default function Creator() {
 
   if (!chosen) {
     return (
-      <ModeChooser
-        initialMode={localStorage.getItem("raphio_pipeline_mode")}
-        onPick={handleModeChange}
-      />
+      <>
+        <ModeChooser
+          initialMode={localStorage.getItem("raphio_pipeline_mode")}
+          onPick={handleModeChange}
+        />
+        <IntroVideoModal
+          open={intro.open}
+          src={intro.src}
+          title={intro.title}
+          onClose={intro.close}
+          onDismissWithoutSeen={intro.dismissWithoutSeen}
+        />
+        {/* No tour on this screen, so the FAB skips the menu and replays the
+            video straight into the modal above. */}
+        <HelpFab onPlayVideo={intro.replay} />
+      </>
     );
   }
 
@@ -68,8 +87,13 @@ export default function Creator() {
   }
   // Both "prompt" and "image" render the image pipeline; the mode distinguishes
   // the simplified prompt-only variant (photos + advanced hidden).
+  // `key` forces a remount when the user switches between them: without it React
+  // keeps the same instance and useSession's state (prompt, photos, style) bleeds
+  // across modes — a photo picked in image mode then survives into prompt-only as
+  // an invisible @mention target ("@Opening shot").
   return (
     <ImagePipelineCreator
+      key={pipelineMode}
       mode={pipelineMode}
       onModeChange={handleModeChange}
       onBackToChooser={backToChooser}

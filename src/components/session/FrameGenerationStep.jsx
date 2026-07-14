@@ -206,7 +206,7 @@ export default function FrameGenerationStep({
         )}
       </div>
 
-      {allFramesComplete && <HelpFab onClick={framesTour.replay} />}
+      {allFramesComplete && <HelpFab onStartTour={framesTour.replay} />}
     </div>
   );
 }

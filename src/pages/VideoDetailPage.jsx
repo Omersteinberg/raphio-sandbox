@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/services/session";
+import { describeError } from "@/lib/errorDetail";
 import VideoResult from "@/components/video/VideoResult";
 
 export default function VideoDetailPage() {
@@ -11,6 +12,7 @@ export default function VideoDetailPage() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
   const video = session?.video;
   const title = video?.title || session?.scriptData?.title || session?.userPrompt || "Untitled Video";
@@ -20,14 +22,22 @@ export default function VideoDetailPage() {
     const fetchSession = async () => {
       try {
         setLoading(true);
+        setError(null);
+        setNotFound(false);
         const data = await getSession(id);
         if (data) {
           setSession(data);
         } else {
-          setError("Video not found");
+          setNotFound(true);
         }
       } catch (err) {
-        setError("Failed to load video");
+        // Only a 404 means the video is really gone. A 5xx or a dropped
+        // connection must not be reported as "deleted".
+        if (err?.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          setError(describeError(err, "We couldn't load this video. Please try again.").userMessage);
+        }
       } finally {
         setLoading(false);
       }
@@ -57,7 +67,25 @@ export default function VideoDetailPage() {
     );
   }
 
-  if (error || !session) {
+  if (error) {
+    return (
+      <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Couldn't Load Video</h1>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="bg-primary hover:bg-primary/90 text-white"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !session) {
     return (
       <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
         <div className="text-center max-w-md">

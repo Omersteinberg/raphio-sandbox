@@ -15,6 +15,9 @@ import { startMyVideosTour } from "@/lib/myVideosTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 import HelpFab from "@/components/ui/HelpFab";
+import IntroVideoModal from "@/components/IntroVideoModal";
+import { useIntroVideo } from "@/hooks/useIntroVideo";
+import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const C = {
@@ -609,11 +612,14 @@ export default function MyVideosPage() {
     if (checkedNew && !isNewUser) fetchSessions();
   }, [fetchSessions, checkedNew, isNewUser]);
 
+  const intro = useIntroVideo(INTRO_VIDEO_KEYS.myVideos);
+
   // First-run onboarding tour for users who just signed up (no videos yet).
   // Runs once (persisted), after the welcome state + header have settled. On
   // mobile the tour opens/closes the nav drawer itself (see myVideosTour.js).
+  // `intro.tourEnabled` holds it back until the intro video is dismissed.
   const myVideosTour = useStepTour(TOUR_KEYS.myVideos, startMyVideosTour, {
-    enabled: checkedNew && isNewUser,
+    enabled: checkedNew && isNewUser && intro.tourEnabled,
     delay: 650,
     isMobile,
   });
@@ -779,8 +785,16 @@ export default function MyVideosPage() {
         </AnimatePresence>
       </div>
 
-      {/* Help FAB: replays the tour on demand (shared HelpFab component). */}
-      <HelpFab onClick={myVideosTour.replay} />
+      {/* Help FAB: offers the video and the tour on demand (shared HelpFab component). */}
+      <HelpFab onStartTour={myVideosTour.replay} onPlayVideo={intro.replay} />
+
+      <IntroVideoModal
+        open={intro.open}
+        src={intro.src}
+        title={intro.title}
+        onClose={intro.close}
+        onDismissWithoutSeen={intro.dismissWithoutSeen}
+      />
     </div>
   );
 }

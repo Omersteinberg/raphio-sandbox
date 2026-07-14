@@ -7,7 +7,13 @@ import {
   logout as apiLogout,
 } from '../api/auth';
 import { getBalance } from '../services/credits';
-import { fetchSettings, saveAutoApprove, markAutoApproveIntroSeen as apiMarkIntroSeen, EMPTY_AUTO_APPROVE } from '../api/settings';
+import {
+  fetchSettings,
+  saveAutoApprove,
+  markAutoApproveIntroSeen as apiMarkIntroSeen,
+  markIntroVideoSeen as apiMarkIntroVideoSeen,
+  EMPTY_AUTO_APPROVE,
+} from '../api/settings';
 
 const AuthContext = createContext(null);
 
@@ -21,6 +27,8 @@ export function AuthProvider({ children }) {
   const [autoApprove, setAutoApproveState] = useState(EMPTY_AUTO_APPROVE);
   // Whether the user has already seen the one-time "approve everything" modal.
   const [autoApproveIntroSeen, setIntroSeenState] = useState(false);
+  // Keys of the first-visit tutorial videos this user has already dismissed.
+  const [introVideosSeen, setIntroVideosSeen] = useState([]);
   // Flips true after the first settings load resolves, so the first-run modal
   // gate never fires against not-yet-loaded state (which would nag returning users).
   const [settingsReady, setSettingsReady] = useState(false);
@@ -52,6 +60,7 @@ export function AuthProvider({ children }) {
       const s = await fetchSettings();
       setAutoApproveState(s.autoApprove);
       setIntroSeenState(s.autoApproveIntroSeen);
+      setIntroVideosSeen(s.introVideosSeen);
     } catch (err) {
       console.error('[useAuth] Failed to fetch settings:', err.message);
     } finally {
@@ -81,6 +90,15 @@ export function AuthProvider({ children }) {
     );
   }, []);
 
+  // Optimistic: the local flip is what closes the modal and releases the tour.
+  // A failed write only means the video may reappear on another device.
+  const markIntroVideoSeen = useCallback((key) => {
+    setIntroVideosSeen((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    apiMarkIntroVideoSeen(key).catch((err) =>
+      console.error('[useAuth] Failed to mark intro video seen:', err.message)
+    );
+  }, []);
+
   const value = {
     user,
     loading,
@@ -90,6 +108,8 @@ export function AuthProvider({ children }) {
     updateAutoApprove,
     autoApproveIntroSeen,
     markAutoApproveIntroSeen,
+    introVideosSeen,
+    markIntroVideoSeen,
     settingsReady,
     login: async (username, password) => {
       const user = await apiLogin(username, password);
@@ -111,6 +131,7 @@ export function AuthProvider({ children }) {
       setCredits(null);
       setAutoApproveState(EMPTY_AUTO_APPROVE);
       setIntroSeenState(false);
+      setIntroVideosSeen([]);
       setSettingsReady(false);
     },
     register: async (username, email, password) => {

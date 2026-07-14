@@ -6,6 +6,7 @@ import IntroScriptStep from "@/components/session/IntroScriptStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
+import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 import { useIntroSession } from "@/hooks/session/useIntroSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildIntroTasks } from "@/lib/journeyTasks";
@@ -146,6 +147,15 @@ export default function IntroPipelineCreator({ onModeChange }) {
             <ScriptLoadingScreen progress={intro.scriptProgress} />
           )}
         </AnimatePresence>
+
+        {intro.providerUnavailable && (
+          <ProviderUnavailableScreen
+            message={intro.providerUnavailable.message}
+            loading={loading}
+            onRetry={intro.startIntroSession}
+            onDismiss={intro.dismissProviderUnavailable}
+          />
+        )}
       </div>
 
       {intro.insufficientCredits && (

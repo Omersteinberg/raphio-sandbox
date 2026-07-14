@@ -1,5 +1,5 @@
 import { API_BASE } from "../config.js";
-import { getToken } from "../api/auth.js";
+import { getToken } from "../lib/token.js";
 
 const ENDPOINT = `${API_BASE}/telemetry/client-error`;
 const GEN_LOG_ENDPOINT = `${API_BASE}/telemetry/gen-log`;

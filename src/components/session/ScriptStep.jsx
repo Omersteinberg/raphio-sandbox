@@ -653,7 +653,7 @@ export default function ScriptStep({
       {/* Help FAB: replays the script review tour. Stacked above the
           Edit-with-AI FAB on compact screens, standard corner on desktop. */}
       {scriptTourEnabled && (
-        <HelpFab onClick={scriptTour.replay} positionClass="bottom-24 right-6 lg:bottom-6" />
+        <HelpFab onStartTour={scriptTour.replay} positionClass="bottom-24 right-6 lg:bottom-6" />
       )}
 
       {/* Mobile backdrop for the AI editor sheet */}

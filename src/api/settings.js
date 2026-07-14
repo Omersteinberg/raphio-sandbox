@@ -15,13 +15,17 @@ export const EMPTY_AUTO_APPROVE = {
 
 /**
  * Load all of the signed-in user's settings in one call (used on login).
- * @returns {Promise<{autoApprove: object, autoApproveIntroSeen: boolean}>}
+ * @returns {Promise<{autoApprove: object, autoApproveIntroSeen: boolean, introVideosSeen: string[]}>}
  */
 export async function fetchSettings() {
   const { data } = await axios.get(SETTINGS_BASE);
   return {
     autoApprove: { ...EMPTY_AUTO_APPROVE, ...(data?.autoApprove || {}) },
     autoApproveIntroSeen: !!data?.onboarding?.autoApproveIntroSeen,
+    // Default to [] so an older backend cannot crash the client.
+    introVideosSeen: Array.isArray(data?.onboarding?.introVideosSeen)
+      ? data.onboarding.introVideosSeen
+      : [],
   };
 }
 
@@ -31,6 +35,14 @@ export async function fetchSettings() {
  */
 export async function markAutoApproveIntroSeen() {
   await axios.put(`${SETTINGS_BASE}/onboarding/auto-approve-intro-seen`);
+}
+
+/**
+ * Mark one first-visit tutorial video as seen so it never auto-opens again.
+ * @param {string} key one of the keys in INTRO_VIDEO_KEYS
+ */
+export async function markIntroVideoSeen(key) {
+  await axios.put(`${SETTINGS_BASE}/onboarding/intro-video-seen`, { key });
 }
 
 /**

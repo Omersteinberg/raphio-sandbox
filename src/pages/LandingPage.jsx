@@ -1277,28 +1277,28 @@ export default function LandingPage() {
                 id: 'free', label: 'Free', price: 0, credits: 3, save: null,
                 icon: Sparkles, cta: 'Start Free', popular: false,
                 features: [
-                  { text: '1 short video (≤15s)',   ok: true  },
+                  { text: '1 short video (15s)',   ok: true  },
                 ],
               },
               {
                 id: 'starter', label: 'Starter', price: 29, credits: 6, 
                 icon: Zap, cta: 'Get Starter pack', popular: false,
                 features: [
-                  { text: 'Up to 3 short videos (≤15s)', ok: true  },
+                  { text: 'Up to 2 short videos(15s each)', ok: true  },
                 ],
               },
               {
                 id: 'creator', label: 'Creator', price: 55, credits: 12, save: 'Save 8%',
                 icon: Layers, cta: 'Get Creator Pack', popular: true,
                 features: [
-                  { text: 'Up to 6 videos (≤30s)',  ok: true  },
+                  { text: 'Up to 2 medium videos(30s each)',  ok: true  },
                 ],
               },
               {
                 id: 'studio', label: 'Studio', price: 99, credits: 24, save: 'Save 17%',
                 icon: Crown, cta: 'Get Studio Pack', popular: false,
                 features: [
-                  { text: 'Up to 8 full videos (≤60s)', ok: true },
+                  { text: 'Up to 2 long videos(60s each)', ok: true },
                 ],
               },
             ].map((tier, i) => {

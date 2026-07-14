@@ -3,6 +3,7 @@ import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { getCreationDefaults } from "@/lib/preferences";
+import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Map backend intro-pipeline stages to frontend step numbers.
 const INTRO_STAGE_TO_STEP = {
@@ -38,6 +39,7 @@ export function useIntroSession() {
     aspectRatio, setAspectRatio,
     setScriptProgress, setFinalVideoUrl,
     navigate, credits,
+    setProviderUnavailable,
     startGeneration: baseStartGeneration,
     resetBase,
   } = base;
@@ -86,6 +88,7 @@ export function useIntroSession() {
 
     setLoading(true);
     setError(null);
+    setProviderUnavailable(null);
     setScriptProgress(1);
     try {
       setScriptProgress(8);
@@ -127,12 +130,15 @@ export function useIntroSession() {
       setScriptProgress(0);
       setDirection(-1);
       setStep(0);
-      setError(err.response?.data?.error || err.message);
-      if (err.response?.status === 402) {
+      const { userMessage } = describeError(err, "We couldn't start your intro. Please try again.");
+      setError(userMessage);
+      if (isProviderUnavailable(err)) {
+        setProviderUnavailable({ message: err.response.data.error });
+      } else if (err.response?.status === 402) {
         toast.info("You need at least 1 credit to generate an intro.");
         navigate("/buy-credits");
       } else {
-        toast.error(err.response?.data?.error || "Failed to start intro");
+        toast.error(userMessage);
       }
     } finally {
       setLoading(false);
@@ -164,7 +170,7 @@ export function useIntroSession() {
       toast.success(request ? "Script updated!" : "Script regenerated!");
     } catch (err) {
       setScriptProgress(0);
-      toast.error(err.response?.data?.error || "Failed to update script");
+      toast.error(describeError(err, "We couldn't update your script. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }
@@ -184,7 +190,7 @@ export function useIntroSession() {
       await sessionService.approveScript(sessionId);
     } catch (err) {
       setLoading(false);
-      toast.error(err.response?.data?.error || "Failed to approve script");
+      toast.error(describeError(err, "We couldn't approve your script. Please try again.").userMessage);
       return;
     }
     setLoading(false);

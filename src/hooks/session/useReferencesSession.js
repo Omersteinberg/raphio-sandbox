@@ -9,7 +9,7 @@ import { creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { logFailure } from "@/lib/genLog";
 import { isGenerationFailed } from "@/lib/progressTasks";
-import { describeError } from "@/lib/errorDetail";
+import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL so uploaded reference images survive a
 // refresh/navigation off the prompt step (a raw File handle doesn't reliably
@@ -64,6 +64,7 @@ export function useReferencesSession() {
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
+    setProviderUnavailable,
     setFinalVideoUrl,
     navigate, credits, refreshCredits,
     startGeneration: baseStartGeneration,
@@ -240,6 +241,7 @@ export function useReferencesSession() {
 
     setLoading(true);
     setError(null);
+    setProviderUnavailable(null);
     setScriptProgress(0);
 
     try {
@@ -321,14 +323,17 @@ export function useReferencesSession() {
       setLockLoading(new Set());
       setDirection(-1);
       setStep(0);
-      setError(err.message);
-      if (err.response?.status === 402) {
+      const { userMessage } = describeError(err, "We couldn't start your video. Please try again.");
+      setError(userMessage);
+      if (isProviderUnavailable(err)) {
+        setProviderUnavailable({ message: err.response.data.error });
+      } else if (err.response?.status === 402) {
         setInsufficientCredits({
           required: err.response.data?.required ?? creditsForDuration(targetDuration),
           available: err.response.data?.available ?? credits ?? 0,
         });
       } else {
-        toast.error(err.response?.data?.error || "Failed to start references session");
+        toast.error(userMessage);
       }
     } finally {
       setLoading(false);
@@ -374,7 +379,7 @@ export function useReferencesSession() {
           available: err.response.data?.available ?? credits ?? 0,
         });
       } else {
-        toast.error(err.response?.data?.error || "Failed to approve references");
+        toast.error(describeError(err, "We couldn't approve your references. Please try again.").userMessage);
       }
       return false;
     } finally {
@@ -457,7 +462,7 @@ export function useReferencesSession() {
         });
       } else {
         setFramesError(true);
-        toast.error(err.response?.data?.error || "Failed to generate scene frames");
+        toast.error(describeError(err, "We couldn't generate your scene frames. Please try again.").userMessage);
       }
     } finally {
       setFramesLoading(false);
@@ -510,7 +515,7 @@ export function useReferencesSession() {
       toast.success("Scene script and frame regenerated!");
     } catch (err) {
       console.error("[useReferencesSession] Failed to regenerate scene script:", err);
-      toast.error(err.response?.data?.error || "Failed to regenerate scene script");
+      toast.error(describeError(err, "We couldn't regenerate that scene. Please try again.").userMessage);
     } finally {
       setFramesLoading(false);
     }
@@ -531,7 +536,7 @@ export function useReferencesSession() {
       toast.success("Scene deleted");
     } catch (err) {
       console.error("[useReferencesSession] Failed to delete scene:", err);
-      toast.error(err.response?.data?.error || "Failed to delete scene");
+      toast.error(describeError(err, "We couldn't delete that scene. Please try again.").userMessage);
     } finally {
       setFramesLoading(false);
     }

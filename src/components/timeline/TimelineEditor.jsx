@@ -28,6 +28,7 @@ import { startOverviewTour, startClipTour } from "@/lib/editorTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 import { estimatedProgress } from "@/lib/progressEstimate";
+import { describeError } from "@/lib/errorDetail";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
 import * as sessionService from "@/services/session";
 import TimelineCanvas from "./TimelineCanvas";
@@ -374,8 +375,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       await timeline.loadTimeline(); // pick up the new generatedClipUrl
       toast.success("Clip regenerated");
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || "Regenerate failed";
-      toast.error(msg);
+      toast.error(describeError(err, "We couldn't regenerate that clip. Please try again.").userMessage);
     } finally {
       clearInterval(timer);
       setRegenerating(false);

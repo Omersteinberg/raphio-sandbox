@@ -16,13 +16,35 @@ export const DRIVER_OPTS = {
   doneBtnText: "Got it",
 };
 
+// The one tour that is on screen right now, if any. driver.js renders its overlay
+// at a z-index far above our modals and leaves the highlighted element clickable -
+// and every tour's last step highlights the help FAB and invites a click on it. So
+// a tour that is still running would otherwise stack a second overlay on itself, or
+// bury the help menu underneath its own overlay. Both are fixed by tearing the live
+// tour down first (see destroyActiveTour, called from HelpFab).
+let activeTour = null;
+
 // Drop steps whose anchor isn't on screen, then run the tour. Returns the driver
 // instance (or null if nothing to show), so hidden/absent targets never produce
 // a broken highlight.
 export function runTour(steps) {
   const present = steps.filter((s) => !s.element || document.querySelector(s.element));
   if (!present.length) return null;
-  const d = driver({ ...DRIVER_OPTS, steps: present });
-  d.drive();
-  return d;
+  destroyActiveTour();
+  activeTour = driver({
+    ...DRIVER_OPTS,
+    steps: present,
+    onDestroyed: () => {
+      activeTour = null;
+    },
+  });
+  activeTour.drive();
+  return activeTour;
+}
+
+export function destroyActiveTour() {
+  // destroy() fires onDestroyed, which nulls the ref; the assignment guards the
+  // case where driver.js has already torn itself down.
+  if (activeTour?.isActive?.()) activeTour.destroy();
+  activeTour = null;
 }

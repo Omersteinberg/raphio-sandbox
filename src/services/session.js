@@ -4,23 +4,39 @@ import { logFailure } from "../lib/genLog.js";
 
 const API_BASE = `${BASE}/video`;
 
+const MOCK_STATUS_OFF = {
+  mockMode: false,
+  arm: null,
+  stepMs: null,
+  failSteps: [],
+  failModes: [],
+  errorKinds: [],
+};
+
 /**
  * Whether the backend is running in MOCK_AI mode (dummy data, no credits, no real
- * generation). Public endpoint; failures are treated as "not mock".
+ * generation), plus the dev panel's vocabulary and, with a sessionId, that
+ * session's current fault arm. Public endpoint; failures are treated as "not mock"
+ * so a dev-only surface can never break a normal page.
+ *
+ * @param {string} [sessionId] - include to get `arm` and `stepMs` for that session
  */
-export async function getMockStatus() {
+export async function getMockStatus(sessionId) {
   try {
-    const res = await axios.get(`${API_BASE}/mock-status`);
-    return res.data?.mockMode === true;
+    const res = await axios.get(`${API_BASE}/mock-status`, {
+      params: sessionId ? { session: sessionId } : undefined,
+    });
+    if (res.data?.mockMode !== true) return MOCK_STATUS_OFF;
+    return { ...MOCK_STATUS_OFF, ...res.data, mockMode: true };
   } catch {
-    return false;
+    return MOCK_STATUS_OFF;
   }
 }
 
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio }) {
+export async function startSession({ userPrompt, style, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio, videoModel, backgroundMusic }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
@@ -30,6 +46,12 @@ export async function startSession({ userPrompt, style, voiceId, pipelineMode, e
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
+    // Sent at creation, not just at generate time. The backend can drive this session
+    // to a finished video with no tab attached, and it can only honour the choices it
+    // finds on the row: a model picked here but sent only at /generate would be lost,
+    // and the music toggle would silently default back to on.
+    ...(videoModel ? { videoModel } : {}),
+    ...(backgroundMusic !== undefined ? { backgroundMusic } : {}),
     // Auto-approve toggles are no longer sent from the client - the backend
     // snapshots them from the user's saved settings (setting_preference) when
     // the session is created.
@@ -60,6 +82,25 @@ export async function startSession({ userPrompt, style, voiceId, pipelineMode, e
  */
 export async function getSession(sessionId) {
   const response = await axios.get(`${API_BASE}/${sessionId}`);
+  return response.data;
+}
+
+/**
+ * Ask the backend to run the session's next pipeline step. Idempotent: it no-ops
+ * when a job already owns the session, so a resume can always call it.
+ * Returns the claimed job ({ jobStatus, jobType }), both null when nothing to do.
+ */
+export async function advance(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/advance`);
+  return response.data;
+}
+
+/**
+ * Persist the opening/closing frame intent without advancing the stage, so the
+ * backend can rebuild frameOptions itself if this tab goes away.
+ */
+export async function saveFrameConfigs(sessionId, { opening, closing }) {
+  const response = await axios.put(`${API_BASE}/${sessionId}/frame-configs`, { opening, closing });
   return response.data;
 }
 
