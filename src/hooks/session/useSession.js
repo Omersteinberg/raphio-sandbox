@@ -12,6 +12,7 @@ import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
 import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
 import { resumeModeFor } from "@/lib/pipelineMode";
+import { getStageToStep } from "@/lib/stageToStep";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
@@ -58,43 +59,8 @@ const PRE_SCRIPT_STAGES = new Set([
   "IMAGES_ANALYZED",
 ]);
 
-// Map backend stages to frontend step numbers.
-// When bridges are enabled the flow has an extra "bridges" step between
-// outline review and frames configuration, shifting later steps up by 1.
-// RESTYLING sits between IMAGES_UPLOADED and IMAGES_ANALYZED: the backend parks the
-// session there while Kontext restyle jobs are pending. Omitting it made
-// `stageMap[stage] ?? 0` drop a resuming user back on the prompt step.
-function getStageToStep(bridgesEnabled) {
-  if (bridgesEnabled) {
-    return {
-      PROMPT_ENTERED: 1,
-      IMAGES_UPLOADED: 1,
-      RESTYLING: 1,
-      IMAGES_ANALYZED: 1,
-      OUTLINE_GENERATED: 1,
-      SCRIPT_GENERATED: 2,
-      SCRIPT_APPROVED: 3,
-      FRAMES_CONFIGURED: 3,
-      GENERATING: 4,
-      COMPLETED: 5,
-      EDITING: 6,
-    };
-  }
-  // No bridges: skip the bridges review step entirely
-  return {
-    PROMPT_ENTERED: 1,
-    IMAGES_UPLOADED: 1,
-    RESTYLING: 1,
-    IMAGES_ANALYZED: 1,
-    OUTLINE_GENERATED: 1,
-    SCRIPT_GENERATED: 2,   // goes straight to frames config
-    SCRIPT_APPROVED: 2,
-    FRAMES_CONFIGURED: 2,
-    GENERATING: 3,
-    COMPLETED: 4,
-    EDITING: 5,
-  };
-}
+// Stage -> step map. Extracted to src/lib/stageToStep.js so it can be tested without
+// rendering the whole wizard.
 
 // Image pipeline only supports original 4 styles
 const IMAGE_PIPELINE_STYLES = ['realistic', 'animated', 'cinematic', 'surreal'];

@@ -4,16 +4,32 @@ import { logFailure } from "../lib/genLog.js";
 
 const API_BASE = `${BASE}/video`;
 
+const MOCK_STATUS_OFF = {
+  mockMode: false,
+  arm: null,
+  stepMs: null,
+  failSteps: [],
+  failModes: [],
+  errorKinds: [],
+};
+
 /**
  * Whether the backend is running in MOCK_AI mode (dummy data, no credits, no real
- * generation). Public endpoint; failures are treated as "not mock".
+ * generation), plus the dev panel's vocabulary and, with a sessionId, that
+ * session's current fault arm. Public endpoint; failures are treated as "not mock"
+ * so a dev-only surface can never break a normal page.
+ *
+ * @param {string} [sessionId] - include to get `arm` and `stepMs` for that session
  */
-export async function getMockStatus() {
+export async function getMockStatus(sessionId) {
   try {
-    const res = await axios.get(`${API_BASE}/mock-status`);
-    return res.data?.mockMode === true;
+    const res = await axios.get(`${API_BASE}/mock-status`, {
+      params: sessionId ? { session: sessionId } : undefined,
+    });
+    if (res.data?.mockMode !== true) return MOCK_STATUS_OFF;
+    return { ...MOCK_STATUS_OFF, ...res.data, mockMode: true };
   } catch {
-    return false;
+    return MOCK_STATUS_OFF;
   }
 }
 
