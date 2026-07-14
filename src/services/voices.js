@@ -28,6 +28,11 @@ export async function getVoices(options = {}) {
       const voices = response.data.data;
       if (response.data.regionDefault) {
         regionDefaultCache = response.data.regionDefault;
+        const { countryCode, accent, voiceKey } = regionDefaultCache;
+        console.log(
+          `[voices] region from IP: country=${countryCode || "unresolved"} ` +
+            `accent=${accent} defaultVoice=${voiceKey}`,
+        );
       }
       if (!includeLiveMeta) {
         voicesCache = voices;
@@ -55,6 +60,16 @@ export async function getRegionDefault() {
   } catch {
     /* ignore - falls through to null */
   }
+  return regionDefaultCache;
+}
+
+/**
+ * Region default straight from cache, or null if no voices fetch has populated it
+ * yet. Never fetches: for a caller that has just awaited getVoices() this is the
+ * same value getRegionDefault() would return, minus a redundant request in the
+ * API-down path (where getVoices() serves fallbacks and leaves the cache empty).
+ */
+export function peekRegionDefault() {
   return regionDefaultCache;
 }
 

@@ -12,6 +12,7 @@ import {
   getVoiceDescriptive,
   humanizeFacetValue,
   collectVoiceFacet,
+  sortVoicesByRegion,
 } from "@/lib/voiceMetadata";
 import * as voicesService from "@/services/voices";
 
@@ -43,9 +44,9 @@ function FacetDropdown({ label, options, value, onChange }) {
         }`}
       >
         <option value={ALL}>All</option>
-        {options.map(({ value: option, count }) => (
+        {options.map(({ value: option }) => (
           <option key={option} value={option}>
-            {humanizeFacetValue(option)} ({count})
+            {humanizeFacetValue(option)}
           </option>
         ))}
       </select>
@@ -55,6 +56,7 @@ function FacetDropdown({ label, options, value, onChange }) {
 
 export default function VoiceSelector({ value, onChange, recommendation = null }) {
   const [voices, setVoices] = useState([]);
+  const [regionAccent, setRegionAccent] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   // One entry per ElevenLabs facet, each ALL until the user narrows it.
@@ -65,13 +67,36 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
   const [loadingPreview, setLoadingPreview] = useState(null);
   const audioRef = useRef(null);
 
-  // Load voices on mount
+  // Load voices on mount. The same response carries the region default (derived
+  // from the caller's IP by the backend), so reading it here is free - and reading
+  // it *here* rather than from a prop is what makes every host of this picker
+  // region-aware, including IntroScriptStep, which passes no recommendation.
   useEffect(() => {
     async function loadVoices() {
       setLoading(true);
       try {
         const voiceList = await voicesService.getVoices();
         setVoices(voiceList);
+
+        const region = voicesService.peekRegionDefault();
+        const accent = region?.accent || "";
+        setRegionAccent(accent);
+
+        // Logged from the effect, not from render: this is what the boost actually
+        // did to the list the user is about to see, and it should be said once.
+        const boosted = accent
+          ? voiceList.filter(
+              (voice) => getVoiceAccent(voice).toLowerCase() === accent.toLowerCase(),
+            )
+          : [];
+        console.log(
+          `[VoiceSelector] region country=${region?.countryCode || "unresolved"} ` +
+            `accent=${accent || "none"} | boosted ${boosted.length}/${voiceList.length} voices | ` +
+            `top: ${sortVoicesByRegion(voiceList, accent)
+              .slice(0, 3)
+              .map((voice) => voice.name)
+              .join(", ")}`,
+        );
       } catch (error) {
         console.error("Failed to load voices:", error);
       } finally {
@@ -124,14 +149,18 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
     ? voices.find((v) => v.key === recommendation.voiceKey)
     : null;
 
-  const groupedVoices = filteredVoices
-    .filter((voice) => voice.key !== recommendedVoice?.key)
-    .reduce((acc, voice) => {
-      const gender = voice.gender || "other";
-      if (!acc[gender]) acc[gender] = [];
-      acc[gender].push(voice);
-      return acc;
-    }, {});
+  // Boost the flat list before grouping, not each bucket after: the reduce below
+  // preserves order, so one stable partition lifts the caller's own accent to the
+  // top of every gender group at once.
+  const groupedVoices = sortVoicesByRegion(
+    filteredVoices.filter((voice) => voice.key !== recommendedVoice?.key),
+    regionAccent,
+  ).reduce((acc, voice) => {
+    const gender = voice.gender || "other";
+    if (!acc[gender]) acc[gender] = [];
+    acc[gender].push(voice);
+    return acc;
+  }, {});
 
   // Play voice preview
   const handlePlayPreview = async (voiceKey) => {

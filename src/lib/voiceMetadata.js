@@ -74,12 +74,27 @@ export function humanizeFacetValue(value = "") {
     .join(" ");
 }
 
+// Voices whose accent matches the caller's region first, everything else after.
+// The partition MUST be stable: this is a boost, not a re-sort, and the backend's
+// order within each partition is the order the rest of the picker assumes.
+export function sortVoicesByRegion(voices = [], accent = "") {
+  const target = normalizeText(accent).toLowerCase();
+  if (!target) return voices;
+
+  const matching = [];
+  const rest = [];
+  for (const voice of voices) {
+    const bucket = getVoiceAccent(voice).toLowerCase() === target ? matching : rest;
+    bucket.push(voice);
+  }
+  return [...matching, ...rest];
+}
+
 // Distinct values present in the fetched list as { value, count }, MOST COMMON
 // FIRST. Ordering by how many voices carry a value puts the options people actually
 // reach for at the top of the dropdown, instead of burying "American" behind an
 // alphabetical accident. Ties break alphabetically so the order is stable between
-// loads. The count is shown next to each option so an empty result is predictable
-// before you pick it.
+// loads. `count` drives that ordering only - it is deliberately not rendered.
 export function collectVoiceFacet(voices = [], read) {
   const counts = new Map();
   for (const voice of voices) {
