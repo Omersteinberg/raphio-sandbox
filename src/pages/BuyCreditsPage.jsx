@@ -4,6 +4,7 @@ import { motion,  AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { createCheckoutSession } from '../services/credits';
 import { takeReturnTo } from '../lib/returnTo';
+import { describeError } from '../lib/errorDetail';
 import { Button } from '../components/ui/button';
 import {
   CheckCircle, XCircle, ArrowLeft, Sparkles,
@@ -103,7 +104,7 @@ export default function BuyCreditsPage() {
       const { url } = await createCheckoutSession(tier.stripeId);
       window.location.href = url;
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to start checkout');
+      setError(describeError(err, "We couldn't start checkout. Please try again.").userMessage);
     } finally {
       setLoadingTier(null);
     }

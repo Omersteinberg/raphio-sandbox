@@ -9,6 +9,7 @@ import {
   ErrorBanner,
 } from "./auth/authUI.jsx";
 import { requestPasswordReset } from "../api/auth.js";
+import { describeError } from "../lib/errorDetail";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -24,7 +25,7 @@ export default function ForgotPasswordPage() {
       await requestPasswordReset(email);
       setSent(true);
     } catch (err) {
-      setError(err.message);
+      setError(describeError(err, "We couldn't send the reset email. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }

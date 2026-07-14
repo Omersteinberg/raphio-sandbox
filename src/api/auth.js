@@ -1,11 +1,12 @@
+import api from '../services/api.js';
 import { API_BASE } from '../config.js';
+import { setToken, getToken, removeToken } from '../lib/token.js';
 
 const API_URL = API_BASE;
 
-// Store token in localStorage
-export const setToken = (token) => localStorage.setItem('token', token);
-export const getToken = () => localStorage.getItem('token');
-export const removeToken = () => localStorage.removeItem('token');
+// Token storage lives in lib/token.js (see the note there). Re-exported so the
+// long-standing `@/api/auth` import path keeps working.
+export { setToken, getToken, removeToken };
 
 // Auth header helper
 export const authHeader = () => ({
@@ -13,125 +14,70 @@ export const authHeader = () => ({
   ...(getToken() && { Authorization: `Bearer ${getToken()}` }),
 });
 
-// Safe JSON parse helper
-async function parseJSON(res) {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(res.ok ? 'Invalid server response' : `Server error (${res.status})`);
-  }
-}
-
 // Register user
 export async function register(username, email, password) {
-  const res = await fetch(`${API_URL}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
-
+  const { data } = await api.post(`${API_URL}/auth/register`, { username, email, password });
   setToken(data.token);
   return data.user;
 }
 
 // Login
 export async function login(username, password) {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
-
+  const { data } = await api.post(`${API_URL}/auth/login`, { username, password });
   setToken(data.token);
   return data.user;
 }
 
 // Login or register with Google Identity Services credential
 export async function loginWithGoogle(credential) {
-  const res = await fetch(`${API_URL}/auth/google`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ credential }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
-
+  const { data } = await api.post(`${API_URL}/auth/google`, { credential });
   setToken(data.token);
   return data.user;
 }
 
-// Get current user (protected)
+// Get current user (protected). A 401 here means the stored token is dead, so
+// drop it - checkAuth below turns that into a logged-out app rather than an error.
 export async function getMe() {
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: authHeader(),
-  });
-  
-  if (res.status === 401) {
-    removeToken();
-    throw new Error('Session expired');
+  try {
+    const { data } = await api.get(`${API_URL}/auth/me`);
+    return data.user;
+  } catch (err) {
+    if (err?.response?.status === 401) {
+      removeToken();
+      throw new Error('Session expired');
+    }
+    throw err;
   }
+}
 
-  const data = await parseJSON(res);
-  return data.user;
+// Only a 401 proves the token is dead. Anything else (5xx, a 429 from the global
+// rate-limiter, a dropped connection) means we could not verify it *right now* -
+// clearing it there would log out a perfectly valid session on a transient blip.
+function isExpiredSession(err) {
+  return err?.message === 'Session expired' || err?.response?.status === 401;
 }
 
 // Update profile (protected)
 export async function updateProfile({ username, email }) {
-  const res = await fetch(`${API_URL}/auth/profile`, {
-    method: 'PUT',
-    headers: authHeader(),
-    body: JSON.stringify({ username, email }),
-  });
-  
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  const { data } = await api.put(`${API_URL}/auth/profile`, { username, email });
   return data.user;
 }
 
 // Change password (protected)
 export async function changePassword(currentPassword, newPassword) {
-  const res = await fetch(`${API_URL}/auth/password`, {
-    method: 'PUT',
-    headers: authHeader(),
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  const { data } = await api.put(`${API_URL}/auth/password`, { currentPassword, newPassword });
   return data;
 }
 
 // Request a password reset email (public)
 export async function requestPasswordReset(email) {
-  const res = await fetch(`${API_URL}/auth/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  const { data } = await api.post(`${API_URL}/auth/forgot-password`, { email });
   return data;
 }
 
 // Complete a password reset with a token + new password (public)
 export async function resetPassword(token, password) {
-  const res = await fetch(`${API_URL}/auth/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, password }),
-  });
-
-  const data = await parseJSON(res);
-  if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  const { data } = await api.post(`${API_URL}/auth/reset-password`, { token, password });
   return data;
 }
 
@@ -145,11 +91,13 @@ export function logout() {
 export async function checkAuth() {
   const token = getToken();
   if (!token) return null;
-  
+
   try {
     return await getMe();
-  } catch {
-    removeToken();
+  } catch (err) {
+    if (isExpiredSession(err)) {
+      removeToken();
+    }
     return null;
   }
 }

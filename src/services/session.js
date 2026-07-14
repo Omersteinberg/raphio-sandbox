@@ -36,7 +36,7 @@ export async function getMockStatus(sessionId) {
 /**
  * Create a new session
  */
-export async function startSession({ userPrompt, style, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio }) {
+export async function startSession({ userPrompt, style, voiceId, pipelineMode, enableBridges, targetDuration, aspectRatio, videoModel, backgroundMusic }) {
   const url = `${API_BASE}/start`;
   const payload = {
     userPrompt,
@@ -46,6 +46,12 @@ export async function startSession({ userPrompt, style, voiceId, pipelineMode, e
     enableBridges: enableBridges || false,
     ...(targetDuration ? { targetDuration } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
+    // Sent at creation, not just at generate time. The backend can drive this session
+    // to a finished video with no tab attached, and it can only honour the choices it
+    // finds on the row: a model picked here but sent only at /generate would be lost,
+    // and the music toggle would silently default back to on.
+    ...(videoModel ? { videoModel } : {}),
+    ...(backgroundMusic !== undefined ? { backgroundMusic } : {}),
     // Auto-approve toggles are no longer sent from the client - the backend
     // snapshots them from the user's saved settings (setting_preference) when
     // the session is created.

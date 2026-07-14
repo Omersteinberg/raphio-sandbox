@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getToken } from "../api/auth.js";
+import { getToken } from "../lib/token.js";
 import { reportClientError } from "./errorReporter.js";
 
 // Create a dedicated instance so the interceptor can't be tree-shaken

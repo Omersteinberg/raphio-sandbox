@@ -323,7 +323,8 @@ export function useReferencesSession() {
       setLockLoading(new Set());
       setDirection(-1);
       setStep(0);
-      setError(err.message);
+      const { userMessage } = describeError(err, "We couldn't start your video. Please try again.");
+      setError(userMessage);
       if (isProviderUnavailable(err)) {
         setProviderUnavailable({ message: err.response.data.error });
       } else if (err.response?.status === 402) {
@@ -332,7 +333,7 @@ export function useReferencesSession() {
           available: err.response.data?.available ?? credits ?? 0,
         });
       } else {
-        toast.error(err.response?.data?.error || "Failed to start references session");
+        toast.error(userMessage);
       }
     } finally {
       setLoading(false);
@@ -378,7 +379,7 @@ export function useReferencesSession() {
           available: err.response.data?.available ?? credits ?? 0,
         });
       } else {
-        toast.error(err.response?.data?.error || "Failed to approve references");
+        toast.error(describeError(err, "We couldn't approve your references. Please try again.").userMessage);
       }
       return false;
     } finally {
@@ -461,7 +462,7 @@ export function useReferencesSession() {
         });
       } else {
         setFramesError(true);
-        toast.error(err.response?.data?.error || "Failed to generate scene frames");
+        toast.error(describeError(err, "We couldn't generate your scene frames. Please try again.").userMessage);
       }
     } finally {
       setFramesLoading(false);
@@ -514,7 +515,7 @@ export function useReferencesSession() {
       toast.success("Scene script and frame regenerated!");
     } catch (err) {
       console.error("[useReferencesSession] Failed to regenerate scene script:", err);
-      toast.error(err.response?.data?.error || "Failed to regenerate scene script");
+      toast.error(describeError(err, "We couldn't regenerate that scene. Please try again.").userMessage);
     } finally {
       setFramesLoading(false);
     }
@@ -535,7 +536,7 @@ export function useReferencesSession() {
       toast.success("Scene deleted");
     } catch (err) {
       console.error("[useReferencesSession] Failed to delete scene:", err);
-      toast.error(err.response?.data?.error || "Failed to delete scene");
+      toast.error(describeError(err, "We couldn't delete that scene. Please try again.").userMessage);
     } finally {
       setFramesLoading(false);
     }

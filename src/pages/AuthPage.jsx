@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth.jsx";
+import { describeError } from "../lib/errorDetail";
 import {
   C,
   UnderlineInput,
@@ -137,7 +138,7 @@ function LoginForm() {
       await login(username, password);
       navigate("/videos");
     } catch (err) {
-      setError(err.message);
+      setError(describeError(err, "We couldn't sign you in. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }
@@ -151,7 +152,7 @@ function LoginForm() {
         await googleLogin(credential);
         navigate("/videos");
       } catch (err) {
-        setError(err.message);
+        setError(describeError(err, "We couldn't sign you in with Google. Please try again.").userMessage);
       } finally {
         setLoading(false);
       }
@@ -249,7 +250,7 @@ function RegisterForm() {
       await register(username, email, password);
       navigate("/videos");
     } catch (err) {
-      setError(err.message);
+      setError(describeError(err, "We couldn't create your account. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }
@@ -263,7 +264,7 @@ function RegisterForm() {
         await googleLogin(credential);
         navigate("/videos");
       } catch (err) {
-        setError(err.message);
+        setError(describeError(err, "We couldn't sign you in with Google. Please try again.").userMessage);
       } finally {
         setLoading(false);
       }
