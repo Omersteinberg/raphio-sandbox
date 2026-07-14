@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Play, Mic, Sparkles, Upload, Wand2, Mail, X, MapPin } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useAuth } from "@/hooks/useAuth.jsx";
 import brainImg from '../assets/brain.png';
 import adamImg from '../assets/Adam.png';
 import scene1Img from '../assets/scene-1.png';
@@ -1079,6 +1080,8 @@ function ContactSection() {
 // ── Primary View Component ───────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const goToAppOrLogin = () => navigate(user ? '/videos' : '/login');
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -1121,13 +1124,13 @@ export default function LandingPage() {
             </nav>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/login')}
+            <button onClick={goToAppOrLogin}
               className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
               style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
               onMouseEnter={e => { e.currentTarget.style.background = scrolled ? 'rgba(193,68,14,0.06)' : 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = scrolled ? C.terra : '#FFD9C7'; }}
               onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; }}
             >Log in</button>
-            <button onClick={() => navigate('/create')}
+            <button onClick={goToAppOrLogin}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all"
               style={{
                 background: scrolled ? C.white : 'transparent',
