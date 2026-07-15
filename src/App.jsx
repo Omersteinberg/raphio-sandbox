@@ -1,5 +1,5 @@
 // App.jsx
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Creator from "./pages/Creator";
 import LandingPage from "./pages/LandingPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
@@ -13,6 +13,8 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
 import SettingsPage from "./pages/SettingsPage";
+import AdminPromosPage from "./pages/AdminPromosPage";
+import AdminRoute from "./components/AdminRoute";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import AppLayout from "./components/AppLayout";
@@ -46,6 +48,8 @@ function App() {
             <Route path="/buy-credits" element={<BuyCreditsPage />} />
             <Route path="/videos" element={<MyVideosPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<Navigate to="/admin/promos" replace />} />
+            <Route path="/admin/promos" element={<AdminRoute><AdminPromosPage /></AdminRoute>} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
             <Route path="/video/:id/edit" element={<EditorPage />} />
             <Route path="/timeline-test" element={<TimelineTest />} />

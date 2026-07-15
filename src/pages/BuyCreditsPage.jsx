@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion,  AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { createCheckoutSession } from '../services/credits';
+import { redeemCode } from '../services/promo';
 import { takeReturnTo } from '../lib/returnTo';
 import { describeError } from '../lib/errorDetail';
 import { Button } from '../components/ui/button';
 import {
   CheckCircle, XCircle, ArrowLeft, Sparkles,
-  Zap, Layers, Crown, Infinity, ShieldCheck, Clock,
+  Zap, Layers, Crown, Infinity, ShieldCheck, Clock, Ticket,
 } from 'lucide-react';
 
 const C = {
@@ -81,6 +82,9 @@ export default function BuyCreditsPage() {
   const [hoveredTier, setHoveredTier] = useState(null);
   const [error, setError] = useState('');
   const [returnPath, setReturnPath] = useState(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [promoMsg, setPromoMsg] = useState(null); // { type: 'success' | 'error', text }
 
   const success  = searchParams.get('success');
   const canceled = searchParams.get('canceled');
@@ -107,6 +111,27 @@ export default function BuyCreditsPage() {
       setError(describeError(err, "We couldn't start checkout. Please try again.").userMessage);
     } finally {
       setLoadingTier(null);
+    }
+  };
+
+  const handleRedeem = async (e) => {
+    e.preventDefault();
+    const code = promoCode.trim();
+    if (!code || redeeming) return;
+    setRedeeming(true);
+    setPromoMsg(null);
+    try {
+      const { creditsAdded } = await redeemCode(code);
+      await refreshCredits();
+      setPromoMsg({ type: 'success', text: `You got ${creditsAdded} credit${creditsAdded === 1 ? '' : 's'}!` });
+      setPromoCode('');
+    } catch (err) {
+      setPromoMsg({
+        type: 'error',
+        text: describeError(err, "That code didn't work. Please try again.").userMessage,
+      });
+    } finally {
+      setRedeeming(false);
     }
   };
 
@@ -354,6 +379,53 @@ export default function BuyCreditsPage() {
             );
           })}
         </div>
+
+        {/* Promo code */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="rounded-2xl p-5 mb-6 mx-auto max-w-sm"
+          style={{ background: C.card, border: `1.5px solid ${C.cardBorder}` }}>
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <Ticket className="w-3.5 h-3.5" style={{ color: C.terra }} />
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted }}>
+              Have a promo code?
+            </p>
+          </div>
+          <form onSubmit={handleRedeem} className="flex gap-2">
+            <input
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Enter code"
+              autoCapitalize="characters"
+              className="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold uppercase tracking-wide outline-none"
+              style={{
+                background: '#fff',
+                color: C.charcoal,
+                border: `1.5px solid ${C.cardBorder}`,
+              }}
+            />
+            <button
+              type="submit"
+              disabled={redeeming || !promoCode.trim()}
+              className="rounded-xl px-4 py-2.5 text-sm font-bold text-white border-0"
+              style={{
+                background: `linear-gradient(135deg, ${C.terra}, ${C.terraLight})`,
+                opacity: redeeming || !promoCode.trim() ? 0.6 : 1,
+                boxShadow: `0 4px 12px ${C.terraGlow}`,
+              }}
+            >
+              {redeeming ? 'Redeeming…' : 'Redeem'}
+            </button>
+          </form>
+          <AnimatePresence>
+            {promoMsg && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="text-xs font-semibold text-center mt-3"
+                style={{ color: promoMsg.type === 'success' ? C.green : C.red }}>
+                {promoMsg.text}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Credit cost reference */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}

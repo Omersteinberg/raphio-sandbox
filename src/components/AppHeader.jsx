@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings } from 'lucide-react';
+import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket } from 'lucide-react';
 
 export default function AppHeader() {
-  const { user, credits, logout } = useAuth();
+  const { user, credits, logout, isAdmin } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -117,6 +117,33 @@ export default function AppHeader() {
             <Video className="w-3.5 h-3.5" />
             My Videos
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin/promos')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+              style={
+                isActive('/admin/promos')
+                  ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                  : { color: '#7A6A62', background: 'transparent' }
+              }
+              onMouseEnter={e => {
+                if (!isActive('/admin/promos')) {
+                  e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                  e.currentTarget.style.color = '#C1440E';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive('/admin/promos')) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#7A6A62';
+                }
+              }}
+            >
+              <Ticket className="w-3.5 h-3.5" />
+              Promo Codes
+            </button>
+          )}
         </nav>
       </div>
 
@@ -259,6 +286,22 @@ export default function AppHeader() {
               </button>
             </div>
 
+            {/* Promo codes (admin only) */}
+            {isAdmin && (
+              <div className="py-1.5">
+                <button
+                  onClick={() => { setDropdownOpen(false); navigate('/admin/promos'); }}
+                  className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
+                  style={{ color: '#2C2420' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Ticket className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
+                  <span className="text-sm font-medium">Promo Codes</span>
+                </button>
+              </div>
+            )}
+
             {/* Sign out */}
             <div className="py-1.5" style={{ borderTop: '1px solid rgba(193,68,14,0.08)' }}>
               <button
@@ -383,6 +426,20 @@ export default function AppHeader() {
                 <Settings className="w-5 h-5 shrink-0" />
                 Settings
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/admin/promos')}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                  style={
+                    isActive('/admin/promos')
+                      ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                      : { color: '#2C2420', background: 'transparent' }
+                  }
+                >
+                  <Ticket className="w-5 h-5 shrink-0" />
+                  Promo Codes
+                </button>
+              )}
             </nav>
 
             {/* Bottom: credits + sign out (pinned, no dividers) */}
