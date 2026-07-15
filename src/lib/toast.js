@@ -34,10 +34,17 @@ const filtered = (fn) => (content, ...rest) => {
   return fn(content, ...rest);
 };
 
-export const toast = {
-  ...base,
-  success: filtered(base.success),
-  info: filtered(base.info),
-};
+// Keep react-toastify's callable singleton so a bare `toast(msg)` still works,
+// then copy its methods and override success/info to honor SUPPRESSED_MESSAGES.
+// Spreading `base` into a plain object (the old shape) dropped the call
+// signature, so `toast(msg)` threw "toast is not a function".
+export const toast = Object.assign(
+  (content, ...rest) => base(content, ...rest),
+  base,
+  {
+    success: filtered(base.success),
+    info: filtered(base.info),
+  },
+);
 
 export default toast;
