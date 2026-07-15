@@ -91,6 +91,14 @@ export async function generateSceneFrames(sessionId) {
 }
 
 /**
+ * Approve generated scene frames without starting final video generation
+ */
+export async function approveSceneFrames(sessionId) {
+  const response = await axios.post(`${API}/${sessionId}/references/scene-frames/approve`);
+  return response.data;
+}
+
+/**
  * Improve the story prompt with AI (references pipeline, before a session
  * exists). Stateless: sends the current prompt + references, gets improved text.
  */
