@@ -10,6 +10,7 @@ import {
   ErrorBanner,
 } from "./auth/authUI.jsx";
 import { resetPassword as resetPasswordApi } from "../api/auth.js";
+import { describeError } from "../lib/errorDetail";
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -37,7 +38,7 @@ export default function ResetPasswordPage() {
       toast.success("Password reset. Please sign in.");
       navigate("/login");
     } catch (err) {
-      setError(err.message);
+      setError(describeError(err, "We couldn't reset your password. Please try again.").userMessage);
     } finally {
       setLoading(false);
     }

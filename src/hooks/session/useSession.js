@@ -12,6 +12,7 @@ import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
 import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
 import { resumeModeFor } from "@/lib/pipelineMode";
+import { getStageToStep } from "@/lib/stageToStep";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL. We persist prompt-step photos to
@@ -58,43 +59,8 @@ const PRE_SCRIPT_STAGES = new Set([
   "IMAGES_ANALYZED",
 ]);
 
-// Map backend stages to frontend step numbers.
-// When bridges are enabled the flow has an extra "bridges" step between
-// outline review and frames configuration, shifting later steps up by 1.
-// RESTYLING sits between IMAGES_UPLOADED and IMAGES_ANALYZED: the backend parks the
-// session there while Kontext restyle jobs are pending. Omitting it made
-// `stageMap[stage] ?? 0` drop a resuming user back on the prompt step.
-function getStageToStep(bridgesEnabled) {
-  if (bridgesEnabled) {
-    return {
-      PROMPT_ENTERED: 1,
-      IMAGES_UPLOADED: 1,
-      RESTYLING: 1,
-      IMAGES_ANALYZED: 1,
-      OUTLINE_GENERATED: 1,
-      SCRIPT_GENERATED: 2,
-      SCRIPT_APPROVED: 3,
-      FRAMES_CONFIGURED: 3,
-      GENERATING: 4,
-      COMPLETED: 5,
-      EDITING: 6,
-    };
-  }
-  // No bridges: skip the bridges review step entirely
-  return {
-    PROMPT_ENTERED: 1,
-    IMAGES_UPLOADED: 1,
-    RESTYLING: 1,
-    IMAGES_ANALYZED: 1,
-    OUTLINE_GENERATED: 1,
-    SCRIPT_GENERATED: 2,   // goes straight to frames config
-    SCRIPT_APPROVED: 2,
-    FRAMES_CONFIGURED: 2,
-    GENERATING: 3,
-    COMPLETED: 4,
-    EDITING: 5,
-  };
-}
+// Stage -> step map. Extracted to src/lib/stageToStep.js so it can be tested without
+// rendering the whole wizard.
 
 // Image pipeline only supports original 4 styles
 const IMAGE_PIPELINE_STYLES = ['realistic', 'animated', 'cinematic', 'surreal'];
@@ -233,6 +199,35 @@ export function useSession({ promptOnly = false } = {}) {
       console.warn("[useSession] frame autosave failed:", err)
     );
   }, [closingFrame]);
+
+  // The two effects above save the frames to IndexedDB, which only this browser can
+  // read. The backend needs them too: it drives the pipeline when the tab is gone, and
+  // it rebuilds frameOptions from WizardSession.openingFrameConfig/closingFrameConfig.
+  // Field names here must match what pipelineRunner.deriveFrameOptions reads.
+  const buildFrameConfig = (frame, resolved = {}) => {
+    if (!frame || isEmptyFrame(frame)) return null;
+    const cfg = {};
+    if (frame.textOverlay) cfg.textOverlay = frame.textOverlay;
+    if (frame.description) cfg.visualDescription = frame.description;
+    if (!frame.useUpload && frame.customPrompt) cfg.customPrompt = frame.customPrompt;
+    if (resolved.uploadedImageUrl) cfg.uploadedImageUrl = resolved.uploadedImageUrl;
+    if (resolved.generatedImageUrl) cfg.generatedImageUrl = resolved.generatedImageUrl;
+    return Object.keys(cfg).length > 0 ? cfg : null;
+  };
+
+  const syncFrameConfigs = useCallback(async (sid, resolved = {}) => {
+    if (!sid) return;
+    try {
+      await sessionService.saveFrameConfigs(sid, {
+        opening: buildFrameConfig(openingFrame, resolved.opening),
+        closing: buildFrameConfig(closingFrame, resolved.closing),
+      });
+    } catch (err) {
+      // Non-fatal. This tab still passes frameOptions to generate-outline directly;
+      // all we lose is the backend's ability to rebuild them if the tab goes away.
+      console.warn("[useSession] saveFrameConfigs failed:", err);
+    }
+  }, [openingFrame, closingFrame]);
 
   // Generation state
   const [generationProgress, setGenerationProgress] = useState(null);
@@ -825,6 +820,8 @@ export function useSession({ promptOnly = false } = {}) {
           targetDuration,
           aspectRatio,
           pipelineMode: promptOnly ? "prompt" : "image",
+          videoModel,
+          backgroundMusic,
         };
         console.log("[useSession] Request payload:", payload);
 
@@ -836,6 +833,12 @@ export function useSession({ promptOnly = false } = {}) {
         targetSessionId = newSession.id;
         setSessionId(targetSessionId);
         setSession(newSession);
+
+        // Persist the frame intent NOW, before the long steps. If this tab dies during
+        // analyze/restyle, the backend rebuilds frameOptions from these columns and
+        // pre-generates the images itself. Without it the server-driven outline writes
+        // the script as if the user had configured no frames at all.
+        await syncFrameConfigs(targetSessionId);
 
         if (promptOnly) {
           // Prompt-only (text-to-video): no photos to upload/analyze/restyle.
@@ -1009,6 +1012,18 @@ export function useSession({ promptOnly = false } = {}) {
       }
 
       setGeneratedFrameImages(newGeneratedFrameImages);
+
+      // Hand the resolved image URLs to the backend as well. The pre-generated still
+      // otherwise lives only in this tab's memory, so a tab-less retry would pay to
+      // generate it a second time.
+      await syncFrameConfigs(targetSessionId, {
+        opening: frameOptions.opening === "user_image"
+          ? { uploadedImageUrl: frameOptions.openingImageUrl }
+          : { generatedImageUrl: frameOptions.openingImageUrl },
+        closing: frameOptions.closing === "user_image"
+          ? { uploadedImageUrl: frameOptions.closingImageUrl }
+          : { generatedImageUrl: frameOptions.closingImageUrl },
+      });
       setScriptProgress(70);
 
       // Step 5: Generate script - AI now has access to the generated frame images for analysis
@@ -1078,7 +1093,8 @@ export function useSession({ promptOnly = false } = {}) {
       setScriptProgress(0);
       setDirection(-1);
       setStep(0);
-      setError(err.message);
+      const { userMessage } = describeError(err, "We couldn't start your video. Please try again.");
+      setError(userMessage);
       if (isProviderUnavailable(err)) {
         // Full-screen notice instead of a toast: nothing the user can fix, and the
         // prompt/images state above is deliberately left intact so Try again works.
@@ -1096,13 +1112,13 @@ export function useSession({ promptOnly = false } = {}) {
         toast.info(`You need ${creditsForDuration(targetDuration)} credits for a ${targetDuration}s video. Your work is saved.`);
         navigate('/buy-credits');
       } else {
-        toast.error(err.response?.data?.error || "Failed to start session");
+        toast.error(userMessage);
       }
     } finally {
       setLoading(false);
       console.log("[useSession] startSession completed");
     }
-  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, enableBridges, extendPhotos, aspectRatio, targetDuration, promptOnly, draftKey, credits, navigate, sessionId, session, refreshCredits]);
+  }, [userPrompt, style, voiceId, images, imageLabels, openingFrame, closingFrame, videoModel, backgroundMusic, enableBridges, extendPhotos, aspectRatio, targetDuration, promptOnly, draftKey, credits, navigate, sessionId, session, refreshCredits, syncFrameConfigs]);
 
   // Add images to pool (capped at MAX_IMAGES per video)
   const addImages = useCallback((files) => {

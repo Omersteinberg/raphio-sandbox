@@ -1,4 +1,5 @@
 import VideoResult from "@/components/video/VideoResult";
+import PostVideoSurvey from "@/components/session/PostVideoSurvey";
 
 // Thin wrapper - the whole "video ready" view lives in the shared VideoResult
 // component so this (the wizard's final step) and the standalone /video/:id page
@@ -23,6 +24,11 @@ export default function ResultStep({
           model={session?.videoModel}
           onEdit={enterEditingMode}
           onCreateNew={reset}
+        />
+        <PostVideoSurvey
+          sessionId={session?.id}
+          title={scriptData?.title}
+          model={session?.videoModel}
         />
       </div>
     </div>

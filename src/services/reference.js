@@ -38,25 +38,10 @@ export async function generateReferenceImage(sessionId, refId) {
   return response.data;
 }
 
-/**
- * AI-generate images for ALL references that need it, in a single job-backed
- * batch. Uses the detached job + poll pattern so a slow image provider can't
- * time out the HTTP request mid-generation (the failure mode that stranded
- * sessions at the reference-lock step). Resolves once the batch finishes;
- * individual refs that fail keep null URLs and are recoverable via Retry.
- */
-export async function generateAllReferenceImages(sessionId) {
-  await axios.post(`${API}/${sessionId}/references/generate-all`);
-  return await pollJobUntilDone(sessionId);
-}
-
-/**
- * Restyle all references that need it
- */
-export async function restyleReferences(sessionId) {
-  await axios.post(`${API}/${sessionId}/references/restyle`);
-  return await pollJobUntilDone(sessionId);
-}
+// Reference locking (AI-generate missing images + restyle uploads) moved fully
+// server-side: the backend pipeline runner runs it as one REF_LOCK job, driven by
+// POST /:id/advance, so a closed tab can no longer strand a session at the lock
+// step. The old generateAllReferenceImages/restyleReferences wrappers are gone.
 
 /**
  * Approve a single reference
@@ -88,6 +73,14 @@ export async function regenerateReference(sessionId, refId, { feedback } = {}) {
 export async function generateSceneFrames(sessionId) {
   await axios.post(`${API}/${sessionId}/references/scene-frames`);
   return await pollJobUntilDone(sessionId);
+}
+
+/**
+ * Approve generated scene frames without starting final video generation
+ */
+export async function approveSceneFrames(sessionId) {
+  const response = await axios.post(`${API}/${sessionId}/references/scene-frames/approve`);
+  return response.data;
 }
 
 /**

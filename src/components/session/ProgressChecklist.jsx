@@ -59,7 +59,7 @@ export default function ProgressChecklist({
           <h1 className="text-2xl font-bold text-ink mb-2">{failure.title || "Something went wrong"}</h1>
           {failure.subtitle && <p className="text-ink-muted mb-4">{failure.subtitle}</p>}
           <div className="p-4 bg-red-50 rounded-lg border border-red-200 text-left mb-6">
-            <p className="text-sm text-red-800 break-words">{failure.message}</p>
+            <p className="text-sm text-red-800 break-words">{failure.message || "Something went wrong. Please try again."}</p>
           </div>
           {failure.hint && <p className="text-sm text-ink-muted mb-6">{failure.hint}</p>}
           {failure.onRetry && (
