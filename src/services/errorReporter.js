@@ -3,6 +3,7 @@ import { getToken } from "../lib/token.js";
 
 const ENDPOINT = `${API_BASE}/telemetry/client-error`;
 const GEN_LOG_ENDPOINT = `${API_BASE}/telemetry/gen-log`;
+const SURVEY_ENDPOINT = `${API_BASE}/telemetry/survey`;
 
 // Light client-side dedup so one repeating error can't spam the endpoint
 // (the backend also rate-limits as a backstop).
@@ -68,6 +69,32 @@ export function postGenLog(event, data = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event, data: { ...data, userId: decodeUserId() } }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Reporting must never break the app.
+  }
+}
+
+/**
+ * Send a post-generation satisfaction survey response to the backend, which
+ * forwards it to the Slack feedback channel. Fire-and-forget, same constraints
+ * as the reporters above (never throws, never blocks, keepalive so it survives
+ * a navigation). userId is attached best-effort from the JWT.
+ */
+export function submitSurvey({ sessionId, rating, comment, title, model } = {}) {
+  try {
+    fetch(SURVEY_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        rating,
+        comment: String(comment || "").slice(0, 1000),
+        title,
+        model,
+        userId: decodeUserId(),
+      }),
       keepalive: true,
     }).catch(() => {});
   } catch {
