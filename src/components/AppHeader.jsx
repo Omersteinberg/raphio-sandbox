@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket } from 'lucide-react';
+import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket, LayoutDashboard } from 'lucide-react';
 
 export default function AppHeader() {
   const { user, credits, logout, isAdmin } = useAuth();
@@ -31,6 +31,8 @@ export default function AppHeader() {
   const initials = (user.username || user.email || '?').charAt(0).toUpperCase();
   const isLow = (credits ?? 0) < 20;
   const isActive = (path) => location.pathname === path;
+  // Dashboard tab covers the overview + users pages (users has a /:id detail route).
+  const isDash = location.pathname.startsWith('/admin/overview') || location.pathname.startsWith('/admin/users');
 
   // Start a fresh creation. navigate('/create') is a no-op when already on
   // /create (the route doesn't change, so the wizard keeps its session state),
@@ -117,6 +119,33 @@ export default function AppHeader() {
             <Video className="w-3.5 h-3.5" />
             My Videos
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin/overview')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+              style={
+                isDash
+                  ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                  : { color: '#7A6A62', background: 'transparent' }
+              }
+              onMouseEnter={e => {
+                if (!isDash) {
+                  e.currentTarget.style.background = 'rgba(193,68,14,0.06)';
+                  e.currentTarget.style.color = '#C1440E';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isDash) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#7A6A62';
+                }
+              }}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              Dashboard
+            </button>
+          )}
 
           {isAdmin && (
             <button
@@ -286,9 +315,19 @@ export default function AppHeader() {
               </button>
             </div>
 
-            {/* Promo codes (admin only) */}
+            {/* Admin dashboard + promo codes (admin only) */}
             {isAdmin && (
               <div className="py-1.5">
+                <button
+                  onClick={() => { setDropdownOpen(false); navigate('/admin/overview'); }}
+                  className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
+                  style={{ color: '#2C2420' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <LayoutDashboard className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
+                  <span className="text-sm font-medium">Dashboard</span>
+                </button>
                 <button
                   onClick={() => { setDropdownOpen(false); navigate('/admin/promos'); }}
                   className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
@@ -426,6 +465,20 @@ export default function AppHeader() {
                 <Settings className="w-5 h-5 shrink-0" />
                 Settings
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/admin/overview')}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                  style={
+                    isDash
+                      ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                      : { color: '#2C2420', background: 'transparent' }
+                  }
+                >
+                  <LayoutDashboard className="w-5 h-5 shrink-0" />
+                  Dashboard
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={() => navigate('/admin/promos')}
