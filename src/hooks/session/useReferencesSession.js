@@ -287,34 +287,56 @@ export function useReferencesSession() {
         setScriptProgress(10 + Math.round((refsDone / totalRefs) * 30));
       }
 
-      // Step 3: AI-generate images for all references that need one, as a single
-      // job-backed batch. The work runs detached server-side and we poll for it,
-      // so a slow image provider can't time out the request (the old per-ref
-      // synchronous loop is what stranded sessions at the reference-lock step).
-      // Individual refs that fail keep null URLs and are recoverable via Retry.
-      console.log("[useReferencesSession] Generating reference images...");
+      // Step 3: Hand the session to the backend pipeline runner. It locks every
+      // reference server-side as one REF_LOCK job (AI-generate any missing image,
+      // then restyle/isolate the uploads) and, if references auto-approve is on,
+      // carries on from there. Doing this server-side is what stops a closed tab
+      // from stranding the session at REF_REFERENCES_ADDED - the runner finishes
+      // the lock (and the sweep is a backstop) whether or not this tab survives.
+      console.log("[useReferencesSession] Locking references (server-side)...");
       setScriptProgress(45);
       setLockLoading(new Set(['__all__']));
-      await referenceApi.generateAllReferenceImages(newSession.id);
-      setScriptProgress(65);
-
-      // Step 4: Restyle uploaded references (job-backed; AI-generated refs are
-      // already in the target style and are skipped).
-      console.log("[useReferencesSession] Restyling references...");
-      await referenceApi.restyleReferences(newSession.id);
+      let lockFailed = false;
+      const lockJob = await sessionService.advance(newSession.id);
+      if (lockJob?.jobStatus === "RUNNING") {
+        try {
+          await sessionService.pollJobUntilDone(newSession.id, {
+            expectedJobType: "REF_LOCK",
+            onProgress: (s) => {
+              // Map the lock job's own progress into the 45-90 band, if it reports any.
+              if (s.jobProgress?.percentage) {
+                setScriptProgress(45 + Math.round(s.jobProgress.percentage * 0.45));
+              }
+            },
+          });
+        } catch (lockErr) {
+          // A reference that couldn't be locked parks the session (its job FAILED)
+          // rather than looping. Don't discard the session - land the user on the
+          // review step, where ReferenceLockStep's per-reference Retry lives.
+          console.warn("[useReferencesSession] Reference lock failed:", lockErr.message);
+          lockFailed = true;
+        }
+      }
       setScriptProgress(90);
 
-      // Refresh session to get updated reference data
+      // Refresh so the stage-sync effect places the user: the review step when the
+      // runner parked at the (now locked) references, or further along if
+      // references auto-approve carried it forward on its own.
       const updatedSession = await sessionService.getSession(newSession.id);
       setSession(updatedSession);
       setReferenceData(updatedSession.referenceData);
       setScriptProgress(100);
       setLockLoading(new Set());
 
-      // Move to step 1 (reference lock review)
+      // Move to step 1 (reference lock review). The stage-sync effect corrects this
+      // upward if auto-approve already advanced the backend past the review gate.
       setDirection(1);
       setStep(1);
-      toast.success("References processed! Review and approve.");
+      if (lockFailed) {
+        toast.warn("Some references couldn't be prepared. Review and retry them.");
+      } else {
+        toast.success("References processed! Review and approve.");
+      }
     } catch (err) {
       console.error("[useReferencesSession] Failed to start session:", err);
       setSession(null);
