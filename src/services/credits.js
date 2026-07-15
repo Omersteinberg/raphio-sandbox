@@ -24,10 +24,12 @@ export async function getBalance() {
 }
 
 /**
- * Create a Stripe Checkout session and return the URL
+ * Create a Stripe Checkout session and return the URL.
+ * @param {number} tier   the credit-pack tier (6, 12, 24)
+ * @param {string} [promoCode]  an optional DISCOUNT code to apply at checkout
  */
-export async function createCheckoutSession(tier) {
-  const response = await axios.post(`${CREDITS_URL}/checkout`, { tier });
+export async function createCheckoutSession(tier, promoCode) {
+  const response = await axios.post(`${CREDITS_URL}/checkout`, { tier, promoCode });
   return response.data.data;
 }
 

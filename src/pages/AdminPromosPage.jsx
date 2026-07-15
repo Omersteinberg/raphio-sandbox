@@ -36,6 +36,21 @@ function toDateInput(value) {
   return d.toISOString().slice(0, 10);
 }
 
+// cents -> a trimmed dollar string ("1000" -> "10", "1050" -> "10.50").
+function formatCents(cents) {
+  const dollars = (Number(cents) || 0) / 100;
+  return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
+}
+
+// Human label for a code's reward: "5 credits", "20% off", or "$10 off".
+function formatReward(code) {
+  if (code.kind === 'DISCOUNT') {
+    if (code.discount_type === 'PERCENT') return `${code.discount_value}% off`;
+    return `$${formatCents(code.discount_value)} off`;
+  }
+  return `${code.credits} credits`;
+}
+
 const primaryBtn = {
   background: `linear-gradient(135deg, ${C.terra}, ${C.terraLight})`,
   color: '#fff',
@@ -55,12 +70,12 @@ export default function AdminPromosPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const [form, setForm] = useState({ code: '', credits: '', expiresAt: '' });
+  const [form, setForm] = useState({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
   const [creating, setCreating] = useState(false);
   const [createMsg, setCreateMsg] = useState(null); // { type, text }
 
   const [editing, setEditing] = useState(null); // the code being edited
-  const [editForm, setEditForm] = useState({ credits: '', expiresAt: '' });
+  const [editForm, setEditForm] = useState({ credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editMsg, setEditMsg] = useState('');
 
@@ -87,12 +102,21 @@ export default function AdminPromosPage() {
     setCreating(true);
     setCreateMsg(null);
     try {
-      await createCode({
+      const payload = {
         code: form.code.trim(),
-        credits: Number(form.credits),
+        kind: form.kind,
         expiresAt: form.expiresAt || null,
-      });
-      setForm({ code: '', credits: '', expiresAt: '' });
+      };
+      if (form.kind === 'CREDITS') {
+        payload.credits = Number(form.credits);
+      } else {
+        payload.discountType = form.discountType;
+        payload.discountValue = form.discountType === 'AMOUNT'
+          ? Math.round(Number(form.discountValue) * 100) // dollars -> cents
+          : Number(form.discountValue);
+      }
+      await createCode(payload);
+      setForm({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
       setCreateMsg({ type: 'success', text: 'Code created.' });
       await loadCodes();
     } catch (err) {
@@ -113,7 +137,14 @@ export default function AdminPromosPage() {
 
   const openEdit = (code) => {
     setEditing(code);
-    setEditForm({ credits: String(code.credits), expiresAt: toDateInput(code.expires_at) });
+    setEditForm({
+      credits: code.kind === 'CREDITS' ? String(code.credits) : '',
+      discountType: code.discount_type || 'PERCENT',
+      discountValue: code.kind === 'DISCOUNT'
+        ? (code.discount_type === 'AMOUNT' ? formatCents(code.discount_value) : String(code.discount_value))
+        : '',
+      expiresAt: toDateInput(code.expires_at),
+    });
     setEditMsg('');
   };
 
@@ -123,10 +154,16 @@ export default function AdminPromosPage() {
     setSavingEdit(true);
     setEditMsg('');
     try {
-      await updateCode(editing.id, {
-        credits: Number(editForm.credits),
-        expiresAt: editForm.expiresAt || null,
-      });
+      const payload = { expiresAt: editForm.expiresAt || null };
+      if (editing.kind === 'CREDITS') {
+        payload.credits = Number(editForm.credits);
+      } else {
+        payload.discountType = editForm.discountType;
+        payload.discountValue = editForm.discountType === 'AMOUNT'
+          ? Math.round(Number(editForm.discountValue) * 100) // dollars -> cents
+          : Number(editForm.discountValue);
+      }
+      await updateCode(editing.id, payload);
       setEditing(null);
       await loadCodes();
     } catch (err) {
@@ -172,15 +209,15 @@ export default function AdminPromosPage() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold leading-tight" style={{ color: C.charcoal }}>Promo Codes</h1>
-            <p className="text-sm" style={{ color: C.muted }}>Create and manage free-credit codes.</p>
+            <p className="text-sm" style={{ color: C.muted }}>Create and manage free-credit and discount codes.</p>
           </div>
         </div>
 
         {/* Create form */}
         <div className="rounded-2xl p-5 mb-6" style={{ background: C.card, border: `1.5px solid ${C.cardBorder}` }}>
           <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.muted }}>Create a code</p>
-          <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <div className="flex-1">
+          <form onSubmit={handleCreate} className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
+            <div className="flex-1 min-w-[8rem]">
               <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Code</label>
               <input
                 value={form.code}
@@ -191,18 +228,64 @@ export default function AdminPromosPage() {
                 style={inputStyle}
               />
             </div>
-            <div className="w-full sm:w-28">
-              <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Credits</label>
-              <input
-                type="number" min="1" step="1"
-                value={form.credits}
-                onChange={(e) => setForm((f) => ({ ...f, credits: e.target.value }))}
-                placeholder="5"
-                required
+            <div className="w-full sm:w-40">
+              <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Kind</label>
+              <select
+                value={form.kind}
+                onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
                 className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
                 style={inputStyle}
-              />
+              >
+                <option value="CREDITS">Free credits</option>
+                <option value="DISCOUNT">Checkout discount</option>
+              </select>
             </div>
+            {form.kind === 'CREDITS' ? (
+              <div className="w-full sm:w-28">
+                <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Credits</label>
+                <input
+                  type="number" min="1" step="1"
+                  value={form.credits}
+                  onChange={(e) => setForm((f) => ({ ...f, credits: e.target.value }))}
+                  placeholder="5"
+                  required
+                  className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                  style={inputStyle}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="w-full sm:w-32">
+                  <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Type</label>
+                  <select
+                    value={form.discountType}
+                    onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                    style={inputStyle}
+                  >
+                    <option value="PERCENT">% off</option>
+                    <option value="AMOUNT">$ off</option>
+                  </select>
+                </div>
+                <div className="w-full sm:w-28">
+                  <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>
+                    {form.discountType === 'PERCENT' ? 'Percent' : 'Amount ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={form.discountType === 'PERCENT' ? '1' : '0.01'}
+                    max={form.discountType === 'PERCENT' ? '100' : undefined}
+                    step={form.discountType === 'PERCENT' ? '1' : '0.01'}
+                    value={form.discountValue}
+                    onChange={(e) => setForm((f) => ({ ...f, discountValue: e.target.value }))}
+                    placeholder={form.discountType === 'PERCENT' ? '20' : '10'}
+                    required
+                    className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </>
+            )}
             <div className="w-full sm:w-44">
               <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Expiry (optional)</label>
               <input
@@ -253,7 +336,7 @@ export default function AdminPromosPage() {
                 <thead>
                   <tr style={{ color: C.muted }} className="text-left text-xs uppercase tracking-wider">
                     <th className="py-2 pr-3 font-bold">Code</th>
-                    <th className="py-2 px-3 font-bold">Credits</th>
+                    <th className="py-2 px-3 font-bold">Reward</th>
                     <th className="py-2 px-3 font-bold">Expires</th>
                     <th className="py-2 px-3 font-bold">Status</th>
                     <th className="py-2 px-3 font-bold">Redeemed</th>
@@ -268,7 +351,7 @@ export default function AdminPromosPage() {
                       <Fragment key={code.id}>
                         <tr style={{ borderTop: `1px solid ${C.faint}` }}>
                           <td className="py-2.5 pr-3 font-bold tracking-wide">{code.code}</td>
-                          <td className="py-2.5 px-3">{code.credits}</td>
+                          <td className="py-2.5 px-3 font-semibold">{formatReward(code)}</td>
                           <td className="py-2.5 px-3" style={{ color: C.muted }}>{fmtDate(code.expires_at)}</td>
                           <td className="py-2.5 px-3">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -364,16 +447,49 @@ export default function AdminPromosPage() {
                 </button>
               </div>
               <form onSubmit={handleSaveEdit} className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Credits</label>
-                  <input
-                    type="number" min="1" step="1" required
-                    value={editForm.credits}
-                    onChange={(e) => setEditForm((f) => ({ ...f, credits: e.target.value }))}
-                    className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
-                    style={inputStyle}
-                  />
-                </div>
+                {editing.kind === 'CREDITS' ? (
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Credits</label>
+                    <input
+                      type="number" min="1" step="1" required
+                      value={editForm.credits}
+                      onChange={(e) => setEditForm((f) => ({ ...f, credits: e.target.value }))}
+                      className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <div className="w-32">
+                      <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Type</label>
+                      <select
+                        value={editForm.discountType}
+                        onChange={(e) => setEditForm((f) => ({ ...f, discountType: e.target.value }))}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                        style={inputStyle}
+                      >
+                        <option value="PERCENT">% off</option>
+                        <option value="AMOUNT">$ off</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>
+                        {editForm.discountType === 'PERCENT' ? 'Percent' : 'Amount ($)'}
+                      </label>
+                      <input
+                        type="number"
+                        min={editForm.discountType === 'PERCENT' ? '1' : '0.01'}
+                        max={editForm.discountType === 'PERCENT' ? '100' : undefined}
+                        step={editForm.discountType === 'PERCENT' ? '1' : '0.01'}
+                        required
+                        value={editForm.discountValue}
+                        onChange={(e) => setEditForm((f) => ({ ...f, discountValue: e.target.value }))}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Expiry (optional)</label>
                   <input

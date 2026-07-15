@@ -13,6 +13,17 @@ export async function redeemCode(code) {
 }
 
 /**
+ * Apply a code on the Buy Credits page. A CREDITS code is redeemed immediately;
+ * a DISCOUNT code is validated and its terms returned for use at checkout.
+ * @returns {Promise<{kind:'CREDITS', creditsAdded:number, credits:number, code:string}
+ *   | {kind:'DISCOUNT', code:string, discountType:'PERCENT'|'AMOUNT', discountValue:number}>}
+ */
+export async function applyCode(code) {
+  const response = await axios.post(`${PROMO_URL}/apply`, { code });
+  return response.data.data;
+}
+
+/**
  * Admin: list all promo codes with redemption counts.
  */
 export async function listCodes() {
@@ -22,7 +33,9 @@ export async function listCodes() {
 
 /**
  * Admin: create a promo code.
- * @param {{code:string, credits:number, expiresAt?:string|null}} payload
+ * @param {{code:string, kind?:'CREDITS'|'DISCOUNT', credits?:number,
+ *   discountType?:'PERCENT'|'AMOUNT', discountValue?:number, expiresAt?:string|null}} payload
+ *   discountValue is a whole percent (PERCENT) or an integer of cents (AMOUNT).
  */
 export async function createCode(payload) {
   const response = await axios.post(`${PROMO_URL}/admin/codes`, payload);
