@@ -3,11 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
+import MaintenanceScreen from "@/components/session/MaintenanceScreen";
 import IntroVideoModal from "@/components/IntroVideoModal";
 import HelpFab from "@/components/ui/HelpFab";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
+import { MAINTENANCE_MODE } from "@/config";
 
 // Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
@@ -55,6 +57,9 @@ export default function Creator() {
   };
 
   if (!chosen) {
+    if (MAINTENANCE_MODE) {
+      return <MaintenanceScreen />;
+    }
     return (
       <>
         <ModeChooser
