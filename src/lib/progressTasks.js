@@ -136,13 +136,23 @@ export function deriveFailedStep(session) {
 
   const reason = progressData.error || "Video generation failed. Please try again.";
 
+  // `reason` is the raw engine failure. It drives the attribution checks below and
+  // is what we read back from the DB when debugging, but it is never shown to the
+  // user: it is noise to them and it names our vendors. `displayReason` is the copy
+  // that actually renders. progressData.code is the only branch, because when the
+  // provider is down, clicking Regenerate straight away won't help.
+  const displayReason =
+    progressData.code === "PROVIDER_UNAVAILABLE"
+      ? "Our video provider is temporarily unavailable. Your progress is saved, so please come back shortly and try again."
+      : "Something went wrong while generating your video.";
+
   if (sections.some((s) => s.status === "FAILED")) {
-    return { rowId: "clips", fatal: true, reason };
+    return { rowId: "clips", fatal: true, reason, displayReason };
   }
   if (sections.length > 0 && sections.every((s) => s.status === "COMPLETED") && !isGenericFailure(reason)) {
-    return { rowId: "assembly", fatal: true, reason };
+    return { rowId: "assembly", fatal: true, reason, displayReason };
   }
-  return { rowId: null, fatal: true, reason };
+  return { rowId: null, fatal: true, reason, displayReason };
 }
 
 // Fatal failure at row i: i is red, everything before it succeeded, everything
@@ -159,7 +169,7 @@ function applyFailure(tasks, failure) {
   if (index === -1) return tasks;
 
   return tasks.map((t, i) => {
-    if (i === index) return { ...t, status: "failed", reason: failure.reason };
+    if (i === index) return { ...t, status: "failed", reason: failure.displayReason || failure.reason };
     if (i > index) return { ...t, status: "pending" };
     return { ...t, status: "completed" };
   });
