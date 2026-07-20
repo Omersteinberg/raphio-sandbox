@@ -612,10 +612,11 @@ export async function regenerateClip(sessionId, clipId, { prompt, model, style, 
 /**
  * Regenerate narration for a single clip
  */
-export async function regenerateNarration(sessionId, clipId, { narrationText, voiceId } = {}) {
+export async function regenerateNarration(sessionId, clipId, { narrationText, voiceId, tone } = {}) {
   const response = await axios.post(`${API_BASE}/${sessionId}/clips/${clipId}/regenerate-narration`, {
     narrationText,
     voiceId,
+    tone,
   });
   return response.data;
 }

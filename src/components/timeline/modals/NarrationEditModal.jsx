@@ -4,6 +4,7 @@ import { X, Loader2, Volume2, RefreshCw, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getVoiceOptionLabel } from "@/lib/voiceMetadata";
 import { getVoices } from "@/services/voices";
+import { NARRATION_TONES, DEFAULT_TONE } from "@/constants/narrationTones";
 
 export default function NarrationEditModal({
   section,
@@ -15,8 +16,12 @@ export default function NarrationEditModal({
   // The voice is stored on the Video (currentVoiceId), not per-section, so default
   // to it - otherwise editing narration always reset the voice to "adam".
   const initialVoiceId = section?.voiceId || currentVoiceId || "adam";
+  // Tone IS stored per-section (VideoSection.narrationTone). A section that predates
+  // the column comes back null, which reads as neutral, i.e. how it already sounds.
+  const initialTone = section?.narrationTone || DEFAULT_TONE;
   const [narrationText, setNarrationText] = useState(section?.narrationText || "");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
+  const [tone, setTone] = useState(initialTone);
   const [voices, setVoices] = useState([]);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -69,7 +74,7 @@ export default function NarrationEditModal({
       // If text or voice changed, regenerate the TTS audio instead of just saving text
       if (hasChanges && onRegenerateNarration) {
         console.log("[NarrationEditModal] Changes detected, calling onRegenerateNarration from save");
-        await onRegenerateNarration(section.id, narrationText, voiceId);
+        await onRegenerateNarration(section.id, narrationText, voiceId, tone);
         console.log("[NarrationEditModal] onRegenerateNarration from save completed");
       } else {
         console.log("[NarrationEditModal] No changes or no regenerate handler, calling onSave");
@@ -92,6 +97,7 @@ export default function NarrationEditModal({
     console.log("[NarrationEditModal] section.id:", section?.id);
     console.log("[NarrationEditModal] narrationText:", narrationText);
     console.log("[NarrationEditModal] voiceId:", voiceId);
+    console.log("[NarrationEditModal] tone:", tone);
     console.log("[NarrationEditModal] hasChanges:", hasChanges);
 
     if (!onRegenerateNarration) {
@@ -102,7 +108,7 @@ export default function NarrationEditModal({
     setRegenerating(true);
     try {
       console.log("[NarrationEditModal] Calling onRegenerateNarration...");
-      await onRegenerateNarration(section.id, narrationText, voiceId);
+      await onRegenerateNarration(section.id, narrationText, voiceId, tone);
       console.log("[NarrationEditModal] onRegenerateNarration completed successfully");
       onClose();
     } catch (err) {
@@ -113,7 +119,9 @@ export default function NarrationEditModal({
   };
 
   const hasChanges =
-    narrationText !== (section?.narrationText || "") || voiceId !== initialVoiceId;
+    narrationText !== (section?.narrationText || "") ||
+    voiceId !== initialVoiceId ||
+    tone !== initialTone;
 
   return (
     <AnimatePresence>
@@ -202,6 +210,32 @@ export default function NarrationEditModal({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Tone. A chip row rather than a select: there are only eight, and the
+                choice is worth seeing all at once so the user can compare. */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">Tone</label>
+              <div className="flex flex-wrap gap-2">
+                {NARRATION_TONES.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTone(t.key)}
+                    aria-pressed={tone === t.key}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                      tone === t.key
+                        ? "bg-primary text-white border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:text-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Changes how the line is delivered. Applied when you regenerate the audio.
+              </p>
             </div>
           </div>
 

@@ -314,17 +314,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   };
 
   // Handle narration regeneration
-  const handleRegenerateNarration = async (sectionId, text, voiceId) => {
+  const handleRegenerateNarration = async (sectionId, text, voiceId, tone) => {
     console.log("[TimelineEditor] handleRegenerateNarration called");
     console.log("[TimelineEditor] sectionId:", sectionId);
     console.log("[TimelineEditor] text:", text);
     console.log("[TimelineEditor] voiceId:", voiceId);
+    console.log("[TimelineEditor] tone:", tone);
     console.log("[TimelineEditor] onRegenerateNarration exists:", !!onRegenerateNarration);
 
     if (onRegenerateNarration) {
       try {
         console.log("[TimelineEditor] Calling onRegenerateNarration prop...");
-        await onRegenerateNarration(sectionId, text, voiceId);
+        await onRegenerateNarration(sectionId, text, voiceId, tone);
         console.log("[TimelineEditor] onRegenerateNarration prop completed");
         console.log("[TimelineEditor] Reloading timeline...");
         await timeline.loadTimeline();

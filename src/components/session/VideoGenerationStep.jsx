@@ -52,16 +52,9 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
   const fatal = !!generationError || !!failure?.fatal || activeSession?.video?.status === "FAILED";
 
   if (fatal) {
-    // deriveFailedStep returns rowId:null when the failure cannot honestly be
-    // pinned to a step. Passing no tasks then falls back to the standalone error
-    // card rather than reddening an arbitrary row.
+
     const attributed = !!failure?.fatal && !!failure.rowId;
 
-    // The backend stores the REAL failure reason in progressData.error for us to
-    // debug from the DB and Slack, but raw engine errors mean nothing to the user
-    // (and leak vendor names), so we never render it. buildVideoTasks hands back
-    // the user-safe `displayReason` and it is the same string the reddened row
-    // shows, so the card and the checklist can't drift apart.
     const providerDown = progressData.code === "PROVIDER_UNAVAILABLE";
     const message = failure?.displayReason || "Something went wrong while generating your video.";
 

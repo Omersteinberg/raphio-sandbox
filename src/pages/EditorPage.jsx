@@ -31,8 +31,8 @@ export default function EditorPage() {
       onUpdateSection={async (sectionId, updates) => {
         await updateClip(id, sectionId, updates);
       }}
-      onRegenerateNarration={async (sectionId, text, voiceId) => {
-        await regenerateNarration(id, sectionId, { narrationText: text, voiceId });
+      onRegenerateNarration={async (sectionId, text, voiceId, tone) => {
+        await regenerateNarration(id, sectionId, { narrationText: text, voiceId, tone });
       }}
     />
   );
