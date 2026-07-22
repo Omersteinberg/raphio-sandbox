@@ -1,7 +1,19 @@
-import { useState, useEffect } from "react";
-import { Download, Loader2, Check, Pencil, Share2, Plus } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Download,
+  Loader2,
+  Check,
+  Pencil,
+  Share2,
+  Plus,
+  Copy,
+  Facebook,
+  Twitter,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import api from "@/services/api";
 import { getShareUrl } from "@/services/session";
 import { API_BASE } from "@/config";
@@ -38,7 +50,44 @@ export default function VideoResult({
 }) {
   const [downloading, setDownloading] = useState(false);
   const [publicShareUrl, setPublicShareUrl] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const shareRef = useRef(null);
+  const copyTimeoutRef = useRef(null);
   const displayTitle = title || "Untitled";
+
+  const closeSharePopover = useCallback(() => {
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = null;
+    }
+    setLinkCopied(false);
+    setShareOpen(false);
+  }, []);
+
+  // Close the desktop share popover on outside click or Escape.
+  useEffect(() => {
+    if (!shareOpen) return;
+    const onPointerDown = (e) => {
+      if (shareRef.current && !shareRef.current.contains(e.target)) closeSharePopover();
+    };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closeSharePopover();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [shareOpen, closeSharePopover]);
+
+  // Clear any pending "revert the copied checkmark" timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
 
   // Pre-fetch the public /watch link as soon as the video is ready, so the Share
   // click handler stays synchronous. iOS Safari requires navigator.share to run
@@ -125,15 +174,37 @@ export default function VideoResult({
         });
         return;
       } catch {
-        /* cancelled or unsupported → fall back to copy */
+        /* cancelled or unsupported → fall back to the desktop popover */
       }
     }
+    if (shareOpen) {
+      closeSharePopover();
+    } else {
+      setShareOpen(true);
+    }
+  };
+
+  const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
+      // Show a checkmark on the button itself (the toast alone is easy to miss),
+      // then revert and close after the user's had a moment to see it.
+      setLinkCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => {
+        copyTimeoutRef.current = null;
+        closeSharePopover();
+      }, 1200);
     } catch {
       toast.error("Couldn't copy the link");
+      closeSharePopover();
     }
+  };
+
+  const openSocialShare = (url) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+    closeSharePopover();
   };
 
   return (
@@ -199,14 +270,79 @@ export default function VideoResult({
         )}
 
         {showShare && shareUrl && (
-          <Button
-            onClick={handleShare}
-            variant="outline"
-            className="border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
-          >
-            <Share2 className="w-4 h-4" />
-            Share
-          </Button>
+          <div className="relative" ref={shareRef}>
+            <Button
+              onClick={handleShare}
+              variant="outline"
+              className="border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              Share
+            </Button>
+
+            <AnimatePresence>
+              {shareOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute left-0 top-full mt-2 z-20 w-72 rounded-xl border border-border bg-card p-3 shadow-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={shareUrl}
+                      onFocus={(e) => e.target.select()}
+                      className="text-xs"
+                    />
+                    <Button
+                      onClick={handleCopyLink}
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 border-border"
+                      aria-label={linkCopied ? "Link copied" : "Copy link"}
+                    >
+                      {linkCopied ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openSocialShare(
+                          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+                        )
+                      }
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                      aria-label="Share on Facebook"
+                    >
+                      <Facebook className="w-4 h-4" />
+                      Facebook
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openSocialShare(
+                          `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`,
+                        )
+                      }
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                      aria-label="Share on X"
+                    >
+                      <Twitter className="w-4 h-4" />
+                      X
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         )}
 
         {onCreateNew && (
