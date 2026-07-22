@@ -103,6 +103,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     credits,
+    isAdmin: !!user?.isAdmin,
     refreshCredits,
     autoApprove,
     updateAutoApprove,

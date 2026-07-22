@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion,  AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { createCheckoutSession } from '../services/credits';
+import { applyCode } from '../services/promo';
 import { takeReturnTo } from '../lib/returnTo';
 import { describeError } from '../lib/errorDetail';
 import { Button } from '../components/ui/button';
 import {
   CheckCircle, XCircle, ArrowLeft, Sparkles,
-  Zap, Layers, Crown, Infinity, ShieldCheck, Clock,
+  Zap, Layers, Crown, Infinity, ShieldCheck, Clock, Ticket,
 } from 'lucide-react';
 
 const C = {
@@ -73,6 +74,27 @@ const TRUST = [
   { icon: Clock,       text: 'No subscription required' },
 ];
 
+// Human label for an applied discount: "20% off" or "$10 off".
+function formatDiscount(d) {
+  if (!d) return '';
+  if (d.discountType === 'PERCENT') return `${d.discountValue}% off`;
+  const dollars = (Number(d.discountValue) || 0) / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)} off`;
+}
+
+// A tier's dollar price after applying the discount (never below 0). PERCENT is a
+// whole percent; AMOUNT is cents.
+function discountedPrice(price, d) {
+  if (!d) return price;
+  if (d.discountType === 'PERCENT') return Math.max(0, price * (1 - d.discountValue / 100));
+  return Math.max(0, price - d.discountValue / 100);
+}
+
+// Trim a price for display: whole dollars as-is, otherwise two decimals.
+function fmtMoney(n) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
 export default function BuyCreditsPage() {
   const { credits, refreshCredits } = useAuth();
   const navigate = useNavigate();
@@ -81,6 +103,10 @@ export default function BuyCreditsPage() {
   const [hoveredTier, setHoveredTier] = useState(null);
   const [error, setError] = useState('');
   const [returnPath, setReturnPath] = useState(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [promoMsg, setPromoMsg] = useState(null); // { type: 'success' | 'error', text }
+  const [appliedDiscount, setAppliedDiscount] = useState(null); // { code, discountType, discountValue }
 
   const success  = searchParams.get('success');
   const canceled = searchParams.get('canceled');
@@ -101,13 +127,44 @@ export default function BuyCreditsPage() {
     setLoadingTier(tier.id);
     setError('');
     try {
-      const { url } = await createCheckoutSession(tier.stripeId);
+      const { url } = await createCheckoutSession(tier.stripeId, appliedDiscount?.code);
       window.location.href = url;
     } catch (err) {
       setError(describeError(err, "We couldn't start checkout. Please try again.").userMessage);
     } finally {
       setLoadingTier(null);
     }
+  };
+
+  const handleApply = async (e) => {
+    e.preventDefault();
+    const code = promoCode.trim();
+    if (!code || redeeming) return;
+    setRedeeming(true);
+    setPromoMsg(null);
+    try {
+      const result = await applyCode(code);
+      if (result.kind === 'DISCOUNT') {
+        setAppliedDiscount(result);
+        setPromoMsg({ type: 'success', text: `${formatDiscount(result)} applied at checkout.` });
+      } else {
+        await refreshCredits();
+        setPromoMsg({ type: 'success', text: `You got ${result.creditsAdded} credit${result.creditsAdded === 1 ? '' : 's'}!` });
+      }
+      setPromoCode('');
+    } catch (err) {
+      setPromoMsg({
+        type: 'error',
+        text: describeError(err, "That code didn't work. Please try again.").userMessage,
+      });
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
+  const clearDiscount = () => {
+    setAppliedDiscount(null);
+    setPromoMsg(null);
   };
 
   if (success === 'true') {
@@ -194,6 +251,8 @@ export default function BuyCreditsPage() {
             const Icon = tier.icon;
             const isLoading = loadingTier === tier.id;
             const isHovered = hoveredTier === tier.id;
+            const dPrice = discountedPrice(tier.price, appliedDiscount);
+            const isDiscounted = !!appliedDiscount && tier.price > 0 && dPrice !== tier.price;
 
             return (
               <motion.div key={tier.id}
@@ -268,12 +327,17 @@ export default function BuyCreditsPage() {
                         : <>
                             <span className="text-base font-bold self-start mt-1" style={{ color: C.muted }}>$</span>
                             <span className="text-4xl font-extrabold leading-none" style={{ color: C.charcoal }}>
-                              {tier.price}
+                              {fmtMoney(isDiscounted ? dPrice : tier.price)}
                             </span>
+                            {isDiscounted && (
+                              <span className="text-base font-semibold self-start mt-1 line-through" style={{ color: C.muted }}>
+                                ${tier.price}
+                              </span>
+                            )}
                             <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>
                               one-time
                             </span>
-                            {tier.save && (
+                            {tier.save && !isDiscounted && (
                               <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
                                 style={{
                                   background: 'rgba(21,128,61,0.10)',
@@ -354,6 +418,70 @@ export default function BuyCreditsPage() {
             );
           })}
         </div>
+
+        {/* Promo code */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="rounded-2xl p-5 mb-6 mx-auto max-w-sm"
+          style={{ background: C.card, border: `1.5px solid ${C.cardBorder}` }}>
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <Ticket className="w-3.5 h-3.5" style={{ color: C.terra }} />
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted }}>
+              Have a promo code?
+            </p>
+          </div>
+          {appliedDiscount ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl px-3 py-2.5"
+              style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.18)' }}>
+              <span className="text-sm font-bold uppercase tracking-wide" style={{ color: C.green }}>
+                {appliedDiscount.code} · {formatDiscount(appliedDiscount)}
+              </span>
+              <button
+                type="button"
+                onClick={clearDiscount}
+                className="text-xs font-semibold underline underline-offset-2"
+                style={{ color: C.muted }}
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleApply} className="flex gap-2">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Enter code"
+                autoCapitalize="characters"
+                className="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold uppercase tracking-wide outline-none"
+                style={{
+                  background: '#fff',
+                  color: C.charcoal,
+                  border: `1.5px solid ${C.cardBorder}`,
+                }}
+              />
+              <button
+                type="submit"
+                disabled={redeeming || !promoCode.trim()}
+                className="rounded-xl px-4 py-2.5 text-sm font-bold text-white border-0"
+                style={{
+                  background: `linear-gradient(135deg, ${C.terra}, ${C.terraLight})`,
+                  opacity: redeeming || !promoCode.trim() ? 0.6 : 1,
+                  boxShadow: `0 4px 12px ${C.terraGlow}`,
+                }}
+              >
+                {redeeming ? 'Applying…' : 'Apply'}
+              </button>
+            </form>
+          )}
+          <AnimatePresence>
+            {promoMsg && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="text-xs font-semibold text-center mt-3"
+                style={{ color: promoMsg.type === 'success' ? C.green : C.red }}>
+                {promoMsg.text}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Credit cost reference */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}

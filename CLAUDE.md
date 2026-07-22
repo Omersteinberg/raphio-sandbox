@@ -23,7 +23,7 @@ Raphio.ai is a SaaS platform where users upload images that are transformed into
   - `useAuth.jsx`: authentication state
 - `src/services/`: API call functions
 - `src/constants/`: styles.js, other constants
-- `src/lib/limits.js`: MAX_IMAGES (10), VIDEO_COST constants
+- `src/lib/limits.js`: MAX_IMAGES (10), CREDITS_PER_CLIP (1), DURATION_CREDIT_TIERS + `creditsForDuration()`
 - `public/`: static assets including logo.svg and logo.png
 
 ## Brand & Design
@@ -55,7 +55,8 @@ The main user journey has these steps:
 
 ## Active Development Notes
 - Credit system is temporarily bypassed for local testing. Do not remove bypass code without instruction
-- `setTargetDuration` has been removed from `useSession.js`. Do not re-add it
+- **`targetDuration` / `setTargetDuration` are load-bearing. Do not remove them.** (This note previously said the opposite; it was reinstated on the Omer branch and the credit system was then built on it.) State lives in `useSession.js` and `useSessionBase.js` and is exported to `PromptStep` (the duration picker) via `ImagePipelineCreator` / `ReferencesPipelineCreator`. Full-video pricing is `creditsForDuration(targetDuration)` from `@/lib/limits` (1 credit per 5s, banded to the UI presets), charged in `useSession.js` and `useReferencesSession.js` and previewed by `DurationEstimate` / `VoiceConfigStep`. Keep the tiers in sync with `credits.service.js` on the backend
+- `CREDITS_PER_CLIP` is **not** the video price. It covers single-clip regeneration only (a ~5s re-roll). The older "1 credit = 1 clip" model was superseded by the duration tiers
 - `reset()` in `useSession.js` is intentionally minimal. Navigation is handled at component level
 
 ## Resuming an in-progress session (invariants - do not break these)
