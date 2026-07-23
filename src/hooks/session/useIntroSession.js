@@ -1,9 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { getCreationDefaults } from "@/lib/preferences";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
+import { isGenerationFailed } from "@/lib/progressTasks";
+import { extractLogoColors } from "@/lib/logoColors";
+
+const GENERATING_STEP = 2;
 
 // Map backend intro-pipeline stages to frontend step numbers.
 const INTRO_STAGE_TO_STEP = {
@@ -14,15 +18,14 @@ const INTRO_STAGE_TO_STEP = {
   COMPLETED: 3,
 };
 
-const EMPTY_SCRIPT = { businessName: "", vignettes: [], motionPrompt: "", musicPrompt: "", narration: "" };
+const EMPTY_SCRIPT = { businessName: "", scenes: [], musicPrompt: "", narration: "" };
 
 function scriptFromIntroData(introData) {
   if (!introData) return null;
-  if (!introData.motionPrompt) return null;
+  if (!Array.isArray(introData.scenes) || !introData.scenes.length) return null;
   return {
     businessName: introData.businessName || "",
-    vignettes: Array.isArray(introData.vignettes) ? introData.vignettes : [],
-    motionPrompt: introData.motionPrompt || "",
+    scenes: introData.scenes,
     musicPrompt: introData.musicPrompt || "",
     narration: typeof introData.narration === "string" ? introData.narration : "",
   };
@@ -40,6 +43,7 @@ export function useIntroSession() {
     setScriptProgress, setFinalVideoUrl,
     navigate, credits,
     setProviderUnavailable,
+    generationError, setGenerationError,
     startGeneration: baseStartGeneration,
     resetBase,
   } = base;
@@ -54,6 +58,23 @@ export function useIntroSession() {
   // style stays intro-specific ("cinematic") and is intentionally not persisted.
   const [showcaseFiles, setShowcaseFiles] = useState([]);
 
+  // Brand colours for the Remotion stinger. Auto-derived from the logo on upload,
+  // but once the user edits a swatch we stop overwriting their choice.
+  const [brandColors, setBrandColors] = useState(null);
+  const brandTouchedRef = useRef(false);
+  const setBrandColor = useCallback((key, value) => {
+    brandTouchedRef.current = true;
+    setBrandColors((prev) => ({ ...(prev || {}), [key]: value }));
+  }, []);
+  useEffect(() => {
+    if (!logoFile || brandTouchedRef.current) return;
+    let cancelled = false;
+    extractLogoColors(logoFile).then((colors) => {
+      if (!cancelled && colors && !brandTouchedRef.current) setBrandColors(colors);
+    });
+    return () => { cancelled = true; };
+  }, [logoFile]);
+
   // Script state
   const [introScript, setIntroScript] = useState(EMPTY_SCRIPT);
   const [editRequest, setEditRequest] = useState("");
@@ -65,7 +86,15 @@ export function useIntroSession() {
   // Sync step + local script with session stage
   useEffect(() => {
     if (!session?.stage) return;
-    const newStep = INTRO_STAGE_TO_STEP[session.stage] ?? 0;
+    // Resume/refresh after a failed render: the backend rolled the stage back to
+    // INTRO_SCRIPT_APPROVED but flagged the Video FAILED. Pin to the generating
+    // step so the failure screen + Regenerate shows, instead of silently dropping
+    // the user back to the script step. Mirrors useSession's stage-sync guard.
+    const genFailed = isGenerationFailed(session) && session.stage !== "GENERATING";
+    if (genFailed && !generationError) {
+      setGenerationError(session.video?.progressData?.error || "Video generation failed. Please try again.");
+    }
+    const newStep = genFailed ? GENERATING_STEP : (INTRO_STAGE_TO_STEP[session.stage] ?? 0);
     if (newStep !== step) {
       setDirection(newStep > step ? 1 : -1);
       setStep(newStep);
@@ -74,7 +103,7 @@ export function useIntroSession() {
     if (s) setIntroScript(s);
     if (session.voiceId) setVoiceId(session.voiceId);
     if (session.video?.finalVideoUrl) setFinalVideoUrl(session.video.finalVideoUrl);
-  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, generationError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Brief → create session + generate first script draft
   const startIntroSession = useCallback(async () => {
@@ -111,7 +140,7 @@ export function useIntroSession() {
       }
       setScriptProgress(55);
 
-      await sessionService.saveIntroBrief(created.id, { businessName, description, targetAudience, style });
+      await sessionService.saveIntroBrief(created.id, { businessName, description, targetAudience, style, brandColors });
       setScriptProgress(70);
 
       const withScript = await sessionService.generateIntroScript(created.id);
@@ -143,7 +172,7 @@ export function useIntroSession() {
     } finally {
       setLoading(false);
     }
-  }, [logoFile, businessName, description, targetAudience, style, voiceId, aspectRatio, showcaseFiles, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logoFile, businessName, description, targetAudience, style, voiceId, aspectRatio, showcaseFiles, brandColors, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save current local edits to the backend
   const saveScriptEdits = useCallback(async () => {
@@ -227,6 +256,8 @@ export function useIntroSession() {
     setStyle("cinematic");
     setAspectRatio(getCreationDefaults().aspectRatio);
     setShowcaseFiles([]);
+    setBrandColors(null);
+    brandTouchedRef.current = false;
     setIntroScript(EMPTY_SCRIPT);
     setEditRequest("");
   }, [resetBase]);
@@ -246,6 +277,7 @@ export function useIntroSession() {
     targetAudience, setTargetAudience,
     style, setStyle,
     aspectRatio, setAspectRatio,
+    brandColors, setBrandColor,
     showcaseFiles, setShowcaseFiles,
 
     // Script

@@ -185,12 +185,15 @@ export async function uploadLogo(sessionId, file) {
  * Save the intro business brief.
  * @returns {{ introData: object }}
  */
-export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style }) {
+export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-brief`, {
     businessName,
     description,
     targetAudience,
     style,
+    brandColors,
+    templateId,
+    font,
   });
   return response.data;
 }
@@ -210,9 +213,9 @@ export async function generateIntroScript(sessionId, { editRequest } = {}) {
  * Save edits to the intro script (montage plan + narration + voice).
  * @returns updated session
  */
-export async function updateIntroScript(sessionId, { businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId }) {
+export async function updateIntroScript(sessionId, { businessName, scenes, musicPrompt, narration, voiceId }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-script`, {
-    businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId,
+    businessName, scenes, musicPrompt, narration, voiceId,
   });
   return response.data;
 }

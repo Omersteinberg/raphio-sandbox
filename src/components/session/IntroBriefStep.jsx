@@ -23,6 +23,8 @@ export default function IntroBriefStep({
   setStyle,
   aspectRatio,
   setAspectRatio,
+  brandColors,
+  setBrandColor,
   showcaseFiles,
   setShowcaseFiles,
   loading,
@@ -233,6 +235,45 @@ export default function IntroBriefStep({
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Brand colours (auto-filled from logo, editable) */}
+        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
+              Brand colours
+            </label>
+            <span className="text-xs text-ink-muted font-medium">Captions &amp; end card</span>
+          </div>
+          <div className="flex flex-wrap gap-5">
+            {[
+              { key: "primary", label: "Primary", fallback: "#F97066" },
+              { key: "secondary", label: "Accent", fallback: "#FB923C" },
+            ].map(({ key, label, fallback }) => {
+              const value = (brandColors && brandColors[key]) || fallback;
+              return (
+                <div key={key} className="flex items-center gap-3">
+                  <label
+                    className="relative w-11 h-11 rounded-2xl border border-border overflow-hidden cursor-pointer shrink-0"
+                    style={{ background: value }}
+                  >
+                    <input
+                      type="color"
+                      value={value}
+                      onChange={(e) => setBrandColor && setBrandColor(key, e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      aria-label={`${label} brand colour`}
+                    />
+                  </label>
+                  <div>
+                    <p className="text-xs font-bold text-[#2D2235]">{label}</p>
+                    <p className="text-xs text-ink-muted font-mono uppercase">{value}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-ink-muted">Pulled from your logo. Tweak to match your brand.</p>
         </div>
 
         {/* Optional showcase images */}
