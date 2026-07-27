@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(find \"c:/Users/amnon\" -maxdepth 2 -iname \"merge-api\" 2>/dev/null *)",
-      "Read(//c/Users/amnon/**)"
+      "Read(//c/Users/amnon/**)",
+      "Bash(node \"C:/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/5e1d3cb9-87a6-447d-a5b7-90d3bb95aff8/scratchpad/verify-settings.js\")",
+      "Bash(git -C c:/Users/amnon/merge-api status --porcelain)",
+      "Bash(git -C c:/Users/amnon/merge-frontend diff -- .claude/settings.json)",
+      "Bash(node \"C:/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/5e1d3cb9-87a6-447d-a5b7-90d3bb95aff8/scratchpad/verify-settings-redesign.js\")"
     ]
   }
 }

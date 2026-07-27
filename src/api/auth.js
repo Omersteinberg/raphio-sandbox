@@ -57,9 +57,10 @@ function isExpiredSession(err) {
   return err?.message === 'Session expired' || err?.response?.status === 401;
 }
 
-// Update profile (protected)
-export async function updateProfile({ username, email }) {
-  const { data } = await api.put(`${API_URL}/auth/profile`, { username, email });
+// Update profile (protected). currentPassword is required by the backend
+// whenever email is included (not needed for a username-only update).
+export async function updateProfile({ username, email, currentPassword }) {
+  const { data } = await api.put(`${API_URL}/auth/profile`, { username, email, currentPassword });
   return data.user;
 }
 
