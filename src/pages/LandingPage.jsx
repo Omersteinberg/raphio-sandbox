@@ -1125,13 +1125,13 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={goToAppOrLogin}
-              className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all"
+              className="px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all min-h-[44px] flex items-center"
               style={{ color: scrolled ? C.dark : 'rgba(255,250,247,0.92)', background: 'transparent' }}
               onMouseEnter={e => { e.currentTarget.style.background = scrolled ? 'rgba(193,68,14,0.06)' : 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = scrolled ? C.terra : '#FFD9C7'; }}
               onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; }}
             >Log in</button>
             <button onClick={goToAppOrLogin}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all"
+              className="flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all min-h-[44px]"
               style={{
                 background: scrolled ? C.white : 'transparent',
                 color: scrolled ? C.terra : '#FFFAF7',

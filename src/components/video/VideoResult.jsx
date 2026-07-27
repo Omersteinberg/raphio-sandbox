@@ -243,11 +243,11 @@ export default function VideoResult({
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-3 mt-6">
+      <div className="grid grid-cols-2 gap-3 mt-6 sm:flex sm:flex-wrap">
         <Button
           onClick={handleDownload}
           disabled={downloading}
-          className="text-white border-0 flex items-center justify-center gap-2 px-6"
+          className="w-full sm:w-auto text-white border-0 flex items-center justify-center gap-2 px-6"
           style={{ background: "var(--gradient-brand)" }}
         >
           {downloading ? (
@@ -262,7 +262,7 @@ export default function VideoResult({
           <Button
             onClick={onEdit}
             variant="outline"
-            className="border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
+            className="w-full sm:w-auto border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
           >
             <Pencil className="w-4 h-4" />
             {editLabel}
@@ -274,7 +274,7 @@ export default function VideoResult({
             <Button
               onClick={handleShare}
               variant="outline"
-              className="border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
+              className="w-full sm:w-auto border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
             >
               <Share2 className="w-4 h-4" />
               Share
@@ -294,7 +294,7 @@ export default function VideoResult({
                       readOnly
                       value={shareUrl}
                       onFocus={(e) => e.target.select()}
-                      className="text-xs"
+                      className="text-xs h-11"
                     />
                     <Button
                       onClick={handleCopyLink}
@@ -349,7 +349,7 @@ export default function VideoResult({
           <Button
             onClick={onCreateNew}
             variant="outline"
-            className="border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
+            className="w-full sm:w-auto border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
             {createLabel}

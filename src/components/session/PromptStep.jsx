@@ -289,7 +289,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           whileTap={{ scale: 0.88 }}
           onClick={() => onRemove(index)}
           aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
-          className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+          className="w-11 h-11 rounded-full flex items-center justify-center transition-colors shrink-0"
           style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
           onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
@@ -429,7 +429,8 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
                   <img src={item.referenceImage} alt="Reference" className="w-full h-full object-cover rounded-xl border shadow-inner" style={{ borderColor: `rgba(${accentRgb},0.18)` }} />
                   <button
                     onClick={() => onChange(index, { ...item, referenceFile: null, referenceImage: null })}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs transition-colors hover:bg-red-600 backdrop-blur-sm"
+                    aria-label="Remove reference image"
+                    className="absolute top-1 right-1 w-11 h-11 rounded-full bg-black/60 text-white flex items-center justify-center text-xs transition-colors hover:bg-red-600 backdrop-blur-sm"
                   >
                     ×
                   </button>
@@ -1554,7 +1555,7 @@ export default function PromptStep({
                                 removeImage(index);
                               }}
                               aria-label="Remove image"
-                              className="absolute top-1.5 right-1.5 w-6 h-6 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
+                              className="absolute top-1 right-1 w-11 h-11 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
                               style={{ background: '#C1440E' }}
                               onMouseEnter={(e) =>
                                 (e.currentTarget.style.background = '#A8380C')
@@ -2123,7 +2124,7 @@ export default function PromptStep({
                                     {openingFrame.uploadedImage ? (
                                       <div className="relative">
                                         <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("opening")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                        <button onClick={() => removeFrameImage("opening")} aria-label="Remove opening frame image" className="absolute -top-2 -right-2 w-11 h-11 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
                                       <button
@@ -2275,7 +2276,7 @@ export default function PromptStep({
                                     {closingFrame.uploadedImage ? (
                                       <div className="relative">
                                         <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("closing")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                        <button onClick={() => removeFrameImage("closing")} aria-label="Remove closing frame image" className="absolute -top-2 -right-2 w-11 h-11 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
                                       <button

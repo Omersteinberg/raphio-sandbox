@@ -1,5 +1,6 @@
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { lockScrollContainerFor, unlockScrollContainer } from "./tourCore";
 
 // Interactive onboarding tour for the My Videos page + the app header nav,
 // for users who just signed up. Built on driver.js (same styling as the editor
@@ -16,6 +17,19 @@ import "driver.js/dist/driver.css";
 const DRIVER_OPTS = {
   showProgress: true,
   allowClose: true,
+  // Kept in sync with tourCore.js's DRIVER_OPTS - this file drives its own
+  // driver() instance directly (it needs onNextClick/onPrevClick hooks to
+  // open/close the mobile nav drawer between steps) instead of going through
+  // runTour(), so it doesn't inherit that shared config automatically.
+  allowScroll: false,
+  // MyVideosPage itself has no scroll wrapper of its own - it scrolls via
+  // AppLayout's shared `flex-1 overflow-auto` shell, which allowScroll:false
+  // (body-only) doesn't reach. Same runtime lock as tourCore.js, reused here
+  // rather than duplicated since the nav/drawer steps sit in a different DOM
+  // subtree (AppHeader) than the page steps (MyVideosPage), so the "right"
+  // container genuinely differs step to step.
+  onDeselected: () => unlockScrollContainer(),
+  onHighlightStarted: (element) => lockScrollContainerFor(element),
   overlayColor: "#1C1917", // matches the app's warm-dark ink
   popoverClass: "raphio-tour",
   nextBtnText: "Next",
@@ -98,7 +112,13 @@ function startDesktopTour() {
 
   const present = steps.filter((s) => !s.element || q(s.element));
   if (!present.length) return null;
-  const d = driver({ ...DRIVER_OPTS, steps: present });
+  const d = driver({
+    ...DRIVER_OPTS,
+    steps: present,
+    // Safety net alongside onDeselected's own cleanup - never leave a
+    // container locked if the tour is torn down some other way.
+    onDestroyed: () => unlockScrollContainer(),
+  });
   d.drive();
   return d;
 }
@@ -232,8 +252,12 @@ function startMobileTour() {
     ...DRIVER_OPTS,
     steps,
     // Whether the tour finishes on the last step or is dismissed early, always
-    // leave the drawer closed so the user lands on a clean page.
-    onDestroyed: () => closeDrawer(),
+    // leave the drawer closed so the user lands on a clean page. Also a safety
+    // net alongside onDeselected's own cleanup for the scroll lock.
+    onDestroyed: () => {
+      closeDrawer();
+      unlockScrollContainer();
+    },
   });
   d.drive();
   return d;

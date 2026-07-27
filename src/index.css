@@ -131,6 +131,14 @@
   border-radius: 4px;
 }
 
+/* driver.js's own allowScroll:false only locks <body>. Most wizard steps
+   scroll inside their own nested overflow-y-auto container instead (see
+   tourCore.js's findScrollContainer) - this class is toggled onto whichever
+   element that turns out to be, for the duration of the highlighted step. */
+.driver-scroll-lock-target {
+  overflow: hidden !important;
+}
+
 /* ── Interactive editor tour (driver.js) - themed to the warm light brand ──
    driver.js base styles are imported in src/lib/editorTour.js; these override
    them so the popover matches the terracotta/cream design tokens. Scoped to the

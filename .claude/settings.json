@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"c:/Users/amnon\" -maxdepth 2 -iname \"merge-api\" 2>/dev/null *)",
+      "Read(//c/Users/amnon/**)"
+    ]
+  }
+}
