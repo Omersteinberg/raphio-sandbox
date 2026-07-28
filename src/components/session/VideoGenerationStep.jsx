@@ -52,11 +52,11 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
   const fatal = !!generationError || !!failure?.fatal || activeSession?.video?.status === "FAILED";
 
   if (fatal) {
-    // deriveFailedStep returns rowId:null when the failure cannot honestly be
-    // pinned to a step. Passing no tasks then falls back to the standalone error
-    // card rather than reddening an arbitrary row.
+
     const attributed = !!failure?.fatal && !!failure.rowId;
-    const message = failure?.reason || generationError || progressData.error || "Something went wrong while generating your video.";
+
+    const providerDown = progressData.code === "PROVIDER_UNAVAILABLE";
+    const message = failure?.displayReason || "Something went wrong while generating your video.";
 
     return (
       <ProgressChecklist
@@ -67,7 +67,9 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
           title: "Generation Failed",
           subtitle: "We couldn't finish generating your video.",
           message,
-          hint: "Retrying is free. You won't be charged again.",
+          hint: providerDown
+            ? "You won't be charged extra."
+            : "Please click Regenerate below. You won't be charged extra.",
           onRetry: onRegenerate,
           retryLabel: "Regenerate Video",
         }}

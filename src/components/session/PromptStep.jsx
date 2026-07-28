@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Palette, Upload, X, Image as ImageIcon, Film, Wand2,
+  Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
   Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle,
@@ -289,7 +289,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
           whileTap={{ scale: 0.88 }}
           onClick={() => onRemove(index)}
           aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
-          className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+          className="w-11 h-11 rounded-full flex items-center justify-center transition-colors shrink-0"
           style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
           onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
@@ -429,7 +429,8 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
                   <img src={item.referenceImage} alt="Reference" className="w-full h-full object-cover rounded-xl border shadow-inner" style={{ borderColor: `rgba(${accentRgb},0.18)` }} />
                   <button
                     onClick={() => onChange(index, { ...item, referenceFile: null, referenceImage: null })}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs transition-colors hover:bg-red-600 backdrop-blur-sm"
+                    aria-label="Remove reference image"
+                    className="absolute top-1 right-1 w-11 h-11 rounded-full bg-black/60 text-white flex items-center justify-center text-xs transition-colors hover:bg-red-600 backdrop-blur-sm"
                   >
                     ×
                   </button>
@@ -995,30 +996,22 @@ export default function PromptStep({
         >
         {/* Hero headline */}
         <div className="text-center mb-1">
-          {/* Layered icon */}
           <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
             <div
-              className="absolute rounded-3xl"
-              style={{ inset: '-10px', background: 'rgba(193,68,14,0.08)', filter: 'blur(18px)' }}
-            />
-            <div
-              className="relative flex items-center justify-center w-[56px] h-[56px] sm:w-[72px] sm:h-[72px] rounded-[18px] sm:rounded-[22px]"
+              className="w-[60px] h-[60px] sm:w-[75px] sm:h-[75px] rounded-[20px] sm:rounded-[24px] flex items-center justify-center"
               style={{
-                background: 'linear-gradient(145deg, #FFF6EF 0%, #FAF0EA 100%)',
-                boxShadow: '0 0 0 1px rgba(193,68,14,0.12), 0 6px 6px rgba(193,68,14,0.18), inset 0 1px 0 rgba(255,255,255,0.95)',
+                background: 'linear-gradient(225deg, #F9B31B, #FF7A1A, #F3283C)',
+                boxShadow: '0 2px 8px rgba(193,68,14,0.25), 0 10px 24px rgba(193,68,14,0.20)',
+                outline: '1.5px solid rgba(255,255,255,0.55)',
+                outlineOffset: '-1.5px',
               }}
             >
-              <ImageIcon style={{ width: 30, height: 30, color: '#C1440E' }} />
-              <div
-                className="absolute flex items-center justify-center"
-                style={{
-                  bottom: -9, right: -9, width: 30, height: 30, borderRadius: 11,
-                  background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                  boxShadow: '0 2px 8px rgba(193,68,14,0.45), 0 0 0 2.5px #F5F0EB',
-                }}
-              >
-                <Sparkles style={{ width: 16, height: 16, color: '#fff' }} />
-              </div>
+              <img
+                src="/Raphio.png"
+                alt="Raphio"
+                className="w-[50%] h-[50%] object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
             </div>
           </div>
 
@@ -1562,7 +1555,7 @@ export default function PromptStep({
                                 removeImage(index);
                               }}
                               aria-label="Remove image"
-                              className="absolute top-1.5 right-1.5 w-6 h-6 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
+                              className="absolute top-1 right-1 w-11 h-11 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
                               style={{ background: '#C1440E' }}
                               onMouseEnter={(e) =>
                                 (e.currentTarget.style.background = '#A8380C')
@@ -2131,7 +2124,7 @@ export default function PromptStep({
                                     {openingFrame.uploadedImage ? (
                                       <div className="relative">
                                         <img src={openingFrame.uploadedImage} alt="Opening frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("opening")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                        <button onClick={() => removeFrameImage("opening")} aria-label="Remove opening frame image" className="absolute -top-2 -right-2 w-11 h-11 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
                                       <button
@@ -2283,7 +2276,7 @@ export default function PromptStep({
                                     {closingFrame.uploadedImage ? (
                                       <div className="relative">
                                         <img src={closingFrame.uploadedImage} alt="Closing frame" className="w-full h-48 object-cover rounded-xl border border-stone-200 shadow-sm" />
-                                        <button onClick={() => removeFrameImage("closing")} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
+                                        <button onClick={() => removeFrameImage("closing")} aria-label="Remove closing frame image" className="absolute -top-2 -right-2 w-11 h-11 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow font-bold">×</button>
                                       </div>
                                     ) : (
                                       <button

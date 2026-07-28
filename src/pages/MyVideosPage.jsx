@@ -8,7 +8,7 @@ import {
 import { toast } from "@/lib/toast";
 import { listSessions } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
 import { STYLE_OPTIONS } from "@/constants/styles";
 import VideoCard from "@/components/videos/VideoCard";
 import { startMyVideosTour } from "@/lib/myVideosTour";
@@ -256,7 +256,7 @@ function SortDropdown({ value, onChange }) {
     <div id="sort-dd" style={{ position:'relative' }}>
       <button onClick={() => setOpen(v=>!v)} style={{
         display:'flex', alignItems:'center', gap:6,
-        height:34, paddingLeft:14, paddingRight:14,
+        height:44, paddingLeft:14, paddingRight:14,
         borderRadius:9999, border:`1px solid ${C.border}`,
         background: open?'rgba(193,68,14,0.05)':'#fff',
         fontSize:13, fontWeight:600, color:C.dark,
@@ -362,7 +362,7 @@ function Pagination({ page, totalPages, onPrev, onNext }) {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginTop:40 }}>
       {[{label:'Previous',action:onPrev,disabled:page===1},{label:'Next',action:onNext,disabled:page===totalPages}].map(({label,action,disabled})=>(
         <button key={label} onClick={action} disabled={disabled} style={{
-          height:36, paddingLeft:20, paddingRight:20,
+          height:44, paddingLeft:20, paddingRight:20,
           borderRadius:9999, border:`1px solid ${C.border}`,
           background:disabled?'transparent':'#fff',
           color:disabled?C.muted:C.dark,
@@ -555,6 +555,10 @@ export default function MyVideosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  // Matches the `.mvp-controls` stacking breakpoint below (520px), not the
+  // generic phone breakpoint, so the "New video" button's own layout switch
+  // lines up with when its row actually goes full-width.
+  const isNarrowHeader = useMediaQuery("(max-width: 520px)");
 
   const [activeTab,       setActiveTab]       = useState("completed");
   const [sessions,        setSessions]        = useState([]);
@@ -653,15 +657,18 @@ export default function MyVideosPage() {
               <SortDropdown value={sort} onChange={setSort} />
               <div style={{ display:'flex', borderRadius:9999, border:`1px solid ${C.border}`, overflow:'hidden', background:'#fff' }}>
                 {[{mode:'grid',Icon:LayoutGrid},{mode:'list',Icon:List}].map(({mode,Icon})=>(
-                  <button key={mode} onClick={()=>setViewMode(mode)} style={{ width:34, height:34, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', background:viewMode===mode?'rgba(193,68,14,0.08)':'transparent', transition:'background 0.15s ease' }}>
+                  <button key={mode} onClick={()=>setViewMode(mode)} style={{ width:44, height:44, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', background:viewMode===mode?'rgba(193,68,14,0.08)':'transparent', transition:'background 0.15s ease' }}>
                     <Icon style={{ width:15, height:15, color:viewMode===mode?C.terra:C.muted }} />
                   </button>
                 ))}
               </div>
             </>)}
             <button data-tour="mv-new" onClick={()=>navigate('/create')} style={{
-              display:'flex', alignItems:'center', gap:6, marginLeft:'auto',
-              height:38, paddingLeft:18, paddingRight:18,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+              marginLeft:'auto',
+              height:44,
+              paddingLeft: isNarrowHeader ? 12 : 18,
+              paddingRight: isNarrowHeader ? 12 : 18,
               borderRadius:9999, border:'none',
               background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`,
               color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit',
