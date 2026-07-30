@@ -444,7 +444,7 @@ function PromptVisual({ isMobile }) {
 
   return (
     <div className="grid" style={{ height: isMobile ? 'auto' : PROMPT_VISUAL_HEIGHT, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', padding: isMobile ? '14px 14px 0' : 14, minHeight: isMobile ? 150 : undefined }}>
+      <div style={{ display: 'flex', flexDirection: 'column', padding: isMobile ? '14px 14px 0' : 14, height: isMobile ? 'auto' : PROMPT_VISUAL_HEIGHT, minHeight: isMobile ? 150 : undefined }}>
         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '9px 13px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.terra, flexShrink: 0 }} />
@@ -471,7 +471,7 @@ function PromptVisual({ isMobile }) {
           </div>
         </div>
       </div>
-      <div style={{ position: 'relative', overflow: 'hidden', height: isMobile ? 200 : undefined }}>
+      <div style={{ position: 'relative', overflow: 'hidden', height: isMobile ? 200 : PROMPT_VISUAL_HEIGHT }}>
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
       </div>
     </div>
@@ -501,7 +501,7 @@ function PhotosVisual({ isMobile }) {
         borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)',
         borderBottom: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 9, padding: isMobile ? '18px 16px' : 16, position: 'relative',
+        gap: 9, padding: isMobile ? '18px 16px' : 16, height: isMobile ? 'auto' : PHOTOS_VISUAL_HEIGHT, position: 'relative',
       }}>
         <div style={{ position: 'absolute', inset: 10, border: '1.5px dashed rgba(193,68,14,0.35)', borderRadius: 12, pointerEvents: 'none' }} />
         <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(193,68,14,0.10)', border: '1px solid rgba(193,68,14,0.20)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -518,7 +518,7 @@ function PhotosVisual({ isMobile }) {
       </div>
 
       {/* 3x2 scattered grid */}
-      <div style={{ padding: isMobile ? '16px 14px 34px' : '16px 16px 34px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)', gap: 11, position: 'relative', minHeight: isMobile ? 210 : undefined }}>
+      <div style={{ padding: isMobile ? '16px 14px 34px' : '16px 16px 34px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)', gap: 11, position: 'relative', height: isMobile ? 210 : PHOTOS_VISUAL_HEIGHT }}>
         {SCENES.map((scene, i) => {
           const rot = rotations[i];
           const visible = i < shown;
@@ -592,7 +592,7 @@ function ReferenceVisual({ isMobile }) {
         borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)',
         borderBottom: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 10, padding: isMobile ? '18px 16px' : 16,
+        gap: 10, padding: isMobile ? '18px 16px' : 16, height: isMobile ? 'auto' : REFERENCE_VISUAL_HEIGHT,
       }}>
         <motion.div
           initial={{ opacity: 0, scale: 0.85 }}
@@ -617,7 +617,7 @@ function ReferenceVisual({ isMobile }) {
       </div>
 
       {/* Timeline row - each frame washed briefly in the reference's tint */}
-      <div style={{ padding: isMobile ? '16px 14px 20px' : '16px 16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, minHeight: isMobile ? 160 : undefined }}>
+      <div style={{ padding: isMobile ? '16px 14px 20px' : '16px 16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, height: isMobile ? 'auto' : REFERENCE_VISUAL_HEIGHT, minHeight: isMobile ? 160 : undefined }}>
         <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>YOUR TIMELINE</span>
         <div className="flex flex-wrap gap-2" aria-hidden="true">
           {timeline.map((scene, i) => {
