@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
-import IntroPipelineCreator from "./IntroPipelineCreator";
 import ModeChooser from "@/components/session/ModeChooser";
 import MaintenanceScreen from "@/components/session/MaintenanceScreen";
 import IntroVideoModal from "@/components/IntroVideoModal";
@@ -12,9 +11,9 @@ import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 import { MAINTENANCE_MODE } from "@/config";
 
+// Brand Intro ("intro") is temporarily hidden while that pipeline is in progress.
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
-// (ImagePipelineCreator) with photos + advanced settings hidden. "intro" is the
-// Brand Intro stinger pipeline (IntroPipelineCreator).
+// (ImagePipelineCreator) with photos + advanced settings hidden.
 // Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
 const ENABLED_MODES = RESUMABLE_MODES;
 
@@ -86,14 +85,6 @@ export default function Creator() {
   if (pipelineMode === "references") {
     return (
       <ReferencesPipelineCreator
-        onModeChange={handleModeChange}
-        onBackToChooser={backToChooser}
-      />
-    );
-  }
-  if (pipelineMode === "intro") {
-    return (
-      <IntroPipelineCreator
         onModeChange={handleModeChange}
         onBackToChooser={backToChooser}
       />

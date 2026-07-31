@@ -1,13 +1,12 @@
-// Pipeline modes a session can be resumed into.
+// Pipeline modes a session can be resumed into. "intro" is deliberately absent:
+// Creator does not mount IntroPipelineCreator while that pipeline is hidden, so
+// bouncing the URL to ?mode=intro would land on nothing.
 //
 // "prompt" (text-to-video) and "image" share ImagePipelineCreator, but they are
 // still distinct modes: the mode param drives promptOnly, which hides the photo
 // grid and advanced settings. Resuming a prompt session under ?mode=image renders
 // the wrong wizard, so the mode must be corrected even though the creator matches.
-//
-// "intro" is the Brand Intro stinger pipeline (IntroPipelineCreator). It resumes
-// like the others via ?session=&mode=intro.
-export const RESUMABLE_MODES = ["prompt", "image", "references", "intro"];
+export const RESUMABLE_MODES = ["prompt", "image", "references"];
 
 /**
  * The `?mode=` a session should be resumed under, or null if the URL already agrees

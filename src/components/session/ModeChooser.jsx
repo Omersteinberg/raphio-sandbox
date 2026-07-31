@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Sparkles, Image as ImageIcon, Wand2, Clapperboard, Check, ArrowRight } from "lucide-react";
+import { Sparkles, Image as ImageIcon, Wand2, Check, ArrowRight } from "lucide-react";
 
 // ── Design tokens (mirrors MyVideosPage) ──────────────────────────
 const C = {
@@ -40,14 +40,6 @@ const MODES = [
     pros: ["Consistent characters across scenes", "Best for videos that tell a story"],
     con: "Takes longer to set up (about 7 min)",
   },
-  {
-    id: "intro",
-    Icon: Clapperboard,
-    title: "Brand intro",
-    useCase: "A punchy ~8 second branded stinger with fast cuts, kinetic captions and your logo.",
-    pros: ["Fast cuts + animated captions", "Uses your logo and brand colours"],
-    con: "Short-form only, one quick scene per beat",
-  },
 ];
 
 /**
@@ -64,11 +56,10 @@ export default function ModeChooser({ onPick, initialMode = null }) {
     >
       <style>{`
         .mc-grid { display:grid; grid-template-columns:1fr; gap:16px; }
-        @media (min-width:640px) { .mc-grid { grid-template-columns:repeat(2,1fr); } }
-        @media (min-width:1024px) { .mc-grid { grid-template-columns:repeat(4,1fr); } }
+        @media (min-width:768px) { .mc-grid { grid-template-columns:repeat(3,1fr); } }
       `}</style>
 
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 md:py-14">
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 md:py-14">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
