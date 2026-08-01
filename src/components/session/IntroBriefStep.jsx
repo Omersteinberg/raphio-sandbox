@@ -4,7 +4,7 @@ import { Sparkles, Upload, X, Image as ImageIcon, ArrowRight, ArrowLeft, Wand2 }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { STYLE_OPTIONS } from "../../constants/styles";
+import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 
@@ -19,8 +19,8 @@ export default function IntroBriefStep({
   setDescription,
   targetAudience,
   setTargetAudience,
-  style,
-  setStyle,
+  targetDuration,
+  setTargetDuration,
   aspectRatio,
   setAspectRatio,
   brandColors,
@@ -185,32 +185,32 @@ export default function IntroBriefStep({
           </div>
         </div>
 
-        {/* Style + aspect ratio */}
+        {/* Length + aspect ratio */}
         <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-5">
           <div className="space-y-3">
             <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Visual style
+              Length
             </label>
-            <div className="flex flex-wrap gap-2">
-              {STYLE_OPTIONS.map((opt) => {
-                const active = style === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setStyle(opt.id)}
-                    className="px-3 py-2 rounded-xl text-xs font-bold border transition-all"
-                    style={
-                      active
-                        ? { background: GRADIENT, color: "#fff", borderColor: "transparent" }
-                        : { color: "#6B5E7B", borderColor: "rgba(168,162,158,0.4)" }
-                    }
-                  >
-                    <span className="mr-1">{opt.icon}</span>
-                    {opt.name}
-                  </button>
-                );
-              })}
+            <div className="flex p-1.5 rounded-2xl bg-surface-alt border border-border/30">
+              {INTRO_DURATION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTargetDuration(opt.value)}
+                  className="flex-1 py-2.5 px-2 md:px-4 rounded-xl text-xs font-bold tracking-wide transition-all"
+                  style={
+                    targetDuration === opt.value
+                      ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
+                      : { color: "#6B5E7B" }
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
+            <p className="text-xs text-ink-muted">
+              {INTRO_DURATION_OPTIONS.find((o) => o.value === targetDuration)?.desc}
+              {" · every intro costs 1 credit, whatever the length"}
+            </p>
           </div>
 
           <div className="space-y-3">

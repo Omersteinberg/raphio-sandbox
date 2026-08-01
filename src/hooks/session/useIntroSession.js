@@ -3,6 +3,7 @@ import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { getCreationDefaults } from "@/lib/preferences";
+import { DEFAULT_INTRO_DURATION } from "@/constants/introDurations";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 import { isGenerationFailed } from "@/lib/progressTasks";
 import { extractLogoColors } from "@/lib/logoColors";
@@ -53,9 +54,14 @@ export function useIntroSession() {
   const [businessName, setBusinessName] = useState("");
   const [description, setDescription] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
-  const [style, setStyle] = useState("cinematic");
-  // aspectRatio comes from useSessionBase (shared saved default + auto-save);
-  // style stays intro-specific ("cinematic") and is intentionally not persisted.
+  const [targetDuration, setTargetDuration] = useState(DEFAULT_INTRO_DURATION);
+  // aspectRatio comes from useSessionBase (shared saved default + auto-save).
+  // Length is deliberately NOT taken from there: the base default is shared with
+  // the main pipeline, whose picker runs 15/30/45/60, so a user coming off a 60s
+  // video would land the intro on a length it does not offer. Intro-local and
+  // unpersisted, the same reasoning the visual style picker used before it was
+  // removed (the intro renders motion graphics from the brand kit, so a style
+  // pick had nothing to act on).
   const [showcaseFiles, setShowcaseFiles] = useState([]);
 
   // Brand colours for the Remotion stinger. Auto-derived from the logo on upload,
@@ -124,7 +130,7 @@ export function useIntroSession() {
       const created = await sessionService.startSession({
         userPrompt: description || businessName,
         pipelineMode: "intro",
-        style,
+        targetDuration,
         voiceId,
         aspectRatio,
       });
@@ -140,7 +146,7 @@ export function useIntroSession() {
       }
       setScriptProgress(55);
 
-      await sessionService.saveIntroBrief(created.id, { businessName, description, targetAudience, style, brandColors });
+      await sessionService.saveIntroBrief(created.id, { businessName, description, targetAudience, brandColors });
       setScriptProgress(70);
 
       const withScript = await sessionService.generateIntroScript(created.id);
@@ -172,7 +178,7 @@ export function useIntroSession() {
     } finally {
       setLoading(false);
     }
-  }, [logoFile, businessName, description, targetAudience, style, voiceId, aspectRatio, showcaseFiles, brandColors, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logoFile, businessName, description, targetAudience, targetDuration, voiceId, aspectRatio, showcaseFiles, brandColors, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save current local edits to the backend
   const saveScriptEdits = useCallback(async () => {
@@ -253,7 +259,7 @@ export function useIntroSession() {
     setBusinessName("");
     setDescription("");
     setTargetAudience("");
-    setStyle("cinematic");
+    setTargetDuration(DEFAULT_INTRO_DURATION);
     setAspectRatio(getCreationDefaults().aspectRatio);
     setShowcaseFiles([]);
     setBrandColors(null);
@@ -275,7 +281,9 @@ export function useIntroSession() {
     businessName, setBusinessName,
     description, setDescription,
     targetAudience, setTargetAudience,
-    style, setStyle,
+    // After ...base on purpose: the base exposes its own shared targetDuration and
+    // the intro pipeline's local one has to win.
+    targetDuration, setTargetDuration,
     aspectRatio, setAspectRatio,
     brandColors, setBrandColor,
     showcaseFiles, setShowcaseFiles,
