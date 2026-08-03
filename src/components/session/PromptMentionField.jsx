@@ -20,6 +20,11 @@ const TYPE_LABEL = {
   logo: 'Logo',
   product: 'Product',
   image: 'Scene',
+  // Intro uploads are whatever the business happens to have: a product shot, a
+  // screenshot, a photo of a van. "Scene" and "Product" both misname most of them.
+  upload: 'Upload',
+  // An intro beat: a scene type the user is asking for by name.
+  beat: 'Beat',
 };
 
 const TYPE_DOT = {
@@ -28,6 +33,8 @@ const TYPE_DOT = {
   logo: '#2563EB',
   product: '#059669',
   image: '#C1440E',
+  upload: '#C1440E',
+  beat: '#7C3AED',
 };
 
 export default function PromptMentionField({ value = "", onChange, references = [], title = "Your references", ...props }) {

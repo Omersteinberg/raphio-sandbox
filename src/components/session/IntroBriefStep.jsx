@@ -1,14 +1,232 @@
-import { useRef, useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Sparkles, Upload, X, Image as ImageIcon, ArrowRight, ArrowLeft, Wand2 } from "lucide-react";
+import { useRef, useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Sparkles, X, Image as ImageIcon, ArrowRight, ArrowLeft,
+  Lightbulb, Clock, Palette, Plus, ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import PromptMentionField from "./PromptMentionField";
+import { fetchIntroScenes } from "@/services/session";
 import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 
 const GRADIENT = "var(--gradient-brand)";
+const MAX_SHOWCASE = 4;
+
+// Worked briefs for the "Help me start" menu. A blank box is the main reason a
+// brief comes back as "we do plumbing", and a vague brief can only produce a
+// vague intro, so these model the three things the script actually needs: what
+// you do, where, and who for.
+// Directive rather than descriptive: these name the shots in order, because that
+// is the brief that produces the video someone pictured. The @names refer to
+// uploads, so each example doubles as a demonstration of the mention syntax.
+// Every @ name below is either an upload the brief also describes, or a real beat
+// from the catalog. Nothing here asks for something the engine cannot build:
+// a brief that promises a conversion chart pulled out of a screenshot teaches
+// people to write briefs that come back disappointing.
+const EXAMPLES = [
+  {
+    label: "Heating engineer",
+    text: "Gas Safe heating engineers in Manchester. Open on @chat with someone asking about a leak on a Sunday, then @rating, then @service_area for how far we travel, ending on @contact.",
+  },
+  {
+    label: "Hair studio",
+    text: "A two chair studio in Leeds doing colour corrections. Start with @before_after of a colour, then @price from £49, then @quote from a regular, ending on @logo.",
+  },
+  {
+    label: "App demo",
+    text: "A demo of our app. Open on @dashboard, click into @analytics, then @metrics for the numbers that matter, then @features for what you get, ending on @cta.",
+  },
+  {
+    label: "Garden design",
+    text: "Garden design and build across Surrey. @steps for how a job runs, then @before_after of a patio, then @timeline for the years we have been at it, ending on @contact.",
+  },
+];
+
+// The placeholder types the whole brief, not an abbreviation of it: the point is
+// to show the level of detail that produces a good script, and a half sentence
+// demonstrates the opposite.
+const HINTS = EXAMPLES.map((e) => e.text);
+const CARET = "▌";
+
+const MAX_NAME = 24;
+
+/**
+ * Keystroke-level cleanup: keeps the field a valid one-token name while it is
+ * being typed.
+ *
+ * Deliberately does NOT trim trailing separators and does NOT strip a file
+ * extension, both of which belong to the blur pass. Doing either per keystroke
+ * makes an underscore impossible to type, because "reports_" is tidied back to
+ * "reports" before the next character arrives, and turns "v2.1" into "v2".
+ */
+function sanitizeMentionInput(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, MAX_NAME);
+}
+
+/** Blur-level cleanup: tidy the ends, and never leave the field empty. */
+function tidyMentionName(value, index) {
+  const slug = sanitizeMentionInput(value).replace(/^_+|_+$/g, "");
+  return slug || `photo_${index + 1}`;
+}
+
+/**
+ * A filename turned into a default name. "Dashboard Screen.png" becomes
+ * "dashboard_screen", so the default is already the name the user would pick.
+ *
+ * `taken` de-duplicates: two uploads answering to the same @name would leave the
+ * model guessing which imageIndex a mention meant, and it has no way to be right.
+ */
+function toMentionName(filename, index, taken = []) {
+  const base = String(filename || "").replace(/\.[^.]+$/, "");
+  const slug = tidyMentionName(base, index);
+  if (!taken.includes(slug)) return slug;
+  for (let n = 2; n < 50; n += 1) {
+    const candidate = `${slug}_${n}`.slice(0, MAX_NAME);
+    if (!taken.includes(candidate)) return candidate;
+  }
+  return `photo_${index + 1}`;
+}
+
+/** Default names for a file list, each de-duplicated against the ones before it. */
+function defaultNamesFor(files) {
+  const out = [];
+  (files || []).forEach((f, i) => out.push(toMentionName(f?.name, i, out)));
+  return out;
+}
+
+// Paced for a full length brief. At the 45ms that suited a short line, 165
+// characters took seven seconds to appear and the box never sat still. Erasing is
+// always faster than typing: nobody needs to read it on the way out.
+const TYPE_MS = 26;
+const ERASE_MS = 10;
+const HOLD_MS = 1800;
+const GAP_MS = 400;
+const LEAD_MS = 600;
+
+/**
+ * Cycle the phrases through the placeholder, typing then erasing each one.
+ *
+ * Runs on one chained timeout rather than an interval so the typing, holding and
+ * erasing phases can each have their own pace, and so nothing is queued up behind
+ * a slow frame.
+ *
+ * Returns null when it is not running, and a string when it is. The distinction
+ * matters: the string is legitimately empty twice per cycle, once before the first
+ * character and once between phrases, and treating empty as "not running" flashes
+ * the caller's static fallback for half a second every rotation.
+ */
+function useTypedPlaceholder(phrases, enabled) {
+  const [typed, setTyped] = useState(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setTyped(null);
+      return undefined;
+    }
+    // Someone who has asked for less motion gets a plain placeholder, not a
+    // slower one.
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      setTyped(null);
+      return undefined;
+    }
+    setTyped("");
+
+    let phrase = 0;
+    let chars = 0;
+    let erasing = false;
+    let timer;
+
+    const tick = () => {
+      const full = phrases[phrase];
+      chars += erasing ? -1 : 1;
+      setTyped(full.slice(0, chars));
+
+      if (!erasing && chars === full.length) {
+        erasing = true;
+        timer = setTimeout(tick, HOLD_MS);
+      } else if (erasing && chars === 0) {
+        erasing = false;
+        phrase = (phrase + 1) % phrases.length;
+        timer = setTimeout(tick, GAP_MS);
+      } else {
+        timer = setTimeout(tick, erasing ? ERASE_MS : TYPE_MS);
+      }
+    };
+
+    timer = setTimeout(tick, LEAD_MS);
+    return () => clearTimeout(timer);
+  }, [phrases, enabled]);
+
+  return typed;
+}
+
+/**
+ * One control in the row under the prompt. `attention` is for the logo before it
+ * is set: the intro cannot be generated without one, and a plain pill in a row of
+ * optional pills gives no sign of that.
+ */
+const Pill = ({ icon: Icon, label, detail, open, filled, attention, onClick, controls }) => {
+  const tone = attention
+    ? "border-[var(--terra)]/55 bg-[var(--terra)]/8 text-[var(--terra)]"
+    : open || filled
+      ? "border-[var(--terra)]/45 bg-[var(--terra)]/6 text-[var(--terra)]"
+      : "border-border/70 bg-white text-[#6B5E7B] hover:border-[var(--terra)]/40 hover:text-[var(--terra)]";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={controls ? open : undefined}
+      aria-controls={controls}
+      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${tone}`}
+    >
+      {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" /> : null}
+      <span>{label}</span>
+      {detail ? <span className="font-semibold opacity-70">{detail}</span> : null}
+    </button>
+  );
+};
+
+// The region a pill opens, inside the card rather than floating over it. No
+// portal, no z-index, and it stays put on a phone keyboard.
+const Panel = ({ id, children }) => (
+  <motion.div
+    id={id}
+    initial={{ opacity: 0, height: 0 }}
+    animate={{ opacity: 1, height: "auto" }}
+    exit={{ opacity: 0, height: 0 }}
+    transition={{ duration: 0.18, ease: "easeOut" }}
+    className="overflow-hidden"
+  >
+    <div className="mt-3 rounded-2xl bg-surface-alt border border-border/30 p-4">{children}</div>
+  </motion.div>
+);
+
+const PanelLabel = ({ children }) => (
+  <p className="text-[11px] font-bold uppercase tracking-widest text-ink-muted mb-3">{children}</p>
+);
+
+// The segmented control shared by length and aspect ratio.
+const Segments = ({ options, value, onChange, render }) => (
+  <div className="flex p-1.5 rounded-xl bg-white border border-border/40">
+    {options.map((opt) => (
+      <button
+        key={opt.key}
+        type="button"
+        onClick={() => onChange(opt.key)}
+        className="flex-1 py-2 px-2 md:px-3 rounded-lg text-xs font-bold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+        style={
+          value === opt.key
+            ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(193,68,14,0.25)" }
+            : { color: "#6B5E7B" }
+        }
+      >
+        {render(opt)}
+      </button>
+    ))}
+  </div>
+);
 
 export default function IntroBriefStep({
   logoFile,
@@ -17,8 +235,6 @@ export default function IntroBriefStep({
   setBusinessName,
   description,
   setDescription,
-  targetAudience,
-  setTargetAudience,
   targetDuration,
   setTargetDuration,
   aspectRatio,
@@ -27,6 +243,8 @@ export default function IntroBriefStep({
   setBrandColor,
   showcaseFiles,
   setShowcaseFiles,
+  showcaseLabels,
+  setShowcaseLabels,
   loading,
   error,
   onContinue,
@@ -37,6 +255,28 @@ export default function IntroBriefStep({
 
   const [logoPreview, setLogoPreview] = useState(null);
   const [showcasePreviews, setShowcasePreviews] = useState([]);
+  // Only one panel is open at a time: two open at once pushes the Continue button
+  // off a phone screen.
+  const [panel, setPanel] = useState(null);
+  const toggle = (name) => setPanel((cur) => (cur === name ? null : name));
+
+  // The placeholder only animates on an untouched, unfocused box. Once someone is
+  // about to type, motion behind the caret is just noise, and the placeholder is
+  // not visible at all once there is any text.
+  const [focused, setFocused] = useState(false);
+
+  // The mentionable beats. A failure here is not worth an error state: the brief
+  // still works, @ just offers uploads only.
+  const [beats, setBeats] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchIntroScenes()
+      .then((list) => { if (!cancelled && Array.isArray(list)) setBeats(list); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const animating = !description && !focused;
+  const typed = useTypedPlaceholder(HINTS, animating);
 
   useEffect(() => {
     if (!logoFile) {
@@ -54,26 +294,76 @@ export default function IntroBriefStep({
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [showcaseFiles]);
 
+  // Memoised because these feed the mention list: as bare `x || []` expressions
+  // they get a new identity every render and the memo below never holds.
+  const photos = useMemo(() => showcaseFiles || [], [showcaseFiles]);
   const canStart = !!logoFile && description.trim().length > 0;
+  const duration = INTRO_DURATION_OPTIONS.find((o) => o.value === targetDuration);
 
   const pickLogo = (file) => {
     const valid = validateImageFile(file);
     if (valid) setLogoFile(valid);
   };
 
+  // Names are held parallel to the files, and every mutation rewrites both so an
+  // index never points at another photo's name.
+  const labels = useMemo(() => showcaseLabels || [], [showcaseLabels]);
+  const defaults = useMemo(() => defaultNamesFor(photos), [photos]);
+  const nameFor = (i) => labels[i] || defaults[i] || `photo_${i + 1}`;
+
+  // Two photos answering to one @name is unresolvable at generation time, so it is
+  // surfaced here rather than silently picking one.
+  const names = photos.map((_, i) => nameFor(i));
+  const clashes = new Set(names.filter((n, i) => names.indexOf(n) !== i));
+
   const addShowcase = (files) => {
     const imgs = filterValidImages(files);
-    if (imgs.length) setShowcaseFiles([...(showcaseFiles || []), ...imgs].slice(0, 4));
+    if (!imgs.length) return;
+    const next = [...photos, ...imgs].slice(0, MAX_SHOWCASE);
+    const fresh = defaultNamesFor(next);
+    setShowcaseFiles(next);
+    setShowcaseLabels(next.map((f, i) => labels[i] || fresh[i]));
   };
 
-  const removeShowcase = (i) =>
-    setShowcaseFiles((showcaseFiles || []).filter((_, idx) => idx !== i));
+  const removeShowcase = (i) => {
+    setShowcaseFiles(photos.filter((_, idx) => idx !== i));
+    setShowcaseLabels(photos.map((_, idx) => nameFor(idx)).filter((_, idx) => idx !== i));
+  };
+
+  const renameShowcase = (i, value) => {
+    const next = photos.map((_, idx) => nameFor(idx));
+    next[i] = value;
+    setShowcaseLabels(next);
+  };
+
+  // What the @ dropdown offers: the pictures you uploaded, and the beats the
+  // engine can build. Beats come from the catalog over the wire so a renamed
+  // scene cannot leave a dead name here.
+  const mentionTargets = useMemo(() => {
+    const uploads = photos.map((f, i) => ({
+      id: `photo-${i}`,
+      name: labels[i] || toMentionName(f?.name, i),
+      type: "upload",
+      preview: showcasePreviews[i],
+    }));
+    const usable = beats.filter((b) => {
+      // A beat that needs pictures is only worth offering once there are enough
+      // of them. @before_after with one photo would be asked for and dropped.
+      if (b.requires === "product") return photos.length >= 2;
+      if (b.requires === "screenshot") return photos.length >= 1;
+      return true;
+    });
+    return [
+      ...uploads,
+      ...usable.map((b) => ({ id: `beat-${b.type}`, name: b.mention, type: "beat", description: b.summary })),
+    ];
+  }, [photos, labels, showcasePreviews, beats]);
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-5">
         {/* Header */}
-        <div className="text-center space-y-3">
+        <div className="text-center space-y-2">
           {onModeChange && (
             <button
               onClick={() => onModeChange("image")}
@@ -83,246 +373,333 @@ export default function IntroBriefStep({
               Other pipelines
             </button>
           )}
-          <div
-            className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #FFF5EE, #F5EEFF)" }}
-          >
-            <Wand2 className="w-6 h-6 text-[var(--terra)]" />
-          </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#2D2235]">
-            Create a Brand Intro
+            Create a brand intro
           </h1>
           <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed">
-            Upload your logo and tell us about your business, we’ll generate a short montage
-            that swirls into your logo reveal.
+            Your logo and a sentence about the business. We write the script, animate it and
+            land on your logo.
           </p>
         </div>
 
-        {/* Logo dropzone (required) */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
-          <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-            Logo <span className="text-[var(--terra)]">*</span>
-          </label>
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept={ACCEPTED_IMAGE_ACCEPT}
-            className="hidden"
-            onChange={(e) => {
-              pickLogo(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
-          {logoFile && logoPreview ? (
-            <div className="relative inline-flex items-center gap-4 w-full">
-              <div className="w-24 h-24 rounded-2xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
-                <img src={logoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#2D2235] truncate">{logoFile.name}</p>
-                <button
-                  onClick={() => setLogoFile(null)}
-                  className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => logoInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                pickLogo(Array.from(e.dataTransfer.files || [])[0]);
-              }}
-              className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer hover:border-terra/60 hover:bg-terra/5 transition-all"
-            >
-              <Upload className="w-9 h-9 text-[var(--terra)] mx-auto mb-2" />
-              <p className="text-sm font-semibold text-[#2D2235]">Drop your logo or click to upload</p>
-              <p className="text-xs text-ink-muted mt-1">PNG or JPG · transparent background works best</p>
-            </div>
-          )}
-        </div>
+        {/* Hidden pickers, driven by the pills below */}
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept={ACCEPTED_IMAGE_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            pickLogo(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={showcaseInputRef}
+          type="file"
+          accept={ACCEPTED_IMAGE_ACCEPT}
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            addShowcase(Array.from(e.target.files || []));
+            e.target.value = "";
+          }}
+        />
 
-        {/* Business brief */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-5">
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Business name
+        {/* The brief: one card, everything in it */}
+        <div className="bg-white rounded-3xl border border-border/60 shadow-xs p-5 md:p-7">
+          <div className="flex items-start justify-between gap-3">
+            <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted pt-1">
+              Tell us about your business
             </label>
-            <Input
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Raphio"
-              className="rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 bg-surface"
-            />
+            <button
+              type="button"
+              onClick={() => toggle("examples")}
+              aria-expanded={panel === "examples"}
+              aria-controls="panel-examples"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-1 py-0.5 shrink-0"
+            >
+              <Lightbulb className="w-4 h-4" />
+              Help me start
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${panel === "examples" ? "rotate-180" : ""}`} />
+            </button>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              What does your business do? <span className="text-[var(--terra)]">*</span>
-            </label>
-            <Textarea
+          <AnimatePresence initial={false}>
+            {panel === "examples" && (
+              <Panel id="panel-examples">
+                <PanelLabel>Start from one of these</PanelLabel>
+                <div className="space-y-2">
+                  {EXAMPLES.map((ex) => (
+                    <button
+                      key={ex.label}
+                      type="button"
+                      onClick={() => {
+                        setDescription(ex.text);
+                        setPanel(null);
+                      }}
+                      className="w-full text-left rounded-xl bg-white border border-border/40 px-3.5 py-3 hover:border-[var(--terra)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                    >
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--terra)]">{ex.label}</p>
+                      <p className="text-xs text-[#6B5E7B] leading-relaxed mt-1">{ex.text}</p>
+                    </button>
+                  ))}
+                </div>
+              </Panel>
+            )}
+          </AnimatePresence>
+
+          {/* Business name. Visible rather than folded into the prompt because it is
+              set on screen in the video and in the corner of every scene. */}
+          <input
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Business name"
+            aria-label="Business name"
+            className="mt-4 w-full bg-transparent border-0 outline-none text-xl md:text-2xl font-black tracking-tight text-[#2D2235] placeholder:text-[#C9C0D3] placeholder:font-bold"
+          />
+          <div className="h-px bg-border/50 my-3" />
+
+          {/* `relative` is what the @ dropdown positions against, and the focus
+              handlers live here rather than on the field because
+              PromptMentionField sets its own onBlur after spreading props. Focus
+              events bubble, so the wrapper sees both. */}
+          <div
+            className="relative"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          >
+            <PromptMentionField
+              id="intro-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., An AI app that creates different kinds of marketing videos for small businesses."
-              className="w-full min-h-[110px] rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 resize-none bg-surface leading-relaxed"
+              references={mentionTargets}
+              title="Your uploads"
+              // Focusing settles the half-typed line into a whole one rather than
+              // freezing it mid-word.
+              placeholder={typed === null ? EXAMPLES[0].text : `${typed}${CARET}`}
+              className="w-full min-h-[128px] md:min-h-[148px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-[15px] leading-relaxed placeholder:text-[#A99FB5]"
+              style={{ color: "#2D2235" }}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Target audience
-            </label>
-            <Input
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
-              placeholder="small businesses & creators"
-              className="rounded-2xl border-border focus:border-terra/40 focus:ring-terra/30 bg-surface"
-            />
-          </div>
-        </div>
-
-        {/* Length + aspect ratio */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-5">
-          <div className="space-y-3">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Length
-            </label>
-            <div className="flex p-1.5 rounded-2xl bg-surface-alt border border-border/30">
-              {INTRO_DURATION_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setTargetDuration(opt.value)}
-                  className="flex-1 py-2.5 px-2 md:px-4 rounded-xl text-xs font-bold tracking-wide transition-all"
-                  style={
-                    targetDuration === opt.value
-                      ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
-                      : { color: "#6B5E7B" }
-                  }
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-ink-muted">
-              {INTRO_DURATION_OPTIONS.find((o) => o.value === targetDuration)?.desc}
-              {" · every intro costs 1 credit, whatever the length"}
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Aspect ratio
-            </label>
-            <div className="flex p-1.5 rounded-2xl bg-surface-alt border border-border/30">
-              {ASPECT_RATIO_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setAspectRatio(opt.id)}
-                  className="flex-1 py-2.5 px-2 md:px-4 rounded-xl text-xs font-bold tracking-wide transition-all"
-                  style={
-                    aspectRatio === opt.id
-                      ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(249,112,102,0.25)" }
-                      : { color: "#6B5E7B" }
-                  }
-                >
-                  <span className="mr-1">{opt.icon}</span>
-                  {opt.name} · {opt.id}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Brand colours (auto-filled from logo, editable) */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Brand colours
-            </label>
-            <span className="text-xs text-ink-muted font-medium">Captions &amp; end card</span>
-          </div>
-          <div className="flex flex-wrap gap-5">
-            {[
-              { key: "primary", label: "Primary", fallback: "#F97066" },
-              { key: "secondary", label: "Accent", fallback: "#FB923C" },
-            ].map(({ key, label, fallback }) => {
-              const value = (brandColors && brandColors[key]) || fallback;
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  <label
-                    className="relative w-11 h-11 rounded-2xl border border-border overflow-hidden cursor-pointer shrink-0"
-                    style={{ background: value }}
-                  >
-                    <input
-                      type="color"
-                      value={value}
-                      onChange={(e) => setBrandColor && setBrandColor(key, e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      aria-label={`${label} brand colour`}
-                    />
-                  </label>
-                  <div>
-                    <p className="text-xs font-bold text-[#2D2235]">{label}</p>
-                    <p className="text-xs text-ink-muted font-mono uppercase">{value}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-xs text-ink-muted">Pulled from your logo. Tweak to match your brand.</p>
-        </div>
-
-        {/* Optional showcase images */}
-        <div className="bg-white rounded-3xl p-4 md:p-6 border border-border/60 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink-muted">
-              Showcase images <span className="text-ink-muted normal-case font-medium tracking-normal">(optional)</span>
-            </label>
-            <span className="text-xs text-ink-muted font-medium">{(showcaseFiles || []).length} / 4</span>
-          </div>
-          <input
-            ref={showcaseInputRef}
-            type="file"
-            accept={ACCEPTED_IMAGE_ACCEPT}
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              addShowcase(Array.from(e.target.files || []));
-              e.target.value = "";
-            }}
-          />
-          <div className="grid grid-cols-4 gap-3">
-            {showcasePreviews.map((url, i) => (
-              <motion.div
-                key={url}
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative group aspect-square"
-              >
-                <img src={url} alt={`Showcase ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-border" />
-                <button
-                  onClick={() => removeShowcase(i)}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </motion.div>
-            ))}
-            {(showcaseFiles || []).length < 4 && (
+          {/* Controls */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${
+                logoFile
+                  ? "border-[var(--terra)]/45 bg-[var(--terra)]/6 text-[var(--terra)]"
+                  : "border-[var(--terra)]/55 bg-[var(--terra)]/8 text-[var(--terra)]"
+              }`}
+            >
+              {logoFile && logoPreview ? (
+                <>
+                  <img src={logoPreview} alt="" className="w-5 h-5 rounded object-contain bg-white" />
+                  <span className="max-w-[9rem] truncate">{logoFile.name}</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add logo</span>
+                  <span aria-hidden="true">*</span>
+                </>
+              )}
+            </button>
+            {logoFile && (
               <button
-                onClick={() => showcaseInputRef.current?.click()}
-                className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-terra/60 hover:bg-terra/5 transition-all"
+                type="button"
+                onClick={() => setLogoFile(null)}
+                aria-label="Remove logo"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-border/70 text-[#6B5E7B] hover:text-red-500 hover:border-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
               >
-                <ImageIcon className="w-6 h-6 mb-1" />
-                <span className="text-[10px] font-bold">Add</span>
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
+
+            <Pill
+              icon={ImageIcon}
+              label="Photos"
+              detail={photos.length ? `${photos.length}/${MAX_SHOWCASE}` : undefined}
+              open={panel === "photos"}
+              filled={photos.length > 0}
+              onClick={() => toggle("photos")}
+              controls="panel-photos"
+            />
+            <Pill
+              icon={Clock}
+              label={`${targetDuration} seconds`}
+              open={panel === "length"}
+              onClick={() => toggle("length")}
+              controls="panel-length"
+            />
+            <Pill
+              label={ASPECT_RATIO_OPTIONS.find((o) => o.id === aspectRatio)?.icon || "▭"}
+              detail={aspectRatio}
+              open={panel === "ratio"}
+              onClick={() => toggle("ratio")}
+              controls="panel-ratio"
+            />
+            <Pill
+              icon={Palette}
+              label="Colours"
+              open={panel === "colours"}
+              onClick={() => toggle("colours")}
+              controls="panel-colours"
+            />
           </div>
-          <p className="text-xs text-ink-muted">Real photos of your product, space or work to feature in the montage.</p>
+
+          <AnimatePresence initial={false}>
+            {panel === "photos" && (
+              <Panel id="panel-photos">
+                <PanelLabel>Photos of your product, space or work</PanelLabel>
+                {photos.length === 0 ? (
+                  // A lone quarter-width tile in an empty four column grid reads as
+                  // a rendering mistake. Empty gets its own full width target.
+                  <button
+                    type="button"
+                    onClick={() => showcaseInputRef.current?.click()}
+                    className="w-full rounded-xl border-2 border-dashed border-border py-7 flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                  >
+                    <ImageIcon className="w-6 h-6 mb-1.5" />
+                    <span className="text-xs font-bold">Add up to {MAX_SHOWCASE} photos</span>
+                  </button>
+                ) : (
+                <div className="grid grid-cols-4 gap-3">
+                  {showcasePreviews.map((url, i) => (
+                    <motion.div
+                      key={url}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="space-y-1.5"
+                    >
+                      <div className="relative group aspect-square">
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-border" />
+                        <button
+                          type="button"
+                          onClick={() => removeShowcase(i)}
+                          aria-label={`Remove photo ${i + 1}`}
+                          className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center shadow"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {/* The name is the whole point of the grid now: it is what an
+                          @mention in the brief binds to. */}
+                      <div
+                        className="flex items-center rounded-lg bg-white border px-1.5 focus-within:border-[var(--terra)]/50"
+                        style={{ borderColor: clashes.has(nameFor(i)) ? "#EF4444" : undefined }}
+                      >
+                        <span className="text-xs font-bold text-[var(--terra)]">@</span>
+                        <input
+                          value={nameFor(i)}
+                          onChange={(e) => renameShowcase(i, sanitizeMentionInput(e.target.value))}
+                          onBlur={() => renameShowcase(i, tidyMentionName(nameFor(i), i))}
+                          maxLength={MAX_NAME}
+                          aria-label={`Name for photo ${i + 1}`}
+                          className="w-full bg-transparent border-0 outline-none py-1 text-[11px] font-bold text-[#2D2235] min-w-0"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                  {photos.length < MAX_SHOWCASE && (
+                    <button
+                      type="button"
+                      onClick={() => showcaseInputRef.current?.click()}
+                      className="aspect-square self-start rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                    >
+                      <ImageIcon className="w-5 h-5 mb-1" />
+                      <span className="text-[10px] font-bold">Add</span>
+                    </button>
+                  )}
+                </div>
+                )}
+                {clashes.size > 0 && (
+                  <p className="text-xs font-bold text-red-500 mt-3">
+                    Two photos share a name. Give each one its own, or an @mention cannot tell
+                    them apart.
+                  </p>
+                )}
+                <p className="text-xs text-ink-muted mt-3">
+                  Name each one to call it out in the brief with @, like @dashboard. Unnamed
+                  photos still get used, we just choose where. Skip photos entirely and we
+                  build from type and motion.
+                </p>
+              </Panel>
+            )}
+
+            {panel === "length" && (
+              <Panel id="panel-length">
+                <PanelLabel>Length</PanelLabel>
+                <Segments
+                  options={INTRO_DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
+                  value={targetDuration}
+                  onChange={setTargetDuration}
+                  render={(o) => o.label}
+                />
+                <p className="text-xs text-ink-muted mt-3">
+                  {duration?.desc}. Every intro costs 1 credit, whatever the length.
+                </p>
+              </Panel>
+            )}
+
+            {panel === "ratio" && (
+              <Panel id="panel-ratio">
+                <PanelLabel>Aspect ratio</PanelLabel>
+                <Segments
+                  options={ASPECT_RATIO_OPTIONS.map((o) => ({ ...o, key: o.id }))}
+                  value={aspectRatio}
+                  onChange={setAspectRatio}
+                  render={(o) => (
+                    <>
+                      <span className="mr-1">{o.icon}</span>
+                      {o.name} · {o.id}
+                    </>
+                  )}
+                />
+                <p className="text-xs text-ink-muted mt-3">
+                  {ASPECT_RATIO_OPTIONS.find((o) => o.id === aspectRatio)?.description}
+                </p>
+              </Panel>
+            )}
+
+            {panel === "colours" && (
+              <Panel id="panel-colours">
+                <PanelLabel>Brand colours</PanelLabel>
+                <div className="flex flex-wrap gap-5">
+                  {[
+                    { key: "primary", label: "Primary", fallback: "#F97066" },
+                    { key: "secondary", label: "Accent", fallback: "#FB923C" },
+                  ].map(({ key, label, fallback }) => {
+                    const value = (brandColors && brandColors[key]) || fallback;
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <label
+                          className="relative w-11 h-11 rounded-2xl border border-border overflow-hidden cursor-pointer shrink-0"
+                          style={{ background: value }}
+                        >
+                          <input
+                            type="color"
+                            value={value}
+                            onChange={(e) => setBrandColor && setBrandColor(key, e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            aria-label={`${label} brand colour`}
+                          />
+                        </label>
+                        <div>
+                          <p className="text-xs font-bold text-[#2D2235]">{label}</p>
+                          <p className="text-xs text-ink-muted font-mono uppercase">{value}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-ink-muted mt-3">
+                  Pulled from your logo, and used across every scene. Tweak to match your brand.
+                </p>
+              </Panel>
+            )}
+          </AnimatePresence>
         </div>
 
         {error && (
@@ -354,7 +731,15 @@ export default function IntroBriefStep({
             </span>
           )}
         </Button>
-        <p className="text-center text-xs text-ink-muted">1 credit · ~8 second intro with music</p>
+
+        {/* A disabled button with no reason is the commonest dead end in a form. */}
+        <p className="text-center text-xs text-ink-muted">
+          {!logoFile
+            ? "Add your logo to continue"
+            : !description.trim()
+              ? "Describe your business to continue"
+              : `1 credit · ${targetDuration} second intro with music`}
+        </p>
       </div>
     </div>
   );
