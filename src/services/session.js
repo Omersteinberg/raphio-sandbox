@@ -690,6 +690,15 @@ export async function fetchStyles() {
 }
 
 /**
+ * The beats an intro brief can name with an @, e.g. "@rating".
+ * Returns [{ mention, type, summary, requires }].
+ */
+export async function fetchIntroScenes() {
+  const response = await axios.get(`${API_BASE}/intro-scenes`);
+  return response.data;
+}
+
+/**
  * Delete session
  */
 export async function deleteSession(sessionId) {

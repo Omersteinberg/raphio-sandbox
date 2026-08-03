@@ -8,19 +8,42 @@ import VoiceSelector from "./VoiceSelector";
 const GRADIENT = "var(--gradient-brand)";
 
 // Scene templates + their editable fields. Mirrors src/prompts/introPrompt.js and
-// the Remotion scene components. `lines` renders a mini list editor.
-const SCENE_TYPES = ["LOGO_INTRO", "STATEMENT", "STAT", "TYPOGRAPHY", "BRAND_CARD", "CTA"];
+// the Remotion scene components. Field `type`: text (default), num, list (string[]),
+// numlist (number[]), or pairs (object[] with `cols`). Product-photo scenes
+// (PRODUCT_*) are edited elsewhere, so they are intentionally not in this picker.
+const SCENE_TYPES = [
+  "LOGO_INTRO", "STATEMENT", "TYPOGRAPHY", "STAT", "BRAND_CARD", "CTA",
+  "CARD_GRID", "PHONE_MOCKUP", "SEARCH_BAR", "DASHBOARD",
+  "METRIC_GRID", "GAUGE", "BAR_CHART", "FEATURE_LIST", "WORD_ROLLER", "LOGO_WALL",
+  "CODE_WINDOW", "NOTIFICATION", "QUOTE", "COMPARISON", "CURSOR_DEMO",
+];
 const SCENE_LABELS = {
   LOGO_INTRO: "Logo intro",
   STATEMENT: "Statement",
-  STAT: "Stat card",
   TYPOGRAPHY: "Typography",
+  STAT: "Stat card",
   BRAND_CARD: "Brand card",
   CTA: "Call to action",
+  CARD_GRID: "Card grid",
+  PHONE_MOCKUP: "Phone mockup",
+  SEARCH_BAR: "Search bar",
+  DASHBOARD: "Dashboard",
+  METRIC_GRID: "Metric grid",
+  GAUGE: "Gauge",
+  BAR_CHART: "Bar chart",
+  FEATURE_LIST: "Feature list",
+  WORD_ROLLER: "Word roller",
+  LOGO_WALL: "Logo wall",
+  CODE_WINDOW: "Code window",
+  NOTIFICATION: "Notifications",
+  QUOTE: "Testimonial",
+  COMPARISON: "Comparison",
+  CURSOR_DEMO: "Cursor demo",
 };
 const SCENE_FIELDS = {
   LOGO_INTRO: [{ key: "title", label: "Title", ph: "Brand name" }, { key: "pill", label: "Pill", ph: "Now in beta" }],
-  STATEMENT: [{ key: "lines", label: "Lines", type: "lines" }],
+  STATEMENT: [{ key: "lines", label: "Lines", type: "list" }],
+  TYPOGRAPHY: [{ key: "headline", label: "Word", ph: "Effortless" }, { key: "effectLabel", label: "Effect label", ph: "Effect: Motion" }],
   STAT: [
     { key: "label", label: "Label", ph: "Total growth" },
     { key: "value", label: "Value", ph: "99%" },
@@ -28,9 +51,38 @@ const SCENE_FIELDS = {
     { key: "sub", label: "Note", ph: "this month" },
     { key: "badge", label: "Badge", ph: "Live" },
   ],
-  TYPOGRAPHY: [{ key: "headline", label: "Word", ph: "Effortless" }, { key: "effectLabel", label: "Effect label", ph: "Effect: Motion" }],
   BRAND_CARD: [{ key: "title", label: "Title", ph: "On brand, every time" }, { key: "footer", label: "Footer", ph: "Auto-styled" }],
   CTA: [{ key: "tagline", label: "Tagline", ph: "Make it move." }, { key: "url", label: "URL", ph: "raphio.ai" }],
+  CARD_GRID: [{ key: "title", label: "Title", ph: "Your brand kit" }, { key: "cards", label: "Cards", type: "list" }],
+  PHONE_MOCKUP: [{ key: "title", label: "Title", ph: "System Overview" }, { key: "rows", label: "Rows", type: "list" }, { key: "caption", label: "Caption", ph: "optional" }],
+  SEARCH_BAR: [{ key: "query", label: "Query", ph: "brand guidelines" }, { key: "caption", label: "Caption", ph: "Find anything, instantly" }],
+  DASHBOARD: [
+    { key: "title", label: "Title", ph: "Brand OS" },
+    { key: "metric", label: "Metric", ph: "94%" },
+    { key: "metricLabel", label: "Metric label", ph: "Brand Health" },
+    { key: "tiles", label: "Tiles", type: "list" },
+  ],
+  METRIC_GRID: [{ key: "metrics", label: "Metrics", type: "pairs", cols: [{ k: "value", ph: "10k" }, { k: "label", ph: "Users" }] }],
+  GAUGE: [{ key: "value", label: "Value", ph: "94%" }, { key: "label", label: "Label", ph: "Brand Health" }],
+  BAR_CHART: [{ key: "values", label: "Values", type: "numlist" }, { key: "labels", label: "Labels", type: "list" }, { key: "caption", label: "Caption", ph: "Growth every month" }],
+  FEATURE_LIST: [{ key: "title", label: "Title", ph: "Everything included" }, { key: "items", label: "Items", type: "list" }],
+  WORD_ROLLER: [{ key: "prefix", label: "Prefix", ph: "Built for" }, { key: "words", label: "Words", type: "list" }, { key: "suffix", label: "Suffix", ph: "optional" }],
+  LOGO_WALL: [{ key: "title", label: "Title", ph: "Connected agents" }, { key: "labels", label: "Labels", type: "list" }],
+  CODE_WINDOW: [{ key: "filename", label: "File", ph: "app.ts" }, { key: "lines", label: "Code", type: "list" }, { key: "caption", label: "Caption", ph: "optional" }],
+  NOTIFICATION: [{ key: "items", label: "Items", type: "list" }, { key: "caption", label: "Caption", ph: "optional" }],
+  QUOTE: [
+    { key: "quote", label: "Quote", ph: "It changed how our team ships." },
+    { key: "author", label: "Author", ph: "Dana Lee" },
+    { key: "role", label: "Role", ph: "Head of Brand" },
+    { key: "stars", label: "Stars", type: "num", ph: "5" },
+  ],
+  COMPARISON: [
+    { key: "beforeLabel", label: "Before", ph: "Old way" },
+    { key: "before", label: "Before items", type: "list" },
+    { key: "afterLabel", label: "After", ph: "With us" },
+    { key: "after", label: "After items", type: "list" },
+  ],
+  CURSOR_DEMO: [{ key: "target", label: "Button", ph: "Generate" }, { key: "result", label: "Result", ph: "Done in 4s" }, { key: "caption", label: "Caption", ph: "One click to publish" }],
 };
 const DEFAULT_SCENE = { type: "STATEMENT", lines: ["New line"] };
 
@@ -55,13 +107,21 @@ export default function IntroScriptStep({
   const addScene = () => updateScriptField("scenes", [...scenes, { ...DEFAULT_SCENE }]);
   const removeScene = (i) => updateScriptField("scenes", scenes.filter((_, idx) => idx !== i));
 
-  const setLine = (i, li, value) => {
-    const lines = [...(scenes[i].lines || [])];
-    lines[li] = value;
-    setScene(i, { lines });
+  // Generic array-field editors, keyed by field name so every list/number/pair
+  // field (lines, cards, rows, items, values, metrics, …) reuses one code path.
+  const arr = (s, key) => (Array.isArray(s?.[key]) ? s[key] : []);
+  const setItem = (i, key, li, value) => {
+    const next = [...arr(scenes[i], key)];
+    next[li] = value;
+    setScene(i, { [key]: next });
   };
-  const addLine = (i) => setScene(i, { lines: [...(scenes[i].lines || []), ""] });
-  const removeLine = (i, li) => setScene(i, { lines: (scenes[i].lines || []).filter((_, idx) => idx !== li) });
+  const addItem = (i, key, empty) => setScene(i, { [key]: [...arr(scenes[i], key), empty] });
+  const removeItem = (i, key, li) => setScene(i, { [key]: arr(scenes[i], key).filter((_, idx) => idx !== li) });
+  const setPair = (i, key, pi, patch) => {
+    const next = [...arr(scenes[i], key)];
+    next[pi] = { ...next[pi], ...patch };
+    setScene(i, { [key]: next });
+  };
 
   return (
     <div className="w-full h-full flex flex-col lg:flex-row">
@@ -107,24 +167,55 @@ export default function IntroScriptStep({
                     <button onClick={() => removeScene(i)} className="text-ink-muted hover:text-red-500"><X className="w-4 h-4" /></button>
                   </div>
 
-                  {(SCENE_FIELDS[s.type] || []).map((f) => (
-                    f.type === "lines" ? (
-                      <div key={f.key} className="space-y-1.5">
-                        {(s.lines || []).map((line, li) => (
-                          <div key={li} className="flex items-center gap-2">
-                            <Input value={line} onChange={(e) => setLine(i, li, e.target.value)} placeholder="Bold line" className="font-bold" />
-                            <button onClick={() => removeLine(i, li)} className="text-ink-muted hover:text-red-500 shrink-0"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        ))}
-                        <button onClick={() => addLine(i)} className="text-xs font-bold text-[var(--terra)] inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add line</button>
-                      </div>
-                    ) : (
+                  {(SCENE_FIELDS[s.type] || []).map((f) => {
+                    if (f.type === "list" || f.type === "numlist") {
+                      const isNum = f.type === "numlist";
+                      return (
+                        <div key={f.key} className="space-y-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{f.label}</span>
+                          {arr(s, f.key).map((item, li) => (
+                            <div key={li} className="flex items-center gap-2">
+                              <Input
+                                type={isNum ? "number" : "text"}
+                                value={item ?? ""}
+                                onChange={(e) => setItem(i, f.key, li, isNum ? Number(e.target.value) : e.target.value)}
+                                placeholder={isNum ? "0" : f.label}
+                              />
+                              <button onClick={() => removeItem(i, f.key, li)} className="text-ink-muted hover:text-red-500 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ))}
+                          <button onClick={() => addItem(i, f.key, isNum ? 0 : "")} className="text-xs font-bold text-[var(--terra)] inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+                        </div>
+                      );
+                    }
+                    if (f.type === "pairs") {
+                      return (
+                        <div key={f.key} className="space-y-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{f.label}</span>
+                          {arr(s, f.key).map((item, pi) => (
+                            <div key={pi} className="flex items-center gap-2">
+                              {f.cols.map((c) => (
+                                <Input key={c.k} value={item?.[c.k] || ""} onChange={(e) => setPair(i, f.key, pi, { [c.k]: e.target.value })} placeholder={c.ph} />
+                              ))}
+                              <button onClick={() => removeItem(i, f.key, pi)} className="text-ink-muted hover:text-red-500 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ))}
+                          <button onClick={() => addItem(i, f.key, Object.fromEntries(f.cols.map((c) => [c.k, ""])))} className="text-xs font-bold text-[var(--terra)] inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+                        </div>
+                      );
+                    }
+                    return (
                       <div key={f.key} className="flex items-center gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted w-16 shrink-0">{f.label}</span>
-                        <Input value={s[f.key] || ""} onChange={(e) => setScene(i, { [f.key]: e.target.value })} placeholder={f.ph} />
+                        <Input
+                          type={f.type === "num" ? "number" : "text"}
+                          value={s[f.key] ?? ""}
+                          onChange={(e) => setScene(i, { [f.key]: f.type === "num" ? Number(e.target.value) : e.target.value })}
+                          placeholder={f.ph}
+                        />
                       </div>
-                    )
-                  ))}
+                    );
+                  })}
                 </motion.div>
               ))}
             </div>

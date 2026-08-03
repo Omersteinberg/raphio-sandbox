@@ -14,7 +14,7 @@ const C = {
 
 const GRADIENT = `linear-gradient(135deg, ${C.terra}, ${C.terraLt})`;
 
-// The three ways to start a video. `id` matches the pipeline mode keys.
+// The four ways to start a video. `id` matches the pipeline mode keys.
 const MODES = [
   {
     id: "prompt",
@@ -44,14 +44,14 @@ const MODES = [
     id: "intro",
     Icon: Clapperboard,
     title: "Brand intro",
-    useCase: "A punchy ~8 second branded stinger with fast cuts, kinetic captions and your logo.",
+    useCase: "A punchy ~12 second branded stinger with fast cuts, kinetic captions and your logo.",
     pros: ["Fast cuts + animated captions", "Uses your logo and brand colours"],
     con: "Short-form only, one quick scene per beat",
   },
 ];
 
 /**
- * The video-creation entry point: three selectable cards. Picking a card calls
+ * The video-creation entry point: four selectable cards. Picking a card calls
  * onPick(modeId) - the parent (Creator) persists the mode and enters the pipeline.
  * `initialMode` (the user's last-used mode) gets a subtle highlight; it does NOT
  * auto-advance.
