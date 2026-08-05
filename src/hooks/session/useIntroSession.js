@@ -7,6 +7,8 @@ import { DEFAULT_INTRO_DURATION } from "@/constants/introDurations";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 import { isGenerationFailed } from "@/lib/progressTasks";
 import { extractLogoColors } from "@/lib/logoColors";
+import { dataUrlToFile } from "@/lib/dataUrlToFile";
+import { DEFAULT_BRAND_FONTS } from "@/constants/brandFonts";
 
 const GENERATING_STEP = 2;
 
@@ -27,8 +29,10 @@ function scriptFromIntroData(introData) {
   return {
     businessName: introData.businessName || "",
     scenes: introData.scenes,
+    sceneFrames: Array.isArray(introData.sceneFrames) ? introData.sceneFrames : [],
     musicPrompt: introData.musicPrompt || "",
     narration: typeof introData.narration === "string" ? introData.narration : "",
+    scriptReady: introData.scriptReady !== false,
   };
 }
 
@@ -73,10 +77,19 @@ export function useIntroSession() {
   // Brand colours for the Remotion stinger. Auto-derived from the logo on upload,
   // but once the user edits a swatch we stop overwriting their choice.
   const [brandColors, setBrandColors] = useState(null);
+  // Heading and body families from the curated list, and how the brand presents.
+  // Both only arrive from a website import, there is no way to read them off a
+  // logo image, so they stay null until one happens or the user picks.
+  const [brandFonts, setBrandFonts] = useState(null);
+  const [brandTone, setBrandTone] = useState(null);
   const brandTouchedRef = useRef(false);
   const setBrandColor = useCallback((key, value) => {
     brandTouchedRef.current = true;
     setBrandColors((prev) => ({ ...(prev || {}), [key]: value }));
+  }, []);
+  const setBrandFont = useCallback((which, family) => {
+    brandTouchedRef.current = true;
+    setBrandFonts((prev) => ({ ...(prev || DEFAULT_BRAND_FONTS), [which]: family }));
   }, []);
   useEffect(() => {
     if (!logoFile || brandTouchedRef.current) return;
@@ -86,6 +99,41 @@ export function useIntroSession() {
     });
     return () => { cancelled = true; };
   }, [logoFile]);
+
+  /**
+   * Fill the brief from a website import.
+   *
+   * Only writes fields that are still empty, so pasting a URL after typing never
+   * destroys what was typed. Colours and fonts additionally respect
+   * brandTouchedRef, the same guard that stops logo-derived colours overwriting a
+   * manual edit: once someone has adjusted the kit by hand, their choice wins.
+   */
+  const applyExtractedBrand = useCallback((found) => {
+    if (!found) return;
+
+    if (found.businessName) setBusinessName((cur) => (cur.trim() ? cur : found.businessName));
+    if (found.description) setDescription((cur) => (cur.trim() ? cur : found.description));
+
+    if (found.logo?.dataUrl) {
+      const file = dataUrlToFile(found.logo.dataUrl, "website-logo.png");
+      if (file) setLogoFile((cur) => cur || file);
+    }
+
+    if (!brandTouchedRef.current) {
+      if (found.brandColors) {
+        setBrandColors(found.brandColors);
+        // The server read these off the real site, which beats the client's
+        // guess from the logo's pixels. Claim the kit so the logo-derived effect
+        // above does not race in behind us and overwrite them.
+        brandTouchedRef.current = true;
+      }
+      if (found.fonts) setBrandFonts(found.fonts);
+    }
+
+    // Tone has no manual control and no other source, so there is nothing for it
+    // to clobber.
+    if (found.tone) setBrandTone(found.tone);
+  }, []);
 
   // Script state
   const [introScript, setIntroScript] = useState(EMPTY_SCRIPT);
@@ -152,18 +200,20 @@ export function useIntroSession() {
       }
       setScriptProgress(55);
 
-      await sessionService.saveIntroBrief(created.id, { businessName, description, brandColors });
+      await sessionService.saveIntroBrief(created.id, {
+        businessName, description, brandColors, fonts: brandFonts, tone: brandTone,
+      });
       setScriptProgress(70);
 
-      const withScript = await sessionService.generateIntroScript(created.id);
-      setSession(withScript);
-      const s = scriptFromIntroData(withScript.introData);
+      const withScenes = await sessionService.generateIntroScenes(created.id);
+      setSession(withScenes);
+      const s = scriptFromIntroData(withScenes.introData);
       if (s) setIntroScript(s);
       setScriptProgress(100);
 
       setDirection(1);
       setStep(1);
-      toast.success("Intro script ready! Review and approve.");
+      toast.success("Intro scenes ready! Review them, then generate the script.");
     } catch (err) {
       console.error("[useIntroSession] startIntroSession failed:", err);
       setSession(null);
@@ -184,7 +234,7 @@ export function useIntroSession() {
     } finally {
       setLoading(false);
     }
-  }, [logoFile, businessName, description, targetDuration, voiceId, aspectRatio, showcaseFiles, showcaseLabels, brandColors, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logoFile, businessName, description, targetDuration, voiceId, aspectRatio, showcaseFiles, showcaseLabels, brandColors, brandFonts, brandTone, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save current local edits to the backend
   const saveScriptEdits = useCallback(async () => {
@@ -194,21 +244,25 @@ export function useIntroSession() {
     return updated;
   }, [sessionId, introScript, voiceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Regenerate the whole script (optionally with an AI edit request)
+  // Regenerate the whole script (optionally with an AI edit request).
+  // Only a real string counts as an edit request. Wired straight to an onClick this
+  // would otherwise receive the click event, which is both unserialisable and, if it
+  // did serialise, would read as an edit and throw away the scenes under review.
   const regenerateScript = useCallback(async (request) => {
     if (!sessionId) return;
+    const editRequest = typeof request === "string" && request.trim() ? request.trim() : undefined;
     setLoading(true);
     setScriptProgress(10);
     try {
       await sessionService.updateIntroScript(sessionId, { ...introScript, voiceId });
       setScriptProgress(40);
-      const updated = await sessionService.generateIntroScript(sessionId, { editRequest: request || undefined });
+      const updated = await sessionService.generateIntroScript(sessionId, { editRequest });
       setSession(updated);
       const s = scriptFromIntroData(updated.introData);
       if (s) setIntroScript(s);
       setEditRequest("");
       setScriptProgress(100);
-      toast.success(request ? "Script updated!" : "Script regenerated!");
+      toast.success(editRequest ? "Script updated!" : "Script regenerated!");
     } catch (err) {
       setScriptProgress(0);
       toast.error(describeError(err, "We couldn't update your script. Please try again.").userMessage);
@@ -269,6 +323,8 @@ export function useIntroSession() {
     setShowcaseFiles([]);
     setShowcaseLabels([]);
     setBrandColors(null);
+    setBrandFonts(null);
+    setBrandTone(null);
     brandTouchedRef.current = false;
     setIntroScript(EMPTY_SCRIPT);
     setEditRequest("");
@@ -291,6 +347,9 @@ export function useIntroSession() {
     targetDuration, setTargetDuration,
     aspectRatio, setAspectRatio,
     brandColors, setBrandColor,
+    brandFonts, setBrandFont,
+    brandTone,
+    applyExtractedBrand,
     showcaseFiles, setShowcaseFiles,
     showcaseLabels, setShowcaseLabels,
 

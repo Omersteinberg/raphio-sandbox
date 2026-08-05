@@ -2,11 +2,16 @@ import { useRef, useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, X, Image as ImageIcon, ArrowRight, ArrowLeft,
-  Lightbulb, Clock, Palette, Plus, ChevronDown,
+  Lightbulb, Clock, Palette, Plus, ChevronDown, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PromptMentionField from "./PromptMentionField";
+import ImproveButton from "./ImproveButton";
+import BrandUrlField from "./BrandUrlField";
+import BrandKitPanel from "./BrandKitPanel";
 import { fetchIntroScenes } from "@/services/session";
+import { improvePrompt as improvePromptApi } from "@/services/reference";
+import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
@@ -241,6 +246,10 @@ export default function IntroBriefStep({
   setAspectRatio,
   brandColors,
   setBrandColor,
+  brandFonts,
+  setBrandFont,
+  brandTone,
+  applyExtractedBrand,
   showcaseFiles,
   setShowcaseFiles,
   showcaseLabels,
@@ -309,7 +318,7 @@ export default function IntroBriefStep({
   // index never points at another photo's name.
   const labels = useMemo(() => showcaseLabels || [], [showcaseLabels]);
   const defaults = useMemo(() => defaultNamesFor(photos), [photos]);
-  const nameFor = (i) => labels[i] || defaults[i] || `photo_${i + 1}`;
+  const nameFor = (i) => labels[i] ?? defaults[i] ?? `photo_${i + 1}`;
 
   // Two photos answering to one @name is unresolvable at generation time, so it is
   // surfaced here rather than silently picking one.
@@ -342,7 +351,7 @@ export default function IntroBriefStep({
   const mentionTargets = useMemo(() => {
     const uploads = photos.map((f, i) => ({
       id: `photo-${i}`,
-      name: labels[i] || toMentionName(f?.name, i),
+      name: labels[i] ?? toMentionName(f?.name, i),
       type: "upload",
       preview: showcasePreviews[i],
     }));
@@ -358,6 +367,63 @@ export default function IntroBriefStep({
       ...usable.map((b) => ({ id: `beat-${b.type}`, name: b.mention, type: "beat", description: b.summary })),
     ];
   }, [photos, labels, showcasePreviews, beats]);
+
+  // "Improve with AI". With an empty box it drafts the first brief instead, which
+  // is why the enable check is not simply "is there text".
+  const [improving, setImproving] = useState(false);
+  const [improveError, setImproveError] = useState(null);
+  // The whole previous state of both fields, so one Undo puts the card back as it
+  // was. Improve can fill the business name too, and undoing half of that would be
+  // worse than not offering it.
+  const [prevBrief, setPrevBrief] = useState(null);
+
+  const drafting = !description.trim();
+  const canImprove = !drafting || !!logoFile || !!businessName.trim() || photos.length > 0;
+
+  const handleImprove = async () => {
+    if (improving || !canImprove) return;
+    setImproving(true);
+    setImproveError(null);
+    const prev = { description, businessName };
+    try {
+      const [logoDataUrl, shots] = await Promise.all([
+        logoFile ? downscaleImageToDataUrl(logoFile) : Promise.resolve(null),
+        Promise.all(photos.slice(0, MAX_SHOWCASE).map((f) => downscaleImageToDataUrl(f))),
+      ]);
+      // All the photos or none of them: the names are sent as a list and the
+      // pictures as an ordered set, so a half-attached batch would put the two out
+      // of step and bind an @name to the wrong image. Every name still goes, so a
+      // downscale failure costs the model its eyes, not the user their mentions.
+      const imageDataUrls = shots.length && shots.every(Boolean) ? shots : [];
+      const result = await improvePromptApi({
+        mode: "intro",
+        userPrompt: description,
+        businessName,
+        targetDuration,
+        references: photos.map((_, i) => ({ id: `photo-${i}`, name: nameFor(i), type: "upload" })),
+        logoDataUrl,
+        imageDataUrls,
+      });
+      if (result?.improvedPrompt) {
+        setPrevBrief(prev);
+        setDescription(result.improvedPrompt);
+        // Only ever fills a blank field. A name the user typed is theirs.
+        if (result.businessName && !businessName.trim()) setBusinessName(result.businessName);
+      }
+    } catch (err) {
+      console.error("[IntroBriefStep] improve brief failed", err);
+      setImproveError("Could not write that one. Try again.");
+    } finally {
+      setImproving(false);
+    }
+  };
+
+  const handleUndoImprove = () => {
+    if (!prevBrief) return;
+    setDescription(prevBrief.description);
+    setBusinessName(prevBrief.businessName);
+    setPrevBrief(null);
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -407,21 +473,34 @@ export default function IntroBriefStep({
 
         {/* The brief: one card, everything in it */}
         <div className="bg-white rounded-3xl border border-border/60 shadow-xs p-5 md:p-7">
+          {/* Optional shortcut. Fills only what is still empty below, so it never
+              overwrites something already typed. */}
+          <BrandUrlField onApply={applyExtractedBrand} />
+
           <div className="flex items-start justify-between gap-3">
             <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted pt-1">
               Tell us about your business
             </label>
-            <button
-              type="button"
-              onClick={() => toggle("examples")}
-              aria-expanded={panel === "examples"}
-              aria-controls="panel-examples"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-1 py-0.5 shrink-0"
-            >
-              <Lightbulb className="w-4 h-4" />
-              Help me start
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${panel === "examples" ? "rotate-180" : ""}`} />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <ImproveButton
+                onClick={handleImprove}
+                busy={improving}
+                disabled={!canImprove}
+                label={drafting ? "Write my brief" : "Improve"}
+                busyLabel={drafting ? "Writing…" : "Improving…"}
+              />
+              <button
+                type="button"
+                onClick={() => toggle("examples")}
+                aria-expanded={panel === "examples"}
+                aria-controls="panel-examples"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-1 py-0.5 shrink-0"
+              >
+                <Lightbulb className="w-4 h-4" />
+                Help me start
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${panel === "examples" ? "rotate-180" : ""}`} />
+              </button>
+            </div>
           </div>
 
           <AnimatePresence initial={false}>
@@ -542,10 +621,11 @@ export default function IntroBriefStep({
             />
             <Pill
               icon={Palette}
-              label="Colours"
-              open={panel === "colours"}
-              onClick={() => toggle("colours")}
-              controls="panel-colours"
+              label="Brand kit"
+              open={panel === "brandkit"}
+              filled={!!brandColors}
+              onClick={() => toggle("brandkit")}
+              controls="panel-brandkit"
             />
           </div>
 
@@ -663,44 +743,56 @@ export default function IntroBriefStep({
               </Panel>
             )}
 
-            {panel === "colours" && (
-              <Panel id="panel-colours">
-                <PanelLabel>Brand colours</PanelLabel>
-                <div className="flex flex-wrap gap-5">
-                  {[
-                    { key: "primary", label: "Primary", fallback: "#F97066" },
-                    { key: "secondary", label: "Accent", fallback: "#FB923C" },
-                  ].map(({ key, label, fallback }) => {
-                    const value = (brandColors && brandColors[key]) || fallback;
-                    return (
-                      <div key={key} className="flex items-center gap-3">
-                        <label
-                          className="relative w-11 h-11 rounded-2xl border border-border overflow-hidden cursor-pointer shrink-0"
-                          style={{ background: value }}
-                        >
-                          <input
-                            type="color"
-                            value={value}
-                            onChange={(e) => setBrandColor && setBrandColor(key, e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            aria-label={`${label} brand colour`}
-                          />
-                        </label>
-                        <div>
-                          <p className="text-xs font-bold text-[#2D2235]">{label}</p>
-                          <p className="text-xs text-ink-muted font-mono uppercase">{value}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-ink-muted mt-3">
-                  Pulled from your logo, and used across every scene. Tweak to match your brand.
+            {panel === "brandkit" && (
+              <Panel id="panel-brandkit">
+                <PanelLabel>Brand kit</PanelLabel>
+                <BrandKitPanel
+                  brandColors={brandColors}
+                  setBrandColor={setBrandColor}
+                  brandFonts={brandFonts}
+                  setBrandFont={setBrandFont}
+                  brandTone={brandTone}
+                  logoPreview={logoPreview}
+                  onPickLogo={() => logoInputRef.current?.click()}
+                />
+                <p className="text-xs text-ink-muted mt-4">
+                  Pulled from your website or your logo, and used across every scene. Tweak
+                  anything to match.
                 </p>
               </Panel>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Undo after an AI write. Restores the brief and the name together. */}
+        <AnimatePresence>
+          {prevBrief && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+              style={{ background: 'rgba(193,68,14,0.06)', border: '1px solid rgba(193,68,14,0.14)' }}
+            >
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#C1440E' }}>
+                <Sparkles style={{ width: 12, height: 12 }} />
+                {prevBrief.description.trim() ? 'Brief improved with AI' : 'Brief written with AI'}
+              </span>
+              <button
+                type="button"
+                onClick={handleUndoImprove}
+                className="flex items-center gap-1 text-[11px] font-bold"
+                style={{ color: '#9C8F85' }}
+              >
+                <RotateCcw style={{ width: 12, height: 12 }} /> Undo
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {improveError && (
+          <p className="text-center text-xs font-bold text-red-500">{improveError}</p>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3">

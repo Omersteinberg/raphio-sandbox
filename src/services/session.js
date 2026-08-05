@@ -185,7 +185,7 @@ export async function uploadLogo(sessionId, file) {
  * Save the intro business brief.
  * @returns {{ introData: object }}
  */
-export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font }) {
+export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font, fonts, tone }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-brief`, {
     businessName,
     description,
@@ -194,7 +194,30 @@ export async function saveIntroBrief(sessionId, { businessName, description, tar
     brandColors,
     templateId,
     font,
+    // `fonts` is the per project { heading, body } pair from the curated list,
+    // distinct from the older single `font` field which is left alone.
+    fonts,
+    tone,
   });
+  return response.data;
+}
+
+/**
+ * Read a brand kit off the user's own website. Stateless: this runs on the brief
+ * step, before a session exists, so it takes a bare URL rather than a session id.
+ * @param {string} url
+ * @returns {{ found: object, missing: string[] }}
+ */
+export async function extractBrandFromUrl(url) {
+  const response = await axios.post(`${API_BASE}/brand-from-url`, { url });
+  return response.data;
+}
+
+/**
+ * Generate the intro scene review payload before the script step.
+ */
+export async function generateIntroScenes(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/generate-intro-scenes`);
   return response.data;
 }
 
