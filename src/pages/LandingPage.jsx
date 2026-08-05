@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Play, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth.jsx";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import scene5Img from "@/assets/scene-5.png";
 import scene1Img from "@/assets/scene-1.png";
 import scene2Img from "@/assets/scene-2.png";
@@ -1187,49 +1188,93 @@ function HowItWorks() {
 }
 
 // ── "See it in action": real output reel ────────────────────────
+// Captions describe what the customer was trying to achieve, not the ad's
+// genre - "Sell a product," not "Product showcase."
 const SEE_IT_ITEMS = [
-  { label: 'Travel montage', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
-  { label: 'Product showcase', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
-  { label: 'Luxury brand ad', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
-  { label: 'Food commercial', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4' },
+  { label: 'Promote an event', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
+  { label: 'Sell a product', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
+  { label: 'Launch a new brand', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
+  { label: 'Advertise a restaurant', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4' },
 ];
 
-function ActionVideoCard({ item, onOpen }) {
-  const containerRef = useRef(null);
+// Carousel geometry/timing - one place to tune the fan-out and pace.
+const CAROUSEL_DWELL_MS = 4500;
+// Slower than a typical UI transition, and deliberately not the file's
+// entrance curve ([0.16,1,0.3,1], a strong ease-out for things arriving).
+// This is an already-visible element moving/morphing across the screen, so
+// it gets ease-in-out instead - eases into the move and eases out of it,
+// which reads as a calm glide rather than a snap. transform/filter/opacity
+// all share this one duration+ease so the whole card settles as a single
+// motion instead of its parts arriving at slightly different times.
+const CAROUSEL_TRANSITION_MS = 900;
+const CAROUSEL_EASE = 'cubic-bezier(0.65,0,0.35,1)';
+// Style per |offset| from the centered card (0 = center). Anything beyond
+// this list is hidden entirely (opacity 0, not interactive).
+const CAROUSEL_DEPTH = [
+  { scale: 1.12, opacity: 1, blur: 0 },
+  { scale: 0.82, opacity: 0.65, blur: 1.5 },
+  { scale: 0.68, opacity: 0.32, blur: 2.5 },
+];
+
+// One card's own job: play when it's the centered one, pause and rewind to
+// its first frame (a de facto poster) once it stops being centered - never
+// more than one video playing in the reel at a time. The reset is delayed
+// until the card has actually finished shrinking/fading away instead of
+// firing the instant it loses center: snapping a still-large, still-sharp
+// video back to frame 0 mid-transition is exactly the "hard cut" this was
+// built to avoid - by the time it resets, it's already small and blurred.
+function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, instant = false, onOpen }) {
   const videoRef = useRef(null);
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    const el = containerRef.current;
     const video = videoRef.current;
-    if (!el || !video) return;
+    if (!video) return;
+    if (isCenter) {
+      video.play().catch(() => {});
+      return;
+    }
+    if (!positioned || instant) {
+      video.pause();
+      video.currentTime = 0;
+      return;
+    }
+    const t = setTimeout(() => {
+      video.pause();
+      video.currentTime = 0;
+    }, CAROUSEL_TRANSITION_MS);
+    return () => clearTimeout(t);
+  }, [isCenter, positioned, instant]);
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      },
-      { threshold: 0.4 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const depth = positioned ? CAROUSEL_DEPTH[Math.min(Math.abs(offset), CAROUSEL_DEPTH.length)] : { scale: 1, opacity: 1, blur: 0 };
+  if (positioned && !depth) return null;
+  const scale = depth.scale * (isCenter && hovered ? 1.03 : 1);
+  const gap = cardWidth < 260 ? 16 : 28;
 
   return (
-    <div ref={containerRef} className="flex-shrink-0 w-full sm:w-72">
+    <div
+      className={positioned ? 'absolute top-1/2' : 'flex-shrink-0 w-full sm:w-72'}
+      style={positioned ? {
+        left: '50%',
+        width: cardWidth,
+        transform: `translate(calc(-50% + ${offset * (cardWidth + gap)}px), -50%) scale(${scale})`,
+        filter: depth.blur ? `blur(${depth.blur}px)` : 'none',
+        opacity: depth.opacity,
+        zIndex: 10 - Math.abs(offset),
+        pointerEvents: Math.abs(offset) <= CAROUSEL_DEPTH.length ? 'auto' : 'none',
+        transition: instant ? 'none' : `transform ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}, filter ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}, opacity ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}`,
+      } : undefined}
+    >
       <button
         onClick={() => onOpen(item)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="relative w-full aspect-video rounded-2xl overflow-hidden block transition-transform duration-300"
+        className="relative w-full aspect-video rounded-2xl overflow-hidden block"
         style={{
           background: C.white,
           border: `1px solid ${C.faint}`,
-          boxShadow: '0 4px 18px rgba(28,25,23,0.08)',
-          transform: hovered ? 'scale(1.03)' : 'scale(1)',
+          boxShadow: isCenter ? '0 24px 60px rgba(28,25,23,0.28)' : '0 4px 18px rgba(28,25,23,0.1)',
+          transition: 'box-shadow 0.3s ease',
         }}
       >
         <video
@@ -1243,7 +1288,7 @@ function ActionVideoCard({ item, onOpen }) {
         />
         <div
           className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
-          style={{ background: 'rgba(10,9,8,0.28)', opacity: hovered ? 1 : 0 }}
+          style={{ background: 'rgba(10,9,8,0.28)', opacity: isCenter && hovered ? 1 : 0 }}
         >
           <div className="rounded-full flex items-center justify-center" style={{ width: 52, height: 52, background: 'rgba(255,250,247,0.94)' }}>
             <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 2 }} fill={C.terra} />
@@ -1306,8 +1351,49 @@ function ActionVideoModal({ item, onClose }) {
   );
 }
 
+// Three copies of the reel back to back so the carousel can drift past the
+// last item straight into a duplicate first item, then get silently
+// snapped back a set (identical content, no visible seam) instead of
+// sliding backwards - the standard infinite-marquee trick, sized down to
+// four items.
+const CAROUSEL_ITEMS_TRIPLED = [0, 1, 2].flatMap((setIndex) =>
+  SEE_IT_ITEMS.map((item, i) => ({ ...item, key: `${setIndex}-${i}` }))
+);
+
 function SeeItInAction() {
   const [activeItem, setActiveItem] = useState(null);
+  const reducedMotion = usePrefersReducedMotion();
+  const isMobile = useIsMobile();
+  const n = SEE_IT_ITEMS.length;
+  const [activeVirtual, setActiveVirtual] = useState(n);
+  const [isHovered, setIsHovered] = useState(false);
+  const [skipTransition, setSkipTransition] = useState(false);
+  const cardWidth = isMobile ? 220 : 320;
+
+  // Auto-drift: paused while hovered, dropped entirely under reduced motion.
+  useEffect(() => {
+    if (reducedMotion || isHovered) return;
+    const id = setInterval(() => setActiveVirtual((v) => v + 1), CAROUSEL_DWELL_MS);
+    return () => clearInterval(id);
+  }, [reducedMotion, isHovered]);
+
+  // Once drifted into the third (duplicate) set, wait for that slide-in to
+  // finish, then jump back a set with the transition off for one frame -
+  // invisible, since the two sets are literally identical content.
+  useEffect(() => {
+    if (reducedMotion || activeVirtual < n * 2) return;
+    const t = setTimeout(() => {
+      setSkipTransition(true);
+      setActiveVirtual((v) => v - n);
+    }, CAROUSEL_TRANSITION_MS);
+    return () => clearTimeout(t);
+  }, [activeVirtual, n, reducedMotion]);
+
+  useEffect(() => {
+    if (!skipTransition) return;
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setSkipTransition(false)));
+    return () => cancelAnimationFrame(raf);
+  }, [skipTransition]);
 
   return (
     <section className="py-24 px-6" style={{ background: C.bg }}>
@@ -1315,18 +1401,43 @@ function SeeItInAction() {
         <div className="text-center mb-12">
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>See it in action</p>
           <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,44px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
-            See what Raphio creates
+            Made entirely with Raphio
           </h2>
           <p className="text-base mt-3" style={{ color: C.muted }}>
             Real outputs from real prompts, no editing, no post-production.
           </p>
         </div>
 
-        <div className="hide-scrollbar grid grid-cols-1 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
-          {SEE_IT_ITEMS.map((item) => (
-            <ActionVideoCard key={item.label} item={item} onOpen={setActiveItem} />
-          ))}
-        </div>
+        {reducedMotion ? (
+          <div className="hide-scrollbar grid grid-cols-1 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
+            {SEE_IT_ITEMS.map((item) => (
+              <CarouselCard key={item.label} item={item} isCenter={false} offset={0} cardWidth={cardWidth} positioned={false} onOpen={setActiveItem} />
+            ))}
+          </div>
+        ) : (
+          <div
+            className="relative overflow-hidden"
+            style={{ height: cardWidth * 0.5625 * 1.12 + 60 }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {CAROUSEL_ITEMS_TRIPLED.map((item, idx) => {
+              const offset = idx - activeVirtual;
+              if (Math.abs(offset) > CAROUSEL_DEPTH.length) return null;
+              return (
+                <CarouselCard
+                  key={item.key}
+                  item={item}
+                  isCenter={offset === 0}
+                  offset={offset}
+                  cardWidth={cardWidth}
+                  instant={skipTransition}
+                  onOpen={setActiveItem}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
