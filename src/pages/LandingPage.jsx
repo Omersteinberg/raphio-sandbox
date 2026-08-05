@@ -1,10 +1,15 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
-import { motion, useScroll, useTransform, useInView, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, Fragment } from 'react';
+import { motion, useScroll, useTransform, useInView, useAnimationFrame, useMotionValue, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowRight, Play, Sparkles, Film, Mic2, Palette, Crop, Mail, X, MapPin } from "lucide-react";
+import { ArrowRight, Play, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth.jsx";
 import scene5Img from "@/assets/scene-5.png";
+import scene1Img from "@/assets/scene-1.png";
+import scene2Img from "@/assets/scene-2.png";
+import scene4Img from "@/assets/scene-4.png";
+import perfume1Img from "@/assets/perfume1.png";
+import perfume2Img from "@/assets/perfume2.png";
 
 const C = {
   bg:      '#F5F0EB',
@@ -114,11 +119,6 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-// The button gradient used site-wide for primary CTAs (see CLAUDE.md); kept
-// local to this section since the rest of the page still runs its own
-// terracotta gradient (C.terra/C.terraLt) and that's out of scope here.
-const CTA_GRADIENT = 'linear-gradient(135deg, #F97066, #FB923C)';
-
 // ── How it works: convergence into one node ─────────────────────────────
 // Three entrances, one machine. Step 1 is the only interactive part of this
 // section: clicking a card sends that card's own content on a curved path
@@ -130,34 +130,208 @@ const CTA_GRADIENT = 'linear-gradient(135deg, #F97066, #FB923C)';
 const STEP1_CARDS = [
   {
     id: 'prompt',
-    label: 'Describe your idea',
+    label: 'Start with a prompt',
     support: 'Write a few sentences. Raphio turns them into a video script.',
     Illustration: PromptCardArt,
     Token: PromptToken,
   },
   {
     id: 'image',
-    label: 'Upload your images',
+    label: 'Start with your photos',
     support: 'Use the photos you already have. Raphio builds scenes around them.',
     Illustration: PhotosCardArt,
     Token: PhotosToken,
   },
   {
     id: 'references',
-    label: 'Match a style or generate one',
+    label: 'Start with a Reference',
     support: 'Upload a reference image, or let Raphio create a style for you.',
     Illustration: ReferenceCardArt,
     Token: ReferenceToken,
   },
 ];
 
-const BUILD_TILES = [
-  { icon: Film, label: 'Story' },
-  { icon: Palette, label: 'Style' },
-  { icon: Crop, label: 'Aspect ratio' },
-  { icon: Clock, label: 'Length' },
-  { icon: Mic2, label: 'Voice' },
+// Step 2's build sequence: one shared timeline (point 7) drives the status
+// text, the dot row, and Step 3's video progress bar together. Segment
+// durations are intentionally non-uniform - some stages just take longer to
+// read/explain than others.
+const BUILD_STAGES = [
+  { id: 'story', label: 'Understanding your story', duration: 1.6, icon: Film },
+  { id: 'style', label: 'Choosing your style', duration: 1.8, icon: Palette },
+  { id: 'voice', label: 'Adding voice', duration: 2.4, icon: Mic2, waveform: true },
+  { id: 'pace', label: 'Setting the pace', duration: 1.6, icon: Clock },
+  { id: 'final', label: 'Optimizing your format', duration: 2.0, icon: Crop },
 ];
+// The closing beat: once dot 5 holds solid, the label crossfades to this one
+// more line before the whole row fades out and the loop restarts.
+const BUILD_CLOSING_LABEL = 'Bringing it together';
+const BUILD_STAGE_TOTAL = BUILD_STAGES.reduce((sum, s) => sum + s.duration, 0);
+const BUILD_HOLD_S = 0.4;   // all dots solid, per the brief
+const BUILD_FADE_S = 0.4;   // status + dots row fades out
+const BUILD_PAUSE_S = 0.5;  // blank beat before the next loop
+const BUILD_CYCLE_S = BUILD_STAGE_TOTAL + BUILD_HOLD_S + BUILD_FADE_S + BUILD_PAUSE_S;
+const BUILD_REDUCED_STAGE_INDEX = 1; // static mid-state: "Choosing your style"
+
+// Pure function of absolute elapsed seconds - BuildAssemblyCard and
+// VideoShowcase each call this from their own useAnimationFrame off the
+// same document timeline, so their output is identical every frame without
+// either needing to know the other exists (no shared store, no prop
+// drilling into either component's call site).
+function getBuildTimelineState(elapsedS) {
+  const t = elapsedS % BUILD_CYCLE_S;
+  if (t < BUILD_STAGE_TOTAL) {
+    let acc = 0;
+    for (let i = 0; i < BUILD_STAGES.length; i++) {
+      const dur = BUILD_STAGES[i].duration;
+      if (t < acc + dur) {
+        return { phase: 'running', stageIndex: i, stageProgress: (t - acc) / dur, overallProgress: t / BUILD_STAGE_TOTAL, rowOpacity: 1 };
+      }
+      acc += dur;
+    }
+  }
+  const afterStages = t - BUILD_STAGE_TOTAL;
+  if (afterStages < BUILD_HOLD_S) {
+    return { phase: 'holding', stageIndex: BUILD_STAGES.length - 1, stageProgress: 1, overallProgress: 1, rowOpacity: 1 };
+  }
+  const afterHold = afterStages - BUILD_HOLD_S;
+  if (afterHold < BUILD_FADE_S) {
+    return { phase: 'fading', stageIndex: BUILD_STAGES.length - 1, stageProgress: 1, overallProgress: 1, rowOpacity: 1 - afterHold / BUILD_FADE_S };
+  }
+  return { phase: 'paused', stageIndex: 0, stageProgress: 0, overallProgress: 0, rowOpacity: 0 };
+}
+
+// Drives the shared clock. Discrete values (stageIndex/phase) only trigger a
+// re-render when they actually change; continuous values (progress/opacity)
+// are plain motion values so 60fps updates never touch React. Pauses (skips
+// the clock update) while its own element is out of view, per the brief.
+function useBuildTimeline(containerRef, reducedMotion) {
+  const inView = useInView(containerRef, { amount: 0.4 });
+  const elapsed = useMotionValue(0);
+  const [discrete, setDiscrete] = useState({ stageIndex: BUILD_REDUCED_STAGE_INDEX, phase: 'running' });
+  const prevRef = useRef(discrete);
+
+  useAnimationFrame((time) => {
+    if (reducedMotion || !inView) return;
+    const seconds = time / 1000;
+    elapsed.set(seconds);
+    const s = getBuildTimelineState(seconds);
+    if (s.stageIndex !== prevRef.current.stageIndex || s.phase !== prevRef.current.phase) {
+      prevRef.current = { stageIndex: s.stageIndex, phase: s.phase };
+      setDiscrete(prevRef.current);
+    }
+  });
+
+  const reducedState = getBuildTimelineState(
+    BUILD_STAGES.slice(0, BUILD_REDUCED_STAGE_INDEX).reduce((sum, s) => sum + s.duration, 0) + BUILD_STAGES[BUILD_REDUCED_STAGE_INDEX].duration * 0.5
+  );
+  const overallProgress = useTransform(elapsed, (v) => (reducedMotion ? reducedState.overallProgress : getBuildTimelineState(v).overallProgress));
+  const rowOpacity = useTransform(elapsed, (v) => (reducedMotion ? 1 : getBuildTimelineState(v).rowOpacity));
+
+  return {
+    stageIndex: reducedMotion ? BUILD_REDUCED_STAGE_INDEX : discrete.stageIndex,
+    phase: reducedMotion ? 'running' : discrete.phase,
+    overallProgress,
+    rowOpacity,
+  };
+}
+
+function BuildWaveform({ reducedMotion }) {
+  const bars = [4, 9, 6, 11, 5];
+  return (
+    <span className="flex items-end gap-[2px]" style={{ height: 12 }} aria-hidden="true">
+      {bars.map((h, i) => (
+        <motion.span
+          key={i}
+          className="rounded-full"
+          style={{ width: 2, background: C.terra, height: reducedMotion ? h : undefined }}
+          animate={reducedMotion ? undefined : { height: [h * 0.4, h, h * 0.4] }}
+          transition={reducedMotion ? undefined : { duration: 0.7, repeat: Infinity, ease: 'easeInOut', delay: i * 0.09 }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function BuildStatusText({ stageIndex, phase, reducedMotion }) {
+  const stage = BUILD_STAGES[stageIndex];
+  // Closing beat: once the hold starts, the label swaps to the closing line
+  // and stays through the fade - it never reverts to the stage-5 label.
+  const closing = phase === 'holding' || phase === 'fading';
+  const label = closing ? BUILD_CLOSING_LABEL : stage.label;
+  return (
+    <div className="flex items-center justify-center" style={{ minHeight: 24, marginBottom: 20 }}>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={closing ? 'closing' : stage.id}
+          initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="flex items-center gap-2.5"
+        >
+          <span className="text-sm font-bold" style={{ color: C.dark }}>{label}</span>
+          {!closing && stage.waveform && <BuildWaveform reducedMotion={reducedMotion} />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function BuildDotRow({ stageIndex, phase }) {
+  const allSolid = phase === 'holding' || phase === 'fading';
+  return (
+    <div className="flex items-center justify-center" aria-hidden="true">
+      {BUILD_STAGES.map((stage, i) => {
+        const completed = allSolid || i < stageIndex;
+        const current = !allSolid && i === stageIndex;
+        const lit = completed || current;
+        const Icon = stage.icon;
+        // The connector segment sits BEFORE this dot, living entirely in
+        // the gap between dot i-1 and dot i - it never crosses into either
+        // dot's circle, so there's no stacking/paint-order to get right.
+        const segmentLit = i > 0 && (allSolid || i <= stageIndex);
+        return (
+          <Fragment key={stage.id}>
+            {i > 0 && (
+              <span
+                className="block w-3 sm:w-4 flex-shrink-0"
+                style={{
+                  height: 2,
+                  borderRadius: 999,
+                  background: segmentLit ? 'linear-gradient(90deg,#F97066,#FB923C)' : 'rgba(193,68,14,0.14)',
+                  transition: 'background 0.3s ease',
+                }}
+              />
+            )}
+            <span className="relative flex items-center justify-center" style={{ width: 32, height: 32 }}>
+              {current && (
+                <motion.span
+                  className="absolute rounded-full"
+                  style={{ inset: -5, background: 'rgba(249,112,102,0.35)' }}
+                  animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.08, 1] }}
+                  transition={BREATH_PULSE}
+                />
+              )}
+              <span
+                className="relative rounded-full flex items-center justify-center"
+                style={{
+                  width: current ? 30 : 26,
+                  height: current ? 30 : 26,
+                  background: lit ? 'linear-gradient(135deg,#F97066,#FB923C)' : 'rgba(193,68,14,0.1)',
+                  border: current ? '2px solid #FFFAF7' : 'none',
+                  boxShadow: current ? '0 0 0 2px rgba(249,112,102,0.6)' : lit ? '0 2px 6px rgba(193,68,14,0.3)' : 'none',
+                  transition: 'background 0.3s ease, box-shadow 0.3s ease, width 0.2s ease, height 0.2s ease',
+                }}
+              >
+                <Icon style={{ width: 14, height: 14, color: lit ? '#fff' : 'rgba(193,68,14,0.4)' }} strokeWidth={2.25} />
+              </span>
+            </span>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 const VIDEO_FEATURES = ['Scene transitions', 'Voice narration', 'Music', 'Ready to publish'];
 
@@ -191,51 +365,154 @@ function CardShadow({ id }) {
   );
 }
 
-// Idle-state illustrations only - no per-element motion. The click is the
-// section's one animated moment (impeccable craft-floor: "one authored
-// moment, not scattered effects"); these just need to read clearly at rest.
-// Each icon has exactly one bold gradient-filled anchor shape (with lift)
-// plus thinner muted-terracotta linework behind it - foreground/background
-// weight inside the icon itself, not just outline, per the approved
-// direction (see the "Step 1 cards - direction" artifact).
+// Card art is literal now (real photos, real bubble text, real before/after
+// swatches), matching the approved reference mockups - the old abstract
+// bar/line/diamond icons are gone. Each still owns exactly one continuous
+// loop while in view (impeccable craft-floor: "one authored moment"), just
+// expressed through real content instead of geometric placeholders.
+const PROMPT_EXAMPLES = [
+  'A small boy in a cabin during winter…',
+  'A cozy coffee shop at sunrise…',
+  'A sneaker launch, bold and cinematic…',
+  'A road trip through autumn hills…',
+];
+
+// Plain setTimeout chain, not framer - this drives text content, not
+// transforms, so there is nothing here for framer to animate.
+function useTypewriterLoop(phrases, { typeMs = 40, holdMs = 1200, deleteMs = 25, pauseMs = 300, reduced = false } = {}) {
+  const [text, setText] = useState(reduced ? phrases[0] : '');
+  useEffect(() => {
+    if (reduced) { setText(phrases[0]); return; }
+    let cancelled = false;
+    let timeoutId;
+    let phraseIndex = 0;
+
+    const scheduleDelete = (phrase, charIndex) => {
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        const next = charIndex - 1;
+        setText(phrase.slice(0, Math.max(next, 0)));
+        if (next > 0) scheduleDelete(phrase, next);
+        else { phraseIndex++; timeoutId = setTimeout(typePhrase, pauseMs); }
+      }, deleteMs);
+    };
+    const scheduleType = (phrase, charIndex) => {
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        const next = charIndex + 1;
+        setText(phrase.slice(0, next));
+        if (next < phrase.length) scheduleType(phrase, next);
+        else timeoutId = setTimeout(() => scheduleDelete(phrase, phrase.length), holdMs);
+      }, typeMs);
+    };
+    const typePhrase = () => scheduleType(phrases[phraseIndex % phrases.length], 0);
+
+    typePhrase();
+    return () => { cancelled = true; clearTimeout(timeoutId); };
+  }, [phrases, typeMs, holdMs, deleteMs, pauseMs, reduced]);
+  return text;
+}
+
 function PromptCardArt() {
+  const reducedMotion = usePrefersReducedMotion();
+  const text = useTypewriterLoop(PROMPT_EXAMPLES, { reduced: reducedMotion });
   return (
-    <svg viewBox="0 0 160 120" className="w-full h-full" fill="none" aria-hidden="true">
-      <defs>
-        <CardGradient id="grad-prompt-card" />
-        <CardShadow id="shadow-prompt-card" />
-      </defs>
-      <rect x="24" y="33" width="64" height="10" rx="5" fill="url(#grad-prompt-card)" />
-      <path d="M24 54 H72" stroke="#C1440E" strokeOpacity="0.32" strokeWidth="3" strokeLinecap="round" />
-      <path d="M24 68 H84" stroke="#C1440E" strokeOpacity="0.2" strokeWidth="3" strokeLinecap="round" />
-      <path d="M108 82 L132 58 L142 68 L118 92 L104 96 Z" fill="url(#grad-prompt-card)" filter="url(#shadow-prompt-card)" />
-    </svg>
+    <div className="relative w-full h-full flex items-center justify-center px-5">
+      <div
+        className="relative w-full max-w-[240px] px-5 py-4"
+        style={{ background: C.white, borderRadius: '20px 20px 20px 6px', boxShadow: '0 6px 20px rgba(28,25,23,0.16)' }}
+      >
+        <p className="text-[15px] font-semibold" style={{ color: C.dark, lineHeight: 1.5, minHeight: '3em' }}>
+          {text}
+          <span
+            aria-hidden="true"
+            className="inline-block"
+            style={{
+              width: 2, height: '0.95em', marginLeft: 2, verticalAlign: '-0.12em',
+              background: C.terra,
+              animation: reducedMotion ? 'none' : 'raphio-caret-blink 0.9s step-end infinite',
+            }}
+          />
+        </p>
+      </div>
+    </div>
   );
 }
+
+// Fanned real photos "arriving" one after another, plus its own separate
+// pulse on the add button - two distinct rhythms so they read as two
+// things (content being added vs. an affordance to add more), per the brief.
+// Percentage-based (not fixed px) so the fan scales with the card instead
+// of floating small inside a now much bigger illustration area.
+const PHOTOS_STACK = [
+  { src: scene2Img, rotate: -12, left: '0%',  top: '22%', width: '42%', height: '50%' },
+  { src: scene4Img, rotate: 12,  left: '56%', top: '22%', width: '42%', height: '50%' },
+  { src: scene1Img, rotate: 0,   left: '29%', top: '18%',  width: '44%', height: '52%' },
+];
+
 function PhotosCardArt() {
+  const reducedMotion = usePrefersReducedMotion();
   return (
-    <svg viewBox="0 0 160 120" className="w-full h-full" fill="none" aria-hidden="true">
-      <defs>
-        <CardGradient id="grad-photos-card" />
-        <CardShadow id="shadow-photos-card" />
-      </defs>
-      <rect x="20" y="34" width="66" height="50" rx="8" fill="#C1440E" fillOpacity="0.1" stroke="#C1440E" strokeOpacity="0.28" strokeWidth="2" transform="rotate(-7 53 59)" />
-      <rect x="52" y="30" width="66" height="50" rx="8" fill="url(#grad-photos-card)" transform="rotate(5 85 55)" filter="url(#shadow-photos-card)" />
-    </svg>
+    <div className="relative w-full h-full" aria-hidden="true">
+      {PHOTOS_STACK.map((p, i) => (
+        <motion.div
+          key={p.src}
+          className="absolute rounded-lg overflow-hidden"
+          style={{
+            left: p.left, top: p.top, width: p.width, height: p.height,
+            rotate: p.rotate,
+            zIndex: i + 1,
+            border: '3px solid #FFFAF7',
+            boxShadow: '0 4px 12px rgba(28,25,23,0.24)',
+          }}
+          animate={reducedMotion ? undefined : { scale: [1, 1.08, 1] }}
+          transition={reducedMotion ? undefined : { duration: 1.6, repeat: Infinity, repeatDelay: 1.4, ease: [0.16, 1, 0.3, 1], delay: i * 0.35 }}
+        >
+          <img src={p.src} alt="" className="w-full h-full object-cover" />
+        </motion.div>
+      ))}
+      <motion.div
+        className="absolute rounded-full flex items-center justify-center"
+        style={{
+          width: 30, height: 30, right: '6%', bottom: '10%', zIndex: 5,
+          background: 'linear-gradient(135deg,#F97066,#FB923C)',
+          boxShadow: '0 3px 10px rgba(193,68,14,0.45)',
+        }}
+        animate={reducedMotion ? undefined : { scale: [1, 1.18, 1] }}
+        transition={reducedMotion ? undefined : { duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Plus style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={3} />
+      </motion.div>
+    </div>
   );
 }
+
 function ReferenceCardArt() {
+  const reducedMotion = usePrefersReducedMotion();
   return (
-    <svg viewBox="0 0 160 120" className="w-full h-full" fill="none" aria-hidden="true">
-      <defs>
-        <CardGradient id="grad-ref-card" />
-        <CardShadow id="shadow-ref-card" />
-      </defs>
-      <rect x="42" y="22" width="70" height="72" rx="10" fill="#C1440E" fillOpacity="0.08" stroke="#C1440E" strokeOpacity="0.3" strokeWidth="2.5" />
-      <circle cx="77" cy="50" r="14" fill="url(#grad-ref-card)" filter="url(#shadow-ref-card)" />
-      <path d="M55 84 Q77 62 99 84 Z" fill="url(#grad-ref-card)" />
-      <path d="M124 26 L127 34 L135 37 L127 40 L124 48 L121 40 L113 37 L121 34 Z" fill="url(#grad-ref-card)" />
-    </svg>
+    <div className="relative w-full h-full flex items-center justify-center gap-2.5 px-3" aria-hidden="true">
+      <div className="rounded-xl overflow-hidden flex-1 aspect-square" style={{ border: '1.5px solid rgba(193,68,14,0.25)', boxShadow: '0 3px 10px rgba(28,25,23,0.12)' }}>
+        <img src={perfume1Img} alt="" className="w-full h-full object-cover" />
+      </div>
+      <svg viewBox="0 0 34 14" className="flex-shrink-0" style={{ width: 26, height: 14, overflow: 'visible' }} fill="none">
+        <path d="M1 7 H27" stroke="#C1440E" strokeOpacity="0.3" strokeWidth="2" strokeLinecap="round" />
+        <path d="M22 2 L29 7 L22 12" stroke="#C1440E" strokeOpacity="0.3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        {!reducedMotion && (
+          <motion.circle
+            r="2.6"
+            cy="7"
+            fill="#FB923C"
+            style={{ filter: 'drop-shadow(0 0 3px rgba(251,146,60,0.8))' }}
+            initial={{ cx: 3, opacity: 0 }}
+            animate={{ cx: [3, 26], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', times: [0, 0.15, 0.82, 1] }}
+          />
+        )}
+      </svg>
+      <div className="rounded-xl overflow-hidden flex-1 aspect-square" style={{ boxShadow: '0 4px 14px rgba(193,68,14,0.32)' }}>
+        <img src={perfume2Img} alt="" className="w-full h-full object-cover" />
+      </div>
+    </div>
   );
 }
 
@@ -285,20 +562,14 @@ function StartCard({ card, active, cardRef, onSelect }) {
       onClick={onSelect}
       whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-      className="relative flex flex-col items-center text-center rounded-2xl px-5 py-6 sm:px-6 sm:py-7 cursor-pointer min-h-[44px]"
+      className="relative flex flex-col items-center text-center rounded-2xl px-6 py-7 sm:px-7 sm:py-8 cursor-pointer min-h-[44px]"
       style={{
         background: active ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.42)',
         boxShadow: active ? '0 14px 34px rgba(193,68,14,0.16)' : '0 2px 10px rgba(28,25,23,0.05)',
         transition: 'background 0.3s ease, box-shadow 0.3s ease',
       }}
     >
-      <div
-        className="w-full aspect-[4/3] max-w-[168px] mb-4 rounded-2xl overflow-hidden"
-        style={{
-          background:
-            'radial-gradient(120% 130% at 26% 18%, rgba(251,146,60,0.20) 0%, rgba(249,112,102,0.09) 48%, rgba(249,112,102,0) 78%), #FBF6F1',
-        }}
-      >
+      <div className="w-full aspect-[4/3] mb-5 rounded-2xl overflow-hidden" style={{ background: '#FBF6F1' }}>
         <Illustration />
       </div>
       <p className="text-[15px] sm:text-base font-bold" style={{ color: C.dark, lineHeight: 1.35 }}>
@@ -311,35 +582,104 @@ function StartCard({ card, active, cardRef, onSelect }) {
   );
 }
 
-// The signature moment: three ways in, one system. Idle state is a slow,
-// subtle breathing glow (reads as "alive," not decorative for its own
-// sake); a click sends a token in on a curved path and the node pulses
-// once on arrival, then settles - the entire proof, nothing more.
+// Shared idle-breathing rhythm for the build-sequence's "current stage" dot
+// ring (see BuildDotRow) - unrelated to GlowNode's own breathing below,
+// which runs its own 4.5s cycle per spec.
+const BREATH_PULSE = { duration: 5, repeat: Infinity, ease: 'easeInOut' };
+
+// Three solid-color pulse rings, not blurred gradients - each one starts
+// exactly the disc's size (fully hidden behind it) and scales up while
+// fading out, so only the portion that has grown past the disc's edge is
+// ever visible. Staggered by 1s each against a 3s cycle, so at any instant
+// two or three rings are mid-expansion at once.
+const PULSE_RINGS = [
+  { color: '#E8603C', delay: 0 },
+  { color: '#F97066', delay: 1 },
+  { color: '#FBAA6F', delay: 2 },
+];
+const PULSE_CYCLE_S = 3;
+// Reduced-motion fallback: freeze each ring at a fixed intermediate
+// scale/opacity instead of animating, so the layered look still reads.
+const PULSE_RINGS_STATIC = [
+  { scale: 1.2, opacity: 0.4 },
+  { scale: 1.4, opacity: 0.3 },
+  { scale: 1.6, opacity: 0.2 },
+];
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+// Driven by absolute elapsed time through a phase-shift modulo, not
+// framer's delay+repeat - a `delay` only applies once, so for the first
+// cycle the later rings would sit invisible-behind-the-disc before ever
+// starting, then join in: a visible "ramp up," and the one obvious reset
+// the brief flagged. Computing each ring's phase directly from time means
+// it renders mid-cycle on the very first frame, exactly as if it had
+// already been pulsing forever - no startup transient, no seam, ever.
+function PulseRing({ color, delaySec, reducedMotion, staticScale, staticOpacity }) {
+  const scale = useMotionValue(reducedMotion ? staticScale : 1);
+  const opacity = useMotionValue(reducedMotion ? staticOpacity : 0.5);
+  useAnimationFrame((time) => {
+    if (reducedMotion) return;
+    const t = time / 1000;
+    const cyclePos = (((t - delaySec) % PULSE_CYCLE_S) + PULSE_CYCLE_S) % PULSE_CYCLE_S;
+    const progress = cyclePos / PULSE_CYCLE_S;
+    const eased = easeOutCubic(progress);
+    scale.set(1 + eased * 0.8);
+    opacity.set(0.5 * (1 - progress));
+  });
+  return (
+    <motion.div
+      className="absolute rounded-full"
+      style={{ inset: 0, width: 76, height: 76, background: color, zIndex: 0, scale, opacity }}
+    />
+  );
+}
+
+// The signature moment - not a button, the engine. Three solid pulse rings
+// expand and fade behind a disc that never moves at all - no border, no
+// inset highlight, completely flat. All the motion lives in the rings,
+// none of it on the icon surface. A click still sends a token in and the
+// node answers with a one-shot ring, same mechanism as the idle pulses.
 function GlowNode({ containerRef, pulseKey, reducedMotion }) {
   return (
     <div ref={containerRef} className="relative" style={{ width: 76, height: 76 }} aria-hidden="true">
-      <motion.div
-        className="absolute rounded-full"
-        style={{ inset: -58, background: 'radial-gradient(circle, rgba(251,146,60,0.4) 0%, rgba(249,112,102,0.16) 42%, rgba(249,112,102,0) 72%)', filter: 'blur(18px)' }}
-        animate={reducedMotion ? undefined : { opacity: [0.85, 1, 0.85] }}
-        transition={reducedMotion ? undefined : { duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-      />
+      {PULSE_RINGS.map((ring, i) => (
+        <PulseRing
+          key={i}
+          color={ring.color}
+          delaySec={ring.delay}
+          reducedMotion={reducedMotion}
+          staticScale={PULSE_RINGS_STATIC[i].scale}
+          staticOpacity={PULSE_RINGS_STATIC[i].opacity}
+        />
+      ))}
+
+      {/* The disc: flat, static, never animated. No border, no inset
+          highlight - the housing doesn't move, only the rings behind it do. */}
       <div
-        className="absolute rounded-full"
-        style={{ inset: -16, background: 'radial-gradient(circle, rgba(255,196,150,0.8) 0%, rgba(251,146,60,0.4) 55%, rgba(251,146,60,0) 78%)', filter: 'blur(8px)' }}
-      />
-      <div
-        className="absolute inset-0 rounded-full"
-        style={{ background: 'linear-gradient(135deg,#F97066,#FB923C)', boxShadow: '0 0 22px 5px rgba(251,146,60,0.55)' }}
-      />
+        className="absolute inset-0 rounded-full flex items-center justify-center"
+        style={{
+          zIndex: 1,
+          background: 'linear-gradient(135deg, #E8603C, #C1440E)',
+          boxShadow: '0 4px 14px rgba(193,68,14,0.25)',
+        }}
+      >
+        <img
+          src="/Raphio.png"
+          alt=""
+          style={{ width: '44%', height: '44%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+        />
+      </div>
+
+      {/* Arrival: a one-shot ring fired when a token lands - the node
+          acknowledging an input, independent of the idle breathing above. */}
       {pulseKey > 0 && (
         <motion.div
           key={pulseKey}
           className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ background: 'rgba(255,217,184,0.9)' }}
-          initial={{ opacity: 0.9, scale: reducedMotion ? 1 : 0.9 }}
-          animate={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 1.6 }}
-          transition={{ duration: reducedMotion ? 0.2 : 0.55, ease: [0.16, 1, 0.3, 1] }}
+          style={{ zIndex: 2, border: '1.5px solid rgba(232,96,60,0.65)' }}
+          initial={{ opacity: 0.75, scale: reducedMotion ? 1 : 0.96 }}
+          animate={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 1.65 }}
+          transition={{ duration: reducedMotion ? 0.2 : 0.6, ease: [0.16, 1, 0.3, 1] }}
         />
       )}
     </div>
@@ -374,6 +714,40 @@ function TravelToken({ token, onArrive }) {
   );
 }
 
+// Sequential line story: draw, hold the flow visible, hand off to the next
+// line - one thing happening at a time, not three at once competing for
+// attention. Non-uniform stage math kept deliberately simple (pure
+// function of elapsed seconds, same shape as getBuildTimelineState) so
+// three separate components (the lines here, nothing else needs it) can't
+// drift out of sync with each other.
+const LINE_DRAW_S = 0.7;
+const LINE_HOLD_S = 1.0;
+const LINE_STAGE_S = LINE_DRAW_S + LINE_HOLD_S;
+const LINE_PAUSE_S = 0.7;
+const LINE_CYCLE_S = LINE_STAGE_S * 3 + LINE_PAUSE_S;
+
+function getLineState(elapsedS, index) {
+  const t = elapsedS % LINE_CYCLE_S;
+  const lineStart = index * LINE_STAGE_S;
+  if (t < lineStart) return { drawProgress: 0, flowActive: false };
+  const local = t - lineStart;
+  if (local < LINE_DRAW_S) return { drawProgress: local / LINE_DRAW_S, flowActive: false };
+  if (local < LINE_STAGE_S) return { drawProgress: 1, flowActive: true };
+  return { drawProgress: 1, flowActive: false };
+}
+
+// The node -> Step 2 connector shares this same clock (not its own scroll
+// trigger) so it only starts once line 0 (Prompt -> node) has actually
+// finished drawing - "this is what happens next," not a parallel animation.
+const CONNECTOR_START_S = LINE_DRAW_S;
+const CONNECTOR_DRAW_S = 0.4;
+function getConnectorProgress(elapsedS) {
+  const t = elapsedS % LINE_CYCLE_S;
+  const local = t - CONNECTOR_START_S;
+  if (local <= 0) return 0;
+  return Math.min(local / CONNECTOR_DRAW_S, 1);
+}
+
 // Step 1: measures each card's and the node's real position once mounted
 // (and on resize), then drives everything in plain pixel transforms - no
 // scroll involvement at all here, this mechanic is purely click-driven.
@@ -392,16 +766,67 @@ function ConvergenceStage() {
   const [tokens, setTokens] = useState([]);
   const [pulseKey, setPulseKey] = useState(0);
 
+  // One line teaches at a time: draws in, holds its flow visible, then the
+  // next line takes over. Gated on the section actually being in view (not
+  // raw scroll position) so the story only plays while someone can see it.
+  const stageInView = useInView(stageRef, { amount: 0.4 });
+  const pathRefs = useRef([]);
+  const outerPathRefs = useRef([]);
+  const flowRefs = useRef([]);
+  const pathLengthsRef = useRef([0, 0, 0]);
+  const elapsedRef = useRef(0);
+  const lastFrameRef = useRef(null);
+  const connectorPathRef = useRef(null);
+  const connectorOuterRef = useRef(null);
+  const connectorFlowRef = useRef(null);
+  const connectorArrowRef = useRef(null);
+  const connectorLengthRef = useRef(0);
+
+  const applyLineFrame = (elapsedS) => {
+    pathRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const { drawProgress, flowActive } = reducedMotion
+        ? { drawProgress: 1, flowActive: false }
+        : getLineState(elapsedS, i);
+      const length = pathLengthsRef.current[i] || 0;
+      const offset = `${length * (1 - drawProgress)}`;
+      el.style.strokeDashoffset = offset;
+      const outerEl = outerPathRefs.current[i];
+      if (outerEl) outerEl.style.strokeDashoffset = offset;
+      const flowEl = flowRefs.current[i];
+      if (flowEl) flowEl.style.opacity = flowActive ? '1' : '0';
+    });
+
+    const connectorProgress = reducedMotion ? 1 : getConnectorProgress(elapsedS);
+    const cLen = connectorLengthRef.current || 0;
+    const cOffset = `${cLen * (1 - connectorProgress)}`;
+    if (connectorPathRef.current) connectorPathRef.current.style.strokeDashoffset = cOffset;
+    if (connectorOuterRef.current) connectorOuterRef.current.style.strokeDashoffset = cOffset;
+    if (connectorFlowRef.current) connectorFlowRef.current.style.opacity = !reducedMotion && connectorProgress >= 1 ? '1' : '0';
+    if (connectorArrowRef.current) connectorArrowRef.current.style.opacity = connectorProgress >= 1 ? '1' : '0';
+  };
+
+  useAnimationFrame((time) => {
+    if (reducedMotion) return;
+    if (!stageInView) { lastFrameRef.current = null; return; }
+    if (lastFrameRef.current == null) lastFrameRef.current = time;
+    elapsedRef.current += (time - lastFrameRef.current) / 1000;
+    lastFrameRef.current = time;
+    applyLineFrame(elapsedRef.current);
+  });
+
   useLayoutEffect(() => {
     const measure = () => {
       const stage = stageRef.current;
       const node = nodeRef.current;
       if (!stage || !node) return;
       const stageRect = stage.getBoundingClientRect();
+      // Bottom-center of each card, not its center - a line should leave
+      // from where the card actually ends, not float out of its middle.
       const cards = cardRefs.current.map((el) => {
         if (!el) return { x: 0, y: 0 };
         const r = el.getBoundingClientRect();
-        return { x: r.left + r.width / 2 - stageRect.left, y: r.top + r.height / 2 - stageRect.top };
+        return { x: r.left + r.width / 2 - stageRect.left, y: r.bottom - stageRect.top };
       });
       const nr = node.getBoundingClientRect();
       setGeo({ cards, node: { x: nr.left + nr.width / 2 - stageRect.left, y: nr.top + nr.height / 2 - stageRect.top } });
@@ -411,6 +836,31 @@ function ConvergenceStage() {
     window.addEventListener('resize', measure);
     return () => { window.removeEventListener('resize', measure); clearTimeout(t); };
   }, []);
+
+  // Re-measure each path's REAL rendered length (getTotalLength) whenever
+  // the geometry actually changes, set the dasharray once, then hand off
+  // to the per-frame sequential timeline above to drive the offset.
+  useLayoutEffect(() => {
+    pathRefs.current.forEach((el) => {
+      if (!el) return;
+      const i = Number(el.dataset.lineIndex);
+      const length = el.getTotalLength();
+      pathLengthsRef.current[i] = length;
+      const dashArray = `${length}`;
+      el.style.strokeDasharray = dashArray;
+      const outerEl = outerPathRefs.current[i];
+      if (outerEl) outerEl.style.strokeDasharray = dashArray;
+    });
+    if (connectorPathRef.current) {
+      const cLen = connectorPathRef.current.getTotalLength();
+      connectorLengthRef.current = cLen;
+      const cDash = `${cLen}`;
+      connectorPathRef.current.style.strokeDasharray = cDash;
+      if (connectorOuterRef.current) connectorOuterRef.current.style.strokeDasharray = cDash;
+    }
+    applyLineFrame(elapsedRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo, reducedMotion]);
 
   const handleSelect = (card, index) => {
     setActiveId(card.id);
@@ -433,15 +883,72 @@ function ConvergenceStage() {
   return (
     <div ref={stageRef} className="relative">
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }} aria-hidden="true">
-        {geo.cards.map((c, i) => (
-          <path
-            key={i}
-            d={`M${c.x} ${c.y} Q${geo.node.x + (c.x - geo.node.x) * 0.55} ${c.y + (geo.node.y - c.y) * 0.6} ${geo.node.x} ${geo.node.y}`}
-            stroke="rgba(193,68,14,0.14)"
-            strokeWidth="1.5"
-            fill="none"
-          />
-        ))}
+        <defs>
+          {geo.cards.map((c, i) => (
+            // Fades toward the node - by the time the line reaches the
+            // pulsing circle it should be dissolving into it, not stopping
+            // at a hard edge. userSpaceOnUse so the gradient axis is the
+            // real card->node line, not the path's own bounding box.
+            <linearGradient key={i} id={`line-fade-${i}`} gradientUnits="userSpaceOnUse" x1={c.x} y1={c.y} x2={geo.node.x} y2={geo.node.y}>
+              <stop offset="0%" stopColor="#E8603C" stopOpacity="1" />
+              <stop offset="100%" stopColor="#E8603C" stopOpacity="0.12" />
+            </linearGradient>
+          ))}
+        </defs>
+        {geo.cards.map((c, i) => {
+          // Deliberately extreme control-point ratios, not a "safe" curve:
+          // the control point sits close to the card's own x (0.15 of the
+          // way toward the node) and well below the midpoint on y (0.65 of
+          // the way down) - that's what produces a real sag/swoop instead
+          // of a gentle lean.
+          const controlX = c.x + (geo.node.x - c.x) * 0.15;
+          const controlY = c.y + (geo.node.y - c.y) * 0.65;
+          const d = `M${c.x} ${c.y} Q${controlX} ${controlY} ${geo.node.x} ${geo.node.y}`;
+          return (
+            <g key={i}>
+              {/* Outer: soft glow halo behind the line - blurred, no dash. */}
+              <path
+                ref={(el) => { outerPathRefs.current[i] = el; }}
+                d={d}
+                stroke="rgba(232,96,60,0.22)"
+                strokeWidth="9"
+                fill="none"
+                style={{ filter: 'blur(3px)' }}
+              />
+              {/* Inner: crisp solid base line, fading toward the node - this
+                  is what establishes the path is always there, before any
+                  motion happens on top. */}
+              <path
+                ref={(el) => { pathRefs.current[i] = el; }}
+                data-line-index={i}
+                d={d}
+                stroke={`url(#line-fade-${i})`}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                fill="none"
+              />
+              {/* Flowing overlay: same path, short dash + long gap, driven
+                  by the sequential timeline above (opacity toggled
+                  imperatively; only the current line's flow is ever
+                  visible) - CSS animation for the actual dash motion since
+                  it's continuous/linear and belongs off the main thread.
+                  Path is authored card-first, so a decreasing dashoffset
+                  moves the dash in the card->node direction. */}
+              {!reducedMotion && (
+                <path
+                  ref={(el) => { flowRefs.current[i] = el; }}
+                  d={d}
+                  stroke="#FFD9C7"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray="8 24"
+                  style={{ opacity: 0, animation: 'raphio-flow 1.8s linear infinite' }}
+                />
+              )}
+            </g>
+          );
+        })}
       </svg>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 relative z-10">
@@ -456,8 +963,55 @@ function ConvergenceStage() {
         ))}
       </div>
 
-      <div className="flex justify-center my-8 sm:my-10 relative z-10">
+      {/* Top margin, bumped again (previously mt-20/mt-28) - the node needs
+          real distance below the cards for the bowed lines to have room to
+          sag and for the flowing light to have visible distance to travel.
+          Bottom margin is deliberately tiny now - the distance down to
+          Step 2 lives in the connector's own path length just below, not
+          in empty margin, so the line reads as coming out of the node
+          instead of starting from a gap floating below it. */}
+      <div className="flex justify-center mt-36 sm:mt-48 mb-2 sm:mb-3 relative z-10">
         <GlowNode containerRef={nodeRef} pulseKey={pulseKey} reducedMotion={reducedMotion} />
+      </div>
+
+      {/* Node -> Step 2: same beam language as the card lines (glow + solid
+          fading-from-node + flowing overlay), sharing the identical clock -
+          only starts once line 0 has finished drawing (see
+          CONNECTOR_START_S), so it reads as "this is what happens next,"
+          not something running in parallel on its own timer. */}
+      <div className="flex justify-center relative z-10" aria-hidden="true">
+        <svg width="24" height="150" viewBox="0 0 24 150" fill="none">
+          <defs>
+            <linearGradient id="connector-fade" gradientUnits="userSpaceOnUse" x1="12" y1="4" x2="12" y2="120">
+              <stop offset="0%" stopColor="#E8603C" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#E8603C" stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          <path ref={connectorOuterRef} d="M12 4 V120" stroke="rgba(232,96,60,0.22)" strokeWidth="9" fill="none" style={{ filter: 'blur(3px)' }} />
+          <path ref={connectorPathRef} d="M12 4 V120" stroke="url(#connector-fade)" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          {!reducedMotion && (
+            <path
+              ref={connectorFlowRef}
+              d="M12 4 V120"
+              stroke="#FFD9C7"
+              strokeWidth="4"
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray="8 24"
+              style={{ opacity: 0, animation: 'raphio-flow 1.8s linear infinite', transition: 'opacity 0.3s ease' }}
+            />
+          )}
+          <path
+            ref={connectorArrowRef}
+            d="M4 114 L12 128 L20 114"
+            stroke="#C1440E"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            style={{ opacity: reducedMotion ? 1 : 0, transition: 'opacity 0.3s ease' }}
+          />
+        </svg>
       </div>
 
       {!reducedMotion && (
@@ -473,32 +1027,21 @@ function ConvergenceStage() {
   );
 }
 
+
 // Step 2: one card, one settle-into-place reveal the first time it scrolls
 // into view. No props, no state shared with Step 1 - it has nothing to
 // react to even if it wanted to.
 function BuildAssemblyCard() {
   const reducedMotion = usePrefersReducedMotion();
+  const containerRef = useRef(null);
+  const { stageIndex, phase, rowOpacity } = useBuildTimeline(containerRef, reducedMotion);
+
   return (
-    <div className="rounded-3xl px-6 py-10 sm:px-10 sm:py-12" style={{ background: C.bgAlt }}>
-      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
-        {BUILD_TILES.map((tile, i) => {
-          const Icon = tile.icon;
-          return (
-            <motion.span
-              key={tile.label}
-              initial={reducedMotion ? false : { opacity: 0, y: i % 2 === 0 ? -14 : 14, rotate: i % 2 === 0 ? -5 : 5, scale: 0.9 }}
-              whileInView={reducedMotion ? undefined : { opacity: 1, y: 0, rotate: 0, scale: 1 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{ duration: 0.5, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold"
-              style={{ background: C.white, color: C.dark, boxShadow: '0 3px 12px rgba(28,25,23,0.06)' }}
-            >
-              <Icon style={{ width: 15, height: 15, color: C.terra }} />
-              {tile.label}
-            </motion.span>
-          );
-        })}
-      </div>
+    <div ref={containerRef} className="rounded-3xl px-6 py-10 sm:px-10 sm:py-12 flex flex-col items-center" style={{ background: C.bgAlt }}>
+      <motion.div style={{ opacity: rowOpacity }} className="flex flex-col items-center">
+        <BuildStatusText stageIndex={stageIndex} phase={phase} reducedMotion={reducedMotion} />
+        <BuildDotRow stageIndex={stageIndex} phase={phase} />
+      </motion.div>
     </div>
   );
 }
@@ -508,8 +1051,12 @@ function BuildAssemblyCard() {
 // once-only reveal, independent of everything above it.
 function VideoShowcase() {
   const reducedMotion = usePrefersReducedMotion();
+  const containerRef = useRef(null);
+  const { overallProgress } = useBuildTimeline(containerRef, reducedMotion);
+  const barWidth = useTransform(overallProgress, (v) => `${v * 100}%`);
+
   return (
-    <div className="flex flex-col items-center">
+    <div ref={containerRef} className="flex flex-col items-center">
       <motion.div
         className="relative w-full max-w-2xl"
         initial={reducedMotion ? false : { opacity: 0, scale: 0.94 }}
@@ -540,6 +1087,28 @@ function VideoShowcase() {
             >
               <Play style={{ width: 24, height: 24, color: C.terra, marginLeft: 3 }} fill={C.terra} />
             </span>
+          </div>
+          {/* Bottom progress bar - advances off the same shared timeline as
+              Step 2's status text/dots (point 7), so both visibly move together */}
+          <div className="absolute left-0 right-0 bottom-0 px-5 sm:px-6 pb-4 pt-10 pointer-events-none" aria-hidden="true">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>0:00</span>
+              <div className="relative flex-1 rounded-full" style={{ height: 3, background: 'rgba(255,255,255,0.28)' }}>
+                <motion.div
+                  className="absolute left-0 top-0 h-full rounded-full"
+                  style={{ width: barWidth, background: 'linear-gradient(90deg,#F97066,#FB923C)' }}
+                />
+                <motion.div
+                  className="absolute rounded-full"
+                  style={{
+                    top: '50%', left: barWidth, width: 9, height: 9,
+                    background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                />
+              </div>
+              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>0:30</span>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -574,7 +1143,7 @@ function HowItWorks() {
           <h2 className="display mb-4" style={{ fontSize: 'clamp(34px,4.4vw,56px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.08 }}>
             Create a complete video<br className="hidden sm:block" /> in 3 simple steps
           </h2>
-          <p className="text-base max-w-lg mx-auto" style={{ color: C.muted, lineHeight: 1.6 }}>
+          <p className="text-base max-w-lg mx-auto" style={{ color: C.muted, lineHeight: 1.6, fontSize: '18px' }}>
             Start with a prompt, your own photos, or a reference image.
             However you begin, Raphio creates one finished video ready to share.
           </p>
@@ -582,7 +1151,7 @@ function HowItWorks() {
 
         <ConvergenceStage />
 
-        <div className="mt-16 sm:mt-20">
+        <div className="mt-4 sm:mt-6">
           <BuildAssemblyCard />
           <p className="text-center text-sm font-semibold mt-4" style={{ color: C.muted }}>
             Raphio builds your storyboard automatically.
@@ -601,19 +1170,16 @@ function HowItWorks() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col items-center mt-14 sm:mt-16"
         >
-          <motion.button
+          <button
             onClick={() => goTo('prompt')}
-            className="inline-flex items-center gap-2 px-9 py-3.5 rounded-full text-base font-bold text-white"
-            style={{ background: CTA_GRADIENT }}
-            initial={false}
-            whileHover={{ boxShadow: '0 8px 40px rgba(249,112,102,0.45)', y: -2, scale: 1.02 }}
-            whileTap={{ scale: 0.97, y: 0 }}
-            animate={{ boxShadow: '0 4px 24px rgba(249,112,102,0.3)' }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="inline-flex items-center gap-2 px-9 py-3.5 rounded-full text-base font-bold text-white transition-all duration-300"
+            style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 24px rgba(193,68,14,0.35)' }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(193,68,14,0.35)'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
           >
             Make your first video
             <ArrowRight className="w-4 h-4" />
-          </motion.button>
+          </button>
         </motion.div>
       </div>
     </section>
@@ -867,6 +1433,8 @@ export default function LandingPage() {
         .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        @keyframes raphio-caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes raphio-flow { to { stroke-dashoffset: -32; } }
       `}</style>
 
       {/* Navbar */}
