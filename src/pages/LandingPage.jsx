@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, Fragment } from 'react';
 import { motion, useScroll, useTransform, useInView, useAnimationFrame, useMotionValue, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowRight, Play, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop } from "lucide-react";
+import { ArrowRight, Play, ChevronLeft, ChevronRight, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop, Workflow, Tag } from "lucide-react";
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -15,10 +15,10 @@ import perfume2Img from "@/assets/perfume2.png";
 const C = {
   bg:      '#F5F0EB',
   bgAlt:   '#EDE8E2',
-  dark:    '#1C1917',
+  dark:    'var(--ink-warm)',
   terra:   '#C1440E',
   terraLt: '#E8603C',
-  muted:   '#7A6A62',
+  muted:   'var(--muted-warm)',
   faint:   '#DDD6CC',
   white:   '#FFFAF7',
 };
@@ -40,7 +40,7 @@ function PricingButton({ tier, onClick }) {
         ...(tier.popular
           ? {
               background: hovered
-                ? 'linear-gradient(135deg, #CE5520, #E8603C)'
+                ? 'linear-gradient(135deg, #5C1000, #E8603C)'
                 : `linear-gradient(135deg, #C1440E, #E8603C)`,
               color: '#fff',
               border: 'none',
@@ -299,7 +299,7 @@ function BuildDotRow({ stageIndex, phase }) {
                 style={{
                   height: 2,
                   borderRadius: 999,
-                  background: segmentLit ? 'linear-gradient(90deg,#F97066,#FB923C)' : 'rgba(193,68,14,0.14)',
+                  background: segmentLit ? 'linear-gradient(90deg,#C1440E,#E8603C)' : 'rgba(193,68,14,0.14)',
                   transition: 'background 0.3s ease',
                 }}
               />
@@ -308,7 +308,7 @@ function BuildDotRow({ stageIndex, phase }) {
               {current && (
                 <motion.span
                   className="absolute rounded-full"
-                  style={{ inset: -5, background: 'rgba(249,112,102,0.35)' }}
+                  style={{ inset: -5, background: 'rgba(193,68,14,0.35)' }}
                   animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.08, 1] }}
                   transition={BREATH_PULSE}
                 />
@@ -318,9 +318,9 @@ function BuildDotRow({ stageIndex, phase }) {
                 style={{
                   width: current ? 30 : 26,
                   height: current ? 30 : 26,
-                  background: lit ? 'linear-gradient(135deg,#F97066,#FB923C)' : 'rgba(193,68,14,0.1)',
+                  background: lit ? 'linear-gradient(135deg,#C1440E,#E8603C)' : 'rgba(193,68,14,0.1)',
                   border: current ? '2px solid #FFFAF7' : 'none',
-                  boxShadow: current ? '0 0 0 2px rgba(249,112,102,0.6)' : lit ? '0 2px 6px rgba(193,68,14,0.3)' : 'none',
+                  boxShadow: current ? '0 0 0 2px rgba(193,68,14,0.6)' : lit ? '0 2px 6px rgba(193,68,14,0.3)' : 'none',
                   transition: 'background 0.3s ease, box-shadow 0.3s ease, width 0.2s ease, height 0.2s ease',
                 }}
               >
@@ -349,8 +349,8 @@ const FINAL_SCENE = {
 function CardGradient({ id }) {
   return (
     <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="160" y2="120">
-      <stop offset="0%" stopColor="#F97066" />
-      <stop offset="100%" stopColor="#FB923C" />
+      <stop offset="0%" stopColor="#C1440E" />
+      <stop offset="100%" stopColor="#E8603C" />
     </linearGradient>
   );
 }
@@ -421,7 +421,7 @@ function PromptCardArt() {
     <div className="relative w-full h-full flex items-center justify-center px-5">
       <div
         className="relative w-full max-w-[240px] px-5 py-4"
-        style={{ background: C.white, borderRadius: '20px 20px 20px 6px', boxShadow: '0 6px 20px rgba(28,25,23,0.16)' }}
+        style={{ background: C.white, borderRadius: '16px 16px 16px 6px', boxShadow: '0 6px 20px rgba(28,25,23,0.16)' }}
       >
         <p className="text-[15px] font-semibold" style={{ color: C.dark, lineHeight: 1.5, minHeight: '3em' }}>
           {text}
@@ -476,7 +476,7 @@ function PhotosCardArt() {
         className="absolute rounded-full flex items-center justify-center"
         style={{
           width: 30, height: 30, right: '6%', bottom: '10%', zIndex: 5,
-          background: 'linear-gradient(135deg,#F97066,#FB923C)',
+          background: 'linear-gradient(135deg,#C1440E,#E8603C)',
           boxShadow: '0 3px 10px rgba(193,68,14,0.45)',
         }}
         animate={reducedMotion ? undefined : { scale: [1, 1.18, 1] }}
@@ -502,8 +502,8 @@ function ReferenceCardArt() {
           <motion.circle
             r="2.6"
             cy="7"
-            fill="#FB923C"
-            style={{ filter: 'drop-shadow(0 0 3px rgba(251,146,60,0.8))' }}
+            fill="#E8603C"
+            style={{ filter: 'drop-shadow(0 0 3px rgba(232,96,60,0.8))' }}
             initial={{ cx: 3, opacity: 0 }}
             animate={{ cx: [3, 26], opacity: [0, 1, 1, 0] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', times: [0, 0.15, 0.82, 1] }}
@@ -532,8 +532,8 @@ function PromptToken() {
 function PhotosToken() {
   return (
     <div style={{ position: 'relative', width: 46, height: 34 }}>
-      <div className="absolute rounded-md" style={{ width: 26, height: 26, top: 6, left: 0, background: 'linear-gradient(135deg,#F97066,#FB923C)', transform: 'rotate(-8deg)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }} />
-      <div className="absolute rounded-md" style={{ width: 26, height: 26, top: 0, left: 18, background: 'linear-gradient(135deg,#FB923C,#F97066)', transform: 'rotate(6deg)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }} />
+      <div className="absolute rounded-md" style={{ width: 26, height: 26, top: 6, left: 0, background: 'linear-gradient(135deg,#C1440E,#E8603C)', transform: 'rotate(-8deg)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }} />
+      <div className="absolute rounded-md" style={{ width: 26, height: 26, top: 0, left: 18, background: 'linear-gradient(135deg,#E8603C,#C1440E)', transform: 'rotate(6deg)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }} />
     </div>
   );
 }
@@ -541,7 +541,7 @@ function ReferenceToken() {
   return (
     <div
       className="rounded-lg"
-      style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#F97066,#FB923C)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }}
+      style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#C1440E,#E8603C)', boxShadow: '0 4px 12px rgba(193,68,14,0.28)' }}
     />
   );
 }
@@ -595,8 +595,8 @@ const BREATH_PULSE = { duration: 5, repeat: Infinity, ease: 'easeInOut' };
 // two or three rings are mid-expansion at once.
 const PULSE_RINGS = [
   { color: '#E8603C', delay: 0 },
-  { color: '#F97066', delay: 1 },
-  { color: '#FBAA6F', delay: 2 },
+  { color: '#C1440E', delay: 1 },
+  { color: '#5C1000', delay: 2 },
 ];
 const PULSE_CYCLE_S = 3;
 // Reduced-motion fallback: freeze each ring at a fixed intermediate
@@ -737,9 +737,11 @@ function getLineState(elapsedS, index) {
   return { drawProgress: 1, flowActive: false };
 }
 
-// The node -> Step 2 connector shares this same clock (not its own scroll
-// trigger) so it only starts once line 0 (Prompt -> node) has actually
-// finished drawing - "this is what happens next," not a parallel animation.
+// The node -> "keep scrolling" connector shares this same clock (not its
+// own scroll trigger) so it only starts once line 0 (Prompt -> node) has
+// actually finished drawing. Reads as "there's more below," not a parallel
+// animation - deliberately not "this feeds directly into the next visual,"
+// since an earlier exit CTA now sits between the node and Step 2.
 const CONNECTOR_START_S = LINE_DRAW_S;
 const CONNECTOR_DRAW_S = 0.4;
 function getConnectorProgress(elapsedS) {
@@ -975,11 +977,15 @@ function ConvergenceStage() {
         <GlowNode containerRef={nodeRef} pulseKey={pulseKey} reducedMotion={reducedMotion} />
       </div>
 
-      {/* Node -> Step 2: same beam language as the card lines (glow + solid
-          fading-from-node + flowing overlay), sharing the identical clock -
-          only starts once line 0 has finished drawing (see
-          CONNECTOR_START_S), so it reads as "this is what happens next,"
-          not something running in parallel on its own timer. */}
+      {/* Node -> "keep scrolling": same beam language as the card lines (glow
+          + solid fading-from-node + flowing overlay), sharing the identical
+          clock - only starts once line 0 has finished drawing (see
+          CONNECTOR_START_S). Deliberately generic "there's more below," not
+          "this arrives at Step 2" - an earlier exit CTA sits between this
+          node and BuildAssemblyCard, so the beam no longer terminates at one
+          specific visual. Kept full-length rather than trimmed: shortening it
+          would read as an abrupt cut, where the continuous beam preserves
+          the sense of one continuous story past the CTA. */}
       <div className="flex justify-center relative z-10" aria-hidden="true">
         <svg width="24" height="150" viewBox="0 0 24 150" fill="none">
           <defs>
@@ -1067,7 +1073,7 @@ function VideoShowcase() {
       >
         <div
           className="absolute -inset-6 sm:-inset-10 rounded-[40px] pointer-events-none"
-          style={{ background: 'radial-gradient(60% 60% at 50% 40%, rgba(251,146,60,0.22), rgba(249,112,102,0) 72%)', filter: 'blur(28px)' }}
+          style={{ background: 'radial-gradient(60% 60% at 50% 40%, rgba(232,96,60,0.22), rgba(193,68,14,0) 72%)', filter: 'blur(28px)' }}
           aria-hidden="true"
         />
         <div
@@ -1080,7 +1086,7 @@ function VideoShowcase() {
             className="w-full h-full object-cover"
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(10,9,8,0.5) 100%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 55%, rgb(var(--ink-warm-rgb) / 0.5) 100%)' }} />
           <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
             <span
               className="rounded-full flex items-center justify-center"
@@ -1097,7 +1103,7 @@ function VideoShowcase() {
               <div className="relative flex-1 rounded-full" style={{ height: 3, background: 'rgba(255,255,255,0.28)' }}>
                 <motion.div
                   className="absolute left-0 top-0 h-full rounded-full"
-                  style={{ width: barWidth, background: 'linear-gradient(90deg,#F97066,#FB923C)' }}
+                  style={{ width: barWidth, background: 'linear-gradient(90deg,#C1440E,#E8603C)' }}
                 />
                 <motion.div
                   className="absolute rounded-full"
@@ -1117,9 +1123,8 @@ function VideoShowcase() {
       <p className="display mt-6 text-lg sm:text-xl" style={{ color: C.dark }}>Your complete video.</p>
 
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-3">
-        {VIDEO_FEATURES.map((f, i) => (
-          <span key={f} className="flex items-center gap-3 text-xs font-semibold" style={{ color: C.muted }}>
-            {i > 0 && <span aria-hidden="true" style={{ width: 3, height: 3, borderRadius: '50%', background: C.faint, flexShrink: 0 }} />}
+        {VIDEO_FEATURES.map((f) => (
+          <span key={f} className="text-xs font-semibold" style={{ color: C.muted }}>
             {f}
           </span>
         ))}
@@ -1152,7 +1157,25 @@ function HowItWorks() {
 
         <ConvergenceStage />
 
-        <div className="mt-4 sm:mt-6">
+        {/* Earlier exit: a lower-emphasis ask for visitors who are already
+            sold after Step 1 and don't need the build sequence / video
+            reveal to decide. Deliberately the flat Functional register, not
+            the pill-gradient CTA - the closing CTA below stays the one
+            highest-emphasis ask on this path (DESIGN.md's button rules). */}
+        <div className="flex flex-col items-center mt-10 sm:mt-12">
+          <button
+            onClick={() => navigate(user ? '/create' : '/login')}
+            className="inline-flex items-center gap-2 px-6 rounded-md text-sm font-bold text-white transition-colors"
+            style={{ height: 44, background: C.terra }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#5C1000'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = C.terra; }}
+          >
+            Try it free
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="mt-10 sm:mt-12">
           <BuildAssemblyCard />
           <p className="text-center text-sm font-semibold mt-4" style={{ color: C.muted }}>
             Raphio builds your storyboard automatically.
@@ -1178,7 +1201,7 @@ function HowItWorks() {
             onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
             onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(193,68,14,0.35)'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
           >
-            Make your first video
+            Try it free
             <ArrowRight className="w-4 h-4" />
           </button>
         </motion.div>
@@ -1223,13 +1246,20 @@ const CAROUSEL_DEPTH = [
 // firing the instant it loses center: snapping a still-large, still-sharp
 // video back to frame 0 mid-transition is exactly the "hard cut" this was
 // built to avoid - by the time it resets, it's already small and blurred.
-function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, instant = false, onOpen }) {
+function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, instant = false, paused = false, onOpen }) {
   const videoRef = useRef(null);
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    if (isCenter && paused) {
+      // The video modal is open: hold this frame rather than resetting to
+      // frame 0 - it isn't losing center, it should pick back up exactly
+      // where it left off once the modal closes.
+      video.pause();
+      return;
+    }
     if (isCenter) {
       video.play().catch(() => {});
       return;
@@ -1244,7 +1274,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
       video.currentTime = 0;
     }, CAROUSEL_TRANSITION_MS);
     return () => clearTimeout(t);
-  }, [isCenter, positioned, instant]);
+  }, [isCenter, positioned, instant, paused]);
 
   const depth = positioned ? CAROUSEL_DEPTH[Math.min(Math.abs(offset), CAROUSEL_DEPTH.length)] : { scale: 1, opacity: 1, blur: 0 };
   if (positioned && !depth) return null;
@@ -1288,7 +1318,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
         />
         <div
           className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
-          style={{ background: 'rgba(10,9,8,0.28)', opacity: isCenter && hovered ? 1 : 0 }}
+          style={{ background: 'rgb(var(--ink-warm-rgb) / 0.28)', opacity: isCenter && hovered ? 1 : 0 }}
         >
           <div className="rounded-full flex items-center justify-center" style={{ width: 52, height: 52, background: 'rgba(255,250,247,0.94)' }}>
             <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 2 }} fill={C.terra} />
@@ -1302,6 +1332,9 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
 
 function ActionVideoModal({ item, onClose }) {
   const videoRef = useRef(null);
+  const modalRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const previouslyFocusedRef = useRef(null);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -1313,11 +1346,59 @@ function ActionVideoModal({ item, onClose }) {
     videoRef.current?.play().catch(() => {});
   }, []);
 
+  // Scroll lock: restore whatever value body.style.overflow already had
+  // (rather than assuming it was empty) so this can't clobber a lock some
+  // other feature set. Only runs while this component stays mounted -
+  // AnimatePresence keeps it mounted through the exit animation, so the
+  // page stays locked until the close transition actually finishes.
+  useEffect(() => {
+    const { style } = document.body;
+    const prevOverflow = style.overflow;
+    style.overflow = 'hidden';
+    return () => { style.overflow = prevOverflow; };
+  }, []);
+
+  // Focus management: remember whatever had focus before opening (the
+  // triggering card), move focus into the modal, trap Tab/Shift+Tab within
+  // it so keyboard users can't tab out to the dimmed page behind the scrim,
+  // and restore focus to the trigger on close.
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement;
+    closeButtonRef.current?.focus();
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const focusable = modalRef.current.querySelectorAll(
+        'button, [href], video, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleTab);
+    return () => {
+      window.removeEventListener('keydown', handleTab);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, []);
+
   return (
     <motion.div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.label}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className="fixed inset-0 z-[100] flex items-center justify-center p-6"
-      style={{ background: 'rgba(10,9,8,0.88)' }}
+      style={{ background: 'rgb(var(--ink-warm-rgb) / 0.88)' }}
       onClick={onClose}
     >
       <motion.div
@@ -1338,10 +1419,11 @@ function ActionVideoModal({ item, onClose }) {
         />
       </motion.div>
       <button
+        ref={closeButtonRef}
         onClick={onClose}
         aria-label="Close video"
-        className="absolute top-5 right-5 sm:top-8 sm:right-8 flex items-center justify-center rounded-full transition-colors"
-        style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+        className="absolute top-5 right-5 sm:top-8 sm:right-8 flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.12)', color: '#fff', '--tw-ring-color': '#fff' }}
         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
       >
@@ -1360,22 +1442,65 @@ const CAROUSEL_ITEMS_TRIPLED = [0, 1, 2].flatMap((setIndex) =>
   SEE_IT_ITEMS.map((item, i) => ({ ...item, key: `${setIndex}-${i}` }))
 );
 
+// Flat Functional register (DESIGN.md), outline-only variant: Clay Mist
+// border, no fill at rest, Kiln Terracotta chevron - bounded enough to
+// read as a button without ever being the section's highest-contrast
+// element (One Warm Voice Rule: solid terracotta means "the thing to act
+// on," which manual carousel navigation isn't). Chevron, not a triangle,
+// so it never reads as a video-play affordance next to the cards above.
+function CarouselArrowButton({ direction, onClick }) {
+  const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
+  const label = direction === 'prev' ? 'Previous video' : 'Next video';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="group flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={{ width: 44, height: 44, '--tw-ring-color': C.terra }}
+    >
+      <span
+        className="flex items-center justify-center rounded-full transition-colors group-hover:bg-[#F0EAE5] group-hover:border-[#C1440E] group-focus-visible:bg-[#F0EAE5] group-focus-visible:border-[#C1440E]"
+        style={{ width: 36, height: 36, border: '1px solid #EFDCD2', color: C.terra }}
+      >
+        <Icon style={{ width: 18, height: 18 }} strokeWidth={2.25} />
+      </span>
+    </button>
+  );
+}
+
 function SeeItInAction() {
   const [activeItem, setActiveItem] = useState(null);
   const reducedMotion = usePrefersReducedMotion();
   const isMobile = useIsMobile();
   const n = SEE_IT_ITEMS.length;
   const [activeVirtual, setActiveVirtual] = useState(n);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
+  // One-way ratchet, not a toggle: once the visitor drives the carousel
+  // manually, auto-advance stops for good (WCAG 2.2.2 - the user has taken
+  // control, so nothing should start moving on its own again).
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [skipTransition, setSkipTransition] = useState(false);
   const cardWidth = isMobile ? 220 : 320;
+  const currentIndex = ((activeVirtual % n) + n) % n;
+  const goPrev = () => { setHasInteracted(true); setActiveVirtual((v) => v - 1); };
+  const goNext = () => { setHasInteracted(true); setActiveVirtual((v) => v + 1); };
 
-  // Auto-drift: paused while hovered, dropped entirely under reduced motion.
+  // Auto-drift: paused while keyboard focus is inside the carousel (WCAG
+  // 2.2.2 - stays regardless of manual interaction, since focus can land on
+  // a card directly), permanently stopped once the visitor uses either
+  // arrow, while a card's video is expanded in the modal, and never started
+  // at all under reduced motion (point 3 of the brief - passive
+  // reduced-motion visitors get a static, arrow-only carousel with nothing
+  // to opt out of). Deliberately NOT paused on hover: hovering a card
+  // surfaces its own play-button overlay (CarouselCard's local hover
+  // state), which would otherwise occlude the video the instant the
+  // carousel stopped moving.
   useEffect(() => {
-    if (reducedMotion || isHovered) return;
+    if (reducedMotion || isFocusWithin || hasInteracted || activeItem) return;
     const id = setInterval(() => setActiveVirtual((v) => v + 1), CAROUSEL_DWELL_MS);
     return () => clearInterval(id);
-  }, [reducedMotion, isHovered]);
+  }, [reducedMotion, isFocusWithin, hasInteracted, activeItem]);
 
   // Once drifted into the third (duplicate) set, wait for that slide-in to
   // finish, then jump back a set with the transition off for one frame -
@@ -1389,6 +1514,18 @@ function SeeItInAction() {
     return () => clearTimeout(t);
   }, [activeVirtual, n, reducedMotion]);
 
+  // Mirror of the wrap above, for the "prev" arrow: manual navigation can
+  // now walk backward past the first (duplicate) set, so it needs the same
+  // invisible snap-forward once that slide-in finishes.
+  useEffect(() => {
+    if (reducedMotion || activeVirtual >= n) return;
+    const t = setTimeout(() => {
+      setSkipTransition(true);
+      setActiveVirtual((v) => v + n);
+    }, CAROUSEL_TRANSITION_MS);
+    return () => clearTimeout(t);
+  }, [activeVirtual, n, reducedMotion]);
+
   useEffect(() => {
     if (!skipTransition) return;
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => setSkipTransition(false)));
@@ -1397,7 +1534,7 @@ function SeeItInAction() {
 
   return (
     <section className="py-24 px-6" style={{ background: C.bg }}>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto relative">
         <div className="text-center mb-12">
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>See it in action</p>
           <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,44px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
@@ -1409,17 +1546,30 @@ function SeeItInAction() {
         </div>
 
         {reducedMotion ? (
-          <div className="hide-scrollbar grid grid-cols-1 gap-4 sm:flex sm:overflow-x-auto sm:gap-5 sm:pb-2">
-            {SEE_IT_ITEMS.map((item) => (
-              <CarouselCard key={item.label} item={item} isCenter={false} offset={0} cardWidth={cardWidth} positioned={false} onOpen={setActiveItem} />
-            ))}
+          // Static, arrow-driven only (point 3 of the brief): no drift
+          // timer ever runs under reduced motion, so there's nothing to
+          // opt out of for a visitor who never touches the arrows. One
+          // card at a time, no depth/scale/blur composition - `positioned
+          // ={false}` is the same flat rendering CarouselCard already uses
+          // for the modal-triggering thumbnail, just single instead of a
+          // wrapped row of all four.
+          <div className="flex justify-center">
+            <CarouselCard
+              key={SEE_IT_ITEMS[currentIndex].label}
+              item={SEE_IT_ITEMS[currentIndex]}
+              isCenter={false}
+              offset={0}
+              cardWidth={cardWidth}
+              positioned={false}
+              onOpen={setActiveItem}
+            />
           </div>
         ) : (
           <div
             className="relative overflow-hidden"
             style={{ height: cardWidth * 0.5625 * 1.12 + 60 }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onFocus={() => setIsFocusWithin(true)}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsFocusWithin(false); }}
           >
             {CAROUSEL_ITEMS_TRIPLED.map((item, idx) => {
               const offset = idx - activeVirtual;
@@ -1432,12 +1582,41 @@ function SeeItInAction() {
                   offset={offset}
                   cardWidth={cardWidth}
                   instant={skipTransition}
+                  paused={!!activeItem}
                   onOpen={setActiveItem}
                 />
               );
             })}
           </div>
         )}
+
+        {/* Position indicator + prev/next, grouped as one unit directly
+            under the carousel they control. A symmetric pair flanking the
+            dots balances the row's visual weight on its own - no phantom
+            spacer needed here the way the old single autoplay button
+            required one. Rendered for both motion preferences: reduced-
+            motion visitors get arrows as their only way to move at all. */}
+        <div className="flex items-center justify-center gap-3 mt-5">
+          <CarouselArrowButton direction="prev" onClick={goPrev} />
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            {SEE_IT_ITEMS.map((_, i) => {
+              const active = i === currentIndex;
+              return (
+                <span
+                  key={i}
+                  className="rounded-full"
+                  style={{
+                    width: active ? 16 : 6,
+                    height: 6,
+                    background: active ? C.terra : C.faint,
+                    transition: 'width 0.25s ease, background-color 0.25s ease',
+                  }}
+                />
+              );
+            })}
+          </div>
+          <CarouselArrowButton direction="next" onClick={goNext} />
+        </div>
       </div>
 
       <AnimatePresence>
@@ -1522,12 +1701,26 @@ function ContactSection() {
   );
 }
 
+// Mobile menu motion: restrained, no bounce/spring/overshoot - a drawer
+// opening, not a trick. Open is slower and the scrim trails the panel
+// slightly so the two layers read as distinct; close is faster and moves
+// as one coordinated unit (see the panel/scrim variants below).
+const MENU_EASE_OUT = [0.16, 1, 0.3, 1];
+const MENU_EASE_IN = [0.4, 0, 1, 1];
+
 // ── Primary View Component ───────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const reducedMotion = usePrefersReducedMotion();
   const goToAppOrLogin = () => navigate(user ? '/videos' : '/login');
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // The open mobile menu should read as a real state change, not a
+  // transparent dropdown floating over untouched chrome - so the header
+  // adopts its solid "scrolled" look whenever the menu is open, even at
+  // the very top of the page where scrolled is false.
+  const headerSolid = scrolled || mobileMenuOpen;
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 12);
@@ -1535,7 +1728,31 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', fn);
   }, []);
 
-  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Mobile menu: close on Escape (matches the mouse/tap dismiss paths) so
+  // keyboard users get the same exit without hunting for a close button.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileMenuOpen]);
+
+  // Scrim + full-bleed panel reads as a real state change (the page is "in
+  // menu mode"), so scroll should lock the same way it does for the video
+  // modal - restoring whatever value was already there rather than
+  // assuming it was empty.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const { style } = document.body;
+    const prevOverflow = style.overflow;
+    style.overflow = 'hidden';
+    return () => { style.overflow = prevOverflow; };
+  }, [mobileMenuOpen]);
+
+  const scrollTo = (id) => {
+    setMobileMenuOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="min-h-screen font-figtree" style={{ background: C.bg }}>
@@ -1548,15 +1765,21 @@ export default function LandingPage() {
         @keyframes raphio-flow { to { stroke-dashoffset: -32; } }
       `}</style>
 
-      {/* Navbar */}
-      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-200" style={{
-        background: scrolled ? 'rgba(245,240,235,0.92)' : 'linear-gradient(180deg, rgba(10,9,8,0.46) 0%, rgba(10,9,8,0.20) 70%, rgba(10,9,8,0) 100%)',
-        backdropFilter: scrolled ? 'blur(14px)' : 'none',
-      }}>
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+      {/* Navbar. The bar's own background/blur lives on the row div below,
+          not here - <header> wraps both the row AND the open mobile panel,
+          and the panel has its own curved bottom edge. A background painted
+          on <header> itself would be a plain rectangle sitting behind that
+          curve, exposing a straight edge in exactly the corners the curve
+          cuts away. Keeping <header> transparent means nothing shows there
+          but the panel's own shape and the scrim beneath it. */}
+      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-200">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between" style={{
+          background: headerSolid ? 'rgba(245,240,235,0.92)' : 'linear-gradient(180deg, rgb(var(--ink-warm-rgb) / 0.46) 0%, rgb(var(--ink-warm-rgb) / 0.20) 70%, rgb(var(--ink-warm-rgb) / 0) 100%)',
+          backdropFilter: headerSolid ? 'blur(14px)' : 'none',
+        }}>
+          <div className="flex items-center gap-3 sm:gap-8">
             <button onClick={() => scrollTo('hero')} className="hover:opacity-80 transition-opacity">
-              <img src={scrolled ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
+              <img src={headerSolid ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
             </button>
             <nav className="hidden sm:flex items-center gap-1.5">
               {[['How it works','how-it-works'],['Pricing','pricing'],['Contact','contact']].map(([label, id]) => (
@@ -1564,7 +1787,7 @@ export default function LandingPage() {
                   className="px-3.5 py-2 text-sm font-bold"
                   style={{
                     color: scrolled ? C.dark : 'rgba(255,250,247,0.92)',
-                    textShadow: scrolled ? 'none' : '0 1px 6px rgba(10,9,8,0.35)',
+                    textShadow: scrolled ? 'none' : '0 1px 6px rgb(var(--ink-warm-rgb) / 0.35)',
                     backgroundImage: 'linear-gradient(currentColor, currentColor)',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center bottom 7px',
@@ -1578,11 +1801,12 @@ export default function LandingPage() {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            {/* Log in / Try it free: desktop only, unchanged. */}
             <button onClick={goToAppOrLogin}
-              className="px-3.5 py-2 text-sm font-bold min-h-[44px] flex items-center"
+              className="hidden sm:flex items-center px-3.5 py-2 text-sm font-bold min-h-[44px]"
               style={{
                 color: scrolled ? C.dark : 'rgba(255,250,247,0.92)',
-                textShadow: scrolled ? 'none' : '0 1px 6px rgba(10,9,8,0.35)',
+                textShadow: scrolled ? 'none' : '0 1px 6px rgb(var(--ink-warm-rgb) / 0.35)',
                 backgroundImage: 'linear-gradient(currentColor, currentColor)',
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'center bottom 11px',
@@ -1593,7 +1817,7 @@ export default function LandingPage() {
               onMouseLeave={e => { e.currentTarget.style.color = scrolled ? C.dark : 'rgba(255,250,247,0.92)'; e.currentTarget.style.backgroundSize = '0% 2px'; }}
             >Log in</button>
             <button onClick={goToAppOrLogin}
-              className="flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all min-h-[44px]"
+              className="hidden sm:flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all min-h-[44px]"
               style={{
                 background: scrolled ? C.white : 'transparent',
                 color: scrolled ? C.terra : '#FFFAF7',
@@ -1601,13 +1825,223 @@ export default function LandingPage() {
               }}
               onMouseEnter={e => { e.currentTarget.style.background=`linear-gradient(135deg,${C.terra},${C.terraLt})`; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.boxShadow=`0 4px 16px rgba(193,68,14,0.30)`; }}
               onMouseLeave={e => { e.currentTarget.style.background = scrolled ? C.white : 'transparent'; e.currentTarget.style.color = scrolled ? C.terra : '#FFFAF7'; e.currentTarget.style.borderColor = scrolled ? C.terra : 'rgba(255,250,247,0.55)'; e.currentTarget.style.boxShadow='none'; }}
-            >Get started <ArrowRight className="w-3.5 h-3.5" /></button>
+            >Try it free <ArrowRight className="w-3.5 h-3.5" /></button>
+            {/* Mobile: hamburger/X only, far right - opposite the logo, not
+                clustered with it. The closed mobile header is just logo +
+                toggle; Try it free and Log in live in the open panel below
+                instead of crowding this bar. Position never changes between
+                icon states - only the glyph swaps. */}
+            <button
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-nav-menu"
+              className="sm:hidden flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{ width: 44, height: 44, color: headerSolid ? C.dark : 'rgba(255,250,247,0.92)', '--tw-ring-color': C.terra }}
+            >
+              {/* Hamburger -> X: the two outer bars rotate to meet at
+                  center, the middle bar collapses (scales + fades) rather
+                  than cutting instantly. Plain CSS transitions (not Framer
+                  Motion) so rapid re-taps retarget smoothly instead of
+                  restarting. Open is slower/ease-out, close is
+                  faster/ease-in, matching the panel/scrim below. */}
+              <span className="relative block" style={{ width: 20, height: 20 }} aria-hidden="true">
+                {[-6, 0, 6].map((restY, i) => {
+                  const isMiddle = i === 1;
+                  const transitionStyle = reducedMotion
+                    ? 'none'
+                    : mobileMenuOpen
+                      ? `transform 300ms cubic-bezier(${MENU_EASE_OUT.join(',')}), opacity 300ms cubic-bezier(${MENU_EASE_OUT.join(',')})`
+                      : `transform 240ms cubic-bezier(${MENU_EASE_IN.join(',')}), opacity 240ms cubic-bezier(${MENU_EASE_IN.join(',')})`;
+                  const transform = mobileMenuOpen
+                    ? isMiddle ? 'translateY(0px) scaleX(0.4)' : `translateY(0px) rotate(${i === 0 ? 45 : -45}deg)`
+                    : `translateY(${restY}px) rotate(0deg)`;
+                  return (
+                    <span
+                      key={i}
+                      className="absolute left-0 top-1/2 rounded-full"
+                      style={{
+                        width: 18,
+                        height: 2,
+                        marginTop: -1,
+                        background: 'currentColor',
+                        transform,
+                        opacity: isMiddle && mobileMenuOpen ? 0 : 1,
+                        transition: transitionStyle,
+                      }}
+                    />
+                  );
+                })}
+              </span>
+            </button>
           </div>
         </div>
+
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.nav
+              id="mobile-nav-menu"
+              className="sm:hidden"
+              variants={{
+                // "Slides down from beneath the header": hidden state sits
+                // shifted up by its own height (translateY(-100%), so it
+                // scales with content instead of a hardcoded px value),
+                // tucked behind the opaque header bar above it.
+                hidden: { opacity: 0, transform: reducedMotion ? 'translateY(0%)' : 'translateY(-100%)' },
+                visible: {
+                  opacity: 1,
+                  transform: 'translateY(0%)',
+                  transition: {
+                    duration: reducedMotion ? 0 : 0.3,
+                    ease: MENU_EASE_OUT,
+                    staggerChildren: reducedMotion ? 0 : 0.04,
+                    delayChildren: reducedMotion ? 0 : 0.09,
+                  },
+                },
+                // Reverse as one unit, not three separate things: no
+                // staggerChildren here, so links/CTA/Log in move out
+                // together with the panel rather than cascading.
+                exit: {
+                  opacity: 0,
+                  transform: reducedMotion ? 'translateY(0%)' : 'translateY(-100%)',
+                  transition: { duration: reducedMotion ? 0 : 0.24, ease: MENU_EASE_IN },
+                },
+              }}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{ background: C.bg, borderTop: `1px solid ${C.faint}`, borderRadius: '0 0 50% 50% / 0 0 20px 20px', boxShadow: '0 20px 40px rgb(var(--ink-warm-rgb) / 0.22)' }}
+            >
+              {/* Inner content column, capped at 300px, left-aligned (not
+                  centered), and inset ml-6 from the panel edge - the panel
+                  background stays full-bleed behind it, so this fixes the
+                  "left-aligned links look sparse / CTA reads as a banner"
+                  problem at the container level without touching the
+                  panel's own shape. Left-aligned rather than centered so
+                  it echoes the header's own asymmetric composition above
+                  it (logo left, toggle right). The ml-6 inset is on this
+                  shared wrapper, not on the links or CTA individually, so
+                  the whole column - links and CTA alike - moves together
+                  off one reference edge instead of drifting apart. */}
+              <div className="max-w-[300px] ml-6">
+                {/* Navigation zone: no hairlines between rows - vertical
+                    gap + row height do the separating, so this reads as a
+                    considered nav panel rather than a settings list.
+                    Leading icons are Ink Plum, never terracotta (One Warm
+                    Voice Rule - terracotta stays reserved for the CTA). */}
+                <div className="flex flex-col gap-2 pt-2">
+                  {[['How it works', 'how-it-works', Workflow], ['Pricing', 'pricing', Tag], ['Contact', 'contact', Mail]].map((item) => {
+                    const [label, id] = item;
+                    const NavIcon = item[2];
+                    return (
+                      <motion.button
+                        key={id}
+                        variants={{
+                          hidden: { opacity: 0, transform: reducedMotion ? 'translateY(0px)' : 'translateY(4px)' },
+                          visible: { opacity: 1, transform: 'translateY(0px)' },
+                          exit: { opacity: 1, transform: 'translateY(0px)' },
+                        }}
+                        onClick={() => scrollTo(id)}
+                        className="w-full flex items-center gap-3 text-left px-6 font-bold text-base rounded-lg active:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                        style={{ height: 52, color: C.dark, '--tw-ring-color': C.terra }}
+                      >
+                        <NavIcon className="w-[18px] h-[18px] shrink-0" strokeWidth={2} style={{ color: C.dark }} />
+                        {label}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                {/* The ask zone: separated from navigation above by space
+                    alone (no divider line - one more hairline here would
+                    undercut the point of removing them above), then closed
+                    out with real bottom padding + the panel's own rounded
+                    corners so it doesn't just stop mid-air. Both CTA and
+                    Log in ride the panel's own exit rather than animating
+                    on their own, so close reads as one unit collapsing,
+                    not three. */}
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0, transform: reducedMotion ? 'translateY(0px)' : 'translateY(4px)' },
+                    visible: { opacity: 1, transform: 'translateY(0px)' },
+                    exit: { opacity: 1, transform: 'translateY(0px)' },
+                  }}
+                  className="mt-6 px-6 pb-8 flex flex-col gap-2"
+                >
+                  {/* Flat register inside a panel, not a floating CTA - no
+                      warm glow/lift (that language is for elements sitting
+                      above open page content; this one sits flat in a
+                      surface). Inset via mx-4 on top of the zone's own
+                      px-6 and the 300px column above, so it reads as a
+                      button, not a banner. Press feedback replaces hover
+                      lift since this is a touch-first surface. */}
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); goToAppOrLogin(); }}
+                    className="mx-4 flex items-center justify-center gap-2 rounded-full text-base font-bold text-white transition-transform duration-150"
+                    style={{ height: 48, background: `linear-gradient(135deg,${C.terra},${C.terraLt})` }}
+                    onMouseEnter={e => { e.currentTarget.style.background = `linear-gradient(135deg, #5C1000, ${C.terra})`; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = `linear-gradient(135deg,${C.terra},${C.terraLt})`; }}
+                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)'; }}
+                    onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
+                    Try it free
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  {/* Plain link register, not a button - terracotta +
+                      underline is the sole clickability cue, deliberately
+                      lighter than the bounded-ghost alternative so it
+                      stays subordinate to the CTA pill above it. Tight
+                      gap-2 to the pill (down from gap-3) so it reads as
+                      attached to the ask, not floating on its own. */}
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); goToAppOrLogin(); }}
+                    className="w-full text-center text-sm font-semibold rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                    style={{
+                      height: 44,
+                      color: C.terra,
+                      textDecoration: 'underline',
+                      textUnderlineOffset: '3px',
+                      textDecorationThickness: '1.5px',
+                      textDecorationColor: 'rgba(193,68,14,0.55)',
+                      '--tw-ring-color': C.terra,
+                    }}
+                  >
+                    Log in
+                  </button>
+                </motion.div>
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </header>
 
+      {/* Scrim: dims the page behind the open mobile menu so it reads as a
+          real state change ("the page is in menu mode"), not just a small
+          dropdown - tinted per the Warm Shadow Rule (Warm Char, never
+          plain black). Sits below the header's z-50 so the header itself
+          (logo, hamburger/X) stays reachable while open; a click anywhere
+          else closes the menu. The header also switches to its solid
+          "scrolled" look while open (see headerSolid) so it visually joins
+          the dimmed page instead of floating untouched above it. Fades in
+          slightly behind the panel (delayChildren-style stagger via its own
+          `delay`) so the two layers read as distinct on open; on close both
+          move together with no delay, matching the panel's coordinated
+          exit. */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            className="sm:hidden fixed inset-0 z-40"
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: reducedMotion ? 0 : 0.35, ease: MENU_EASE_OUT, delay: reducedMotion ? 0 : 0.075 } }}
+            exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.24, ease: MENU_EASE_IN } }}
+            style={{ background: 'rgb(var(--ink-warm-rgb) / 0.3)' }}
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Hero: fullscreen cinematic video */}
-      <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100vh', minHeight: 600, background: '#0A0908' }}>
+      <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100vh', minHeight: 600, background: C.dark }}>
         <video
           autoPlay
           muted
@@ -1622,13 +2056,13 @@ export default function LandingPage() {
         {/* Dark overlay for headline legibility, tuned so the footage still reads as vivid underneath */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.42) 45%, rgba(10,9,8,0.62) 100%)' }}
+          style={{ background: 'linear-gradient(180deg, rgb(var(--ink-warm-rgb) / 0.55) 0%, rgb(var(--ink-warm-rgb) / 0.42) 45%, rgb(var(--ink-warm-rgb) / 0.62) 100%)' }}
         />
 
         {/* Extra vignette centered on the text block, so contrast holds even over bright/busy footage */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 62% 58% at 50% 48%, rgba(10,9,8,0.38) 0%, rgba(10,9,8,0.12) 65%, rgba(10,9,8,0) 100%)' }}
+          style={{ background: 'radial-gradient(ellipse 62% 58% at 50% 48%, rgb(var(--ink-warm-rgb) / 0.38) 0%, rgb(var(--ink-warm-rgb) / 0.12) 65%, rgb(var(--ink-warm-rgb) / 0) 100%)' }}
         />
 
         {/* Headline content */}
@@ -1638,7 +2072,7 @@ export default function LandingPage() {
             className="display leading-none max-w-4xl"
             style={{ fontSize: 'clamp(38px,6vw,72px)', color: '#FFFAF7', letterSpacing: '-0.01em', lineHeight: 1.08, textShadow: '0 1px 3px rgba(0,0,0,0.55), 0 4px 28px rgba(0,0,0,0.45)' }}
           >
-            AI videos that tells the{' '}
+            AI videos that tell the{' '}
             <span style={{ color: C.terraLt }}>whole story</span>
           </motion.h1>
 
@@ -1655,7 +2089,7 @@ export default function LandingPage() {
             className="mt-9 flex flex-col items-center gap-3"
           >
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate(user ? '/create' : '/login')}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 24px rgba(193,68,14,0.35)' }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
@@ -1664,7 +2098,6 @@ export default function LandingPage() {
               Try it free
               <ArrowRight className="w-4 h-4" />
             </button>
-            <span className="text-sm font-medium" style={{ color: 'rgba(255,250,247,0.68)', textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 2px 10px rgba(0,0,0,0.4)' }}>Free to start · No credit card · Ready in minutes</span>
           </motion.div>
 
         </div>
@@ -1674,7 +2107,7 @@ export default function LandingPage() {
           the stats strip below it is gone, so it needs enough weight to read
           as a deliberate close rather than a leftover sliver before the
           cream section starts */}
-      <div className="py-12 px-6 text-center" style={{ background: '#0A0908' }}>
+      <div className="py-12 px-6 text-center" style={{ background: C.dark }}>
         <p className="text-sm font-semibold" style={{ color: 'rgba(245,240,235,0.55)' }}>
           All videos above were made with Raphio. They are real outputs, with no post-production
         </p>
@@ -1740,7 +2173,7 @@ export default function LandingPage() {
             {[
               {
                 id: 'free', label: 'Free', price: 0, credits: 3, save: null,
-                icon: Sparkles, cta: 'Start Free', popular: false,
+                icon: Sparkles, cta: 'Try it free', popular: false,
                 features: [
                   { text: '1 short video (15s)',   ok: true  },
                 ],
@@ -1749,21 +2182,21 @@ export default function LandingPage() {
                 id: 'starter', label: 'Starter', price: 29, credits: 6, 
                 icon: Zap, cta: 'Get Starter pack', popular: false,
                 features: [
-                  { text: 'Up to 2 short videos(15s each)', ok: true  },
+                  { text: 'Up to 2 short videos (15s each)', ok: true  },
                 ],
               },
               {
                 id: 'creator', label: 'Creator', price: 55, credits: 12, save: 'Save 8%',
                 icon: Layers, cta: 'Get Creator Pack', popular: true,
                 features: [
-                  { text: 'Up to 2 medium videos(30s each)',  ok: true  },
+                  { text: 'Up to 2 medium videos (30s each)',  ok: true  },
                 ],
               },
               {
                 id: 'studio', label: 'Studio', price: 99, credits: 24, save: 'Save 17%',
                 icon: Crown, cta: 'Get Studio Pack', popular: false,
                 features: [
-                  { text: 'Up to 2 long videos(60s each)', ok: true },
+                  { text: 'Up to 2 long videos (60s each)', ok: true },
                 ],
               },
             ].map((tier, i) => {
@@ -1822,7 +2255,7 @@ export default function LandingPage() {
                               <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>one-time</span>
                               {tier.save && (
                                 <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
-                                  style={{ background: 'rgba(21,128,61,0.10)', color: '#15803D', border: '1px solid rgba(21,128,61,0.18)' }}>
+                                  style={{ background: 'rgba(13,150,105,0.10)', color: '#0D9669', border: '1px solid rgba(13,150,105,0.18)' }}>
                                   {tier.save}
                                 </span>
                               )}
@@ -1838,7 +2271,7 @@ export default function LandingPage() {
                         {tier.features.map((f) => (
                           <li key={f.text} className="flex items-start gap-2">
                             {f.ok
-                              ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#15803D' }} />
+                              ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#0D9669' }} />
                               : <XCircle   className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'rgba(193,68,14,0.35)' }} />
                             }
                             <span className="text-xs leading-snug" style={{ color: '#2C2420' }}>{f.text}</span>
@@ -1849,7 +2282,7 @@ export default function LandingPage() {
 
                     <PricingButton
                       tier={tier}
-                      onClick={() => tier.price === 0 ? navigate('/create') : navigate('/login?redirect=/pricing')}
+                      onClick={() => tier.price === 0 ? navigate(user ? '/create' : '/login') : navigate('/login?redirect=/pricing')}
                     />
                   </div>
                 </motion.div>
@@ -1903,12 +2336,12 @@ export default function LandingPage() {
               Ready to make<br/>your first video?
             </h2>
             <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>It's completely free to start. No account needed.</p>
-            <button onClick={() => navigate('/create')}
+            <button onClick={() => navigate(user ? '/create' : '/login')}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 24px rgba(193,68,14,0.35)` }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 40px rgba(193,68,14,0.55)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 4px 24px rgba(193,68,14,0.35)`; e.currentTarget.style.transform='translateY(0) scale(1)'; }}
-            >Get Started for Free <ArrowRight className="w-4 h-4" /></button>
+            >Try it free <ArrowRight className="w-4 h-4" /></button>
           </motion.div>
         </div>
       </section>

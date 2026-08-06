@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-06T00:00:00.000Z",
+  "title": "Design System: Raphio",
+  "extensions": {
+    "colorMeta": {
+      "kiln-terracotta": { "role": "primary", "displayName": "Kiln Terracotta", "canonical": "#C1440E", "tonalRamp": ["#471905", "#772a09", "#a63b0c", "#d54b10", "#ef652a", "#f38759", "#f7b497", "#fce4d9"] },
+      "warm-clay": { "role": "primary", "displayName": "Warm Clay", "canonical": "#E8603C", "tonalRamp": [] },
+      "burnt-umber": { "role": "primary", "displayName": "Burnt Umber", "canonical": "#5C1000", "tonalRamp": [] },
+      "ink-plum": { "role": "neutral", "displayName": "Ink Plum", "canonical": "#2D2235", "tonalRamp": ["#281e2f", "#42324e", "#5d466d", "#775a8c", "#9073a5", "#a992b9", "#c9bbd3", "#ebe6ef"] },
+      "warm-char": { "role": "neutral", "displayName": "Warm Char", "canonical": "#1C1917", "tonalRamp": ["#2a2522", "#463e39", "#625750", "#7e7067", "#988a81", "#afa49d", "#cdc6c1", "#edeae9"] },
+      "muted-plum-grey": { "role": "neutral", "displayName": "Muted Plum-Grey", "canonical": "#6B5E7B", "tonalRamp": ["#26212b", "#3f3748", "#584e65", "#716482", "#8b7d9b", "#a59ab1", "#c6c0ce", "#eae8ed"] },
+      "warm-chalk": { "role": "neutral", "displayName": "Warm Chalk", "canonical": "#F5F0EB", "tonalRamp": ["#33261a", "#55402b", "#77593c", "#99734d", "#b28c66", "#c3a688", "#d9c7b4", "#f1ebe4"] },
+      "pale-chalk": { "role": "neutral", "displayName": "Pale Chalk", "canonical": "#FDF6F0", "tonalRamp": [] },
+      "warm-paper": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#FFFAF7", "tonalRamp": [] },
+      "clay-wash": { "role": "neutral", "displayName": "Clay Wash", "canonical": "#F0EAE5", "tonalRamp": [] },
+      "clay-mist": { "role": "neutral", "displayName": "Clay Mist", "canonical": "#EFDCD2", "tonalRamp": [] },
+      "brand-red": { "role": "destructive", "displayName": "Brand Red", "canonical": "#B91C1C", "tonalRamp": [] },
+      "system-blue": { "role": "info", "displayName": "System Blue", "canonical": "#3C83F6", "tonalRamp": [] },
+      "system-green": { "role": "success", "displayName": "System Green", "canonical": "#0D9669", "tonalRamp": [] },
+      "system-amber": { "role": "warning", "displayName": "System Amber", "canonical": "#FB923C", "tonalRamp": [] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing-page headlines only. Never used inside the authenticated product." },
+      "body": { "displayName": "Body / UI", "purpose": "Every in-product surface: wizard, editor, settings, admin, and landing-page body copy." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows, badges, pricing-tier tags, uppercase status text." }
+    },
+    "shadows": [
+      { "name": "resting", "value": "0 1px 2px rgba(28,25,23,0.08)", "purpose": "Default card/input elevation (shadcn shadow-sm). Baseline for anything not being emphasized." },
+      { "name": "emphasis-warm", "value": "0 4px 16px rgba(193,68,14,0.30)", "purpose": "Pill CTA buttons at rest." },
+      { "name": "emphasis-warm-hover", "value": "0 8px 40px rgba(193,68,14,0.55)", "purpose": "Pill CTA buttons on hover, paired with translateY(-2px) scale(1.02)." },
+      { "name": "emphasis-ink", "value": "0 24px 60px rgba(28,25,23,0.28)", "purpose": "Large floating marketing surfaces - centered carousel card, video showcase frame." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default entrance/reveal easing across the landing page (scroll-reveal, card entrances)." },
+      { "name": "duration-standard", "value": "0.3s", "purpose": "Default hover/state-change transition duration." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "CTA Button (pill)",
+      "kind": "button",
+      "refersTo": "button-cta",
+      "description": "Full-pill gradient button reserved for the single highest-emphasis action on a screen (hero, pricing, final CTA).",
+      "html": "<button class=\"ds-btn-cta\">Try it free</button>",
+      "css": ".ds-btn-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 40px; border-radius: 9999px; border: none; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 16px; color: #ffffff; background: linear-gradient(135deg, #C1440E, #E8603C); box-shadow: 0 4px 16px rgba(193,68,14,0.30); cursor: pointer; transition: box-shadow 0.3s ease, transform 0.2s ease; } .ds-btn-cta:hover { box-shadow: 0 8px 40px rgba(193,68,14,0.55); transform: translateY(-2px) scale(1.02); } .ds-btn-cta:focus-visible { outline: 2px solid #C1440E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Functional Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Flat in-flow button for forms, toolbars, wizard navigation - anywhere more than one action shares a view.",
+      "html": "<button class=\"ds-btn-functional\">Save changes</button>",
+      "css": ".ds-btn-functional { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 6px; border: none; font-family: 'Figtree', sans-serif; font-weight: 500; font-size: 14px; color: #ffffff; background: #C1440E; box-shadow: 0 1px 2px rgba(28,25,23,0.08); cursor: pointer; transition: background-color 0.15s ease; } .ds-btn-functional:hover { background: #5C1000; } .ds-btn-functional:focus-visible { outline: 2px solid #C1440E; outline-offset: 2px; } .ds-btn-functional:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Base in-product container: warm paper surface, clay-mist border, resting shadow.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Card title</h3><p class=\"ds-card-body\">Supporting copy for this card.</p></div>",
+      "css": ".ds-card { background: #FFFAF7; color: #2D2235; border: 1px solid #EFDCD2; border-radius: 12px; box-shadow: 0 1px 2px rgba(28,25,23,0.08); padding: 24px; } .ds-card-title { font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 8px 0; color: #2D2235; } .ds-card-body { font-family: 'Figtree', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.5; margin: 0; color: #6B5E7B; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input with clay-mist border, terracotta focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter a value\" />",
+      "css": ".ds-input { display: block; width: 100%; height: 36px; padding: 4px 12px; border-radius: 6px; border: 1px solid #EFDCD2; background: #FFFAF7; color: #2D2235; font-family: 'Figtree', sans-serif; font-size: 14px; box-shadow: 0 1px 2px rgba(28,25,23,0.08); transition: border-color 0.15s ease, box-shadow 0.15s ease; } .ds-input::placeholder { color: #6B5E7B; } .ds-input:focus-visible { outline: none; border-color: #C1440E; box-shadow: 0 0 0 1px #C1440E; }"
+    },
+    {
+      "name": "Pricing Tier Badge",
+      "kind": "chip",
+      "description": "Uppercase label chip used to mark the emphasized item in a comparison row (e.g. 'Most Popular' pricing tier).",
+      "html": "<span class=\"ds-badge\">Most Popular</span>",
+      "css": ".ds-badge { display: inline-block; padding: 6px 16px; border-radius: 9999px; font-family: 'Figtree', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #ffffff; background: linear-gradient(90deg, #C1440E, #E8603C); box-shadow: 0 4px 12px rgba(193,68,14,0.18); }"
+    },
+    {
+      "name": "Section Eyebrow",
+      "kind": "custom",
+      "description": "Small uppercase label used sparingly above a marketing section headline.",
+      "html": "<p class=\"ds-eyebrow\">Pricing</p>",
+      "css": ".ds-eyebrow { font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #C1440E; margin: 0 0 12px 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Editor's Desk",
+    "overview": "Raphio is a workspace before it is a pitch. The product's job is to give someone who cares about narrative real control over a longer-form AI video, not to dazzle them with the fact that AI made it, so the system defaults to restraint: a warm neutral surface, a single accent color, plain functional type, and shadows that only appear when something genuinely deserves to float. The one place the system allows itself to perform is the landing page, where a heavier display face and lifted, gradient-filled CTAs mark the threshold between considering the product and using the product. Everywhere past that threshold, the wizard, the timeline editor, settings, admin, the desk stays a desk: flat, warm, and unshowy. The palette itself is deliberately narrow and earthy: terracotta as the only saturated color, a warm off-black rather than a true black, a plum-tinted ink instead of a cool gray, and a family of warm off-whites for surfaces. This is a fixed brand constraint; it is not to be treated as a gap or proposed for replacement in future design work.",
+    "keyCharacteristics": [
+      "One saturated accent (terracotta) against warm, low-saturation neutrals.",
+      "Flat by default; a lifted, warm-tinted shadow is reserved for genuine emphasis.",
+      "A generous, expanding radius scale: tighter for dense functional UI, rounder as a surface becomes more marketing-facing, full-pill for the single highest-emphasis action.",
+      "Two deliberate button registers, a plain functional button for in-flow actions, and a pill-shaped gradient CTA reserved for the one primary ask per screen.",
+      "Figtree carries the entire in-product experience; Bricolage Grotesque is reserved for landing-page headlines only."
+    ],
+    "rules": [
+      { "name": "The One Warm Voice Rule", "body": "Kiln Terracotta is the only saturated, attention-getting color anywhere in the system. Every other hue, system blue/green/amber, brand red, is reserved strictly for functional status indicators and is never used decoratively or as a section accent.", "section": "colors" },
+      { "name": "The Desk vs. Pitch Rule", "body": "Figtree carries every in-product surface, the creation wizard, the timeline editor, settings, admin. Bricolage Grotesque is reserved for landing-page headlines only. If a screen lives inside the authenticated product, it does not get the display face.", "section": "typography" },
+      { "name": "The Warm Shadow Rule", "body": "Every intentional shadow in the system is tinted, toward terracotta for emphasis on light/brand surfaces, toward Warm Char for large dark surfaces, never a neutral or pure-black shadow. The one known exception is the Radix Dialog overlay scrim, which still uses a plain bg-black/50 default; treat that as an unaddressed gap, not a second valid pattern.", "section": "elevation" },
+      { "name": "The Rounder-With-Emphasis Rule", "body": "A surface's corner radius is a legible signal of its role: tight corners read as tool, generous corners read as feature, and a full pill always means the one thing to click.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do keep Kiln Terracotta as the only saturated, decorative color anywhere in the system; every other hue is functional-only.",
+      "Do reserve Bricolage Grotesque strictly for landing-page headlines; everything inside the authenticated product stays in Figtree.",
+      "Do tint every intentional shadow toward terracotta or Warm Char; a neutral or pure-black shadow does not belong in this system.",
+      "Do let a surface's corner radius signal its role, tighter for tools, rounder for features, full-pill for the one primary action.",
+      "Do keep the two button registers distinct: flat functional buttons for in-flow actions, pill-gradient CTA for the one highest-emphasis action per screen."
+    ],
+    "donts": [
+      "Don't introduce glossy purple/blue AI-gradient treatments, stock innovation imagery, or anything that would make Raphio look like an interchangeable AI-SaaS template.",
+      "Don't lean into bargain/discount visual language in new design work; positioning is trending premium/professional even though shipped pricing copy hasn't fully caught up.",
+      "Don't let the system read as cold or corporate; warmth should persist even as the product becomes more premium.",
+      "Don't propose replacing or fixing the terracotta/cream/near-black palette; it is a fixed brand constraint unless the user explicitly reopens that decision.",
+      "Don't add a second pure-black or neutral-gray shadow anywhere in the system; the existing Dialog overlay is a known, unaddressed exception, not a pattern to extend."
+    ]
+  }
+}

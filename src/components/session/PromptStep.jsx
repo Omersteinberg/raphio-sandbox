@@ -311,7 +311,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               onChange(index, updates);
             }}
             className="w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
-            style={{ background: '#FBFAF8', border: `1.5px solid rgba(${accentRgb},0.12)`, color: '#1C1917' }}
+            style={{ background: '#FBFAF8', border: `1.5px solid rgba(${accentRgb},0.12)`, color: 'var(--ink-warm)' }}
           >
             {REF_TYPE_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1015,7 +1015,7 @@ export default function PromptStep({
             </div>
           </div>
 
-          <h1 className="display" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: '#1C1917', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
+          <h1 className="display" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
             {isReferencesMode ? (
               <>Studio Blueprint <span style={{ color: '#C1440E' }}>Builder.</span></>
             ) : (
@@ -1033,7 +1033,7 @@ export default function PromptStep({
           <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? "What's your video about?" : "What's your video about?"}
                 </h2>
               </div>
@@ -1087,7 +1087,7 @@ export default function PromptStep({
                   references={references}
                   placeholder="e.g. @Sarah discovers @Acme in her workshop, warm and hopeful. Type @ to add a reference."
                   className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
+                  style={{ color: 'var(--ink-warm)', paddingBottom: '48px', outline: 'none' }}
                 />
               ) : (
                 <PromptMentionField
@@ -1099,7 +1099,7 @@ export default function PromptStep({
                     ? "e.g. A cinematic reveal of a handcrafted watch in a sunlit workshop, warm and hopeful."
                     : "e.g. A warm birthday montage from our photos. Type @ to add a scene."}
                   className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
+                  style={{ color: 'var(--ink-warm)', paddingBottom: '48px', outline: 'none' }}
                 />
               )}
               {/* Improve button - anchored bottom-left INSIDE the box so it's
@@ -1312,7 +1312,7 @@ export default function PromptStep({
                             {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
                           </span>
                           <span className="flex-1 min-w-0">
-                            <span className="text-[11px] font-bold" style={{ color: f.met ? '#1C1917' : '#6B5E7B' }}>
+                            <span className="text-[11px] font-bold" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
                               {f.label}
                               {f.detail && <span className="font-medium" style={{ color: '#9C8F85' }}> · {f.detail}</span>}
                             </span>
@@ -1430,7 +1430,7 @@ export default function PromptStep({
                   className="font-black"
                   style={{
                     fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)',
-                    color: '#1C1917',
+                    color: 'var(--ink-warm)',
                     letterSpacing: '-0.01em',
                   }}
                 >
@@ -1513,7 +1513,7 @@ export default function PromptStep({
                       <Upload className="w-7 h-7 text-white" />
                     </motion.div>
                     <div className="text-center space-y-1">
-                      <p className="font-bold text-sm" style={{ color: '#1C1917' }}>
+                      <p className="font-bold text-sm" style={{ color: 'var(--ink-warm)' }}>
                         Drag your photos here
                       </p>
                       <p className="text-xs" style={{ color: '#9C8F85' }}>
@@ -2327,7 +2327,7 @@ export default function PromptStep({
           {setVoiceId && setBackgroundMusic && (
             <div data-tour="sound" className="rounded-3xl p-4 sm:p-6 space-y-3" style={CARD_SHADOW}>
               <div>
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
                   Voice &amp; Music
                 </h2>
                 <p className="text-xs font-medium mt-1" style={{ color: '#9C8F85' }}>
@@ -2348,7 +2348,7 @@ export default function PromptStep({
                     <Mic className="w-4 h-4 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Narration voice</span>
+                    <span className="font-extrabold text-sm block" style={{ color: 'var(--ink-warm)' }}>Narration voice</span>
                     <span className="text-xs block truncate" style={{ color: '#9C8F85' }}>
                       {voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default voice'}
                     </span>
@@ -2376,7 +2376,7 @@ export default function PromptStep({
                     <Music className="w-4 h-4" style={{ color: backgroundMusic ? '#fff' : '#C1440E' }} />
                   </div>
                   <div className="min-w-0">
-                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Background music</span>
+                    <span className="font-extrabold text-sm block" style={{ color: 'var(--ink-warm)' }}>Background music</span>
                     <span className="text-xs block" style={{ color: '#9C8F85' }}>
                       {backgroundMusic ? 'AI music matched to your video' : 'No background music'}
                     </span>
@@ -2540,7 +2540,7 @@ export default function PromptStep({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4 shrink-0">
-                <h3 className="text-base font-black" style={{ color: '#1C1917' }}>Choose a voice</h3>
+                <h3 className="text-base font-black" style={{ color: 'var(--ink-warm)' }}>Choose a voice</h3>
                 <button
                   onClick={() => setVoiceModalOpen(false)}
                   aria-label="Close"
