@@ -4,11 +4,12 @@ import {
   Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
-  Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle,
+  RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import PromptMentionField from "./PromptMentionField";
+import ImproveButton from "./ImproveButton";
 import VoiceSelector from "./VoiceSelector";
 import AutoApproveIntroModal from "./AutoApproveIntroModal";
 import { scorePrompt } from "@/lib/promptStrength";
@@ -1105,22 +1106,13 @@ export default function PromptStep({
               {/* Improve button - anchored bottom-left INSIDE the box so it's
                   clearly tied to the prompt. Always shows its label (mobile too)
                   so it's never a mystery icon. */}
-              <button
+              <ImproveButton
                 onClick={handleImprove}
-                disabled={!userPrompt?.trim() || improving}
-                className="absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
-                style={{
-                  bottom: 7, left: 10, zIndex: 5,
-                  ...((!userPrompt?.trim() || improving)
-                    ? { background: 'rgba(193,68,14,0.10)', color: '#B09A8A', cursor: 'not-allowed' }
-                    : { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }),
-                }}
-              >
-                {improving
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <Wand2 className="w-3 h-3" />}
-                <span>{improving ? 'Improving…' : 'Improve'}</span>
-              </button>
+                busy={improving}
+                disabled={!userPrompt?.trim()}
+                className="absolute"
+                style={{ bottom: 7, left: 10, zIndex: 5 }}
+              />
               <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
                 {wordCount} words
               </span>
