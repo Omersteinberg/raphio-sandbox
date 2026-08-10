@@ -1165,11 +1165,11 @@ const INPUT_STAGE_CYCLE_MS = 4000;
 // StartCard's desktop illustrations use) plus title + two lines of
 // support copy plus the stage's own padding. Fixed for all three tabs
 // on purpose (point 1 of the brief) - never sized per-stage.
-const INPUT_STAGE_ART_WIDTH = 220;
+const INPUT_STAGE_ART_WIDTH = 250;
 const INPUT_STAGE_ART_HEIGHT = Math.round((INPUT_STAGE_ART_WIDTH * 3) / 4);
 // py-7 padding (56) + gap (16) + title line (~22) + gap (6) + two lines
 // of support copy (~40), plus a little slack for font-metric variance.
-const INPUT_STAGE_HEIGHT = INPUT_STAGE_ART_HEIGHT + 150;
+const INPUT_STAGE_HEIGHT = INPUT_STAGE_ART_HEIGHT + 125;
 
 function MobileInputStage() {
   const reducedMotion = usePrefersReducedMotion();
@@ -1283,7 +1283,7 @@ function MobileInputStage() {
             <div className="mx-auto w-full" style={{ maxWidth: INPUT_STAGE_ART_WIDTH, aspectRatio: '4 / 3' }}>
               <Illustration />
             </div>
-            <p className="text-[15px] font-bold mt-4" style={{ color: C.dark }}>{activeCard.label}</p>
+            <p className="text-[15px] font-bold mt-2" style={{ color: C.dark }}>{activeCard.label}</p>
             <p className="text-[13px] mt-1.5 max-w-[280px]" style={{ color: C.muted, lineHeight: 1.5 }}>{activeCard.support}</p>
           </motion.div>
         </AnimatePresence>
