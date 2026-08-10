@@ -132,6 +132,7 @@ const STEP1_CARDS = [
   {
     id: 'prompt',
     label: 'Start with a prompt',
+    tabLabel: 'Prompt',
     support: 'Write a few sentences. Raphio turns them into a video script.',
     Illustration: PromptCardArt,
     Token: PromptToken,
@@ -139,6 +140,7 @@ const STEP1_CARDS = [
   {
     id: 'image',
     label: 'Start with your photos',
+    tabLabel: 'Photos',
     support: 'Use the photos you already have. Raphio builds scenes around them.',
     Illustration: PhotosCardArt,
     Token: PhotosToken,
@@ -146,6 +148,7 @@ const STEP1_CARDS = [
   {
     id: 'references',
     label: 'Start with a Reference',
+    tabLabel: 'Reference',
     support: 'Upload a reference image, or let Raphio create a style for you.',
     Illustration: ReferenceCardArt,
     Token: ReferenceToken,
@@ -278,7 +281,7 @@ function BuildStatusText({ stageIndex, phase, reducedMotion }) {
   );
 }
 
-function BuildDotRow({ stageIndex, phase }) {
+function BuildDotRow({ stageIndex, phase, reducedMotion }) {
   const allSolid = phase === 'holding' || phase === 'fading';
   return (
     <div className="flex items-center justify-center" aria-hidden="true">
@@ -309,8 +312,8 @@ function BuildDotRow({ stageIndex, phase }) {
                 <motion.span
                   className="absolute rounded-full"
                   style={{ inset: -5, background: 'rgba(193,68,14,0.35)' }}
-                  animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.08, 1] }}
-                  transition={BREATH_PULSE}
+                  animate={reducedMotion ? { opacity: 0.85, scale: 1 } : { opacity: [0.85, 1, 0.85], scale: [1, 1.08, 1] }}
+                  transition={reducedMotion ? undefined : BREATH_PULSE}
                 />
               )}
               <span
@@ -418,9 +421,13 @@ function PromptCardArt() {
   const reducedMotion = usePrefersReducedMotion();
   const text = useTypewriterLoop(PROMPT_EXAMPLES, { reduced: reducedMotion });
   return (
-    <div className="relative w-full h-full flex items-center justify-center px-5">
+    <div className="relative w-full h-full flex items-center justify-center px-2">
+      {/* No max-width cap - the bubble fills the available card width (the
+          card's own padding is the only constraint), so the example
+          phrases sit on two lines instead of three. The extra width reads
+          fine against the surrounding empty space in the card. */}
       <div
-        className="relative w-full max-w-[240px] px-5 py-4"
+        className="relative w-full px-5 py-4"
         style={{ background: C.white, borderRadius: '16px 16px 16px 6px', boxShadow: '0 6px 20px rgba(28,25,23,0.16)' }}
       >
         <p className="text-[15px] font-semibold" style={{ color: C.dark, lineHeight: 1.5, minHeight: '3em' }}>
@@ -472,6 +479,9 @@ function PhotosCardArt() {
           <img src={p.src} alt="" className="w-full h-full object-cover" />
         </motion.div>
       ))}
+      {/* Overlaps the stack's bottom-right corner on purpose - this is
+          the same PhotosCardArt desktop's StartCard renders, so the
+          badge's position/size is shared rather than mobile-specific. */}
       <motion.div
         className="absolute rounded-full flex items-center justify-center"
         style={{
@@ -554,6 +564,14 @@ function ReferenceToken() {
 // rather than floating on flat cream - design-taste-frontend's "cream on
 // cream with only typography reads as a boring default" rule, named and
 // fixed.
+// Desktop only now - StartCard is rendered exclusively inside
+// ConvergenceStage's `hidden sm:block` desktop device. Mobile has its own
+// segmented picker + stage below (MobileInputStage), built directly from
+// STEP1_CARDS' Illustration/label/support fields rather than through this
+// component. Previously carried a parallel mobile branch (MobileArt in
+// place of Illustration, support copy hidden); that branch was dead code
+// once the mobile grid stopped rendering this component at all, so it's
+// been removed rather than left inert.
 function StartCard({ card, active, cardRef, onSelect }) {
   const Illustration = card.Illustration;
   return (
@@ -563,17 +581,23 @@ function StartCard({ card, active, cardRef, onSelect }) {
       onClick={onSelect}
       whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-      className="relative flex flex-col items-center text-center rounded-2xl px-6 py-7 sm:px-7 sm:py-8 cursor-pointer min-h-[44px]"
+      className="relative flex flex-col items-center text-center rounded-2xl px-7 py-8 cursor-pointer min-h-[44px]"
       style={{
-        background: active ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.42)',
-        boxShadow: active ? '0 14px 34px rgba(193,68,14,0.16)' : '0 2px 10px rgba(28,25,23,0.05)',
+        // Resting state was rgba(255,255,255,0.42) with a near-invisible
+        // neutral shadow - once the convergence lines were quieted, cards
+        // needed to become the section's actual focal point instead of
+        // staying quiet themselves. Warm Paper at near-full opacity plus
+        // DESIGN.md's terracotta-tinted "Emphasis, warm" shadow tier, at
+        // rest, not just on the active card.
+        background: active ? 'rgba(255,250,247,0.98)' : 'rgba(255,250,247,0.9)',
+        boxShadow: active ? '0 16px 40px rgba(193,68,14,0.22)' : '0 6px 20px rgba(193,68,14,0.14)',
         transition: 'background 0.3s ease, box-shadow 0.3s ease',
       }}
     >
       <div className="w-full aspect-[4/3] mb-5 rounded-2xl overflow-hidden" style={{ background: '#FBF6F1' }}>
         <Illustration />
       </div>
-      <p className="text-[15px] sm:text-base font-bold" style={{ color: C.dark, lineHeight: 1.35 }}>
+      <p className="text-base font-bold" style={{ color: C.dark, lineHeight: 1.35 }}>
         {card.label}
       </p>
       <p className="text-[13px] mt-1" style={{ color: C.muted, lineHeight: 1.5 }}>
@@ -715,49 +739,53 @@ function TravelToken({ token, onArrive }) {
   );
 }
 
-// Sequential line story: draw, hold the flow visible, hand off to the next
-// line - one thing happening at a time, not three at once competing for
-// attention. Non-uniform stage math kept deliberately simple (pure
-// function of elapsed seconds, same shape as getBuildTimelineState) so
-// three separate components (the lines here, nothing else needs it) can't
-// drift out of sync with each other.
-const LINE_DRAW_S = 0.7;
-const LINE_HOLD_S = 1.0;
+// Play-once intro, not a loop: each line draws in, hands off to the next,
+// then the whole composition settles into a quiet static state and stays
+// there - critique feedback flagged the old infinite 5.8s loop as
+// competing for attention indefinitely regardless of stroke weight.
+// getLineState is now a pure function of elapsed time with no modulo -
+// once elapsedS passes a line's own stage window it stays at
+// drawProgress:1/flowActive:false forever, which IS the has-played gate
+// (no separate boolean needed). Durations retuned for the compacted
+// card-to-node run (was paced for the old ~192px mt-48 gap; the gap is
+// now ~mt-20/80px, see the node wrapper below).
+const LINE_DRAW_S = 0.35;
+const LINE_HOLD_S = 0.3;
 const LINE_STAGE_S = LINE_DRAW_S + LINE_HOLD_S;
-const LINE_PAUSE_S = 0.7;
-const LINE_CYCLE_S = LINE_STAGE_S * 3 + LINE_PAUSE_S;
 
 function getLineState(elapsedS, index) {
-  const t = elapsedS % LINE_CYCLE_S;
   const lineStart = index * LINE_STAGE_S;
-  if (t < lineStart) return { drawProgress: 0, flowActive: false };
-  const local = t - lineStart;
+  if (elapsedS < lineStart) return { drawProgress: 0, flowActive: false };
+  const local = elapsedS - lineStart;
   if (local < LINE_DRAW_S) return { drawProgress: local / LINE_DRAW_S, flowActive: false };
   if (local < LINE_STAGE_S) return { drawProgress: 1, flowActive: true };
   return { drawProgress: 1, flowActive: false };
 }
 
-// The node -> "keep scrolling" connector shares this same clock (not its
-// own scroll trigger) so it only starts once line 0 (Prompt -> node) has
-// actually finished drawing. Reads as "there's more below," not a parallel
-// animation - deliberately not "this feeds directly into the next visual,"
-// since an earlier exit CTA now sits between the node and Step 2.
+// The node -> Step 2 connector shares this same clock (not its own scroll
+// trigger) so it only starts once line 0 (Prompt -> node) has actually
+// finished drawing - "this is what happens next," not a parallel
+// animation. Also play-once, same reasoning as getLineState above.
 const CONNECTOR_START_S = LINE_DRAW_S;
-const CONNECTOR_DRAW_S = 0.4;
+const CONNECTOR_DRAW_S = 0.2;
 function getConnectorProgress(elapsedS) {
-  const t = elapsedS % LINE_CYCLE_S;
-  const local = t - CONNECTOR_START_S;
+  const local = elapsedS - CONNECTOR_START_S;
   if (local <= 0) return 0;
   return Math.min(local / CONNECTOR_DRAW_S, 1);
 }
 
-// Step 1: measures each card's and the node's real position once mounted
-// (and on resize), then drives everything in plain pixel transforms - no
-// scroll involvement at all here, this mechanic is purely click-driven.
-// activeId/tokens/pulseKey are local to this component on purpose: Step 2
-// and Step 3 are separate components below that never receive them, so
-// there is no path - not even an accidental one - for a Step 1 click to
-// reach them.
+// Step 1, desktop only (sm: and up) - rendered via a hidden sm:block
+// wrapper at its call site in HowItWorks. Mobile has its own, much
+// simpler MobileHowItWorks below instead of a smaller copy of this
+// device: the measured convergence-lines diagram doesn't compress to
+// phone width without losing the "three separate paths" message (see the
+// critique this session that led to MobileHowItWorks). Measures each
+// card's and the node's real position once mounted (and on resize), then
+// drives everything in plain pixel transforms - no scroll involvement at
+// all here, this mechanic is purely click-driven. activeId/tokens/pulseKey
+// are local to this component on purpose: Step 2 and Step 3 are separate
+// components below that never receive them, so there is no path - not
+// even an accidental one - for a Step 1 click to reach them.
 function ConvergenceStage() {
   const reducedMotion = usePrefersReducedMotion();
   const stageRef = useRef(null);
@@ -774,13 +802,11 @@ function ConvergenceStage() {
   // raw scroll position) so the story only plays while someone can see it.
   const stageInView = useInView(stageRef, { amount: 0.4 });
   const pathRefs = useRef([]);
-  const outerPathRefs = useRef([]);
   const flowRefs = useRef([]);
   const pathLengthsRef = useRef([0, 0, 0]);
   const elapsedRef = useRef(0);
   const lastFrameRef = useRef(null);
   const connectorPathRef = useRef(null);
-  const connectorOuterRef = useRef(null);
   const connectorFlowRef = useRef(null);
   const connectorArrowRef = useRef(null);
   const connectorLengthRef = useRef(0);
@@ -794,18 +820,18 @@ function ConvergenceStage() {
       const length = pathLengthsRef.current[i] || 0;
       const offset = `${length * (1 - drawProgress)}`;
       el.style.strokeDashoffset = offset;
-      const outerEl = outerPathRefs.current[i];
-      if (outerEl) outerEl.style.strokeDashoffset = offset;
       const flowEl = flowRefs.current[i];
-      if (flowEl) flowEl.style.opacity = flowActive ? '1' : '0';
+      // Softened, not full-strength: the flow overlay should read as a
+      // quiet accent while it's briefly visible during the one-time draw,
+      // never the most saturated moving thing on the page.
+      if (flowEl) flowEl.style.opacity = flowActive ? '0.35' : '0';
     });
 
     const connectorProgress = reducedMotion ? 1 : getConnectorProgress(elapsedS);
     const cLen = connectorLengthRef.current || 0;
     const cOffset = `${cLen * (1 - connectorProgress)}`;
     if (connectorPathRef.current) connectorPathRef.current.style.strokeDashoffset = cOffset;
-    if (connectorOuterRef.current) connectorOuterRef.current.style.strokeDashoffset = cOffset;
-    if (connectorFlowRef.current) connectorFlowRef.current.style.opacity = !reducedMotion && connectorProgress >= 1 ? '1' : '0';
+    if (connectorFlowRef.current) connectorFlowRef.current.style.opacity = !reducedMotion && connectorProgress >= 1 ? '0.35' : '0';
     if (connectorArrowRef.current) connectorArrowRef.current.style.opacity = connectorProgress >= 1 ? '1' : '0';
   };
 
@@ -849,17 +875,12 @@ function ConvergenceStage() {
       const i = Number(el.dataset.lineIndex);
       const length = el.getTotalLength();
       pathLengthsRef.current[i] = length;
-      const dashArray = `${length}`;
-      el.style.strokeDasharray = dashArray;
-      const outerEl = outerPathRefs.current[i];
-      if (outerEl) outerEl.style.strokeDasharray = dashArray;
+      el.style.strokeDasharray = `${length}`;
     });
     if (connectorPathRef.current) {
       const cLen = connectorPathRef.current.getTotalLength();
       connectorLengthRef.current = cLen;
-      const cDash = `${cLen}`;
-      connectorPathRef.current.style.strokeDasharray = cDash;
-      if (connectorOuterRef.current) connectorOuterRef.current.style.strokeDasharray = cDash;
+      connectorPathRef.current.style.strokeDasharray = `${cLen}`;
     }
     applyLineFrame(elapsedRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -899,34 +920,28 @@ function ConvergenceStage() {
           ))}
         </defs>
         {geo.cards.map((c, i) => {
-          // Deliberately extreme control-point ratios, not a "safe" curve:
-          // the control point sits close to the card's own x (0.15 of the
-          // way toward the node) and well below the midpoint on y (0.65 of
-          // the way down) - that's what produces a real sag/swoop instead
-          // of a gentle lean.
-          const controlX = c.x + (geo.node.x - c.x) * 0.15;
-          const controlY = c.y + (geo.node.y - c.y) * 0.65;
+          // Retuned for the compacted card-to-node run (was 0.15x/0.65y,
+          // tuned for a ~200px vertical drop - that ratio reads as pinched
+          // over the current ~80px gap). A more moderate control point
+          // still produces a real curve, not a straight diagonal, without
+          // over-committing to a long sideways drift it no longer has
+          // vertical room for.
+          const controlX = c.x + (geo.node.x - c.x) * 0.35;
+          const controlY = c.y + (geo.node.y - c.y) * 0.55;
           const d = `M${c.x} ${c.y} Q${controlX} ${controlY} ${geo.node.x} ${geo.node.y}`;
           return (
             <g key={i}>
-              {/* Outer: soft glow halo behind the line - blurred, no dash. */}
-              <path
-                ref={(el) => { outerPathRefs.current[i] = el; }}
-                d={d}
-                stroke="rgba(232,96,60,0.22)"
-                strokeWidth="9"
-                fill="none"
-                style={{ filter: 'blur(3px)' }}
-              />
-              {/* Inner: crisp solid base line, fading toward the node - this
-                  is what establishes the path is always there, before any
-                  motion happens on top. */}
+              {/* Crisp solid base line, fading toward the node - this is
+                  what establishes the path is always there, before any
+                  motion happens on top. No glow halo (removed - it was the
+                  single biggest contributor to the lines outweighing the
+                  cards/node they connect) and half the old stroke width. */}
               <path
                 ref={(el) => { pathRefs.current[i] = el; }}
                 data-line-index={i}
                 d={d}
                 stroke={`url(#line-fade-${i})`}
-                strokeWidth="3.5"
+                strokeWidth="1.8"
                 strokeLinecap="round"
                 fill="none"
               />
@@ -936,13 +951,16 @@ function ConvergenceStage() {
                   visible) - CSS animation for the actual dash motion since
                   it's continuous/linear and belongs off the main thread.
                   Path is authored card-first, so a decreasing dashoffset
-                  moves the dash in the card->node direction. */}
+                  moves the dash in the card->node direction. Thinner and
+                  capped at 0.35 opacity (was 4px/opacity 1) so it never
+                  reads as the most saturated moving element on the page -
+                  and it now only ever plays once, during the intro. */}
               {!reducedMotion && (
                 <path
                   ref={(el) => { flowRefs.current[i] = el; }}
                   d={d}
                   stroke="#FFD9C7"
-                  strokeWidth="4"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   fill="none"
                   strokeDasharray="8 24"
@@ -954,7 +972,7 @@ function ConvergenceStage() {
         })}
       </svg>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 relative z-10">
+      <div className="grid grid-cols-3 gap-5 relative z-10">
         {STEP1_CARDS.map((card, i) => (
           <StartCard
             key={card.id}
@@ -966,42 +984,38 @@ function ConvergenceStage() {
         ))}
       </div>
 
-      {/* Top margin, bumped again (previously mt-20/mt-28) - the node needs
-          real distance below the cards for the bowed lines to have room to
-          sag and for the flowing light to have visible distance to travel.
-          Bottom margin is deliberately tiny now - the distance down to
-          Step 2 lives in the connector's own path length just below, not
-          in empty margin, so the line reads as coming out of the node
-          instead of starting from a gap floating below it. */}
-      <div className="flex justify-center mt-36 sm:mt-48 mb-2 sm:mb-3 relative z-10">
+      {/* Compacted from mt-48 (192px) to mt-20 (80px, was measured at
+          exactly 192px pre-fix - critique flagged this as ~430px of
+          near-empty convergence zone dwarfing the ~352px cards). The node
+          now anchors the composition instead of floating in a void below
+          it; the shorter bezier retune above assumes this gap. */}
+      <div className="flex justify-center mt-20 mb-3 relative z-10">
         <GlowNode containerRef={nodeRef} pulseKey={pulseKey} reducedMotion={reducedMotion} />
       </div>
 
-      {/* Node -> "keep scrolling": same beam language as the card lines (glow
-          + solid fading-from-node + flowing overlay), sharing the identical
-          clock - only starts once line 0 has finished drawing (see
-          CONNECTOR_START_S). Deliberately generic "there's more below," not
-          "this arrives at Step 2" - an earlier exit CTA sits between this
-          node and BuildAssemblyCard, so the beam no longer terminates at one
-          specific visual. Kept full-length rather than trimmed: shortening it
-          would read as an abrupt cut, where the continuous beam preserves
-          the sense of one continuous story past the CTA. */}
+      {/* Node -> Step 2: same beam language as the card lines (solid
+          fading-from-node + flowing overlay - no glow halo, same as
+          above), sharing the identical clock - only starts once line 0
+          has finished drawing (see CONNECTOR_START_S), so it reads as
+          "this is what happens next," not something running in parallel
+          on its own timer. Shortened from 150px to 70px alongside the
+          card-to-node compaction, so this second instance of the
+          card-line "loud connective stroke" problem gets the same fix. */}
       <div className="flex justify-center relative z-10" aria-hidden="true">
-        <svg width="24" height="150" viewBox="0 0 24 150" fill="none">
+        <svg className="w-6 h-[70px]" viewBox="0 0 24 70" fill="none">
           <defs>
-            <linearGradient id="connector-fade" gradientUnits="userSpaceOnUse" x1="12" y1="4" x2="12" y2="120">
+            <linearGradient id="connector-fade" gradientUnits="userSpaceOnUse" x1="12" y1="2" x2="12" y2="56">
               <stop offset="0%" stopColor="#E8603C" stopOpacity="0.4" />
               <stop offset="100%" stopColor="#E8603C" stopOpacity="1" />
             </linearGradient>
           </defs>
-          <path ref={connectorOuterRef} d="M12 4 V120" stroke="rgba(232,96,60,0.22)" strokeWidth="9" fill="none" style={{ filter: 'blur(3px)' }} />
-          <path ref={connectorPathRef} d="M12 4 V120" stroke="url(#connector-fade)" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          <path ref={connectorPathRef} d="M12 2 V56" stroke="url(#connector-fade)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
           {!reducedMotion && (
             <path
               ref={connectorFlowRef}
-              d="M12 4 V120"
+              d="M12 2 V56"
               stroke="#FFD9C7"
-              strokeWidth="4"
+              strokeWidth="2"
               strokeLinecap="round"
               fill="none"
               strokeDasharray="8 24"
@@ -1010,9 +1024,9 @@ function ConvergenceStage() {
           )}
           <path
             ref={connectorArrowRef}
-            d="M4 114 L12 128 L20 114"
+            d="M4 50 L12 60 L20 50"
             stroke="#C1440E"
-            strokeWidth="2.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
@@ -1047,7 +1061,7 @@ function BuildAssemblyCard() {
     <div ref={containerRef} className="rounded-3xl px-6 py-10 sm:px-10 sm:py-12 flex flex-col items-center" style={{ background: C.bgAlt }}>
       <motion.div style={{ opacity: rowOpacity }} className="flex flex-col items-center">
         <BuildStatusText stageIndex={stageIndex} phase={phase} reducedMotion={reducedMotion} />
-        <BuildDotRow stageIndex={stageIndex} phase={phase} />
+        <BuildDotRow stageIndex={stageIndex} phase={phase} reducedMotion={reducedMotion} />
       </motion.div>
     </div>
   );
@@ -1133,6 +1147,400 @@ function VideoShowcase() {
   );
 }
 
+// Mobile chapter 1: segmented input picker + stage, replacing the old
+// three-row list. A pill tablist selects which of the three real inputs
+// (STEP1_CARDS) is shown full-size in a fixed-height stage below it, so
+// switching inputs never reflows the timeline chapter underneath.
+// Auto-cycles on a timer until the visitor interacts (tap a segment or a
+// dot) - the same one-way-ratchet + focus-pause pattern SeeItInAction's
+// carousel already uses (hasInteracted), reused rather than reinvented.
+const INPUT_STAGE_CYCLE_MS = 4000;
+// Height is the sum of a fixed budget: the illustration frame below
+// (INPUT_STAGE_ART_WIDTH at its authored 4/3 ratio - the same ratio
+// StartCard's desktop illustrations use) plus title + two lines of
+// support copy plus the stage's own padding. Fixed for all three tabs
+// on purpose (point 1 of the brief) - never sized per-stage.
+const INPUT_STAGE_ART_WIDTH = 220;
+const INPUT_STAGE_ART_HEIGHT = Math.round((INPUT_STAGE_ART_WIDTH * 3) / 4);
+// py-7 padding (56) + gap (16) + title line (~22) + gap (6) + two lines
+// of support copy (~40), plus a little slack for font-metric variance.
+const INPUT_STAGE_HEIGHT = INPUT_STAGE_ART_HEIGHT + 150;
+
+function MobileInputStage() {
+  const reducedMotion = usePrefersReducedMotion();
+  const n = STEP1_CARDS.length;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
+  const tabRefs = useRef([]);
+
+  const select = (i) => { setHasInteracted(true); setActiveIndex(i); };
+
+  // Auto-cycle: stops for good on any tap (segment or dot), paused while
+  // focus sits inside the control (WCAG 2.2.2), never starts under
+  // reduced motion - input 1 just sits there statically.
+  useEffect(() => {
+    if (reducedMotion || isFocusWithin || hasInteracted) return;
+    const id = setInterval(() => setActiveIndex((v) => (v + 1) % n), INPUT_STAGE_CYCLE_MS);
+    return () => clearInterval(id);
+  }, [reducedMotion, isFocusWithin, hasInteracted, n]);
+
+  const handleKeyDown = (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    let next = activeIndex;
+    if (e.key === 'ArrowLeft') next = (activeIndex - 1 + n) % n;
+    else if (e.key === 'ArrowRight') next = (activeIndex + 1) % n;
+    else if (e.key === 'Home') next = 0;
+    else next = n - 1;
+    select(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  const activeCard = STEP1_CARDS[activeIndex];
+  const Illustration = activeCard.Illustration;
+
+  return (
+    <div
+      onFocus={() => setIsFocusWithin(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsFocusWithin(false); }}
+    >
+      {/* Segmented control: a real tablist, roving tabindex + arrow-key
+          navigation. The active fill is one always-mounted pill that
+          translates between thirds, not a per-tab conditional element -
+          simpler and more reliable than a shared layoutId here. */}
+      <div
+        role="tablist"
+        aria-label="Choose how you start"
+        onKeyDown={handleKeyDown}
+        className="relative flex rounded-full mt-5"
+        style={{ background: '#F0EAE5', padding: 4 }}
+      >
+        <motion.div
+          aria-hidden="true"
+          className="absolute rounded-full"
+          style={{
+            top: 0, bottom: 0, left: 0, width: `${100 / n}%`,
+            background: C.terra,
+            // Second border layer (DESIGN.md's warm shadow/border
+            // vocabulary, never neutral/black): a white offset ring plus
+            // a terracotta outer ring - the same look the button's own
+            // focus-visible ring produced, now baked into the pill itself
+            // so click and keyboard selection render identically instead
+            // of the border only showing up on keyboard focus.
+            boxShadow: '0 0 0 2px #FFFAF7, 0 0 0 4px rgba(193,68,14,0.55), 0 4px 14px rgba(193,68,14,0.35)',
+          }}
+          animate={{ x: `${activeIndex * 100}%` }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        />
+        {STEP1_CARDS.map((card, i) => {
+          const selected = i === activeIndex;
+          return (
+            <button
+              key={card.id}
+              ref={(el) => (tabRefs.current[i] = el)}
+              type="button"
+              role="tab"
+              id={`input-tab-${card.id}`}
+              aria-selected={selected}
+              aria-controls={`input-panel-${card.id}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => select(i)}
+              className="relative z-10 flex-1 rounded-full text-[13px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{ minHeight: 44, color: selected ? '#fff' : C.muted, '--tw-ring-color': C.terra, transition: 'color 0.2s ease' }}
+            >
+              {card.tabLabel}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stage: fixed height so switching inputs never reflows the
+          timeline chapter below it - both crossfade layers are absolute
+          inside it, sized to the tallest of the three contents. */}
+      <div className="relative w-full rounded-3xl mt-5 overflow-hidden" style={{ background: C.white, height: INPUT_STAGE_HEIGHT }}>
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={activeCard.id}
+            id={`input-panel-${activeCard.id}`}
+            role="tabpanel"
+            aria-labelledby={`input-tab-${activeCard.id}`}
+            className="absolute inset-0 flex flex-col items-center text-center px-6 py-7"
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transition: reducedMotion ? { duration: 0 } : { duration: 0.18, ease: [0, 0, 0.2, 1] } }}
+            exit={reducedMotion ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -8, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
+          >
+            {/* Same 4/3 frame the Illustrations were authored for
+                (StartCard's desktop `aspect-[4/3]`) - identical pixel
+                size across all three tabs, so switching never resizes
+                the card. Illustrations scale down to fit; none are
+                stretched off their original ratio. */}
+            <div className="mx-auto w-full" style={{ maxWidth: INPUT_STAGE_ART_WIDTH, aspectRatio: '4 / 3' }}>
+              <Illustration />
+            </div>
+            <p className="text-[15px] font-bold mt-4" style={{ color: C.dark }}>{activeCard.label}</p>
+            <p className="text-[13px] mt-1.5 max-w-[280px]" style={{ color: C.muted, lineHeight: 1.5 }}>{activeCard.support}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Position indicator: elongated active dot, same visual grammar
+          AND the same gap-1.5 (6px) rhythm as SeeItInAction's carousel
+          dots - real buttons here (not decorative), so the hit area is
+          a modest 24px (WCAG 2.5.8 minimum) rather than the segmented
+          control's 44px, which would force the dots visually far apart
+          again regardless of gap. */}
+      <div className="flex items-center justify-center gap-1.5 mt-4">
+        {STEP1_CARDS.map((card, i) => {
+          const selected = i === activeIndex;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => select(i)}
+              aria-label={`Show ${card.tabLabel}`}
+              aria-current={selected ? 'true' : undefined}
+              className="flex items-center justify-center"
+              style={{ width: 24, height: 24 }}
+            >
+              <span
+                className="rounded-full"
+                style={{
+                  width: selected ? 16 : 6,
+                  height: 6,
+                  background: selected ? C.terra : '#EFDCD2',
+                  transition: reducedMotion ? 'none' : 'width 0.25s ease, background-color 0.25s ease',
+                }}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Mobile chapter 2: vertical build timeline, replacing the old six-icon
+// grid. Reuses useBuildTimeline verbatim (adapt the sequencing logic,
+// don't duplicate it) - the same shared stageIndex/phase/rowOpacity
+// clock desktop's BuildAssemblyCard drives its dot row from, just
+// re-labelled for this component's own five steps and rendered as a
+// vertical list instead of a horizontal row. Per-step icons and the
+// active-step waveform are read directly off BUILD_STAGES by index
+// (both arrays describe the same five stages, index-aligned, just with
+// mobile-specific label copy) rather than a second icon set - point 4 of
+// the brief: reuse desktop's icon set and label logic, don't invent one.
+// Reduced motion deliberately diverges from the hook's own reduced-motion
+// default (a frozen mid-sequence state): this component's brief calls
+// for every step shown done and static instead, so that case is handled
+// locally here rather than inside the shared hook.
+const MOBILE_TIMELINE_STEPS = [
+  { id: 'script', label: 'Script' },
+  { id: 'storyboard', label: 'Storyboard' },
+  { id: 'voice', label: 'Voice' },
+  { id: 'music', label: 'Music' },
+  { id: 'transitions', label: 'Transitions' },
+];
+const TIMELINE_GAP_H = 20;
+
+// Same lit/unlit icon treatment as BuildDotRow's horizontal dots - the
+// step's own icon is always present (white when lit, faint terracotta
+// when pending), never swapped for a generic checkmark. Active adds
+// BuildDotRow's pulse ring + white border on top of the same lit disc.
+function TimelineIndicator({ state, icon, reducedMotion }) {
+  const lit = state !== 'pending';
+  const StepIcon = icon;
+  return (
+    <span className="relative flex items-center justify-center" style={{ width: 24, height: 24 }}>
+      {state === 'active' && (
+        <motion.span
+          className="absolute rounded-full"
+          style={{ inset: -5, background: 'rgba(193,68,14,0.35)' }}
+          animate={reducedMotion ? { opacity: 0.85, scale: 1 } : { opacity: [0.85, 1, 0.85], scale: [1, 1.08, 1] }}
+          transition={reducedMotion ? undefined : BREATH_PULSE}
+        />
+      )}
+      <span
+        className="relative rounded-full flex items-center justify-center"
+        style={{
+          width: 24,
+          height: 24,
+          background: lit ? 'linear-gradient(135deg,#C1440E,#E8603C)' : '#EFDCD2',
+          border: state === 'active' ? '2px solid #FFFAF7' : 'none',
+          boxShadow: state === 'active' ? '0 0 0 2px rgba(193,68,14,0.6)' : lit ? '0 2px 6px rgba(193,68,14,0.3)' : 'none',
+        }}
+      >
+        <StepIcon style={{ width: 13, height: 13, color: lit ? '#fff' : 'rgba(193,68,14,0.4)' }} strokeWidth={2.25} />
+      </span>
+    </span>
+  );
+}
+
+function MobileBuildTimeline() {
+  const reducedMotion = usePrefersReducedMotion();
+  const containerRef = useRef(null);
+  const { stageIndex, phase, rowOpacity } = useBuildTimeline(containerRef, reducedMotion);
+  const allSolid = phase === 'holding' || phase === 'fading';
+
+  return (
+    <div ref={containerRef}>
+      <motion.div style={{ opacity: rowOpacity }} className="flex flex-col">
+        {MOBILE_TIMELINE_STEPS.map((step, i) => {
+          const completed = reducedMotion || allSolid || i < stageIndex;
+          const current = !reducedMotion && !allSolid && i === stageIndex;
+          const state = completed ? 'done' : current ? 'active' : 'pending';
+          const segmentLit = i > 0 && (reducedMotion || allSolid || i <= stageIndex);
+          const buildStage = BUILD_STAGES[i];
+          return (
+            <Fragment key={step.id}>
+              {i > 0 && (
+                <div className="flex justify-center" style={{ width: 24, height: TIMELINE_GAP_H }}>
+                  <span
+                    className="block"
+                    style={{
+                      width: 2,
+                      height: TIMELINE_GAP_H,
+                      borderRadius: 999,
+                      background: segmentLit ? 'linear-gradient(180deg,#C1440E,#E8603C)' : '#EFDCD2',
+                      transition: 'background 0.3s ease',
+                    }}
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-3" style={{ minHeight: 44 }}>
+                <span className="flex-shrink-0 flex items-center justify-center" style={{ width: 24 }}>
+                  <TimelineIndicator state={state} icon={buildStage.icon} reducedMotion={reducedMotion} />
+                </span>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="text-sm"
+                    style={{
+                      color: state === 'pending' ? C.muted : C.dark,
+                      fontWeight: state === 'active' ? 700 : 600,
+                    }}
+                  >
+                    {step.label}
+                  </span>
+                  {/* Desktop's active-label treatment: the level-meter
+                      bars appear only for the voice stage, only while
+                      it's active - reuses BuildWaveform verbatim. */}
+                  {state === 'active' && buildStage.waveform && <BuildWaveform reducedMotion={reducedMotion} />}
+                </span>
+              </div>
+            </Fragment>
+          );
+        })}
+      </motion.div>
+    </div>
+  );
+}
+
+// Mobile-only "How it works" - a from-scratch vertical story, not a
+// compressed copy of desktop's measured convergence-lines device (which
+// stays completely unchanged for sm: and up). Three beats:
+//   1. Choose how you start - MobileInputStage, a segmented picker over
+//      a single fixed-height stage showing one real input at a time,
+//      full-size and legible (auto-cycles until the visitor interacts).
+//   2. Raphio builds your video - MobileBuildTimeline, a vertical
+//      five-step sequence (script/storyboard/voice/music/transitions)
+//      inside its own tinted panel so it reads as a distinct chapter,
+//      not more of chapter 1.
+//   3. Your complete video - the real finished-video asset, deliberately
+//      the largest and most visually dominant moment in the section: the
+//      transformation's payoff is the hero here, not the Raphio mark.
+// Reuses only what already exists (STEP1_CARDS copy/Illustrations,
+// useBuildTimeline, the real FINAL_SCENE video still, VIDEO_FEATURES) -
+// no new claims.
+function MobileHowItWorks() {
+  const reducedMotion = usePrefersReducedMotion();
+
+  return (
+    <div className="sm:hidden">
+      {/* Chapter 1: choose how you start. */}
+      <motion.div
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.4 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <p className="text-[15px] font-bold" style={{ color: C.dark }}>Choose how you start</p>
+        <MobileInputStage />
+      </motion.div>
+
+      {/* Chapter 2: Raphio builds your video - a tinted panel marks this
+          as its own beat, not a continuation of chapter 1. */}
+      <motion.div
+        className="rounded-3xl px-5 py-7 mt-10"
+        style={{ background: C.bgAlt }}
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <p className="text-[15px] font-bold text-center" style={{ color: C.dark }}>Raphio builds your video</p>
+        <div className="mt-6 flex justify-center">
+          <div className="w-full max-w-[220px]">
+            <MobileBuildTimeline />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Chapter 3: the finished video - the largest, most visually
+          dominant moment in the section on purpose. Same real asset and
+          copy desktop's VideoShowcase uses (including its ambient glow
+          treatment, copied verbatim), just the hero here instead of one
+          of three sections sharing the scroll. */}
+      <motion.div
+        className="mt-10"
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <motion.div
+          className="relative w-full"
+          initial={reducedMotion ? false : { opacity: 0, scale: 0.94 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div
+            className="absolute -inset-6 rounded-[40px] pointer-events-none"
+            style={{ background: 'radial-gradient(60% 60% at 50% 40%, rgba(232,96,60,0.22), rgba(193,68,14,0) 72%)', filter: 'blur(28px)' }}
+            aria-hidden="true"
+          />
+          <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: '16 / 9', background: FINAL_SCENE.fallback, boxShadow: '0 20px 50px rgba(28,25,23,0.32)' }}>
+            <img
+              src={FINAL_SCENE.src}
+              alt={FINAL_SCENE.alt}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 55%, rgb(var(--ink-warm-rgb) / 0.5) 100%)' }} />
+            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+              <span
+                className="rounded-full flex items-center justify-center"
+                style={{ width: 56, height: 56, background: 'rgba(255,255,255,0.95)', boxShadow: '0 8px 24px rgba(0,0,0,0.28)' }}
+              >
+                <Play style={{ width: 20, height: 20, color: C.terra, marginLeft: 3 }} fill={C.terra} />
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        <p className="display mt-5 text-xl text-center" style={{ color: C.dark }}>Your complete video.</p>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 mt-3">
+          {VIDEO_FEATURES.map((f) => (
+            <span key={f} className="text-xs font-semibold" style={{ color: C.muted }}>
+              {f}
+            </span>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function HowItWorks() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1155,36 +1563,23 @@ function HowItWorks() {
           </p>
         </div>
 
-        <ConvergenceStage />
-
-        {/* Earlier exit: a lower-emphasis ask for visitors who are already
-            sold after Step 1 and don't need the build sequence / video
-            reveal to decide. Deliberately the flat Functional register, not
-            the pill-gradient CTA - the closing CTA below stays the one
-            highest-emphasis ask on this path (DESIGN.md's button rules). */}
-        <div className="flex flex-col items-center mt-10 sm:mt-12">
-          <button
-            onClick={() => navigate(user ? '/create' : '/login')}
-            className="inline-flex items-center gap-2 px-6 rounded-md text-sm font-bold text-white transition-colors"
-            style={{ height: 44, background: C.terra }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#5C1000'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = C.terra; }}
-          >
-            Try it free
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+        {/* Desktop: the full three-step device (ConvergenceStage,
+            BuildAssemblyCard, VideoShowcase), completely unchanged.
+            Mobile: MobileHowItWorks replaces all three with one compact
+            block - see its own comment for why. */}
+        <div className="hidden sm:block">
+          <ConvergenceStage />
+          <div className="mt-10 sm:mt-12">
+            <BuildAssemblyCard />
+            <p className="text-center text-sm font-semibold mt-4" style={{ color: C.muted }}>
+              Raphio builds your storyboard automatically.
+            </p>
+          </div>
+          <div className="mt-16 sm:mt-20">
+            <VideoShowcase />
+          </div>
         </div>
-
-        <div className="mt-10 sm:mt-12">
-          <BuildAssemblyCard />
-          <p className="text-center text-sm font-semibold mt-4" style={{ color: C.muted }}>
-            Raphio builds your storyboard automatically.
-          </p>
-        </div>
-
-        <div className="mt-16 sm:mt-20">
-          <VideoShowcase />
-        </div>
+        <MobileHowItWorks />
 
         {/* Closing beat: the one ask */}
         <motion.div
@@ -1765,18 +2160,25 @@ export default function LandingPage() {
         @keyframes raphio-flow { to { stroke-dashoffset: -32; } }
       `}</style>
 
-      {/* Navbar. The bar's own background/blur lives on the row div below,
-          not here - <header> wraps both the row AND the open mobile panel,
-          and the panel has its own curved bottom edge. A background painted
-          on <header> itself would be a plain rectangle sitting behind that
-          curve, exposing a straight edge in exactly the corners the curve
-          cuts away. Keeping <header> transparent means nothing shows there
-          but the panel's own shape and the scrim beneath it. */}
+      {/* Navbar. The bar's own background/blur lives on a dedicated
+          full-width layer below, not on <header> itself and not on the
+          row's own max-w-6xl container - <header> wraps both the row AND
+          the open mobile panel, and the panel has its own curved bottom
+          edge, so a background painted on <header> itself would be a
+          plain rectangle sitting behind that curve (a straight edge
+          exposed in the corners the curve cuts away). But the background
+          also can't live on the row's own max-w-6xl/mx-auto div: past the
+          1152px breakpoint that container centers and stops spanning the
+          full viewport, leaving the header's edges transparent past that
+          width. So it's a separate absolutely-positioned layer, sized to
+          exactly the row's h-14 height (never the panel below it) but
+          spanning the full header width regardless of content max-width. */}
       <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-200">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between" style={{
+        <div className="absolute inset-x-0 top-0 h-14" style={{
           background: headerSolid ? 'rgba(245,240,235,0.92)' : 'linear-gradient(180deg, rgb(var(--ink-warm-rgb) / 0.46) 0%, rgb(var(--ink-warm-rgb) / 0.20) 70%, rgb(var(--ink-warm-rgb) / 0) 100%)',
           backdropFilter: headerSolid ? 'blur(14px)' : 'none',
-        }}>
+        }} />
+        <div className="relative max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-8">
             <button onClick={() => scrollTo('hero')} className="hover:opacity-80 transition-opacity">
               <img src={headerSolid ? '/Logo.svg' : '/Logo-Light.svg'} alt="Raphio" className="h-7" />
