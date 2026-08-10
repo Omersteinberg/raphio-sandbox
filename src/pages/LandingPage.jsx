@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, Fragment } from 
 import { motion, useScroll, useTransform, useInView, useAnimationFrame, useMotionValue, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Play, ChevronLeft, ChevronRight, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop, Workflow, Tag } from "lucide-react";
-import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown } from 'lucide-react';
+import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown, Clock3} from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import scene5Img from "@/assets/scene-5.png";
@@ -620,15 +620,15 @@ const BREATH_PULSE = { duration: 5, repeat: Infinity, ease: 'easeInOut' };
 const PULSE_RINGS = [
   { color: '#E8603C', delay: 0 },
   { color: '#C1440E', delay: 1 },
-  { color: '#5C1000', delay: 2 },
+  { color: '#d82906', delay: 2 },
 ];
-const PULSE_CYCLE_S = 3;
+const PULSE_CYCLE_S = 2;
 // Reduced-motion fallback: freeze each ring at a fixed intermediate
 // scale/opacity instead of animating, so the layered look still reads.
 const PULSE_RINGS_STATIC = [
-  { scale: 1.2, opacity: 0.4 },
-  { scale: 1.4, opacity: 0.3 },
-  { scale: 1.6, opacity: 0.2 },
+  { scale: 1.1, opacity: 0.4 },
+  { scale: 1.2, opacity: 0.3 },
+  { scale: 1.3, opacity: 0.2 },
 ];
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
@@ -648,7 +648,7 @@ function PulseRing({ color, delaySec, reducedMotion, staticScale, staticOpacity 
     const cyclePos = (((t - delaySec) % PULSE_CYCLE_S) + PULSE_CYCLE_S) % PULSE_CYCLE_S;
     const progress = cyclePos / PULSE_CYCLE_S;
     const eased = easeOutCubic(progress);
-    scale.set(1 + eased * 0.8);
+    scale.set(1 + eased * 0.3);
     opacity.set(0.5 * (1 - progress));
   });
   return (
@@ -824,7 +824,7 @@ function ConvergenceStage() {
       // Softened, not full-strength: the flow overlay should read as a
       // quiet accent while it's briefly visible during the one-time draw,
       // never the most saturated moving thing on the page.
-      if (flowEl) flowEl.style.opacity = flowActive ? '0.35' : '0';
+      if (flowEl) flowEl.style.opacity = flowActive ? '0.25' : '0';
     });
 
     const connectorProgress = reducedMotion ? 1 : getConnectorProgress(elapsedS);
@@ -913,10 +913,11 @@ function ConvergenceStage() {
             // pulsing circle it should be dissolving into it, not stopping
             // at a hard edge. userSpaceOnUse so the gradient axis is the
             // real card->node line, not the path's own bounding box.
-            <linearGradient key={i} id={`line-fade-${i}`} gradientUnits="userSpaceOnUse" x1={c.x} y1={c.y} x2={geo.node.x} y2={geo.node.y}>
-              <stop offset="0%" stopColor="#E8603C" stopOpacity="1" />
-              <stop offset="100%" stopColor="#E8603C" stopOpacity="0.12" />
-            </linearGradient>
+          <linearGradient key={i} id={`line-fade-${i}`} gradientUnits="userSpaceOnUse" x1={c.x} y1={c.y} x2={c.x} y2={geo.node.y}>
+            <stop offset="0%" stopColor="#E8603C" stopOpacity="1" />
+            <stop offset="40%" stopColor="#E8603C" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#E8603C" stopOpacity="0" />
+          </linearGradient>
           ))}
         </defs>
         {geo.cards.map((c, i) => {
@@ -926,9 +927,13 @@ function ConvergenceStage() {
           // still produces a real curve, not a straight diagonal, without
           // over-committing to a long sideways drift it no longer has
           // vertical room for.
-          const controlX = c.x + (geo.node.x - c.x) * 0.35;
-          const controlY = c.y + (geo.node.y - c.y) * 0.55;
-          const d = `M${c.x} ${c.y} Q${controlX} ${controlY} ${geo.node.x} ${geo.node.y}`;
+          const dy = geo.node.y - c.y;
+          const d = `
+            M ${c.x} ${c.y}
+            C ${c.x} ${c.y + dy * 0.6},
+              ${geo.node.x} ${geo.node.y - dy * 0.6},
+              ${geo.node.x} ${geo.node.y}
+          `;
           return (
             <g key={i}>
               {/* Crisp solid base line, fading toward the node - this is
@@ -941,7 +946,7 @@ function ConvergenceStage() {
                 data-line-index={i}
                 d={d}
                 stroke={`url(#line-fade-${i})`}
-                strokeWidth="1.8"
+                strokeWidth="1.6"
                 strokeLinecap="round"
                 fill="none"
               />
@@ -1026,7 +1031,7 @@ function ConvergenceStage() {
             ref={connectorArrowRef}
             d="M4 50 L12 60 L20 50"
             stroke="#C1440E"
-            strokeWidth="2"
+            strokeWidth="1.4"
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
@@ -1128,7 +1133,7 @@ function VideoShowcase() {
                   }}
                 />
               </div>
-              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>0:30</span>
+              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>1:45</span>
             </div>
           </div>
         </div>
@@ -1569,7 +1574,7 @@ function HowItWorks() {
             block - see its own comment for why. */}
         <div className="hidden sm:block">
           <ConvergenceStage />
-          <div className="mt-10 sm:mt-12">
+          <div className="mt-6 sm:mt-8">
             <BuildAssemblyCard />
             <p className="text-center text-sm font-semibold mt-4" style={{ color: C.muted }}>
               Raphio builds your storyboard automatically.
@@ -2033,63 +2038,154 @@ function ContactSection() {
   return (
     <section
       id="contact"
-      className="py-20 px-6"
-      style={{ background: 'rgba(193,68,14,0.03)', borderTop: '1px solid rgba(193,68,14,0.08)' }}
+      className="py-24 px-6"
+      style={{
+        background: "rgba(193,68,14,0.03)",
+        borderTop: "1px solid rgba(193,68,14,0.08)",
+      }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.55 }}
         className="max-w-2xl mx-auto text-center"
       >
-        <h2 className="display" style={{ fontSize: 'clamp(28px,4vw,42px)', color: C.dark, letterSpacing: '-0.01em', lineHeight: 1.12 }}>
-          We're based in Melbourne. We actually reply.
+        {/* Heading */}
+
+        <h2
+          className="display"
+          style={{
+            fontSize: "clamp(32px,4vw,48px)",
+            color: C.dark,
+            lineHeight: 1.06,
+            letterSpacing: "-0.03em",
+          }}
+        >
+          We're based in Melbourne.
+          <br />
+          We actually reply.
         </h2>
-        <p className="text-base mt-4" style={{ color: C.muted }}>
-          No ticket queues, no chatbots. Just a small team that reads every message.
+
+        {/* Supporting copy */}
+
+        <p
+          className="mt-6"
+          style={{
+            color: C.muted,
+            fontSize: 17,
+            lineHeight: 1.75,
+            maxWidth: 560,
+            marginInline: "auto",
+          }}
+        >
+          Whether it's pricing, features or your first video, we're happy to help.
         </p>
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
-          {CONTACT_ROWS.map((item) => {
-            const Icon = item.icon;
-            const Row = item.href ? 'a' : 'div';
-            return (
-              <Row
-                key={item.label}
-                {...(item.href ? { href: item.href } : {})}
-                className="flex items-center gap-4"
+        {/* Email CTA */}
+
+        <div className="mt-9">
+          <a
+            href="mailto:contact@raphio.ai"
+            className="group inline-flex flex-col items-center gap-2 relative"
+            style={{
+              textDecoration: "none",
+            }}
+          >
+
+            <div className="flex items-center gap-2">
+              <span
+                className="flex items-center justify-center rounded-full"
+                style={{
+                  width: 34,
+                  height: 34,
+                  background: "rgba(193,68,14,0.10)",
+                  transition: "all .28s ease",
+                }}
               >
-                <span
-                  className="flex items-center justify-center rounded-full flex-shrink-0"
-                  style={{ width: 40, height: 40, background: 'rgba(193,68,14,0.10)' }}
-                >
-                  <Icon style={{ width: 17, height: 17, color: C.terra }} />
-                </span>
-                <span className="text-left">
-                  <span className="block text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{item.label}</span>
-                  <span className="block text-base font-bold" style={{ color: C.dark }}>
-                    {item.value}
-                  </span>
-                </span>
-              </Row>
-            );
-          })}
+                <Mail
+                  size={16}
+                  style={{
+                    color: C.terra,
+                  }}
+                  className="transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
+                />
+              </span>
+
+              <span
+                style={{
+                  fontSize: "clamp(22px,2.5vw,28px)",
+                  fontWeight: 700,
+                  letterSpacing: "-0.025em",
+                  color: C.dark,
+                  transition: "color .25s ease, transform .25s ease",
+                }}
+                className="group-hover:text-[#C1440E] group-hover:-translate-y-[1px]"
+              >
+                contact@raphio.ai
+              </span>
+
+              <ArrowRight
+                size={18}
+                style={{
+                  color: C.terra,
+                  transition: "transform .28s ease",
+                }}
+                className="group-hover:translate-x-2"
+              />
+            </div>
+
+            {/* Animated underline */}
+
+            <span
+              style={{
+                position: "absolute",
+                bottom: -7,
+                left: "50%",
+                width: "100%",
+                height: 2,
+                background: C.terra,
+                transform: "translateX(-50%) scaleX(0)",
+                transformOrigin: "center",
+                transition: "transform .32s cubic-bezier(.22,1,.36,1)",
+              }}
+              className="group-hover:translate-x-[-50%] group-hover:scale-x-100"
+            />
+          </a>
         </div>
 
-        <div className="mt-10">
-          <a
-            href="mailto:Contact@raphio.ai"
-            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold text-white transition-all duration-300"
-            style={{
-              background: `linear-gradient(135deg,${C.terra},${C.terraLt})`,
-              boxShadow: '0 4px 16px rgba(193,68,14,0.30)'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(193,68,14,0.45)'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(193,68,14,0.30)'; }}
-          >
-            Get in touch
-          </a>
+        {/* Trust row */}
+
+        <div
+          className="mt-11 flex flex-wrap justify-center items-center gap-x-8 gap-y-3"
+          style={{
+            color: C.muted,
+            fontSize: 14,
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <MapPin
+              size={15}
+              style={{
+                color: C.terra,
+                opacity: 0.9,
+              }}
+            />
+
+            <span>Based in Melbourne, Australia</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Clock3
+              size={15}
+              style={{
+                color: C.terra,
+                opacity: 0.9,
+              }}
+            />
+
+            <span>Usually replies within one business day</span>
+          </div>
         </div>
       </motion.div>
     </section>
@@ -2546,10 +2642,10 @@ export default function LandingPage() {
           <div className="text-center mb-10">
             <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.terra }}>Pricing</p>
             <h2 className="display mb-3" style={{ fontSize: 'clamp(32px,4vw,52px)', color: C.dark, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              Simple, transparent<br />credit packs.
+              Pay once.<br />Create when you want.
             </h2>
             <p className="text-base max-w-md mx-auto" style={{ color: C.muted }}>
-              No subscription hooks. Buy the credits you need, create whenever inspiration strikes.
+              No subscriptions, no expiring credits. Buy a pack and create on your own schedule.
             </p>
           </div>
 
@@ -2574,31 +2670,31 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch">
             {[
               {
-                id: 'free', label: 'Free', price: 0, credits: 3, save: null,
+                id: 'free', label: 'Free', price: 0, credits: 3,
                 icon: Sparkles, cta: 'Try it free', popular: false,
                 features: [
-                  { text: '1 short video (15s)',   ok: true  },
+                  { text: 'e.g. one 15s video', ok: true  },
                 ],
               },
               {
-                id: 'starter', label: 'Starter', price: 29, credits: 6, 
+                id: 'starter', label: 'Starter', price: 29, credits: 6,
                 icon: Zap, cta: 'Get Starter pack', popular: false,
                 features: [
-                  { text: 'Up to 2 short videos (15s each)', ok: true  },
+                  { text: 'e.g. two 15s videos, or one 30s video', ok: true  },
                 ],
               },
               {
-                id: 'creator', label: 'Creator', price: 55, credits: 12, save: 'Save 8%',
+                id: 'creator', label: 'Creator', price: 55, credits: 12,
                 icon: Layers, cta: 'Get Creator Pack', popular: true,
                 features: [
-                  { text: 'Up to 2 medium videos (30s each)',  ok: true  },
+                  { text: 'e.g. two 30s videos, or one 60s video',  ok: true  },
                 ],
               },
               {
-                id: 'studio', label: 'Studio', price: 99, credits: 24, save: 'Save 17%',
+                id: 'studio', label: 'Studio', price: 99, credits: 24,
                 icon: Crown, cta: 'Get Studio Pack', popular: false,
                 features: [
-                  { text: 'Up to 2 long videos (60s each)', ok: true },
+                  { text: 'e.g. two 60s videos, or one 2-minute video', ok: true },
                 ],
               },
             ].map((tier, i) => {
@@ -2655,12 +2751,6 @@ export default function LandingPage() {
                               <span className="text-base font-bold self-start mt-1" style={{ color: C.muted }}>$</span>
                               <span className="text-4xl font-extrabold leading-none" style={{ color: '#2C2420' }}>{tier.price}</span>
                               <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>one-time</span>
-                              {tier.save && (
-                                <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
-                                  style={{ background: 'rgba(13,150,105,0.10)', color: '#0D9669', border: '1px solid rgba(13,150,105,0.18)' }}>
-                                  {tier.save}
-                                </span>
-                              )}
                             </>
                         }
                       </div>
@@ -2692,23 +2782,14 @@ export default function LandingPage() {
             })}
           </div>
 
-          {/* Credits per video reference */}
-          <div className="rounded-2xl p-5 mb-6 mx-auto max-w-sm"
+          {/* Credit unit legend */}
+          <div className="rounded-2xl p-5 mb-6 mx-auto max-w-md text-center"
             style={{ background: '#FFFAF7', border: '1.5px solid rgba(193,68,14,0.12)' }}>
-            <p className="text-xs font-bold text-center mb-3 uppercase tracking-wider" style={{ color: C.muted }}>
-              Credits per video
+            <p className="text-sm font-bold" style={{ color: C.terra }}>
+              1 credit = 5 seconds of video · assembled video up to 2 min
             </p>
-            <div className="flex justify-around">
-              {[{ label: 'Up to 15s', credits: 3 }, { label: '16s to 30s', credits: 6 }, { label: '31s to 60s', credits: 12 }].map((row) => (
-                <div key={row.label} className="text-center">
-                  <p className="text-2xl font-extrabold" style={{ color: C.terra }}>{row.credits}</p>
-                  <p className="text-xs font-semibold" style={{ color: '#2C2420' }}>credits</p>
-                  <p className="text-xs mt-0.5" style={{ color: C.muted }}>{row.label}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-center mt-3" style={{ color: C.muted }}>
-              Shorter videos cost fewer credits, so you stay in control.
+            <p className="text-xs mt-2" style={{ color: C.muted }}>
+              Credits never expire. Spend them whenever you're ready.
             </p>
           </div>
 
@@ -2737,7 +2818,7 @@ export default function LandingPage() {
             <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'0.01em', lineHeight:1 }}>
               Ready to make<br/>your first video?
             </h2>
-            <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>It's completely free to start. No account needed.</p>
+            <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>Free to start. No credit card required.</p>
             <button onClick={() => navigate(user ? '/create' : '/login')}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 24px rgba(193,68,14,0.35)` }}
