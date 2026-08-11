@@ -214,31 +214,49 @@ export async function extractBrandFromUrl(url) {
 }
 
 /**
- * Generate the intro scene review payload before the script step.
- */
-export async function generateIntroScenes(sessionId) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/generate-intro-scenes`);
-  return response.data;
-}
-
-/**
- * Generate (or revise) the intro montage+narration script.
+ * Plan the intro and render a playable segment for every scene.
+ *
+ * The long one: a model call, then a voiceover and a Remotion render per scene.
+ * Reports per-scene progress through onProgress so the UI can say which scene it
+ * is on rather than spinning.
+ *
  * @param {string} sessionId
- * @param {object} [opts] - { editRequest } natural-language revision request
+ * @param {object} [opts] - { onProgress }
  * @returns updated session (stage INTRO_SCRIPT_GENERATED)
  */
-export async function generateIntroScript(sessionId, { editRequest } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202: starts the job
-  return await pollJobUntilDone(sessionId);
+export async function generateIntroScenes(sessionId, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/generate-intro-scenes`); // 202: starts the job
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "GENERATE_INTRO_SCENES" });
 }
 
 /**
- * Save edits to the intro script (montage plan + narration + voice).
+ * Rework any number of scenes from the notes written against them, and re-render
+ * what that changes.
+ *
+ * One request, one job. The backend rewrites every noted scene in parallel and
+ * re-renders the affected segments in a single pass, which is cheaper than one
+ * rework at a time: neighbouring segments are re-cut once instead of once per note.
+ *
+ * @param {string} sessionId
+ * @param {Array<{index:number, note:string}>} edits - zero-based scene positions
+ * @param {object} [opts] - { onProgress }
+ * @returns the updated session, carrying `reviseFailures` if any scene failed
+ */
+export async function reviseIntroScenes(sessionId, edits, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/scenes/revise`, { edits }); // 202
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "REVISE_INTRO_SCENES" });
+}
+
+/**
+ * Save the review step's own fields: brand name, music prompt, voice.
+ *
+ * Scene content is NOT saved here. A scene is changed with reviseIntroScenes,
+ * which is the only path that also re-renders it.
  * @returns updated session
  */
-export async function updateIntroScript(sessionId, { businessName, scenes, musicPrompt, narration, voiceId }) {
+export async function updateIntroScript(sessionId, { businessName, musicPrompt, voiceId }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-script`, {
-    businessName, scenes, musicPrompt, narration, voiceId,
+    businessName, musicPrompt, voiceId,
   });
   return response.data;
 }

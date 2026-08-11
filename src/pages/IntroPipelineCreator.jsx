@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import IntroBriefStep from "@/components/session/IntroBriefStep";
-import IntroScriptStep from "@/components/session/IntroScriptStep";
+import IntroSceneReviewStep from "@/components/session/IntroSceneReviewStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
@@ -44,14 +44,24 @@ export default function IntroPipelineCreator({ onModeChange }) {
     if (attemptRef.current.step !== step) attemptRef.current = { step, keys: new Set() };
 
     if (!settingsReady || autoDisabled) return;
-    if (loading || intro.error || intro.insufficientCredits) return;
+    // reworkingIndexes is checked separately from `loading`, which a rework
+    // deliberately does not set. clipsReady stays true through a rework (the revised
+    // scene keeps its old clipUrl in local state until the job returns), so without
+    // this a user with auto-approve on would have the video generated out from under
+    // an in-flight rework.
+    if (loading || intro.reworkingIndexes?.length || intro.error || intro.insufficientCredits) return;
 
-    if (step === 1 && autoApprovePrefs.generate && intro.introScript && !attemptRef.current.keys.has("generate")) {
+    // One stage again: the scenes arrive already rendered, so there is nothing to
+    // generate before approving. Gated on every clip existing, because approve is
+    // rejected by the backend until they do.
+    const clipsReady = intro.introScript?.scenes?.length
+      && intro.introScript.scenes.every((s) => s?.clipUrl);
+    if (step === 1 && clipsReady && autoApprovePrefs.generate && !attemptRef.current.keys.has("generate")) {
       attemptRef.current.keys.add("generate");
       intro.approveAndGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, loading, intro.error, intro.insufficientCredits, intro.introScript, settingsReady, autoDisabled, autoApprovePrefs.generate]);
+  }, [step, loading, intro.reworkingIndexes, intro.error, intro.insufficientCredits, intro.introScript, settingsReady, autoDisabled, autoApprovePrefs.generate]);
 
   const journeyTasks = buildIntroTasks({
     step,
@@ -82,17 +92,17 @@ export default function IntroPipelineCreator({ onModeChange }) {
     }
     if (step === 1) {
       return (
-        <IntroScriptStep
+        <IntroSceneReviewStep
           introScript={intro.introScript}
           updateScriptField={intro.updateScriptField}
+          saveScriptEdits={intro.saveScriptEdits}
           voiceId={intro.voiceId}
           setVoiceId={intro.setVoiceId}
-          editRequest={intro.editRequest}
-          setEditRequest={intro.setEditRequest}
-          editScriptWithAI={intro.editScriptWithAI}
-          regenerateScript={intro.regenerateScript}
+          reviseScenes={intro.reviseScenes}
           approveAndGenerate={intro.approveAndGenerate}
           loading={loading}
+          reworkingIndexes={intro.reworkingIndexes}
+          reworkLabel={intro.reworkLabel}
         />
       );
     }
@@ -141,10 +151,17 @@ export default function IntroPipelineCreator({ onModeChange }) {
           </motion.div>
         </AnimatePresence>
 
-        {/* Image-pipeline loading: script generation/regeneration */}
+        {/* Planning and rendering the scenes, and approving them into a video. Both
+            are whole-pipeline waits with nothing else to look at. A rework is not
+            here on purpose: it is scoped to the cards it changes, so it spins on
+            those and leaves the rest of the step usable. */}
         <AnimatePresence>
           {loading && (step === 0 || step === 1) && (
-            <ScriptLoadingScreen progress={intro.scriptProgress} />
+            <ScriptLoadingScreen
+              progress={intro.scriptProgress}
+              title={intro.scriptLabel || "Building your scenes"}
+              estimate="~4 minutes"
+            />
           )}
         </AnimatePresence>
 
