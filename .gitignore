@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Locally-installed agent skills and their working output. The skills this repo
+# does track are listed in skills-lock.json; install anything else per-machine.
+.impeccable/
+.agents/skills/design-taste-frontend/
+.agents/skills/emil-design-eng/
+.agents/skills/find-animation-opportunities/
+.agents/skills/impeccable/
+.agents/skills/improve-animations/
+.agents/skills/pick-ui-library/
+.agents/skills/review-animations/
+.claude/skills/design-taste-frontend/
+.claude/skills/emil-design-eng/
+.claude/skills/find-animation-opportunities/
+.claude/skills/impeccable/
+.claude/skills/improve-animations/
+.claude/skills/pick-ui-library/
+.claude/skills/review-animations/
