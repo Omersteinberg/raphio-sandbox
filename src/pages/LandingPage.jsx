@@ -341,12 +341,18 @@ function BuildDotRow({ stageIndex, phase, reducedMotion }) {
               <span
                 className="relative rounded-full flex items-center justify-center"
                 style={{
-                  width: current ? 30 : 26,
-                  height: current ? 30 : 26,
+                  // Fixed 30px box, scaled down for the non-current state -
+                  // both dimensions grow together (it's a circle), so a
+                  // uniform transform: scale() is the correct GPU-accelerated
+                  // equivalent, not scaleX (which would only fit a pill that
+                  // changes width alone, like the dot indicators below).
+                  width: 30,
+                  height: 30,
+                  transform: current ? 'scale(1)' : 'scale(0.8667)',
                   background: lit ? 'linear-gradient(135deg,#C1440E,#E8603C)' : 'rgba(193,68,14,0.1)',
                   border: current ? '2px solid #FFFAF7' : 'none',
                   boxShadow: current ? '0 0 0 2px rgba(193,68,14,0.6)' : lit ? '0 2px 6px rgba(193,68,14,0.3)' : 'none',
-                  transition: 'background 0.3s ease, box-shadow 0.3s ease, width 0.2s ease, height 0.2s ease',
+                  transition: 'background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease',
                 }}
               >
                 <Icon style={{ width: 14, height: 14, color: lit ? '#fff' : 'rgba(193,68,14,0.4)' }} strokeWidth={2.25} />
@@ -642,7 +648,7 @@ const BREATH_PULSE = { duration: 5, repeat: Infinity, ease: 'easeInOut' };
 const PULSE_RINGS = [
   { color: '#E8603C', delay: 0 },
   { color: '#C1440E', delay: 1 },
-  { color: '#d82906', delay: 2 },
+  { color: '#5C1000', delay: 2 },
 ];
 const PULSE_CYCLE_S = 2;
 // Reduced-motion fallback: freeze each ring at a fixed intermediate
@@ -1333,10 +1339,13 @@ function MobileInputStage() {
               <span
                 className="rounded-full"
                 style={{
-                  width: selected ? 16 : 6,
+                  // Fixed 16px (max) width; scaleX shrinks the pill instead
+                  // of animating a layout-triggering width property.
+                  width: 16,
                   height: 6,
+                  transform: selected ? 'scaleX(1)' : 'scaleX(0.375)',
                   background: selected ? C.terra : '#EFDCD2',
-                  transition: reducedMotion ? 'none' : 'width 0.25s ease, background-color 0.25s ease',
+                  transition: reducedMotion ? 'none' : 'transform 0.25s ease, background-color 0.25s ease',
                 }}
               />
             </button>
@@ -1753,6 +1762,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
 }
 
 function ActionVideoModal({ item, onClose }) {
+  const reducedMotion = usePrefersReducedMotion();
   const videoRef = useRef(null);
   const modalRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -1824,10 +1834,12 @@ function ActionVideoModal({ item, onClose }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.94, opacity: 0 }}
-        transition={{ duration: 0.22 }}
+        initial={reducedMotion ? { opacity: 0 } : { scale: 0.94, opacity: 0 }}
+        animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+        exit={reducedMotion ? { opacity: 0 } : { scale: 0.94, opacity: 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
-        style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        style={{ boxShadow: '0 24px 60px rgba(28,25,23,0.28)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <video
@@ -1845,7 +1857,7 @@ function ActionVideoModal({ item, onClose }) {
         onClick={onClose}
         aria-label="Close video"
         className="absolute top-5 right-5 sm:top-8 sm:right-8 flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-        style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.12)', color: '#fff', '--tw-ring-color': '#fff' }}
+        style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.12)', color: '#fff', '--tw-ring-color': '#fff' }}
         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
       >
@@ -2028,10 +2040,13 @@ function SeeItInAction() {
                   key={i}
                   className="rounded-full"
                   style={{
-                    width: active ? 16 : 6,
+                    // Fixed 16px (max) width; scaleX shrinks the pill instead
+                    // of animating a layout-triggering width property.
+                    width: 16,
                     height: 6,
+                    transform: active ? 'scaleX(1)' : 'scaleX(0.375)',
                     background: active ? C.terra : C.faint,
-                    transition: 'width 0.25s ease, background-color 0.25s ease',
+                    transition: 'transform 0.25s ease, background-color 0.25s ease',
                   }}
                 />
               );
@@ -2052,6 +2067,7 @@ function SeeItInAction() {
 
 // ── Contact section: unified direct action layout ───────────────
 function ContactSection() {
+  const reducedMotion = usePrefersReducedMotion();
   return (
     <section
       id="contact"
@@ -2062,10 +2078,10 @@ function ContactSection() {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={reducedMotion ? false : { opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.55 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl mx-auto text-center"
       >
         {/* Heading */}
@@ -2652,7 +2668,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-28 px-6 font-figtree" style={{ background: 'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)' }}>
+      <section id="pricing" className="py-28 px-6 font-figtree" style={{ background: 'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F5F0EB 100%)' }}>
         <div className="max-w-5xl w-full mx-auto">
 
           {/* Header */}
@@ -2718,10 +2734,10 @@ export default function LandingPage() {
               const Icon = tier.icon;
               return (
                 <motion.div key={tier.id}
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.07 }}
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: i * 0.07 }}
                   className="relative flex flex-col rounded-3xl h-full"
                   style={{
                     background: '#FFFAF7',
@@ -2831,7 +2847,7 @@ export default function LandingPage() {
       {/* Final CTA */}
       <section className="py-28 px-6" style={{ background: C.dark }}>
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.6 }}>
+          <motion.div initial={reducedMotion ? false : { opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ duration:0.6, ease: [0.16, 1, 0.3, 1] }}>
             <h2 className="display mb-6" style={{ fontSize:'clamp(40px,5vw,72px)', color:C.bg, letterSpacing:'0.01em', lineHeight:1 }}>
               Ready to make<br/>your first video?
             </h2>

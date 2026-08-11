@@ -32,7 +32,6 @@ Confirmed directly by the user: **there is currently no mechanism a competitor c
 ## Capabilities and Constraints
 
 - Multi-input pipeline: prompt-only, user-uploaded photos, or a reference image/style, all converging to one finished video.
-- Duration ceiling: product intent is "up to ~2 minutes"; currently-shipped pricing tiers (Free/Starter/Creator/Studio) top out at 60s. Open, undecided: when/how pricing and marketing copy will be updated to match the longer-form positioning - do not assume or invent a resolution.
 - Underlying generation models (VEO 3.1, ElevenLabs, FFmpeg) are shared with competitors; not a source of differentiation.
 - Editing capabilities (per-clip speed, multi-track volume mixing) are backend-ready and already exposed in the UI.
 - Max 10 images per upload (`MAX_IMAGES`).
