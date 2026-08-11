@@ -78,7 +78,7 @@ export const DRIVER_OPTS = {
   // scrollTop write).
   onDeselected: () => unlockScrollContainer(),
   onHighlightStarted: (element) => lockScrollContainerFor(element),
-  overlayColor: "#1C1917", // matches the app's warm-dark ink
+  overlayColor: "var(--ink-warm)", // matches the app's warm-dark ink
   popoverClass: "raphio-tour",
   nextBtnText: "Next",
   prevBtnText: "Back",

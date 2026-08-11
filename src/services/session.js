@@ -114,6 +114,18 @@ export async function getShareUrl(sessionId) {
 }
 
 /**
+ * Tell the backend a native share (navigator.share()) actually completed, so it
+ * can award the one-time share credit bonus. Only call this after
+ * navigator.share() resolves successfully — never on click, never on cancel.
+ * The backend re-checks ownership and once-per-video state; this call never
+ * grants credit itself. Returns { awarded, creditsAdded?, credits? }.
+ */
+export async function notifyShareComplete(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/share/complete`);
+  return response.data;
+}
+
+/**
  * List sessions
  * @returns {{ data: Array, total: number }}
  */

@@ -25,11 +25,11 @@ const C = {
 const A = {
   cardBorder: "#E5DED3",
   label: "#9C8F85",
-  value: "#1C1917",
+  value: "var(--ink-warm)",
   terra: "#C1440E",
   fieldBg: "#FAF7F2",
   fieldBorder: "#E5DED3",
-  saveGradient: "linear-gradient(135deg, #F97066, #FB923C)",
+  saveGradient: "var(--gradient-brand)",
   tabBg: "#EAE3DA",
 };
 

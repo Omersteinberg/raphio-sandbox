@@ -181,7 +181,7 @@ export default function PromptMentionField({ value = "", onChange, references = 
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="font-bold text-[13px] truncate" style={{ color: '#1C1917' }}>{ref.name}</span>
+                    <span className="font-bold text-[13px] truncate" style={{ color: 'var(--ink-warm)' }}>{ref.name}</span>
                     <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: '#9C8F85' }}>{TYPE_LABEL[type] || 'Reference'}</span>
                   </span>
                   {ref.description?.trim() && (
