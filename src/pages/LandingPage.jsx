@@ -28,36 +28,58 @@ const HERO_VIDEO_URL = 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/2026
 
 function PricingButton({ tier, onClick }) {
   const [hovered, setHovered] = useState(false);
+
+  // Three registers, not one shared shape: the popular tier is the section's
+  // one pill-gradient CTA (DESIGN.md's CTA/hero register); Starter/Studio are
+  // in-flow purchase actions and belong in the flat functional register;
+  // Free stays outline so it deliberately reads as lower emphasis next to
+  // three paid CTAs on the same screen.
+  let radius, visual;
+  if (tier.popular) {
+    radius = 'rounded-full';
+    visual = {
+      background: hovered
+        ? 'linear-gradient(135deg, #5C1000, #E8603C)'
+        : 'linear-gradient(135deg, #C1440E, #E8603C)',
+      color: '#fff',
+      border: 'none',
+      boxShadow: hovered ? '0 8px 40px rgba(193,68,14,0.55)' : '0 4px 16px rgba(193,68,14,0.18)',
+      transform: hovered ? 'translateY(-2px) scale(1.02)' : 'translateY(0) scale(1)',
+    };
+  } else if (tier.price === 0) {
+    radius = 'rounded-md';
+    visual = hovered
+      ? {
+          background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+          color: '#fff',
+          border: '1.5px solid transparent',
+          boxShadow: '0 4px 16px rgba(193,68,14,0.30)',
+        }
+      : {
+          background: 'transparent',
+          color: '#C1440E',
+          border: '1.5px solid rgba(193,68,14,0.35)',
+          boxShadow: 'none',
+        };
+  } else {
+    radius = 'rounded-md';
+    visual = {
+      background: hovered ? '#5C1000' : '#C1440E',
+      color: '#fff',
+      border: 'none',
+      boxShadow: 'none',
+    };
+  }
+
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full rounded-xl py-3 text-sm font-bold"
+      className={`w-full ${radius} py-3 text-sm font-bold`}
       style={{
-        transition: 'background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',
-        ...(tier.popular
-          ? {
-              background: hovered
-                ? 'linear-gradient(135deg, #5C1000, #E8603C)'
-                : `linear-gradient(135deg, #C1440E, #E8603C)`,
-              color: '#fff',
-              border: 'none',
-              boxShadow: '0 4px 16px rgba(193,68,14,0.18)',
-            }
-          : tier.price === 0
-          ? {
-              background: hovered ? '#EDE8E2' : '#F0EAE5',
-              color: '#2C2420',
-              border: '1.5px solid rgba(193,68,14,0.12)',
-            }
-          : {
-              background: hovered ? 'rgba(193,68,14,0.06)' : '#fff',
-              color: '#C1440E',
-              border: '1.5px solid rgba(193,68,14,0.28)',
-            }
-        ),
+        transition: 'background 0.15s ease, box-shadow 0.2s ease, border-color 0.15s ease, transform 0.2s ease',
+        ...visual,
       }}
     >
       {tier.cta}
@@ -2029,11 +2051,6 @@ function SeeItInAction() {
 }
 
 // ── Contact section: unified direct action layout ───────────────
-const CONTACT_ROWS = [
-  { icon: Mail, label: 'Email', value: 'Contact@raphio.ai', href: 'mailto:Contact@raphio.ai' },
-  { icon: MapPin, label: 'Location', value: 'Melbourne, Victoria, Australia' },
-];
-
 function ContactSection() {
   return (
     <section
