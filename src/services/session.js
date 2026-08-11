@@ -197,7 +197,7 @@ export async function uploadLogo(sessionId, file) {
  * Save the intro business brief.
  * @returns {{ introData: object }}
  */
-export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font }) {
+export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font, fonts, tone }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-brief`, {
     businessName,
     description,
@@ -206,28 +206,69 @@ export async function saveIntroBrief(sessionId, { businessName, description, tar
     brandColors,
     templateId,
     font,
+    // `fonts` is the per project { heading, body } pair from the curated list,
+    // distinct from the older single `font` field which is left alone.
+    fonts,
+    tone,
   });
   return response.data;
 }
 
 /**
- * Generate (or revise) the intro montage+narration script.
- * @param {string} sessionId
- * @param {object} [opts] - { editRequest } natural-language revision request
- * @returns updated session (stage INTRO_SCRIPT_GENERATED)
+ * Read a brand kit off the user's own website. Stateless: this runs on the brief
+ * step, before a session exists, so it takes a bare URL rather than a session id.
+ * @param {string} url
+ * @returns {{ found: object, missing: string[] }}
  */
-export async function generateIntroScript(sessionId, { editRequest } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202: starts the job
-  return await pollJobUntilDone(sessionId);
+export async function extractBrandFromUrl(url) {
+  const response = await axios.post(`${API_BASE}/brand-from-url`, { url });
+  return response.data;
 }
 
 /**
- * Save edits to the intro script (montage plan + narration + voice).
+ * Plan the intro and render a playable segment for every scene.
+ *
+ * The long one: a model call, then a voiceover and a Remotion render per scene.
+ * Reports per-scene progress through onProgress so the UI can say which scene it
+ * is on rather than spinning.
+ *
+ * @param {string} sessionId
+ * @param {object} [opts] - { onProgress }
+ * @returns updated session (stage INTRO_SCRIPT_GENERATED)
+ */
+export async function generateIntroScenes(sessionId, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/generate-intro-scenes`); // 202: starts the job
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "GENERATE_INTRO_SCENES" });
+}
+
+/**
+ * Rework any number of scenes from the notes written against them, and re-render
+ * what that changes.
+ *
+ * One request, one job. The backend rewrites every noted scene in parallel and
+ * re-renders the affected segments in a single pass, which is cheaper than one
+ * rework at a time: neighbouring segments are re-cut once instead of once per note.
+ *
+ * @param {string} sessionId
+ * @param {Array<{index:number, note:string}>} edits - zero-based scene positions
+ * @param {object} [opts] - { onProgress }
+ * @returns the updated session, carrying `reviseFailures` if any scene failed
+ */
+export async function reviseIntroScenes(sessionId, edits, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/scenes/revise`, { edits }); // 202
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "REVISE_INTRO_SCENES" });
+}
+
+/**
+ * Save the review step's own fields: brand name, music prompt, voice.
+ *
+ * Scene content is NOT saved here. A scene is changed with reviseIntroScenes,
+ * which is the only path that also re-renders it.
  * @returns updated session
  */
-export async function updateIntroScript(sessionId, { businessName, scenes, musicPrompt, narration, voiceId }) {
+export async function updateIntroScript(sessionId, { businessName, musicPrompt, voiceId }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-script`, {
-    businessName, scenes, musicPrompt, narration, voiceId,
+    businessName, musicPrompt, voiceId,
   });
   return response.data;
 }

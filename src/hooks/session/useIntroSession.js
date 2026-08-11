@@ -7,6 +7,8 @@ import { DEFAULT_INTRO_DURATION } from "@/constants/introDurations";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 import { isGenerationFailed } from "@/lib/progressTasks";
 import { extractLogoColors } from "@/lib/logoColors";
+import { dataUrlToFile } from "@/lib/dataUrlToFile";
+import { DEFAULT_BRAND_FONTS } from "@/constants/brandFonts";
 
 const GENERATING_STEP = 2;
 
@@ -26,7 +28,11 @@ function scriptFromIntroData(introData) {
   if (!Array.isArray(introData.scenes) || !introData.scenes.length) return null;
   return {
     businessName: introData.businessName || "",
+    // Each scene carries its own rendered clip (clipUrl) and the still that stands
+    // in until the clip exists. There is no separate "script ready" pass any more:
+    // the scenes are the script.
     scenes: introData.scenes,
+    sceneFrames: Array.isArray(introData.sceneFrames) ? introData.sceneFrames : [],
     musicPrompt: introData.musicPrompt || "",
     narration: typeof introData.narration === "string" ? introData.narration : "",
   };
@@ -73,10 +79,19 @@ export function useIntroSession() {
   // Brand colours for the Remotion stinger. Auto-derived from the logo on upload,
   // but once the user edits a swatch we stop overwriting their choice.
   const [brandColors, setBrandColors] = useState(null);
+  // Heading and body families from the curated list, and how the brand presents.
+  // Both only arrive from a website import, there is no way to read them off a
+  // logo image, so they stay null until one happens or the user picks.
+  const [brandFonts, setBrandFonts] = useState(null);
+  const [brandTone, setBrandTone] = useState(null);
   const brandTouchedRef = useRef(false);
   const setBrandColor = useCallback((key, value) => {
     brandTouchedRef.current = true;
     setBrandColors((prev) => ({ ...(prev || {}), [key]: value }));
+  }, []);
+  const setBrandFont = useCallback((which, family) => {
+    brandTouchedRef.current = true;
+    setBrandFonts((prev) => ({ ...(prev || DEFAULT_BRAND_FONTS), [which]: family }));
   }, []);
   useEffect(() => {
     if (!logoFile || brandTouchedRef.current) return;
@@ -87,9 +102,50 @@ export function useIntroSession() {
     return () => { cancelled = true; };
   }, [logoFile]);
 
-  // Script state
+  /**
+   * Fill the brief from a website import.
+   *
+   * Only writes fields that are still empty, so pasting a URL after typing never
+   * destroys what was typed. Colours and fonts additionally respect
+   * brandTouchedRef, the same guard that stops logo-derived colours overwriting a
+   * manual edit: once someone has adjusted the kit by hand, their choice wins.
+   */
+  const applyExtractedBrand = useCallback((found) => {
+    if (!found) return;
+
+    if (found.businessName) setBusinessName((cur) => (cur.trim() ? cur : found.businessName));
+    if (found.description) setDescription((cur) => (cur.trim() ? cur : found.description));
+
+    if (found.logo?.dataUrl) {
+      const file = dataUrlToFile(found.logo.dataUrl, "website-logo.png");
+      if (file) setLogoFile((cur) => cur || file);
+    }
+
+    if (!brandTouchedRef.current) {
+      if (found.brandColors) {
+        setBrandColors(found.brandColors);
+        // The server read these off the real site, which beats the client's
+        // guess from the logo's pixels. Claim the kit so the logo-derived effect
+        // above does not race in behind us and overwrite them.
+        brandTouchedRef.current = true;
+      }
+      if (found.fonts) setBrandFonts(found.fonts);
+    }
+
+    // Tone has no manual control and no other source, so there is nothing for it
+    // to clobber.
+    if (found.tone) setBrandTone(found.tone);
+  }, []);
+
+  // Review state
   const [introScript, setIntroScript] = useState(EMPTY_SCRIPT);
-  const [editRequest, setEditRequest] = useState("");
+  // Which scenes are being reworked right now. One job slot per session means a
+  // batch is one job, so this is the set of indices in flight rather than a queue.
+  const [reworkingIndexes, setReworkingIndexes] = useState([]);
+  // What the running rework says it is doing ("Rendering scene 3 of 7").
+  const [reworkLabel, setReworkLabel] = useState("");
+  // What the running job says it is doing ("Rendering scene 3 of 7").
+  const [scriptLabel, setScriptLabel] = useState("");
 
   const updateScriptField = useCallback((field, value) => {
     setIntroScript((prev) => ({ ...prev, [field]: value }));
@@ -152,18 +208,29 @@ export function useIntroSession() {
       }
       setScriptProgress(55);
 
-      await sessionService.saveIntroBrief(created.id, { businessName, description, brandColors });
-      setScriptProgress(70);
+      await sessionService.saveIntroBrief(created.id, {
+        businessName, description, brandColors, fonts: brandFonts, tone: brandTone,
+      });
+      setScriptProgress(20);
 
-      const withScript = await sessionService.generateIntroScript(created.id);
-      setSession(withScript);
-      const s = scriptFromIntroData(withScript.introData);
+      // The long one: a plan, then a voiceover and a rendered clip per scene. The
+      // bar reads the job's own progress rather than being ticked by hand here,
+      // because the backend is the only thing that knows which scene it is on.
+      const withScenes = await sessionService.generateIntroScenes(created.id, {
+        onProgress: (status) => {
+          const pct = status?.jobProgress?.percentage;
+          if (Number.isFinite(pct)) setScriptProgress(20 + Math.round(pct * 0.8));
+          if (status?.jobProgress?.label) setScriptLabel(status.jobProgress.label);
+        },
+      });
+      setSession(withScenes);
+      const s = scriptFromIntroData(withScenes.introData);
       if (s) setIntroScript(s);
       setScriptProgress(100);
 
       setDirection(1);
       setStep(1);
-      toast.success("Intro script ready! Review and approve.");
+      toast.success("Your scenes are ready. Watch them, then approve.");
     } catch (err) {
       console.error("[useIntroSession] startIntroSession failed:", err);
       setSession(null);
@@ -184,54 +251,87 @@ export function useIntroSession() {
     } finally {
       setLoading(false);
     }
-  }, [logoFile, businessName, description, targetDuration, voiceId, aspectRatio, showcaseFiles, showcaseLabels, brandColors, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logoFile, businessName, description, targetDuration, voiceId, aspectRatio, showcaseFiles, showcaseLabels, brandColors, brandFonts, brandTone, credits, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save current local edits to the backend
-  const saveScriptEdits = useCallback(async () => {
+  // Save the step-level fields. Scene content is never sent from here: a scene is
+  // changed through reviseScenes, the only path that also re-renders its clip.
+  const saveScriptEdits = useCallback(async (overrides = {}) => {
     if (!sessionId) return null;
-    const updated = await sessionService.updateIntroScript(sessionId, { ...introScript, voiceId });
+    const updated = await sessionService.updateIntroScript(sessionId, {
+      businessName: introScript.businessName,
+      musicPrompt: introScript.musicPrompt,
+      voiceId,
+      ...overrides,
+    });
     setSession(updated);
     return updated;
   }, [sessionId, introScript, voiceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Regenerate the whole script (optionally with an AI edit request)
-  const regenerateScript = useCallback(async (request) => {
-    if (!sessionId) return;
-    setLoading(true);
-    setScriptProgress(10);
+  /**
+   * Rework any number of scenes from the notes written against them.
+   *
+   * Deliberately does NOT set the global `loading`. That flag is what puts the
+   * fullscreen ScriptLoadingScreen over the step, and a rework belongs on the cards
+   * it is changing, not over the whole page. The step disables its own destructive
+   * actions off `reworkingIndexes` instead.
+   *
+   * @param {Array<{index:number, note:string}>} edits
+   * @returns {Promise<{ok:number[], failed:Array<{index:number,error:string}>}>}
+   */
+  const reviseScenes = useCallback(async (edits) => {
+    const list = (edits || []).filter((e) => e && String(e.note || "").trim());
+    if (!sessionId || !list.length) return { ok: [], failed: [] };
+
+    const indexes = list.map((e) => e.index);
+    setReworkingIndexes(indexes);
+    setReworkLabel("Rewriting");
     try {
-      await sessionService.updateIntroScript(sessionId, { ...introScript, voiceId });
-      setScriptProgress(40);
-      const updated = await sessionService.generateIntroScript(sessionId, { editRequest: request || undefined });
+      const updated = await sessionService.reviseIntroScenes(sessionId, list, {
+        onProgress: (status) => {
+          if (status?.jobProgress?.label) setReworkLabel(status.jobProgress.label);
+        },
+      });
+      // null means the poll saw a different job take the slot. Leave the step as it
+      // is rather than clearing notes for work that may not have happened.
+      if (!updated) return { ok: [], failed: [] };
+
       setSession(updated);
       const s = scriptFromIntroData(updated.introData);
       if (s) setIntroScript(s);
-      setEditRequest("");
-      setScriptProgress(100);
-      toast.success(request ? "Script updated!" : "Script regenerated!");
-    } catch (err) {
-      setScriptProgress(0);
-      toast.error(describeError(err, "We couldn't update your script. Please try again.").userMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId, introScript, voiceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const editScriptWithAI = useCallback(async () => {
-    if (!editRequest.trim()) return;
-    await regenerateScript(editRequest.trim());
-  }, [editRequest, regenerateScript]);
+      const failed = Array.isArray(updated.reviseFailures) ? updated.reviseFailures : [];
+      const bad = new Set(failed.map((f) => f.index));
+      const ok = indexes.filter((i) => !bad.has(i));
+
+      if (failed.length && ok.length) {
+        toast.warning(
+          `${ok.length} of ${indexes.length} scenes reworked. ${failed.map((f) => `Scene ${f.index + 1}`).join(", ")} could not be changed.`
+        );
+      } else if (failed.length) {
+        toast.error("We couldn't rework those scenes. Try describing the change differently.");
+      } else {
+        toast.success(ok.length > 1 ? `${ok.length} scenes reworked.` : `Scene ${ok[0] + 1} reworked.`);
+      }
+      return { ok, failed };
+    } catch (err) {
+      toast.error(describeError(err, "We couldn't rework those scenes. Please try again.").userMessage);
+      return { ok: [], failed: indexes.map((index) => ({ index, error: "failed" })) };
+    } finally {
+      setReworkingIndexes([]);
+      setReworkLabel("");
+    }
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Approve + generate
   const approveAndGenerate = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
     try {
-      await sessionService.updateIntroScript(sessionId, { ...introScript, voiceId });
+      await saveScriptEdits();
       await sessionService.approveScript(sessionId);
     } catch (err) {
       setLoading(false);
-      toast.error(describeError(err, "We couldn't approve your script. Please try again.").userMessage);
+      toast.error(describeError(err, "We couldn't approve your scenes. Please try again.").userMessage);
       return;
     }
     setLoading(false);
@@ -269,9 +369,13 @@ export function useIntroSession() {
     setShowcaseFiles([]);
     setShowcaseLabels([]);
     setBrandColors(null);
+    setBrandFonts(null);
+    setBrandTone(null);
     brandTouchedRef.current = false;
     setIntroScript(EMPTY_SCRIPT);
-    setEditRequest("");
+    setReworkingIndexes([]);
+    setReworkLabel("");
+    setScriptLabel("");
   }, [resetBase]);
 
   return {
@@ -291,20 +395,24 @@ export function useIntroSession() {
     targetDuration, setTargetDuration,
     aspectRatio, setAspectRatio,
     brandColors, setBrandColor,
+    brandFonts, setBrandFont,
+    brandTone,
+    applyExtractedBrand,
     showcaseFiles, setShowcaseFiles,
     showcaseLabels, setShowcaseLabels,
 
-    // Script
+    // Review
     introScript, setIntroScript, updateScriptField,
-    editRequest, setEditRequest,
+    reworkingIndexes,
+    reworkLabel,
     voiceId, setVoiceId,
     scriptProgress: base.scriptProgress,
+    scriptLabel,
 
     // Actions
     startIntroSession,
     saveScriptEdits,
-    regenerateScript,
-    editScriptWithAI,
+    reviseScenes,
     approveAndGenerate,
 
     // Navigation
