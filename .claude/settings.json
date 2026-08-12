@@ -45,7 +45,17 @@
       "Bash(adam)",
       "Bash(scene\")",
       "Bash(node -e ' *)",
-      "Bash(npx --yes playwright install chromium)"
+      "Bash(npx --yes playwright install chromium)",
+      "Bash(node \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\5a5a6049-5114-4a42-b4d5-b88348d51b33\\\\scratchpad\\\\smoke.mjs\")",
+      "Bash(node .tmp-smoke.mjs)",
+      "Bash(node .claude/skills/impeccable/scripts/context.mjs --target src/components/session/ComposerChip.jsx)",
+      "Bash(node .claude/skills/impeccable/scripts/detect.mjs --json src/components/session/ComposerChip.jsx src/components/session/PromptStep.jsx src/components/session/IntroBriefStep.jsx)",
+      "Bash(node -e \"const m = require\\('lucide-react'\\); console.log\\(['RectangleHorizontal','RectangleVertical','Monitor','Smartphone','Maximize','Crop'].filter\\(n => n in m\\).join\\(', '\\)\\)\")",
+      "Bash(node .tmp-verify.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/ --max-time 5)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/__preview-composer --max-time 10)",
+      "Bash(node .tmp-debug.mjs)",
+      "Bash(rm -f .tmp-debug.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"

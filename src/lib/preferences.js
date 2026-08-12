@@ -39,13 +39,21 @@ export function setJsonPref(key, value) {
 // Hardcoded fallbacks matching the session hooks' historical initial state.
 const CREATION_FALLBACKS = {
   style: "realistic",
-  targetDuration: 30,
-  aspectRatio: "16:9",
+  targetDuration: 15,
   voiceId: "adam",
   backgroundMusic: true,
 };
 
 const KNOWN_ASPECT_RATIOS = ["16:9", "9:16"];
+
+// No stored choice yet: default to whatever suits the caller's current
+// viewport (portrait on a phone, landscape everywhere else) instead of a
+// single hardcoded ratio. Only used until the user picks one explicitly -
+// saveCreationDefaults() below then pins it for every future visit.
+function viewportAspectRatioDefault() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "16:9";
+  return window.matchMedia("(max-width: 767px)").matches ? "9:16" : "16:9";
+}
 
 // One-shot validated read of the saved creation defaults. Stale or corrupt
 // storage can never crash the wizard: every field falls back independently.
@@ -59,7 +67,7 @@ export function getCreationDefaults() {
     style: typeof style === "string" && style ? style : CREATION_FALLBACKS.style,
     targetDuration:
       Number.isFinite(duration) && duration > 0 ? duration : CREATION_FALLBACKS.targetDuration,
-    aspectRatio: KNOWN_ASPECT_RATIOS.includes(aspect) ? aspect : CREATION_FALLBACKS.aspectRatio,
+    aspectRatio: KNOWN_ASPECT_RATIOS.includes(aspect) ? aspect : viewportAspectRatioDefault(),
     voiceId: typeof voice === "string" && voice ? voice : CREATION_FALLBACKS.voiceId,
     backgroundMusic: typeof music === "boolean" ? music : CREATION_FALLBACKS.backgroundMusic,
   };

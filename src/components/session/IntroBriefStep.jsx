@@ -3,12 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, X, Image as ImageIcon, ArrowRight, ArrowLeft,
   Lightbulb, Clock, Palette, Plus, ChevronDown, RotateCcw,
+  RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PromptMentionField from "./PromptMentionField";
 import ImproveButton from "./ImproveButton";
 import BrandUrlField from "./BrandUrlField";
 import BrandKitPanel from "./BrandKitPanel";
+import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./ComposerChip";
+import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
 import { fetchIntroScenes } from "@/services/session";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
@@ -53,9 +56,10 @@ const EXAMPLES = [
 // to show the level of detail that produces a good script, and a half sentence
 // demonstrates the opposite.
 const HINTS = EXAMPLES.map((e) => e.text);
-const CARET = "▌";
 
 const MAX_NAME = 24;
+
+const CARET = TYPED_PLACEHOLDER_CARET;
 
 /**
  * Keystroke-level cleanup: keeps the field a valid one-token name while it is
@@ -101,138 +105,6 @@ function defaultNamesFor(files) {
   return out;
 }
 
-// Paced for a full length brief. At the 45ms that suited a short line, 165
-// characters took seven seconds to appear and the box never sat still. Erasing is
-// always faster than typing: nobody needs to read it on the way out.
-const TYPE_MS = 26;
-const ERASE_MS = 10;
-const HOLD_MS = 1800;
-const GAP_MS = 400;
-const LEAD_MS = 600;
-
-/**
- * Cycle the phrases through the placeholder, typing then erasing each one.
- *
- * Runs on one chained timeout rather than an interval so the typing, holding and
- * erasing phases can each have their own pace, and so nothing is queued up behind
- * a slow frame.
- *
- * Returns null when it is not running, and a string when it is. The distinction
- * matters: the string is legitimately empty twice per cycle, once before the first
- * character and once between phrases, and treating empty as "not running" flashes
- * the caller's static fallback for half a second every rotation.
- */
-function useTypedPlaceholder(phrases, enabled) {
-  const [typed, setTyped] = useState(null);
-
-  useEffect(() => {
-    if (!enabled) {
-      setTyped(null);
-      return undefined;
-    }
-    // Someone who has asked for less motion gets a plain placeholder, not a
-    // slower one.
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
-      setTyped(null);
-      return undefined;
-    }
-    setTyped("");
-
-    let phrase = 0;
-    let chars = 0;
-    let erasing = false;
-    let timer;
-
-    const tick = () => {
-      const full = phrases[phrase];
-      chars += erasing ? -1 : 1;
-      setTyped(full.slice(0, chars));
-
-      if (!erasing && chars === full.length) {
-        erasing = true;
-        timer = setTimeout(tick, HOLD_MS);
-      } else if (erasing && chars === 0) {
-        erasing = false;
-        phrase = (phrase + 1) % phrases.length;
-        timer = setTimeout(tick, GAP_MS);
-      } else {
-        timer = setTimeout(tick, erasing ? ERASE_MS : TYPE_MS);
-      }
-    };
-
-    timer = setTimeout(tick, LEAD_MS);
-    return () => clearTimeout(timer);
-  }, [phrases, enabled]);
-
-  return typed;
-}
-
-/**
- * One control in the row under the prompt. `attention` is for the logo before it
- * is set: the intro cannot be generated without one, and a plain pill in a row of
- * optional pills gives no sign of that.
- */
-const Pill = ({ icon: Icon, label, detail, open, filled, attention, onClick, controls }) => {
-  const tone = attention
-    ? "border-[var(--terra)]/55 bg-[var(--terra)]/8 text-[var(--terra)]"
-    : open || filled
-      ? "border-[var(--terra)]/45 bg-[var(--terra)]/6 text-[var(--terra)]"
-      : "border-border/70 bg-white text-[#6B5E7B] hover:border-[var(--terra)]/40 hover:text-[var(--terra)]";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={controls ? open : undefined}
-      aria-controls={controls}
-      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${tone}`}
-    >
-      {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" /> : null}
-      <span>{label}</span>
-      {detail ? <span className="font-semibold opacity-70">{detail}</span> : null}
-    </button>
-  );
-};
-
-// The region a pill opens, inside the card rather than floating over it. No
-// portal, no z-index, and it stays put on a phone keyboard.
-const Panel = ({ id, children }) => (
-  <motion.div
-    id={id}
-    initial={{ opacity: 0, height: 0 }}
-    animate={{ opacity: 1, height: "auto" }}
-    exit={{ opacity: 0, height: 0 }}
-    transition={{ duration: 0.18, ease: "easeOut" }}
-    className="overflow-hidden"
-  >
-    <div className="mt-3 rounded-2xl bg-surface-alt border border-border/30 p-4">{children}</div>
-  </motion.div>
-);
-
-const PanelLabel = ({ children }) => (
-  <p className="text-[11px] font-bold uppercase tracking-widest text-ink-muted mb-3">{children}</p>
-);
-
-// The segmented control shared by length and aspect ratio.
-const Segments = ({ options, value, onChange, render }) => (
-  <div className="flex p-1.5 rounded-xl bg-white border border-border/40">
-    {options.map((opt) => (
-      <button
-        key={opt.key}
-        type="button"
-        onClick={() => onChange(opt.key)}
-        className="flex-1 py-2 px-2 md:px-3 rounded-lg text-xs font-bold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
-        style={
-          value === opt.key
-            ? { background: GRADIENT, color: "#fff", boxShadow: "0 4px 14px rgba(193,68,14,0.25)" }
-            : { color: "#6B5E7B" }
-        }
-      >
-        {render(opt)}
-      </button>
-    ))}
-  </div>
-);
-
 export default function IntroBriefStep({
   logoFile,
   setLogoFile,
@@ -264,10 +136,10 @@ export default function IntroBriefStep({
 
   const [logoPreview, setLogoPreview] = useState(null);
   const [showcasePreviews, setShowcasePreviews] = useState([]);
-  // Only one panel is open at a time: two open at once pushes the Continue button
-  // off a phone screen.
-  const [panel, setPanel] = useState(null);
-  const toggle = (name) => setPanel((cur) => (cur === name ? null : name));
+  // "Help me start" lives in the header, not the chip row below the textarea,
+  // so it keeps its own open state instead of the chip row's shared popover
+  // coordination (which only spans Photos/Length/Ratio/Brand kit).
+  const [examplesOpen, setExamplesOpen] = useState(false);
 
   // The placeholder only animates on an untouched, unfocused box. Once someone is
   // about to type, motion behind the caret is just noise, and the placeholder is
@@ -491,39 +363,48 @@ export default function IntroBriefStep({
               />
               <button
                 type="button"
-                onClick={() => toggle("examples")}
-                aria-expanded={panel === "examples"}
+                onClick={() => setExamplesOpen((o) => !o)}
+                aria-expanded={examplesOpen}
                 aria-controls="panel-examples"
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-1 py-0.5 shrink-0"
               >
                 <Lightbulb className="w-4 h-4" />
                 Help me start
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${panel === "examples" ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${examplesOpen ? "rotate-180" : ""}`} />
               </button>
             </div>
           </div>
 
           <AnimatePresence initial={false}>
-            {panel === "examples" && (
-              <Panel id="panel-examples">
-                <PanelLabel>Start from one of these</PanelLabel>
-                <div className="space-y-2">
-                  {EXAMPLES.map((ex) => (
-                    <button
-                      key={ex.label}
-                      type="button"
-                      onClick={() => {
-                        setDescription(ex.text);
-                        setPanel(null);
-                      }}
-                      className="w-full text-left rounded-xl bg-white border border-border/40 px-3.5 py-3 hover:border-[var(--terra)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
-                    >
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--terra)]">{ex.label}</p>
-                      <p className="text-xs text-[#6B5E7B] leading-relaxed mt-1">{ex.text}</p>
-                    </button>
-                  ))}
+            {examplesOpen && (
+              <motion.div
+                id="panel-examples"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 rounded-2xl bg-surface-alt border border-border/30 p-4">
+                  <ChipPanelLabel>Start from one of these</ChipPanelLabel>
+                  <div className="space-y-2">
+                    {EXAMPLES.map((ex) => (
+                      <button
+                        key={ex.label}
+                        type="button"
+                        onClick={() => {
+                          setDescription(ex.text);
+                          setExamplesOpen(false);
+                        }}
+                        className="w-full text-left rounded-xl bg-white border border-border/40 px-3.5 py-3 hover:border-[var(--terra)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                      >
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--terra)]">{ex.label}</p>
+                        <p className="text-xs text-[#6B5E7B] leading-relaxed mt-1">{ex.text}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </Panel>
+              </motion.div>
             )}
           </AnimatePresence>
 
@@ -561,12 +442,14 @@ export default function IntroBriefStep({
             />
           </div>
 
-          {/* Controls */}
-          <div className="flex flex-wrap gap-2 pt-1">
+          {/* Controls: logo stays a bespoke control (it carries a thumbnail +
+              its own remove button, not the icon/label/value chip shape);
+              Photos/Length/Ratio/Brand kit are the shared chip primitive. */}
+          <ComposerChipRow className="pt-1">
             <button
               type="button"
               onClick={() => logoInputRef.current?.click()}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${
+              className={`inline-flex items-center gap-2 rounded-full border px-3.5 min-h-11 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${
                 logoFile
                   ? "border-[var(--terra)]/45 bg-[var(--terra)]/6 text-[var(--terra)]"
                   : "border-[var(--terra)]/55 bg-[var(--terra)]/8 text-[var(--terra)]"
@@ -590,178 +473,171 @@ export default function IntroBriefStep({
                 type="button"
                 onClick={() => setLogoFile(null)}
                 aria-label="Remove logo"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-border/70 text-[#6B5E7B] hover:text-red-500 hover:border-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-border/70 text-[#6B5E7B] hover:text-red-500 hover:border-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
 
-            <Pill
+            <ComposerChip
+              id="photos"
               icon={ImageIcon}
               label="Photos"
-              detail={photos.length ? `${photos.length}/${MAX_SHOWCASE}` : undefined}
-              open={panel === "photos"}
-              filled={photos.length > 0}
-              onClick={() => toggle("photos")}
-              controls="panel-photos"
-            />
-            <Pill
-              icon={Clock}
-              label={`${targetDuration} seconds`}
-              open={panel === "length"}
-              onClick={() => toggle("length")}
-              controls="panel-length"
-            />
-            <Pill
-              label={ASPECT_RATIO_OPTIONS.find((o) => o.id === aspectRatio)?.icon || "▭"}
-              detail={aspectRatio}
-              open={panel === "ratio"}
-              onClick={() => toggle("ratio")}
-              controls="panel-ratio"
-            />
-            <Pill
-              icon={Palette}
-              label="Brand kit"
-              open={panel === "brandkit"}
-              filled={!!brandColors}
-              onClick={() => toggle("brandkit")}
-              controls="panel-brandkit"
-            />
-          </div>
-
-          <AnimatePresence initial={false}>
-            {panel === "photos" && (
-              <Panel id="panel-photos">
-                <PanelLabel>Photos of your product, space or work</PanelLabel>
-                {photos.length === 0 ? (
-                  // A lone quarter-width tile in an empty four column grid reads as
-                  // a rendering mistake. Empty gets its own full width target.
-                  <button
-                    type="button"
-                    onClick={() => showcaseInputRef.current?.click()}
-                    className="w-full rounded-xl border-2 border-dashed border-border py-7 flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
-                  >
-                    <ImageIcon className="w-6 h-6 mb-1.5" />
-                    <span className="text-xs font-bold">Add up to {MAX_SHOWCASE} photos</span>
-                  </button>
-                ) : (
-                <div className="grid grid-cols-4 gap-3">
-                  {showcasePreviews.map((url, i) => (
-                    <motion.div
-                      key={url}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="space-y-1.5"
-                    >
-                      <div className="relative group aspect-square">
-                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-border" />
-                        <button
-                          type="button"
-                          onClick={() => removeShowcase(i)}
-                          aria-label={`Remove photo ${i + 1}`}
-                          className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center shadow"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      {/* The name is the whole point of the grid now: it is what an
-                          @mention in the brief binds to. */}
-                      <div
-                        className="flex items-center rounded-lg bg-white border px-1.5 focus-within:border-[var(--terra)]/50"
-                        style={{ borderColor: clashes.has(nameFor(i)) ? "#EF4444" : undefined }}
-                      >
-                        <span className="text-xs font-bold text-[var(--terra)]">@</span>
-                        <input
-                          value={nameFor(i)}
-                          onChange={(e) => renameShowcase(i, sanitizeMentionInput(e.target.value))}
-                          onBlur={() => renameShowcase(i, tidyMentionName(nameFor(i), i))}
-                          maxLength={MAX_NAME}
-                          aria-label={`Name for photo ${i + 1}`}
-                          className="w-full bg-transparent border-0 outline-none py-1 text-[11px] font-bold text-[#2D2235] min-w-0"
-                        />
-                      </div>
-                    </motion.div>
-                  ))}
-                  {photos.length < MAX_SHOWCASE && (
+              value={photos.length ? `${photos.length}/${MAX_SHOWCASE}` : undefined}
+              modified={photos.length > 0}
+              panel={() => (
+                <>
+                  <ChipPanelLabel>Photos of your product, space or work</ChipPanelLabel>
+                  {photos.length === 0 ? (
+                    // A lone quarter-width tile in an empty four column grid reads as
+                    // a rendering mistake. Empty gets its own full width target.
                     <button
                       type="button"
                       onClick={() => showcaseInputRef.current?.click()}
-                      className="aspect-square self-start rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                      className="w-full rounded-xl border-2 border-dashed border-border py-7 flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
                     >
-                      <ImageIcon className="w-5 h-5 mb-1" />
-                      <span className="text-[10px] font-bold">Add</span>
+                      <ImageIcon className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Add up to {MAX_SHOWCASE} photos</span>
                     </button>
+                  ) : (
+                  <div className="grid grid-cols-4 gap-3">
+                    {showcasePreviews.map((url, i) => (
+                      <motion.div
+                        key={url}
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="space-y-1.5"
+                      >
+                        <div className="relative group aspect-square">
+                          <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-border" />
+                          <button
+                            type="button"
+                            onClick={() => removeShowcase(i)}
+                            aria-label={`Remove photo ${i + 1}`}
+                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center shadow"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {/* The name is the whole point of the grid now: it is what an
+                            @mention in the brief binds to. */}
+                        <div
+                          className="flex items-center rounded-lg bg-white border px-1.5 focus-within:border-[var(--terra)]/50"
+                          style={{ borderColor: clashes.has(nameFor(i)) ? "#EF4444" : undefined }}
+                        >
+                          <span className="text-xs font-bold text-[var(--terra)]">@</span>
+                          <input
+                            value={nameFor(i)}
+                            onChange={(e) => renameShowcase(i, sanitizeMentionInput(e.target.value))}
+                            onBlur={() => renameShowcase(i, tidyMentionName(nameFor(i), i))}
+                            maxLength={MAX_NAME}
+                            aria-label={`Name for photo ${i + 1}`}
+                            className="w-full bg-transparent border-0 outline-none py-1 text-[11px] font-bold text-[#2D2235] min-w-0"
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+                    {photos.length < MAX_SHOWCASE && (
+                      <button
+                        type="button"
+                        onClick={() => showcaseInputRef.current?.click()}
+                        className="aspect-square self-start rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-ink-muted hover:border-[var(--terra)]/60 hover:bg-[var(--terra)]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
+                      >
+                        <ImageIcon className="w-5 h-5 mb-1" />
+                        <span className="text-[10px] font-bold">Add</span>
+                      </button>
+                    )}
+                  </div>
                   )}
-                </div>
-                )}
-                {clashes.size > 0 && (
-                  <p className="text-xs font-bold text-red-500 mt-3">
-                    Two photos share a name. Give each one its own, or an @mention cannot tell
-                    them apart.
+                  {clashes.size > 0 && (
+                    <p className="text-xs font-bold text-red-500 mt-3">
+                      Two photos share a name. Give each one its own, or an @mention cannot tell
+                      them apart.
+                    </p>
+                  )}
+                  <p className="text-xs text-ink-muted mt-3">
+                    Name each one to call it out in the brief with @, like @dashboard. Unnamed
+                    photos still get used, we just choose where. Skip photos entirely and we
+                    build from type and motion.
                   </p>
-                )}
-                <p className="text-xs text-ink-muted mt-3">
-                  Name each one to call it out in the brief with @, like @dashboard. Unnamed
-                  photos still get used, we just choose where. Skip photos entirely and we
-                  build from type and motion.
-                </p>
-              </Panel>
-            )}
+                </>
+              )}
+            />
 
-            {panel === "length" && (
-              <Panel id="panel-length">
-                <PanelLabel>Length</PanelLabel>
-                <Segments
-                  options={INTRO_DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
-                  value={targetDuration}
-                  onChange={setTargetDuration}
-                  render={(o) => o.label}
-                />
-                <p className="text-xs text-ink-muted mt-3">
-                  {duration?.desc}. Every intro costs 1 credit, whatever the length.
-                </p>
-              </Panel>
-            )}
+            <ComposerChip
+              id="length"
+              icon={Clock}
+              label="Length"
+              value={`${targetDuration}s`}
+              panel={() => (
+                <>
+                  <ChipPanelLabel>Length</ChipPanelLabel>
+                  <ChipSegments
+                    layoutId="introLengthSegment"
+                    options={INTRO_DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
+                    value={targetDuration}
+                    onChange={setTargetDuration}
+                    render={(o) => o.label}
+                  />
+                  <p className="text-xs text-ink-muted mt-3">
+                    {duration?.desc}. Every intro costs 1 credit, whatever the length.
+                  </p>
+                </>
+              )}
+            />
 
-            {panel === "ratio" && (
-              <Panel id="panel-ratio">
-                <PanelLabel>Aspect ratio</PanelLabel>
-                <Segments
-                  options={ASPECT_RATIO_OPTIONS.map((o) => ({ ...o, key: o.id }))}
-                  value={aspectRatio}
-                  onChange={setAspectRatio}
-                  render={(o) => (
-                    <>
-                      <span className="mr-1">{o.icon}</span>
-                      {o.name} · {o.id}
-                    </>
-                  )}
-                />
-                <p className="text-xs text-ink-muted mt-3">
-                  {ASPECT_RATIO_OPTIONS.find((o) => o.id === aspectRatio)?.description}
-                </p>
-              </Panel>
-            )}
+            <ComposerChip
+              id="ratio"
+              icon={aspectRatio === "9:16" ? RectangleVertical : RectangleHorizontal}
+              label="Ratio"
+              value={aspectRatio}
+              panel={() => (
+                <>
+                  <ChipPanelLabel>Aspect ratio</ChipPanelLabel>
+                  <ChipSegments
+                    layoutId="introRatioSegment"
+                    options={ASPECT_RATIO_OPTIONS.map((o) => ({ ...o, key: o.id }))}
+                    value={aspectRatio}
+                    onChange={setAspectRatio}
+                    render={(o) => (
+                      <>
+                        <span className="mr-1">{o.icon}</span>
+                        {o.name} · {o.id}
+                      </>
+                    )}
+                  />
+                  <p className="text-xs text-ink-muted mt-3">
+                    {ASPECT_RATIO_OPTIONS.find((o) => o.id === aspectRatio)?.description}
+                  </p>
+                </>
+              )}
+            />
 
-            {panel === "brandkit" && (
-              <Panel id="panel-brandkit">
-                <PanelLabel>Brand kit</PanelLabel>
-                <BrandKitPanel
-                  brandColors={brandColors}
-                  setBrandColor={setBrandColor}
-                  brandFonts={brandFonts}
-                  setBrandFont={setBrandFont}
-                  brandTone={brandTone}
-                  logoPreview={logoPreview}
-                  onPickLogo={() => logoInputRef.current?.click()}
-                />
-                <p className="text-xs text-ink-muted mt-4">
-                  Pulled from your website or your logo, and used across every scene. Tweak
-                  anything to match.
-                </p>
-              </Panel>
-            )}
-          </AnimatePresence>
+            <ComposerChip
+              id="brandkit"
+              icon={Palette}
+              label="Brand kit"
+              modified={!!brandColors}
+              panel={() => (
+                <>
+                  <ChipPanelLabel>Brand kit</ChipPanelLabel>
+                  <BrandKitPanel
+                    brandColors={brandColors}
+                    setBrandColor={setBrandColor}
+                    brandFonts={brandFonts}
+                    setBrandFont={setBrandFont}
+                    brandTone={brandTone}
+                    logoPreview={logoPreview}
+                    onPickLogo={() => logoInputRef.current?.click()}
+                  />
+                  <p className="text-xs text-ink-muted mt-4">
+                    Pulled from your website or your logo, and used across every scene. Tweak
+                    anything to match.
+                  </p>
+                </>
+              )}
+            />
+          </ComposerChipRow>
         </div>
 
         {/* Undo after an AI write. Restores the brief and the name together. */}

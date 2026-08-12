@@ -103,6 +103,20 @@
   }
 }
 
+/* Strength meter's expanded view (PromptStep.jsx): a plain CSS fade rather
+   than a Framer Motion tween, deliberately - this element can appear right
+   after a burst of re-renders (typing, then hitting "strong"), and a
+   JS-driven animation competing for the same main-thread frame can stall
+   mid-transition. CSS keyframes run off the main thread, so they finish
+   regardless of what React is doing at that moment. */
+@keyframes strength-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.strength-fade-in {
+  animation: strength-fade-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Hide scrollbar */
 .scrollbar-hidden {
   -ms-overflow-style: none;  /* IE and Edge */
