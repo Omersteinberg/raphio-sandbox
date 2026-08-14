@@ -215,13 +215,20 @@ export async function saveIntroBrief(sessionId, { businessName, description, tar
 }
 
 /**
- * Read a brand kit off the user's own website. Stateless: this runs on the brief
- * step, before a session exists, so it takes a bare URL rather than a session id.
+ * Read a brand kit and a first brief off the user's own website. Stateless: this
+ * runs on the brief step, before a session exists, so it takes a bare URL rather
+ * than a session id.
+ *
+ * `targetDuration` is what bounds the running order the brief comes back with: a
+ * 10 second intro has room for far fewer beats than a 30 second one, and a brief
+ * naming more than fit would have its extras dropped at generation.
+ *
  * @param {string} url
+ * @param {object} [opts] - { targetDuration } in seconds
  * @returns {{ found: object, missing: string[] }}
  */
-export async function extractBrandFromUrl(url) {
-  const response = await axios.post(`${API_BASE}/brand-from-url`, { url });
+export async function extractBrandFromUrl(url, { targetDuration } = {}) {
+  const response = await axios.post(`${API_BASE}/brand-from-url`, { url, targetDuration });
   return response.data;
 }
 

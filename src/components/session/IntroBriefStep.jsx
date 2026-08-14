@@ -474,8 +474,9 @@ export default function IntroBriefStep({
         {/* The brief: one card, everything in it */}
         <div className="bg-white rounded-3xl border border-border/60 shadow-xs p-5 md:p-7">
           {/* Optional shortcut. Fills only what is still empty below, so it never
-              overwrites something already typed. */}
-          <BrandUrlField onApply={applyExtractedBrand} />
+              overwrites something already typed. The length goes with it: the brief
+              it drafts names beats, and how many depends on the length picked. */}
+          <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
 
           <div className="flex items-start justify-between gap-3">
             <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted pt-1">

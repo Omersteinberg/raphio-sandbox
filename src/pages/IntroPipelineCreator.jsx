@@ -15,6 +15,24 @@ import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
 
+// What the intro pipeline actually does, in the order it does it.
+//
+// ScriptLoadingScreen's own defaults describe the photo pipeline (uploading,
+// analyzing and restyling images), none of which happens here, so an intro was
+// claiming work it never did. The ranges are the percentages this pipeline really
+// reports: useIntroSession ticks up to 20 by hand while the session is being set
+// up, then hands the bar to the backend job, whose 0-100 is mapped onto 20-100.
+// The backend's own milestones inside that are 5 for the plan, 15 for the stills,
+// then the clip pass, which is 78% of what is left.
+const INTRO_SUB_STEPS = [
+  { id: "session", label: "Setting up your session",       range: [0, 12]  },
+  { id: "upload",  label: "Uploading your logo and photos", range: [12, 20] },
+  { id: "design",  label: "Designing your scenes",          range: [20, 32] },
+  { id: "still",   label: "Drawing the first look",         range: [32, 42] },
+  { id: "voice",   label: "Recording the voiceover",        range: [42, 48] },
+  { id: "render",  label: "Rendering your scenes",          range: [48, 100] },
+];
+
 export default function IntroPipelineCreator({ onModeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
@@ -159,6 +177,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
           {loading && (step === 0 || step === 1) && (
             <ScriptLoadingScreen
               progress={intro.scriptProgress}
+              subSteps={INTRO_SUB_STEPS}
               title={intro.scriptLabel || "Building your scenes"}
               estimate="~4 minutes"
             />
