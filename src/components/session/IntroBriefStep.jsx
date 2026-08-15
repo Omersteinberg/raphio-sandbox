@@ -350,8 +350,8 @@ export default function IntroBriefStep({
               it drafts names beats, and how many depends on the length picked. */}
           <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
 
-          <div className="flex items-start justify-between gap-3">
-            <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted pt-1">
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted">
               Tell us about your business
             </label>
             <div className="flex items-center gap-2 shrink-0">
@@ -367,7 +367,7 @@ export default function IntroBriefStep({
                 onClick={() => setExamplesOpen((o) => !o)}
                 aria-expanded={examplesOpen}
                 aria-controls="panel-examples"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-1 py-0.5 shrink-0"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-2.5 min-h-11 shrink-0"
               >
                 <Lightbulb className="w-4 h-4" />
                 Help me start
@@ -659,7 +659,7 @@ export default function IntroBriefStep({
                 type="button"
                 onClick={handleUndoImprove}
                 className="flex items-center gap-1 text-[11px] font-bold"
-                style={{ color: '#9C8F85' }}
+                style={{ color: '#75695F' }}
               >
                 <RotateCcw style={{ width: 12, height: 12 }} /> Undo
               </button>

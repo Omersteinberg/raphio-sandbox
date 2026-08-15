@@ -3,7 +3,7 @@ name: Raphio
 description: A warm terracotta editorial system for a longer-form AI video tool, restrained where it is a workspace, expressive only at the marketing threshold.
 colors:
   kiln-terracotta: "#C1440E"
-  warm-clay: "#E8603C"
+  warm-clay: "#D34019"
   burnt-umber: "#5C1000"
   ink-plum: "#2D2235"
   warm-char: "#1C1917"
@@ -94,7 +94,7 @@ The palette reads as sun-warmed clay and paper: a single fired-terracotta accent
 
 ### Primary
 - **Kiln Terracotta** (`#C1440E`): the one saturated color in the system. Primary buttons, links, active/focus states, icon accents, brand gradient start. Used sparingly - it marks "the thing to act on," not decoration.
-- **Warm Clay** (`#E8603C`): the gradient partner to Kiln Terracotta (`linear-gradient(135deg, #C1440E, #E8603C)` - the `--gradient-brand` token). Never used alone as a solid fill; it exists to be the light end of the brand gradient.
+- **Warm Clay** (`#D34019`): the gradient partner to Kiln Terracotta (`linear-gradient(135deg, #C1440E, #D34019)` - the `--gradient-brand` token). Never used alone as a solid fill; it exists to be the light end of the brand gradient. Darkened from the original `#E8603C` (2026-08) - white text on the old value measured 3.40:1 at the gradient's light end, below WCAG AA's 4.5:1; `#D34019` clears 4.65:1 while staying in the same hue/saturation family.
 - **Burnt Umber** (`#5C1000`): hover/pressed state for terracotta-filled elements (`bg-terra hover:bg-terra-dark`), and occasionally a deeper accent for small text-on-light details.
 
 ### Neutral

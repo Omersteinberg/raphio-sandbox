@@ -58,6 +58,25 @@ const DURATION_OPTIONS = [
   { value: 60, label: '60s', desc: 'Full story' },
 ];
 
+// Short display labels for the prompt-strength segmented row (design review
+// Variation 5) - the full descriptive strings from scorePrompt() still drive
+// the expanded hint text below, these just need to fit a compact segment.
+const SEGMENT_FACTOR_LABEL = {
+  coverage: 'Mentions',
+  detail: 'Detailed',
+  setting: 'Clear setting',
+  toneAction: 'Tone & action',
+};
+
+// Once a criterion is met, its expanded-view line swaps the "what to add"
+// instructional hint for a short confirmation instead - `coverage` isn't
+// listed here on purpose, so it keeps showing its regular hint either way.
+const FACTOR_CONFIRMATION = {
+  detail: 'Your prompt has enough detail to build the scene.',
+  setting: 'You have defined where and when the story takes place.',
+  toneAction: 'The mood and a clear story beat are defined.',
+};
+
 const STYLE_ICON_MAP = {
   realistic: Camera,
   animated: Palette,
@@ -415,7 +434,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
               style={item.useUpload
                 ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-                : { color: '#9B8FA8' }
+                : { color: '#726481' }
               }
             >
               <Upload className="w-3 h-3" /> Upload Reference
@@ -427,7 +446,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
               style={!item.useUpload
                 ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-                : { color: '#9B8FA8' }
+                : { color: '#726481' }
               }
             >
               <Wand2 className="w-3 h-3" /> AI Generate
@@ -860,19 +879,19 @@ export default function PromptStep({
     () => scorePrompt({ userPrompt, references: mentionTargets, mode: isReferencesMode ? 'references' : 'image' }),
     [userPrompt, mentionTargets, isReferencesMode]
   );
-  // Collapsed by default: when every factor is met, the meter opens as the
-  // one-line reward ("Show details" re-expands it) rather than the full
-  // checklist. While anything is still unmet, this flag has no effect - the
-  // rows are unconditionally visible so there's nothing to "show" yet.
-  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
-  // Per-row override: a row defaults to expanded when unmet, collapsed when
-  // met - this map only holds rows the user has deliberately flipped away
-  // from that default, so it keeps tracking live met/unmet state otherwise.
-  const [factorOverrides, setFactorOverrides] = useState({});
-  const isFactorExpanded = (f) => factorOverrides[f.id] ?? !f.met;
-  const toggleFactor = (f) => setFactorOverrides((prev) => ({ ...prev, [f.id]: !isFactorExpanded(f) }));
   const promptIsEmpty = !userPrompt?.trim();
   const allFactorsMet = strength.factors.length > 0 && strength.factors.every((f) => f.met);
+  // Details show automatically while the prompt is still incomplete (that's
+  // when the guidance is useful) and collapse the moment every factor passes
+  // - the literal all-met condition from the Phase 1 spec, not a score band.
+  // Lazy-initialized from the current state so a resumed already-strong
+  // session doesn't flash the detail view open before collapsing; the effect
+  // keeps it reactive as the user types. "Show details"/"Hide" overrides
+  // either way.
+  const [showStrengthDetail, setShowStrengthDetail] = useState(() => !allFactorsMet);
+  useEffect(() => {
+    if (allFactorsMet) setShowStrengthDetail(false);
+  }, [allFactorsMet]);
 
   // Animated example prompts: cycle through curated briefs while the box is
   // empty and unfocused, so the placeholder teaches prompt structure instead
@@ -1058,7 +1077,7 @@ export default function PromptStep({
               <>Your story. Your <span style={{ color: '#C1440E' }}>video.</span></>
             )}
           </h1>
-          <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#9C8F85' }}>
+          <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#75695F' }}>
             {isReferencesMode
               ? 'Define your visual props and settings, then reveal the full storyline.'
               : 'Tell Raphio what you want. It handles everything else.'}
@@ -1137,7 +1156,7 @@ export default function PromptStep({
                       <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
                     </div>
                     <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No references added yet</p>
-                    <p className="text-[11px]" style={{ color: '#9B8FA8' }}>Add a character, setting, logo, or product to get started</p>
+                    <p className="text-[11px]" style={{ color: '#726481' }}>Add a character, setting, logo, or product to get started</p>
                   </div>
                 )}
               </div>
@@ -1179,16 +1198,41 @@ export default function PromptStep({
                     Upload your photos
                   </h2>
                   {(images?.length ?? 0) > 0 && (
-                    <span className="text-xs font-medium" style={{ color: '#9C8F85' }}>
-                      {images.length} of {MAX_IMAGES}
-                      {/* Desktop: subtle inline hint (mouse drag starts instantly).
-                          Mobile needs the press-and-hold hint, shown on its own line below. */}
-                      {images.length >= 2 && !isMobile && (
-                        <span className="ml-2" style={{ color: '#C8BFB5' }}>
-                          · drag to reorder
-                        </span>
-                      )}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Mini thumbnail cluster: a quick "yes, these are the right
+                          photos" check without scrolling to the grid below (design
+                          review Variation C - the empty-state icon+copy redesign
+                          below is the other half of that same review). */}
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {images.slice(0, 4).map((img, i) => (
+                          <img
+                            key={imageId(img, i)}
+                            src={img.preview}
+                            alt=""
+                            className="w-5 h-5 rounded-md object-cover border-2 flex-shrink-0"
+                            style={{ borderColor: '#FBFAF8' }}
+                          />
+                        ))}
+                        {images.length > 4 && (
+                          <span
+                            className="w-5 h-5 rounded-md flex items-center justify-center text-[8px] font-bold border-2 flex-shrink-0"
+                            style={{ background: 'var(--surface-alt)', color: '#75695F', borderColor: '#FBFAF8' }}
+                          >
+                            +{images.length - 4}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: '#75695F' }}>
+                        {images.length} of {MAX_IMAGES}
+                        {/* Desktop: subtle inline hint (mouse drag starts instantly).
+                            Mobile needs the press-and-hold hint, shown on its own line below. */}
+                        {images.length >= 2 && !isMobile && (
+                          <span className="ml-2" style={{ color: '#C8BFB5' }}>
+                            · drag to reorder
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -1226,7 +1270,7 @@ export default function PromptStep({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.98 }}
                       onClick={() => fileInputRef.current?.click()}
-                      className="cursor-pointer rounded-2xl border-2 border-dashed flex items-center gap-3 py-3 px-4 min-h-11"
+                      className="cursor-pointer rounded-2xl border-2 border-dashed flex items-center gap-3 py-3.5 px-4 min-h-11"
                       style={{
                         borderColor: 'rgba(193,68,14,0.12)',
                         background: '#FBFAF8',
@@ -1250,10 +1294,16 @@ export default function PromptStep({
                       >
                         <Upload className="w-4 h-4 text-white" />
                       </div>
-                      <p className="text-sm" style={{ color: 'var(--ink-warm)' }}>
-                        <span className="font-bold">Drag photos here</span>
-                        <span style={{ color: '#9C8F85' }}> or click to browse · up to {MAX_IMAGES}</span>
-                      </p>
+                      {/* Two-line copy (design review Variation C), replacing the old
+                          single-line "Drag photos here or click to browse..." */}
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold" style={{ color: 'var(--ink-warm)' }}>
+                          Upload your photos
+                        </p>
+                        <p className="text-xs" style={{ color: '#75695F' }}>
+                          Drag &amp; drop or click to browse · up to {MAX_IMAGES}
+                        </p>
+                      </div>
                     </motion.div>
                   )}
 
@@ -1481,7 +1531,7 @@ export default function PromptStep({
               </div>
             )}
 
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? "What's your video about?" : "What's your video about?"}
@@ -1490,7 +1540,7 @@ export default function PromptStep({
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => { setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 min-h-11 rounded-full text-[11px] font-bold transition-all"
                   style={showInspiration
                     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
@@ -1501,7 +1551,7 @@ export default function PromptStep({
                 </button>
                 <button
                   onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 min-h-11 rounded-full text-[11px] font-bold transition-all"
                   style={showDictionary
                     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
@@ -1512,10 +1562,10 @@ export default function PromptStep({
                 </button>
                 <button
                   onClick={() => setShowPromptGuide(true)}
-                  className="flex items-center gap-1 text-[11px] font-bold transition-colors"
-                  style={{ color: '#9C8F85' }}
+                  className="inline-flex items-center gap-1 px-1.5 min-h-11 text-[11px] font-bold transition-colors"
+                  style={{ color: '#75695F' }}
                   onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
                 >
                   <Lightbulb className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Tips</span>
@@ -1530,39 +1580,156 @@ export default function PromptStep({
               onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.15), 0 4px 20px rgba(193,68,14,0.08), 0 0 0 4px rgba(193,68,14,0.06)'; setPromptFocused(true); }}
               onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; setPromptFocused(false); }}
             >
-              {isReferencesMode ? (
-                <PromptMentionField
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  references={references}
-                  placeholder={typedPlaceholder === null ? REFERENCE_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
-                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: 'var(--ink-warm)', paddingBottom: '48px', outline: 'none' }}
-                />
-              ) : (
-                <PromptMentionField
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  references={imageMentionItems}
-                  title="Your scenes"
-                  placeholder={typedPlaceholder === null ? PROMPT_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
-                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: 'var(--ink-warm)', paddingBottom: '48px', outline: 'none' }}
-                />
-              )}
-              {/* Improve button - anchored bottom-left INSIDE the box so it's
-                  clearly tied to the prompt. Always shows its label (mobile too)
-                  so it's never a mystery icon. */}
-              <ImproveButton
-                onClick={handleImprove}
-                busy={improving}
-                disabled={!userPrompt?.trim()}
-                className="absolute"
-                style={{ bottom: 7, left: 10, zIndex: 5 }}
-              />
-              <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
-                {wordCount} words
-              </span>
+              {/* BUG FIX: the word count used to be absolutely positioned against
+                  this whole card, which also contains the chip row below the
+                  textarea - "bottom" meant the bottom of the card, not the bottom
+                  of the text box, so the count visually collided with the last
+                  chip. Scoping it to its own `relative` wrapper around just the
+                  textarea fixes that: "bottom" now means the bottom of the
+                  textarea, full stop, regardless of what renders after it. */}
+              <div className="relative">
+                {isReferencesMode ? (
+                  <PromptMentionField
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    references={references}
+                    placeholder={typedPlaceholder === null ? REFERENCE_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
+                    className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '32px', outline: 'none' }}
+                  />
+                ) : (
+                  <PromptMentionField
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    references={imageMentionItems}
+                    title="Your scenes"
+                    placeholder={typedPlaceholder === null ? PROMPT_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
+                    className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '32px', outline: 'none' }}
+                  />
+                )}
+                <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
+                  {wordCount} words
+                </span>
+              </div>
+
+              {/* Chip row: lives inside the same bordered box as the text, below it -
+                  the ChatGPT/Claude composer pattern. A hairline (not a tinted tray)
+                  separates it from the typed text, since the box itself already gives
+                  the chips a floor to sit on. Improve is the leading item - it used to
+                  float absolutely inside the textarea, which overlapped this row; now
+                  it's a real flex sibling so the two can never collide. It stays on
+                  ImproveButton's filled-gradient default (terra fill, white text/icon)
+                  - a brief outlined experiment was reverted per design feedback - so it
+                  reads as the one action among the outlined value chips.
+                  `className="w-full justify-between"` on ComposerChipRow spreads the
+                  row across the textarea's full width instead of hugging the left
+                  edge; that's opt-in via className specifically so Brand Intro's chip
+                  row (the other ComposerChipRow consumer) is unaffected. Chips stay
+                  size="lg" - a composer's controls, not badges. */}
+              <div
+                className="flex items-center px-4 py-2.5 sm:px-8"
+                style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }}
+              >
+                <ComposerChipRow className="w-full gap-3">
+                  <ImproveButton 
+                    className="mr-7"
+                    onClick={handleImprove}
+                    busy={improving}
+                    disabled={!userPrompt?.trim()}
+                  />
+
+                  {setTargetDuration && (
+                    <ComposerChip
+                      id="length"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      icon={Clock}
+                      label="Length"
+                      value={`${targetDuration}s`}
+                      panel={() => (
+                        <>
+                          <ChipPanelLabel>Length</ChipPanelLabel>
+                          <ChipSegments
+                            layoutId="promptLengthSegment"
+                            options={DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
+                            value={targetDuration}
+                            onChange={setTargetDuration}
+                            render={(o) => (
+                              <span className="flex flex-col items-center gap-0">
+                                <span>{o.label}</span>
+                                <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.desc}</span>
+                              </span>
+                            )}
+                          />
+                        </>
+                      )}
+                    />
+                  )}
+
+                  {setAspectRatio && (
+                    <ComposerChip
+                      id="ratio"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      icon={(aspectRatio || '16:9') === '9:16' ? RectangleVertical : RectangleHorizontal}
+                      label="Ratio"
+                      value={aspectRatio || '16:9'}
+                      panel={() => (
+                        <>
+                          <ChipPanelLabel>Aspect ratio</ChipPanelLabel>
+                          <ChipSegments
+                            layoutId="promptRatioSegment"
+                            options={[
+                              { id: '9:16', key: '9:16', name: 'Portrait', sub: 'Phone · Social' },
+                              { id: '16:9', key: '16:9', name: 'Landscape', sub: 'TV · Laptop' },
+                            ]}
+                            value={aspectRatio || '16:9'}
+                            onChange={setAspectRatio}
+                            render={(o) => (
+                              <span className="flex flex-col items-center gap-0">
+                                <span>{o.id}</span>
+                                <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.sub}</span>
+                              </span>
+                            )}
+                          />
+                        </>
+                      )}
+                    />
+                  )}
+
+                  {setVoiceId && (
+                    <ComposerChip
+                      id="voice"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      icon={Mic}
+                      label="Voice"
+                      value={voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default'}
+                      modified={voiceUserSetRef.current}
+                      onClick={() => setVoiceModalOpen(true)}
+                    />
+                  )}
+
+                  {setBackgroundMusic && (
+                    <ComposerChip
+                      id="music"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      icon={Music}
+                      label="Music"
+                      value={backgroundMusic ? 'On' : 'Off'}
+                      modified={!backgroundMusic}
+                      pressed={!!backgroundMusic}
+                      onClick={() => setBackgroundMusic(!backgroundMusic)}
+                    />
+                  )}
+                </ComposerChipRow>
+              </div>
             </div>
 
             {/* Inspiration Panel */}
@@ -1581,7 +1748,7 @@ export default function PromptStep({
                     style={{ background: '#F5EFE6', border: '1px solid rgba(193,68,14,0.10)' }}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9C8F85' }}>
+                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#75695F' }}>
                         Tap an idea: see the result, use the prompt
                       </p>
                     </div>
@@ -1677,7 +1844,7 @@ export default function PromptStep({
                         ))}
                       </motion.div>
                     </AnimatePresence>
-                    <p style={{ fontSize: 10, color: '#9B8FA8', fontWeight: 500 }}>
+                    <p style={{ fontSize: 10, color: '#726481', fontWeight: 500 }}>
                       Click any term to append it to your prompt
                     </p>
                   </div>
@@ -1703,9 +1870,9 @@ export default function PromptStep({
                       <button
                         onClick={handleUndoImprove}
                         className="flex items-center gap-1 text-[11px] font-bold"
-                        style={{ color: '#9C8F85' }}
+                        style={{ color: '#75695F' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
                       >
                         <RotateCcw style={{ width: 12, height: 12 }} /> Undo
                       </button>
@@ -1713,216 +1880,128 @@ export default function PromptStep({
                   )}
                 </AnimatePresence>
 
-                {/* Strength meter: full checklist while anything's unmet; the
-                    moment every factor passes it collapses to a one-line
-                    reward ("Show details" reopens it) - a small satisfying
-                    beat, not just a state flip. The collapsed reward line
-                    gets its own AnimatePresence (a clean mount/unmount of a
-                    single element); the expanded view is a plain conditional
-                    with a lightweight fade - keeping the two independent
-                    avoids a fragile cross-fade between differently-shaped
-                    elements. */}
-                <AnimatePresence initial={false}>
-                  {allFactorsMet && !showStrengthDetail && (
-                    <motion.button
-                      key="collapsed"
-                      type="button"
-                      onClick={() => setShowStrengthDetail(true)}
-                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
-                      transition={reducedMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 26 }}
-                      className="w-full min-h-11 flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left"
-                      style={{ background: 'rgba(34,160,107,0.08)', border: '1px solid rgba(34,160,107,0.22)' }}
-                    >
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: '#22A06B' }}>
-                        <motion.span
-                          initial={reducedMotion ? false : { scale: 0.3, rotate: -25 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={reducedMotion ? { duration: 0.1 } : { type: 'spring', stiffness: 480, damping: 16, delay: 0.06 }}
-                          className="inline-flex"
-                        >
-                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                        </motion.span>
-                        Strong prompt
-                      </span>
-                      <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: '#22A06B' }}>
-                        Show details <ChevronDown className="w-3 h-3" />
-                      </span>
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-                {!(allFactorsMet && !showStrengthDetail) && (
-                    <div className={reducedMotion ? undefined : 'strength-fade-in'}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[11px] font-bold" style={{ color: promptIsEmpty ? '#9C8F85' : strengthBarColor }}>
-                          {promptIsEmpty ? 'Start typing to see your prompt strength' : `Prompt strength: ${strength.label}`}
+                {/* Strength meter (design review): a single always-visible row -
+                    progress bar, then a flat line of checkmark+label items with
+                    no bordered container and no dividers between them, just
+                    generous gaps - replacing the previous bordered "segmented
+                    group" AND the separate collapsed-banner/expanded-checklist
+                    split. The leading item is the overall summary ("Strong
+                    prompt" once everything passes, else "Prompt strength: X"),
+                    followed by one item per criterion, followed by a single
+                    "Show details"/"Hide" control on the right - matching the
+                    reference image exactly. Detail hints show automatically
+                    while incomplete and collapse on the literal all-met
+                    condition (see showStrengthDetail above), not per-row
+                    anymore - one master toggle, matching the reference's single
+                    control instead of a click-per-item interaction. */}
+                <div className={reducedMotion ? undefined : 'strength-fade-in'}>
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${strength.score}%`, background: strengthBarColor, transition: 'width 0.3s ease' }} />
+                  </div>
+
+                  <div className="flex items-center flex-wrap gap-x-5 gap-y-2 pt-2.5">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold flex-shrink-0" style={{ color: promptIsEmpty ? '#75695F' : strengthBarColor }}>
+                      {allFactorsMet && (
+                        <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 15, height: 15, background: '#22A06B' }}>
+                          <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />
                         </span>
-                        {allFactorsMet && (
-                          <button
-                            type="button"
-                            onClick={() => setShowStrengthDetail(false)}
-                            className="flex items-center gap-1 text-[11px] font-bold"
-                            style={{ color: '#C1440E' }}
-                          >
-                            Hide <ChevronUp className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="h-1.5 w-full rounded-full overflow-hidden mt-1.5" style={{ background: 'rgba(193,68,14,0.10)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${strength.score}%`, background: strengthBarColor, transition: 'width 0.3s ease' }} />
-                      </div>
-                      <ul className="space-y-0.5 pt-1">
-                        {strength.factors.map((f) => {
-                          const expanded = isFactorExpanded(f);
-                          return (
-                            <li key={f.id}>
-                              <button
-                                type="button"
-                                onClick={() => toggleFactor(f)}
-                                className="w-full flex items-start gap-2 text-left py-1.5"
-                              >
-                                <span
-                                  className="mt-0.5 flex items-center justify-center rounded-full flex-shrink-0"
-                                  style={{
-                                    width: 15, height: 15,
-                                    background: f.met ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'transparent',
-                                    border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
-                                  }}
-                                >
-                                  {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
-                                </span>
-                                <span className="flex-1 min-w-0">
-                                  <span className="text-[11px] font-bold" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
-                                    {f.label}
-                                    {f.detail && <span className="font-medium" style={{ color: '#9C8F85' }}> · {f.detail}</span>}
-                                  </span>
-                                </span>
-                                <ChevronDown
-                                  className="w-3 h-3 mt-0.5 flex-shrink-0"
-                                  style={{ color: '#C8BFB5', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }}
-                                />
-                              </button>
-                              <AnimatePresence initial={false}>
-                                {expanded && (
-                                  <motion.div
-                                    initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                                    transition={{ duration: 0.16 }}
-                                    className="overflow-hidden pl-[23px]"
-                                  >
-                                    <span className="block text-[10.5px] leading-snug pb-1.5" style={{ color: '#9C8F85' }}>{f.hint}</span>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                )}
+                      )}
+                      {promptIsEmpty ? 'Start typing to see your prompt strength' : allFactorsMet ? 'Strong prompt' : `Prompt strength: ${strength.label}`}
+                    </span>
+
+                    {strength.factors.map((f) => (
+                      <span key={f.id} className="flex items-center gap-1.5 flex-shrink-0">
+                        <span
+                          className="flex items-center justify-center rounded-full flex-shrink-0"
+                          style={{
+                            width: 15, height: 15,
+                            background: f.met ? '#22A06B' : 'transparent',
+                            border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                          }}
+                        >
+                          {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                        </span>
+                        <span className="text-[11px] font-medium" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
+                          {SEGMENT_FACTOR_LABEL[f.id] || f.label}
+                        </span>
+                      </span>
+                    ))}
+
+                    {strength.factors.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowStrengthDetail((s) => !s)}
+                        aria-expanded={showStrengthDetail}
+                        aria-controls="strength-hints"
+                        className="flex items-center gap-1 text-[11px] font-bold ml-auto flex-shrink-0"
+                        style={{ color: allFactorsMet ? '#22A06B' : '#C1440E' }}
+                      >
+                        {showStrengthDetail ? 'Hide' : 'Show details'}
+                        {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {showStrengthDetail && strength.factors.length > 0 && (
+                      <motion.ul
+                        id="strength-hints"
+                        initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        transition={{ duration: 0.16 }}
+                        className="overflow-hidden space-y-1.5 pt-2"
+                      >
+                        {strength.factors.map((f) => (
+                          <li key={f.id} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
+                            {/* Same circle+check as the summary row above, so a
+                                met criterion reads unmistakably "done" here too -
+                                empty/outlined circle when incomplete, matching the
+                                summary row's own state exactly. */}
+                            <span
+                              className="flex items-center justify-center rounded-full flex-shrink-0 mt-0.5"
+                              style={{
+                                width: 13, height: 13,
+                                background: f.met ? '#22A06B' : 'transparent',
+                                border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                              }}
+                            >
+                              {f.met && <Check className="w-2 h-2" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              {/* Met -> green, unmet -> muted gray: a much bigger
+                                  jump than the old ink-vs-gray pairing, so "done"
+                                  vs "not done" reads at a glance, not just on
+                                  close inspection. */}
+                              <span className="block font-bold" style={{ color: f.met ? '#22A06B' : '#6B5E7B' }}>
+                                {f.label}
+                                {f.detail && <span className="font-medium" style={{ color: '#75695F' }}> · {f.detail}</span>}
+                              </span>
+                              {/* Met criteria swap the "what to add" hint for a
+                                  short confirmation (FACTOR_CONFIRMATION); unmet
+                                  criteria keep showing the existing instructional
+                                  hint unchanged. `coverage` has no confirmation
+                                  entry on purpose, so it always shows its hint. */}
+                              <span className="block" style={{ color: '#75695F' }}>
+                                {f.met && FACTOR_CONFIRMATION[f.id] ? FACTOR_CONFIRMATION[f.id] : f.hint}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             )}
 
-            {/* Chip tray: a tinted sub-surface so the outline chips have a floor to
-                separate from, instead of floating on the same white as everything
-                else. Chips run size="lg" here - a composer's controls, not badges. */}
-            <div
-              className="rounded-2xl p-3 sm:p-3.5"
-              style={{ background: 'linear-gradient(135deg, rgba(249,112,102,0.08), rgba(251,146,60,0.11))', border: '1px solid rgba(193,68,14,0.10)' }}
-            >
-            <ComposerChipRow>
-              {setTargetDuration && (
-                <ComposerChip
-                  id="length"
-                  size="lg"
-                  icon={Clock}
-                  label="Length"
-                  value={`${targetDuration}s`}
-                  panel={() => (
-                    <>
-                      <ChipPanelLabel>Length</ChipPanelLabel>
-                      <ChipSegments
-                        layoutId="promptLengthSegment"
-                        options={DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
-                        value={targetDuration}
-                        onChange={setTargetDuration}
-                        render={(o) => (
-                          <span className="flex flex-col items-center gap-0">
-                            <span>{o.label}</span>
-                            <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.desc}</span>
-                          </span>
-                        )}
-                      />
-                    </>
-                  )}
-                />
-              )}
-
-              {setAspectRatio && (
-                <ComposerChip
-                  id="ratio"
-                  size="lg"
-                  icon={(aspectRatio || '16:9') === '9:16' ? RectangleVertical : RectangleHorizontal}
-                  label="Ratio"
-                  value={aspectRatio || '16:9'}
-                  panel={() => (
-                    <>
-                      <ChipPanelLabel>Aspect ratio</ChipPanelLabel>
-                      <ChipSegments
-                        layoutId="promptRatioSegment"
-                        options={[
-                          { id: '9:16', key: '9:16', name: 'Portrait', sub: 'Phone · Social' },
-                          { id: '16:9', key: '16:9', name: 'Landscape', sub: 'TV · Laptop' },
-                        ]}
-                        value={aspectRatio || '16:9'}
-                        onChange={setAspectRatio}
-                        render={(o) => (
-                          <span className="flex flex-col items-center gap-0">
-                            <span>{o.id}</span>
-                            <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.sub}</span>
-                          </span>
-                        )}
-                      />
-                    </>
-                  )}
-                />
-              )}
-
-              {setVoiceId && (
-                <ComposerChip
-                  id="voice"
-                  size="lg"
-                  icon={Mic}
-                  label="Voice"
-                  value={voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default'}
-                  modified={voiceUserSetRef.current}
-                  onClick={() => setVoiceModalOpen(true)}
-                />
-              )}
-
-              {setBackgroundMusic && (
-                <ComposerChip
-                  id="music"
-                  size="lg"
-                  icon={Music}
-                  label="Music"
-                  value={backgroundMusic ? 'On' : 'Off'}
-                  modified={!backgroundMusic}
-                  pressed={!!backgroundMusic}
-                  onClick={() => setBackgroundMusic(!backgroundMusic)}
-                />
-              )}
-            </ComposerChipRow>
-            </div>
           </div>
 
           {/* Style + Advanced: its own section below the composer card, with extra
               breathing room above it so it clearly reads as a step AFTER the
               composer, not a competing focal point. (The composer itself is now
-              just assets/textarea/strength/chip tray - see above.) Advanced is
-              image mode only. */}
+              just assets/strength - the chip row lives inside the textarea box
+              above.) Advanced is image mode only. */}
           <div data-tour="settings" className="mt-4 sm:mt-6 rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
             {/* Style Selection (renders in both image and references modes) */}
@@ -2013,16 +2092,16 @@ export default function PromptStep({
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
                   className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
                 >
-                  <span className="text-xs font-bold" style={{ color: (enableBridges || openingEnabled || closingEnabled) ? '#C1440E' : '#9C8F85' }}>
+                  <span className="text-xs font-bold" style={{ color: (enableBridges || openingEnabled || closingEnabled) ? '#C1440E' : '#75695F' }}>
                     Advanced
                     {(enableBridges || openingEnabled || closingEnabled)
                       ? ` · ${[enableBridges && 'Smooth transitions', openingEnabled && 'Intro', closingEnabled && 'Outro'].filter(Boolean).join(' + ')} on`
                       : ' · Intro, Outro, Bridge Scenes'}
                   </span>
                   {frameConfigExpanded ? (
-                    <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#9C8F85' }} />
+                    <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#75695F' }} />
                   ) : (
-                    <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#9C8F85' }} />
+                    <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#75695F' }} />
                   )}
                 </button>
 
@@ -2156,7 +2235,7 @@ export default function PromptStep({
                                       onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
                                       aria-pressed={!openingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Wand2 className="w-3.5 h-3.5" /> Generate with AI
                                     </motion.button>
@@ -2165,7 +2244,7 @@ export default function PromptStep({
                                       onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
                                       aria-pressed={openingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Upload className="w-3.5 h-3.5" /> Upload image
                                     </motion.button>
@@ -2308,7 +2387,7 @@ export default function PromptStep({
                                       onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
                                       aria-pressed={!closingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Wand2 className="w-3.5 h-3.5" /> Generate with AI
                                     </motion.button>
@@ -2317,7 +2396,7 @@ export default function PromptStep({
                                       onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
                                       aria-pressed={closingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Upload className="w-3.5 h-3.5" /> Upload image
                                     </motion.button>
@@ -2487,7 +2566,7 @@ export default function PromptStep({
               onClick={handleStart}
               disabled={!canStart || loading}
               className="w-full text-white py-6 text-sm font-bold rounded-2xl border-0 shadow-xl shadow-orange-200/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-              style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2 tracking-wide font-black">
@@ -2505,7 +2584,7 @@ export default function PromptStep({
                 </span>
               )}
             </Button>
-            <p className="text-center text-xs font-bold mt-2" style={{ color: '#9C8F85' }}>
+            <p className="text-center text-xs font-bold mt-2" style={{ color: '#75695F' }}>
               {canStart
                 ? "Looks good, create your video"
                 : blockers.length > 0

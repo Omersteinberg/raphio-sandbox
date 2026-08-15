@@ -101,7 +101,7 @@ export default function ModeChooser({ onPick, initialMode = null }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: "easeOut", delay: 0.06 + i * 0.07 }}
                 whileHover={{ y: -3 }}
-                className="group relative flex flex-col text-left rounded-3xl p-6 focus:outline-none"
+                className="group relative flex flex-col text-left rounded-3xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 focus-visible:ring-offset-2"
                 style={{
                   background: "#fff",
                   border: `1px solid ${isLast ? "rgba(193,68,14,0.45)" : C.border}`,
