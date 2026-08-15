@@ -8,7 +8,10 @@ const LABELS = {
   logo: "logo",
   colors: "colours",
   fonts: "fonts",
-  copy: "description",
+  // Not "description": what comes back is a first brief, a running order of what
+  // the video should show, and calling it a description sets up the wrong
+  // expectation of the text that lands in the box below.
+  copy: "starting brief",
   tone: "style",
 };
 
@@ -16,14 +19,17 @@ const ORDER = ["logo", "colors", "fonts", "copy", "tone"];
 
 /**
  * Optional accelerator at the top of the intro brief. Paste a website, get the
- * brand filled in below.
+ * brand and a first brief filled in below.
  *
  * It reports what it could not find as well as what it could, because a silent
  * partial fill reads as a bug: someone who pastes a URL and sees three of five
  * fields populated needs to know the other two were genuinely absent from their
  * site, not dropped on the way.
+ *
+ * `targetDuration` rides along because the brief that comes back names beats, and
+ * how many it may name depends on the length the user has picked.
  */
-export default function BrandUrlField({ onApply }) {
+export default function BrandUrlField({ onApply, targetDuration }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -35,7 +41,7 @@ export default function BrandUrlField({ onApply }) {
     setError(null);
     setSummary(null);
     try {
-      const { found, missing } = await extractBrandFromUrl(url.trim());
+      const { found, missing } = await extractBrandFromUrl(url.trim(), { targetDuration });
       onApply(found);
       const missed = Array.isArray(missing) ? missing : [];
       setSummary({
@@ -68,7 +74,7 @@ export default function BrandUrlField({ onApply }) {
               run();
             }
           }}
-          placeholder="Have a website? Paste it and we will fill this in"
+          placeholder="Have a website? Paste it and we will draft your brief"
           aria-label="Your website address"
           disabled={busy}
           className="w-full bg-transparent border-0 outline-none px-2.5 py-3 text-sm text-[#2D2235] placeholder:text-[#A99FB5] min-w-0 disabled:opacity-60"

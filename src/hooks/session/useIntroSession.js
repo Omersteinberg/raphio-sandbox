@@ -23,6 +23,13 @@ const INTRO_STAGE_TO_STEP = {
 
 const EMPTY_SCRIPT = { businessName: "", scenes: [], musicPrompt: "", narration: "" };
 
+// Scene creation is a single spinner from the user's side and several minutes of
+// work underneath, so when someone reports that it hung, the console is the only
+// record of which call it hung in. Every line is tagged and carries its own
+// elapsed time.
+const log = (msg) => console.log(`[intro] ${msg}`);
+const since = (t) => `${((Date.now() - t) / 1000).toFixed(1)}s`;
+
 function scriptFromIntroData(introData) {
   if (!introData) return null;
   if (!Array.isArray(introData.scenes) || !introData.scenes.length) return null;
@@ -186,9 +193,19 @@ export function useIntroSession() {
     setLoading(true);
     setError(null);
     setProviderUnavailable(null);
-    setScriptProgress(1);
+    // The ticks below run 2 -> 20 and then hand the bar to the job, whose own
+    // 0-100 is mapped onto 20-100. They used to run as far as 55 and then reset to
+    // 20 when the job started, which read as the bar going backwards, and they are
+    // what INTRO_SUB_STEPS in IntroPipelineCreator draws its ranges from.
+    setScriptProgress(2);
+
+    const startedAt = Date.now();
+    // What was asked for, so a console left open through a failed run still says
+    // what the run was.
+    log(`creating scenes: ${targetDuration}s, ${aspectRatio}, logo "${logoFile.name}", ${showcaseFiles.length} photo(s), brief ${description.trim().split(/\s+/).filter(Boolean).length} words`);
+    let phase = "starting the session";
     try {
-      setScriptProgress(8);
+      let t = Date.now();
       const created = await sessionService.startSession({
         userPrompt: description || businessName,
         pipelineMode: "intro",
@@ -198,41 +215,66 @@ export function useIntroSession() {
       });
       setSessionId(created.id);
       setSession(created);
-      setScriptProgress(20);
+      setScriptProgress(12);
+      log(`session ${created.id} created in ${since(t)}`);
 
+      phase = "uploading the logo";
+      t = Date.now();
       await sessionService.uploadLogo(created.id, logoFile);
-      setScriptProgress(40);
+      setScriptProgress(16);
+      log(`logo uploaded in ${since(t)}`);
 
+      phase = "uploading your photos";
+      t = Date.now();
       if (showcaseFiles.length > 0) {
         await sessionService.uploadImages(created.id, showcaseFiles, showcaseLabels);
+        log(`${showcaseFiles.length} photo(s) uploaded in ${since(t)} as ${showcaseLabels.join(", ")}`);
       }
-      setScriptProgress(55);
+      setScriptProgress(18);
 
+      phase = "saving the brief";
+      t = Date.now();
       await sessionService.saveIntroBrief(created.id, {
         businessName, description, brandColors, fonts: brandFonts, tone: brandTone,
       });
       setScriptProgress(20);
+      log(`brief saved in ${since(t)}`);
 
       // The long one: a plan, then a voiceover and a rendered clip per scene. The
       // bar reads the job's own progress rather than being ticked by hand here,
       // because the backend is the only thing that knows which scene it is on.
+      phase = "building the scenes";
+      t = Date.now();
+      let lastLabel = "";
       const withScenes = await sessionService.generateIntroScenes(created.id, {
         onProgress: (status) => {
           const pct = status?.jobProgress?.percentage;
           if (Number.isFinite(pct)) setScriptProgress(20 + Math.round(pct * 0.8));
-          if (status?.jobProgress?.label) setScriptLabel(status.jobProgress.label);
+          const label = status?.jobProgress?.label;
+          if (!label) return;
+          setScriptLabel(label);
+          // Only when the backend moves on, not on every poll: this fires every 3
+          // seconds for several minutes, and a log of the same line 80 times over
+          // is what makes the useful ones impossible to find.
+          if (label !== lastLabel) {
+            lastLabel = label;
+            log(`${label} (${Number.isFinite(pct) ? pct : "?"}% of the job, ${since(startedAt)} in)`);
+          }
         },
       });
       setSession(withScenes);
       const s = scriptFromIntroData(withScenes.introData);
       if (s) setIntroScript(s);
       setScriptProgress(100);
+      const built = s?.scenes || [];
+      log(`scenes built in ${since(t)}: ${built.length} scene(s) [${built.map((sc) => sc?.type || "?").join(", ")}], ${built.filter((sc) => sc?.clipUrl).length} with a clip`);
+      log(`ready in ${since(startedAt)} total`);
 
       setDirection(1);
       setStep(1);
       toast.success("Your scenes are ready. Watch them, then approve.");
     } catch (err) {
-      console.error("[useIntroSession] startIntroSession failed:", err);
+      console.error(`[intro] FAILED while ${phase}, ${since(startedAt)} in:`, err);
       setSession(null);
       setSessionId(null);
       setScriptProgress(0);
@@ -285,15 +327,27 @@ export function useIntroSession() {
     const indexes = list.map((e) => e.index);
     setReworkingIndexes(indexes);
     setReworkLabel("Rewriting");
+    const startedAt = Date.now();
+    log(`reworking ${list.length} scene(s): ${list.map((e) => `${e.index + 1} "${String(e.note).slice(0, 60)}"`).join(" | ")}`);
     try {
+      let lastLabel = "";
       const updated = await sessionService.reviseIntroScenes(sessionId, list, {
         onProgress: (status) => {
-          if (status?.jobProgress?.label) setReworkLabel(status.jobProgress.label);
+          const label = status?.jobProgress?.label;
+          if (!label) return;
+          setReworkLabel(label);
+          if (label !== lastLabel) {
+            lastLabel = label;
+            log(`${label} (${since(startedAt)} in)`);
+          }
         },
       });
       // null means the poll saw a different job take the slot. Leave the step as it
       // is rather than clearing notes for work that may not have happened.
-      if (!updated) return { ok: [], failed: [] };
+      if (!updated) {
+        log(`rework abandoned after ${since(startedAt)}: another job took the slot`);
+        return { ok: [], failed: [] };
+      }
 
       setSession(updated);
       const s = scriptFromIntroData(updated.introData);
@@ -302,6 +356,7 @@ export function useIntroSession() {
       const failed = Array.isArray(updated.reviseFailures) ? updated.reviseFailures : [];
       const bad = new Set(failed.map((f) => f.index));
       const ok = indexes.filter((i) => !bad.has(i));
+      log(`rework done in ${since(startedAt)}: ${ok.length} changed [${ok.map((i) => i + 1).join(", ") || "none"}]${failed.length ? `, ${failed.length} failed [${failed.map((f) => `${f.index + 1}: ${f.error}`).join("; ")}]` : ""}`);
 
       if (failed.length && ok.length) {
         toast.warning(
@@ -314,6 +369,7 @@ export function useIntroSession() {
       }
       return { ok, failed };
     } catch (err) {
+      console.error(`[intro] rework FAILED after ${since(startedAt)}:`, err);
       toast.error(describeError(err, "We couldn't rework those scenes. Please try again.").userMessage);
       return { ok: [], failed: indexes.map((index) => ({ index, error: "failed" })) };
     } finally {

@@ -7,47 +7,11 @@
       "skillPath": "skills/deploy-to-vercel/SKILL.md",
       "computedHash": "03e0eaaa9bf13ba1e7ffa387f5893de6f324c0868c627001f179395a8feaa7c9"
     },
-    "design-taste-frontend": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/taste-skill/SKILL.md",
-      "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
-    },
-    "emil-design-eng": {
-      "source": "emilkowalski/skill",
-      "sourceType": "github",
-      "skillPath": "skills/emil-design-eng/SKILL.md",
-      "computedHash": "87067d79205fdedc6d682891027dd9c7335486c4b4dc2e785638941a9d2e6061"
-    },
-    "find-animation-opportunities": {
-      "source": "emilkowalski/skill",
-      "sourceType": "github",
-      "skillPath": "skills/find-animation-opportunities/SKILL.md",
-      "computedHash": "c6b1d0f6d03a11f8772b1cef4ca5cc88301ae8641ac2697c85ffa87eb458e40a"
-    },
-    "impeccable": {
-      "source": "pbakaus/impeccable",
-      "sourceType": "github",
-      "skillPath": ".agents/skills/impeccable/SKILL.md",
-      "computedHash": "c32e9c5477ac69855e9295c1d2a107cdaa47595408a7336ae3e9f1ea84e2e36a"
-    },
-    "improve-animations": {
-      "source": "emilkowalski/skill",
-      "sourceType": "github",
-      "skillPath": "skills/improve-animations/SKILL.md",
-      "computedHash": "9cd956e91139211efa5e17fc5e1675b9a3f711ef38cbc92aa8f3fa5b626b7e12"
-    },
     "mediabunny": {
       "source": "remotion-dev/skills",
       "sourceType": "github",
       "skillPath": "skills/mediabunny/SKILL.md",
       "computedHash": "6c05696717d4f717ae8432d21bfc27407626aa46ede272c91913df5451ed3ca6"
-    },
-    "pick-ui-library": {
-      "source": "emilkowalski/skill",
-      "sourceType": "github",
-      "skillPath": "skills/pick-ui-library/SKILL.md",
-      "computedHash": "1a0a6819d13fb5361cf5cdc923f46a1effc37cb61ecb908419eedb0e11f428fe"
     },
     "remotion-best-practices": {
       "source": "remotion-dev/skills",
@@ -102,12 +66,6 @@
       "sourceType": "github",
       "skillPath": "skills/remotion-upgrade/SKILL.md",
       "computedHash": "e2387354d795ff13ce48c696a2df0c4eef3899ac8ba85159995778015233b196"
-    },
-    "review-animations": {
-      "source": "emilkowalski/skill",
-      "sourceType": "github",
-      "skillPath": "skills/review-animations/SKILL.md",
-      "computedHash": "6f8d633d7884c1390eff7af4bfaf7a450e798f117e1d49a555e00819dc877f64"
     },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
