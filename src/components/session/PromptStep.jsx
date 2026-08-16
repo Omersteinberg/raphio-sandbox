@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Film, Wand2,
@@ -31,6 +31,8 @@ import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
 import CreditAffordabilityCard from "./CreditAffordabilityCard";
+import SectionStepper from "./SectionStepper";
+import { useSectionScrollSpy } from "@/hooks/useSectionScrollSpy";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { saveReturnTo } from "@/lib/returnTo";
@@ -64,6 +66,37 @@ const DURATION_OPTIONS = [
 // state, and handlers are all still here, just unreachable while this is
 // false. Flip back to true to restore it - nothing else needs to change.
 const ENABLE_ADVANCED_OPTIONS = false;
+
+// Small-caps section label ("Source" / "Story" / "Direction" / "Style") for
+// the composer's existing visual seams - a labeling pass only, so this is a
+// standalone component rather than a reuse of ChipPanelLabel: that one is a
+// chip-popover-panel heading, a different semantic role that happens to
+// share this typography today. Kept deliberately dumb (no variant, no
+// mode logic) - callers decide when to render it.
+// forwardRef: the section stepper's scrollspy observes these exact DOM
+// nodes to know which section is in view, so each render site needs to be
+// able to hand its label element's ref to the observer.
+// Visually hidden (Tailwind's `sr-only`: 1px, clipped, absolutely
+// positioned) rather than removed - the stepper now carries the visible
+// "Source"/"Story"/etc labeling on its own dots, but the IntersectionObserver
+// still needs a real, positioned DOM node at each section to track scroll
+// against. `sr-only` keeps it in the accessibility tree and in normal
+// document position (browsers place an offset-less `absolute` element at
+// its static position) while taking up zero visual space.
+const SectionLabel = forwardRef(({ children }, ref) => (
+  <p ref={ref} className="sr-only">{children}</p>
+));
+SectionLabel.displayName = "SectionLabel";
+
+// Ordered step definitions for the section stepper. "source" is the only
+// one filtered per mode (prompt-only has no upload/reference block to
+// label) - story/direction/style render in all three modes.
+const STEP_DEFS = [
+  { id: "source", label: "Source" },
+  { id: "story", label: "Story" },
+  { id: "direction", label: "Direction" },
+  { id: "style", label: "Style" },
+];
 
 // Short display labels for the prompt-strength segmented row (design review
 // Variation 5) - the full descriptive strings from scorePrompt() still drive
@@ -594,6 +627,16 @@ export default function PromptStep({
   // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
   // photo upload, advanced settings, and image-count duration advisory.
   const isPromptOnly = pipelineMode === 'prompt';
+  // Section stepper: only list the steps that actually render for this mode
+  // (no "Source" step in prompt-only, matching the header pass above) so the
+  // stepper's step count never disagrees with what's on screen.
+  const stepperSteps = useMemo(
+    () => STEP_DEFS.filter((s) => s.id !== 'source' || !isPromptOnly),
+    [isPromptOnly]
+  );
+  const { register: registerSection, currentId: currentSectionId, registerBottomSentinel } = useSectionScrollSpy(
+    stepperSteps.map((s) => s.id)
+  );
   // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
   // (so page scrolling still works), so the hint must tell users to hold first.
   const isMobile = useIsMobile();
@@ -1096,10 +1139,25 @@ export default function PromptStep({
           </p>
         </div>
 
+        {/* Section stepper: pure scroll-position indicator for the Source/
+            Story/Direction/Style headers below, not a wizard gate - every
+            section stays visible and interactive no matter which step it
+            reports as "current". Sticks to the top of the scroll container
+            (AppLayout's own overflow-auto div, not the window) once its
+            natural position scrolls past it. */}
+        <SectionStepper steps={stepperSteps} currentId={currentSectionId} />
+
           {/* Composer card: assets (if any) -> textarea -> strength meter -> chip row,
               identical shape across all four modes. Assets sit above the textarea so
               the prompt you write below already has something to @mention. */}
           <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
+
+            {/* "Source" section label: covers both the References list and the
+                Photos upload zone below (only one ever renders per mode), so
+                one header above both is correct rather than duplicated per
+                branch. Absent in prompt-only mode - there's no source asset
+                block there to label. */}
+            {!isPromptOnly && <SectionLabel ref={registerSection('source')}>Source</SectionLabel>}
 
             {/* References: unified References Section (untouched; redesigned in a separate task) */}
             {isReferencesMode && (
@@ -1543,6 +1601,9 @@ export default function PromptStep({
               </div>
             )}
 
+            {/* "Story" section label - the textarea block, present in all three modes. */}
+            <SectionLabel ref={registerSection('story')}>Story</SectionLabel>
+
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
@@ -1644,10 +1705,18 @@ export default function PromptStep({
                   row across the textarea's full width instead of hugging the left
                   edge; that's opt-in via className specifically so Brand Intro's chip
                   row (the other ComposerChipRow consumer) is unaffected. Chips stay
-                  size="lg" - a composer's controls, not badges. */}
+                  size="lg" - a composer's controls, not badges.
+                  "Direction" labels this row's existing hairline seam, inside the
+                  same box as the textarea above - the row isn't being pulled out
+                  into its own card, just captioned in place. */}
               <div
-                className="flex items-center px-4 py-2.5 sm:px-8"
+                className="flex items-center px-4 pt-2.5 pb-1 sm:px-8"
                 style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }}
+              >
+                <SectionLabel ref={registerSection('direction')}>Direction</SectionLabel>
+              </div>
+              <div
+                className="flex items-center px-4 pb-2.5 sm:px-8"
               >
                 <ComposerChipRow className="w-full gap-3">
                   <ImproveButton 
@@ -2022,9 +2091,12 @@ export default function PromptStep({
               above.) Advanced is image mode only. */}
           <div data-tour="settings" className="mt-4 sm:mt-6 rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
 
-            {/* Style Selection (renders in both image and references modes) */}
+            {/* Style Selection - renders in all three modes (Photos, Reference, and
+                Prompt-only alike); the outer "settings" section has no mode gate.
+                Label switched from its previous one-off text-sm/stone-500 styling
+                to SectionLabel so it matches Source/Story/Direction. */}
             <div className="space-y-2">
-              <span className="text-sm font-bold block text-stone-500">Style</span>
+              <SectionLabel ref={registerSection('style')}>Style</SectionLabel>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {styleOptions.map((opt) => {
                   const isSelected = style === opt.id;
@@ -2595,6 +2667,14 @@ export default function PromptStep({
                 : "Getting things ready..."}
             </p>
           </div>
+
+          {/* Bottom sentinel for the section stepper: marks the true end of
+              the page's content. On a short page (or a mode with few
+              sections), the last section's own header may never have room
+              to cross the stepper's trigger line before the scroll
+              container hits its max scrollTop - this gives the stepper a
+              direct "there is no more page below this" signal instead. */}
+          <div ref={registerBottomSentinel} aria-hidden="true" className="h-px" />
 
         </motion.div>
       </div>

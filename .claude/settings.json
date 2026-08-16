@@ -117,7 +117,20 @@
       "Bash(node .tmp-credit-screenshot.mjs '__TRACKED_VAR__\\\\credit-2-unaffordable.png' 2 exact_fit false)",
       "Bash(node .tmp-credit-screenshot.mjs '__TRACKED_VAR__\\\\credit-3-needsaifill-blue.png' 20 needs_ai_fill true)",
       "Bash(rm -f .tmp-credit-screenshot.mjs .tmp-credit-debug.mjs)",
-      "Bash(rm -f src/pages/__DevCreditCardPreview.jsx)"
+      "Bash(rm -f src/pages/__DevCreditCardPreview.jsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/create?mode=image)",
+      "Bash(node \"C:/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/section-headers-screens.mjs\")",
+      "Bash(node .tmp-section-headers-screens.mjs)",
+      "Bash(node .tmp-stepper-screens.mjs)",
+      "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-stepper-screens.mjs\")",
+      "Bash(node .tmp-hidden-labels-verify.mjs)",
+      "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-hidden-labels-verify.mjs\")",
+      "Bash(node .tmp-bottom-fix-verify.mjs)",
+      "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-bottom-fix-verify.mjs\")",
+      "Bash(node .tmp-mobile-labels-verify.mjs)",
+      "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-mobile-labels-verify.mjs\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/ --max-time 2)"
     ],
     "additionalDirectories": [
       "\\tmp"
