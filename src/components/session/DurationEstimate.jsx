@@ -3,6 +3,7 @@ import { Clock, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
 import { estimateDuration as fetchEstimate } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { creditsForDuration } from "@/lib/limits";
+import CreditAffordabilityCard from "./CreditAffordabilityCard";
 
 // Visual treatment per estimate status. needs_ai_fill splits on whether AI fill
 // is currently enabled (info-blue when it'll close the gap, amber when the video
@@ -151,27 +152,17 @@ export default function DurationEstimate({
           {estimate.message}
         </p>
       </div>
-      {requiredCredits > 0 && (
-        <div className="flex items-center justify-between gap-2 pl-6">
-          <span
-            className="text-[11px] font-bold"
-            style={{ color: affordable ? s.text : "#C2410C" }}
-          >
-            {affordable
-              ? `Costs ${requiredCredits} credit${requiredCredits !== 1 ? "s" : ""}, you have ${credits}`
-              : `Needs ${requiredCredits} credits, you have ${credits ?? 0}`}
-          </span>
-          {!affordable && (
-            <button
-              onClick={() => onTopUp?.()}
-              className="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
-              style={{ background: "#C1440E" }}
-            >
-              Top up
-            </button>
-          )}
-        </div>
-      )}
+      {/* requiredCredits/affordable (computed above) stay local to this
+          component - onAffordableChange still needs them - only the JSX that
+          rendered them is now shared. affordableTextColor=s.text preserves
+          this card's status-driven color for the affordable case (only the
+          unaffordable case was ever a fixed color here). */}
+      <CreditAffordabilityCard
+        targetDuration={targetDuration}
+        onTopUp={onTopUp}
+        variant="embedded"
+        affordableTextColor={s.text}
+      />
       {visibleOptions.length > 0 && (
         <div className="flex flex-wrap gap-2 pl-6">
           {visibleOptions.map((opt) => (

@@ -110,7 +110,14 @@
       "Bash(rm -f src/pages/__DevHierarchyPreview.jsx)",
       "Bash(node .agents/skills/impeccable/scripts/detect.mjs --json src/components/session/PromptStep.jsx src/components/session/IntroBriefStep.jsx src/components/session/ComposerChip.jsx src/components/session/PromptMentionField.jsx src/components/session/ImproveButton.jsx src/components/session/ModeChooser.jsx src/pages/Creator.jsx src/pages/ImagePipelineCreator.jsx src/pages/ReferencesPipelineCreator.jsx src/pages/IntroPipelineCreator.jsx)",
       "Bash(node \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\summarize.mjs\" \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\detect_reaudit.json\")",
-      "Bash(node /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/details.mjs /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/detect_reaudit.json Creator.jsx)"
+      "Bash(node /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/details.mjs /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/detect_reaudit.json Creator.jsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/__dev-credit-card-preview --max-time 8)",
+      "Bash(node .tmp-credit-screenshot.mjs '__TRACKED_VAR__\\\\credit-1-affordable-exactfit.png' 20 exact_fit false)",
+      "Bash(node .tmp-credit-debug.mjs)",
+      "Bash(node .tmp-credit-screenshot.mjs '__TRACKED_VAR__\\\\credit-2-unaffordable.png' 2 exact_fit false)",
+      "Bash(node .tmp-credit-screenshot.mjs '__TRACKED_VAR__\\\\credit-3-needsaifill-blue.png' 20 needs_ai_fill true)",
+      "Bash(rm -f .tmp-credit-screenshot.mjs .tmp-credit-debug.mjs)",
+      "Bash(rm -f src/pages/__DevCreditCardPreview.jsx)"
     ],
     "additionalDirectories": [
       "\\tmp"

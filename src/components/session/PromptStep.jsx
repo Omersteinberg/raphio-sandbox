@@ -30,6 +30,7 @@ import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
+import CreditAffordabilityCard from "./CreditAffordabilityCard";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { saveReturnTo } from "@/lib/returnTo";
@@ -2513,33 +2514,11 @@ export default function PromptStep({
 
           {/* Credit cost / affordability (references + prompt-only modes, which
               have no DurationEstimate). Tells the user in place instead of
-              redirecting to the pricing page. */}
-          {(isReferencesMode || isPromptOnly) && refRequiredCredits > 0 && (
-            <div
-              className="rounded-2xl border p-4 flex items-center justify-between gap-2"
-              style={{
-                background: refAffordable ? "#F0FDF4" : "#FFF7ED",
-                borderColor: refAffordable ? "#BBF7D0" : "#FED7AA",
-              }}
-            >
-              <span
-                className="text-[11px] font-bold"
-                style={{ color: refAffordable ? "#15803D" : "#C2410C" }}
-              >
-                {refAffordable
-                  ? `Costs ${refRequiredCredits} credit${refRequiredCredits !== 1 ? "s" : ""}, you have ${credits ?? 0}`
-                  : `Needs ${refRequiredCredits} credits, you have ${credits ?? 0}`}
-              </span>
-              {!refAffordable && (
-                <button
-                  onClick={handleTopUp}
-                  className="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
-                  style={{ background: "#C1440E" }}
-                >
-                  Top up
-                </button>
-              )}
-            </div>
+              redirecting to the pricing page. refRequiredCredits/refAffordable
+              (above) stay - canStart and the CTA subtext below still depend on
+              them - only this card's own JSX is now the shared component. */}
+          {(isReferencesMode || isPromptOnly) && (
+            <CreditAffordabilityCard targetDuration={targetDuration} onTopUp={handleTopUp} />
           )}
 
           {/* Error message */}
