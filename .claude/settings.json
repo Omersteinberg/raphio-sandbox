@@ -101,7 +101,16 @@
       "Bash(npm uninstall *)",
       "Bash(powershell -Command 'Get-Process node -ErrorAction SilentlyContinue | Where-Object {\\($_.CommandLine -like '\\\\''*vite*5183*'\\\\''\\) -or \\($_.Id -eq 1940\\)} | Stop-Process -Force')",
       "Bash(curl -s -o /dev/null -w \"port check: %{http_code}\\\\n\" http://localhost:5183/ --max-time 3)",
-      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 5183 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')"
+      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 5183 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }')",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/__dev-hierarchy-preview --max-time 8)",
+      "Bash(node .tmp-screenshot.mjs \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\hierarchy-preview.png\")",
+      "Bash(node .tmp-screenshot-focus.mjs \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\hierarchy-preview-focus.png\")",
+      "Bash(rm -f .tmp-screenshot.mjs .tmp-screenshot-focus.mjs)",
+      "Bash(rm -f src/pages/__DevHierarchyPreview.jsx)",
+      "Bash(node .agents/skills/impeccable/scripts/detect.mjs --json src/components/session/PromptStep.jsx src/components/session/IntroBriefStep.jsx src/components/session/ComposerChip.jsx src/components/session/PromptMentionField.jsx src/components/session/ImproveButton.jsx src/components/session/ModeChooser.jsx src/pages/Creator.jsx src/pages/ImagePipelineCreator.jsx src/pages/ReferencesPipelineCreator.jsx src/pages/IntroPipelineCreator.jsx)",
+      "Bash(node \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\summarize.mjs\" \"C:\\\\Users\\\\amnon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-amnon-merge-frontend\\\\bb59836c-09d4-46cc-b4f7-9e597a138dda\\\\scratchpad\\\\detect_reaudit.json\")",
+      "Bash(node /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/details.mjs /c/Users/amnon/AppData/Local/Temp/claude/c--Users-amnon-merge-frontend/bb59836c-09d4-46cc-b4f7-9e597a138dda/scratchpad/detect_reaudit.json Creator.jsx)"
     ],
     "additionalDirectories": [
       "\\tmp"

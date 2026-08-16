@@ -58,6 +58,12 @@ const DURATION_OPTIONS = [
   { value: 60, label: '60s', desc: 'Full story' },
 ];
 
+// Kill switch for the Advanced accordion (Bridge Scene toggle, opening/closing
+// frame cards - image mode only). Off for now; the accordion's trigger button,
+// state, and handlers are all still here, just unreachable while this is
+// false. Flip back to true to restore it - nothing else needs to change.
+const ENABLE_ADVANCED_OPTIONS = false;
+
 // Short display labels for the prompt-strength segmented row (design review
 // Variation 5) - the full descriptive strings from scorePrompt() still drive
 // the expanded hint text below, these just need to fit a compact segment.
@@ -995,10 +1001,15 @@ export default function PromptStep({
   // isn't "weak," it's just unwritten. Scoring it red before a single
   // character lands reads as a failing grade for doing nothing yet, so the
   // meter stays neutral until there's something to actually evaluate.
+  // "strong" darkened #22A06B -> #1C8357 (impeccable audit): this value also
+  // colors the "Prompt strength: X"/"Strong prompt" TEXT label, which failed
+  // AA at 3.19-3.33:1 as plain text. Same value feeds the progress-bar FILL
+  // too (line ~1905) - that's a harmless side effect, since a fill only needs
+  // 3:1 and clears it even more comfortably at the darker shade.
   const strengthBarColor = promptIsEmpty
     ? "#D8CFC5" // neutral clay - not yet evaluative
     : strength.band === "strong"
-      ? "#22A06B" // green
+      ? "#1C8357" // green, AA-safe as text (4.54:1 on #FBFAF8, 4.74:1 on white)
       : strength.band === "ok"
       ? "#F0B429" // yellow
       : "#E5484D"; // red
@@ -1540,7 +1551,7 @@ export default function PromptStep({
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => { setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
-                  className="inline-flex items-center gap-1.5 px-3 min-h-11 rounded-full text-[11px] font-bold transition-all"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 min-h-12 rounded-full text-[11px] font-bold transition-all"
                   style={showInspiration
                     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
@@ -1551,7 +1562,7 @@ export default function PromptStep({
                 </button>
                 <button
                   onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
-                  className="inline-flex items-center gap-1.5 px-3 min-h-11 rounded-full text-[11px] font-bold transition-all"
+                  className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all"
                   style={showDictionary
                     ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
@@ -1562,7 +1573,7 @@ export default function PromptStep({
                 </button>
                 <button
                   onClick={() => setShowPromptGuide(true)}
-                  className="inline-flex items-center gap-1 px-1.5 min-h-11 text-[11px] font-bold transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-11 text-[11px] font-bold transition-colors"
                   style={{ color: '#75695F' }}
                   onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
@@ -1573,11 +1584,17 @@ export default function PromptStep({
               </div>
             </div>
 
-            {/* Textarea: the hero of this card */}
+            {/* Textarea: the hero of this card - deliberately the dominant
+                element on this screen now (bigger min-height, larger type,
+                roomier padding than the chips/labels/hints around it), with
+                a stronger focus "activation" so it visibly becomes the
+                primary surface the moment the user engages with it: focus
+                border opacity raised (0.35 -> 0.5) and the shadow deepened
+                across all three layers versus the previous, subtler glow. */}
             <div
               className="relative rounded-2xl"
               style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
-              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.15), 0 4px 20px rgba(193,68,14,0.08), 0 0 0 4px rgba(193,68,14,0.06)'; setPromptFocused(true); }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.2), 0 8px 28px rgba(193,68,14,0.14), 0 0 0 4px rgba(193,68,14,0.08)'; setPromptFocused(true); }}
               onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; setPromptFocused(false); }}
             >
               {/* BUG FIX: the word count used to be absolutely positioned against
@@ -1594,8 +1611,8 @@ export default function PromptStep({
                     onChange={(e) => setUserPrompt(e.target.value)}
                     references={references}
                     placeholder={typedPlaceholder === null ? REFERENCE_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
-                    className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                    style={{ color: 'var(--ink-warm)', paddingBottom: '32px', outline: 'none' }}
+                    className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '40px', outline: 'none' }}
                   />
                 ) : (
                   <PromptMentionField
@@ -1604,8 +1621,8 @@ export default function PromptStep({
                     references={imageMentionItems}
                     title="Your scenes"
                     placeholder={typedPlaceholder === null ? PROMPT_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
-                    className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                    style={{ color: 'var(--ink-warm)', paddingBottom: '32px', outline: 'none' }}
+                    className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '40px', outline: 'none' }}
                   />
                 )}
                 <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
@@ -1934,7 +1951,7 @@ export default function PromptStep({
                         aria-expanded={showStrengthDetail}
                         aria-controls="strength-hints"
                         className="flex items-center gap-1 text-[11px] font-bold ml-auto flex-shrink-0"
-                        style={{ color: allFactorsMet ? '#22A06B' : '#C1440E' }}
+                        style={{ color: allFactorsMet ? '#1C8357' : '#C1440E' }}
                       >
                         {showStrengthDetail ? 'Hide' : 'Show details'}
                         {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1973,7 +1990,7 @@ export default function PromptStep({
                                   jump than the old ink-vs-gray pairing, so "done"
                                   vs "not done" reads at a glance, not just on
                                   close inspection. */}
-                              <span className="block font-bold" style={{ color: f.met ? '#22A06B' : '#6B5E7B' }}>
+                              <span className="block font-bold" style={{ color: f.met ? '#1C8357' : '#6B5E7B' }}>
                                 {f.label}
                                 {f.detail && <span className="font-medium" style={{ color: '#75695F' }}> · {f.detail}</span>}
                               </span>
@@ -2085,8 +2102,11 @@ export default function PromptStep({
               </div>
             </div>
 
-            {/* Advanced Controls Accordion Section (image mode only, hidden in prompt-only) */}
-            {!isReferencesMode && !isPromptOnly && (
+            {/* Advanced Controls Accordion Section (image mode only, hidden in prompt-only) -
+                gated on ENABLE_ADVANCED_OPTIONS (see top of file). The whole block, trigger
+                button included, is unreachable while that's false; nothing renders and
+                nothing is focusable/tabbable here. */}
+            {ENABLE_ADVANCED_OPTIONS && !isReferencesMode && !isPromptOnly && (
               <div className="pt-3 border-t" style={{ borderColor: 'rgba(193,68,14,0.08)' }}>
                 <button
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
