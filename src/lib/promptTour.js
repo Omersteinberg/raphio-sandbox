@@ -75,10 +75,10 @@ export function startReferencesTour(isMobile) {
     {
       element: '[data-tour="references"]',
       popover: {
-        title: "Your references",
+        title: "Your world",
         description: isMobile
-          ? "Add the people, places, logos or products that should appear. Name each one, then upload a reference or let AI generate it."
-          : "Add the people, places, logos or products that should appear. Give each a name and description, then upload a reference or let AI generate one.",
+          ? "Add the people, places, logos, or products that belong in your world. Name each one, then upload an image or let AI generate it."
+          : "Add the people, places, logos, or products that belong in your world. Give each a name and description, then upload an image or let AI generate one.",
         side: "top",
         align: "center",
       },

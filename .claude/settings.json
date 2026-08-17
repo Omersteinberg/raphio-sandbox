@@ -130,10 +130,12 @@
       "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-bottom-fix-verify.mjs\")",
       "Bash(node .tmp-mobile-labels-verify.mjs)",
       "Bash(rm -f \"c:/Users/amnon/merge-frontend/.tmp-mobile-labels-verify.mjs\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/ --max-time 2)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/ --max-time 2)",
+      "Bash(rm \"c:/Users/amnon/merge-frontend/src/components/session/SectionStepper.jsx\" \"c:/Users/amnon/merge-frontend/src/hooks/useSectionScrollSpy.js\")"
     ],
     "additionalDirectories": [
-      "\\tmp"
+      "\\tmp",
+      "c:\\Users\\amnon\\merge-frontend\\src\\components\\session"
     ]
   }
 }

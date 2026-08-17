@@ -35,7 +35,7 @@ const MODES = [
   {
     id: "references",
     Icon: Wand2,
-    title: "Generate with references",
+    title: "Build your world",
     useCase: "Lock in characters and settings, then build a consistent story across scenes.",
     pros: ["Consistent characters across scenes", "Best for videos that tell a story"],
     con: "Takes longer to set up (about 7 min)",

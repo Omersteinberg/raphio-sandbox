@@ -2612,7 +2612,7 @@ export default function LandingPage() {
             className="mt-5 max-w-lg text-lg leading-relaxed"
             style={{ color: 'rgba(255,250,247,0.94)', textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 2px 14px rgba(0,0,0,0.4)' }}
           >
-            Real narrative videos that are minutes long, not just 8-second clips. Built for business owners and creators with a story to tell.
+            Real narrative videos, not just 8-second clips. Built for business owners and creators with a story to tell.
           </motion.p>
 
           <motion.div

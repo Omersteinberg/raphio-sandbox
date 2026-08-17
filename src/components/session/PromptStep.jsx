@@ -1,9 +1,9 @@
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
-  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
+  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package, Tag,
   RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle, Clock,
   RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
@@ -31,8 +31,6 @@ import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
 import CreditAffordabilityCard from "./CreditAffordabilityCard";
-import SectionStepper from "./SectionStepper";
-import { useSectionScrollSpy } from "@/hooks/useSectionScrollSpy";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { saveReturnTo } from "@/lib/returnTo";
@@ -66,37 +64,6 @@ const DURATION_OPTIONS = [
 // state, and handlers are all still here, just unreachable while this is
 // false. Flip back to true to restore it - nothing else needs to change.
 const ENABLE_ADVANCED_OPTIONS = false;
-
-// Small-caps section label ("Source" / "Story" / "Direction" / "Style") for
-// the composer's existing visual seams - a labeling pass only, so this is a
-// standalone component rather than a reuse of ChipPanelLabel: that one is a
-// chip-popover-panel heading, a different semantic role that happens to
-// share this typography today. Kept deliberately dumb (no variant, no
-// mode logic) - callers decide when to render it.
-// forwardRef: the section stepper's scrollspy observes these exact DOM
-// nodes to know which section is in view, so each render site needs to be
-// able to hand its label element's ref to the observer.
-// Visually hidden (Tailwind's `sr-only`: 1px, clipped, absolutely
-// positioned) rather than removed - the stepper now carries the visible
-// "Source"/"Story"/etc labeling on its own dots, but the IntersectionObserver
-// still needs a real, positioned DOM node at each section to track scroll
-// against. `sr-only` keeps it in the accessibility tree and in normal
-// document position (browsers place an offset-less `absolute` element at
-// its static position) while taking up zero visual space.
-const SectionLabel = forwardRef(({ children }, ref) => (
-  <p ref={ref} className="sr-only">{children}</p>
-));
-SectionLabel.displayName = "SectionLabel";
-
-// Ordered step definitions for the section stepper. "source" is the only
-// one filtered per mode (prompt-only has no upload/reference block to
-// label) - story/direction/style render in all three modes.
-const STEP_DEFS = [
-  { id: "source", label: "Source" },
-  { id: "story", label: "Story" },
-  { id: "direction", label: "Direction" },
-  { id: "style", label: "Style" },
-];
 
 // Short display labels for the prompt-strength segmented row (design review
 // Variation 5) - the full descriptive strings from scorePrompt() still drive
@@ -155,6 +122,19 @@ const RATIO_BOX = {
   '16:9': { w: 52, h: 29 },
   '9:16': { w: 29, h: 52 },
 };
+
+// Whether a photo's own shape doesn't match the video's frame. Mirrors the
+// backend's 8% tolerance (video.service uploadImages), which is the
+// authoritative check; this one only drives the frontend warning + badges.
+// Shared by the per-photo "Needs framing" badge and the offRatioCount
+// aggregate so the two never drift apart.
+function isOffRatio(img, aspectRatio) {
+  if (!img?.width || !img?.height) return false;
+  const [w, h] = String(aspectRatio || '16:9').split(':').map(Number);
+  if (!w || !h) return false;
+  const target = w / h;
+  return Math.abs(img.width / img.height - target) / target > 0.08;
+}
 
 const PROMPT_DICTIONARY = [
   {
@@ -258,11 +238,14 @@ const REF_TYPE_OPTIONS = [
   { value: 'product', label: 'Product', color: 'emerald' },
 ];
 
-const REF_TYPE_COLORS = {
-  character: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' },
-  setting: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
-  logo: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
-  product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+// Per-type accent + icon, shared by ReferenceInput's header/fields (single
+// active type) and its type-selector pill row (all options rendered at once,
+// each needing its own accent regardless of which is currently selected).
+const REF_TYPE_STYLES = {
+  character: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#E8603C', Icon: Users, label: 'Character' },
+  setting: { accent: '#7C3AED', accentRgb: '124,58,237', gradientEnd: '#A855F7', Icon: Camera, label: 'Setting' },
+  logo: { accent: '#2563EB', accentRgb: '37,99,235', gradientEnd: '#3B82F6', Icon: Tag, label: 'Logo' },
+  product: { accent: '#059669', accentRgb: '5,150,105', gradientEnd: '#10B981', Icon: Package, label: 'Product' },
 };
 
 // ── Shared step badge: used by every section header in the new flow ──
@@ -304,9 +287,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   const isSetting = type === 'setting';
   const isLogo = type === 'logo';
   const isProduct = type === 'product';
-  const accent = isCharacter ? '#C1440E' : isSetting ? '#7C3AED' : isLogo ? '#2563EB' : '#059669';
-  const accentRgb = isCharacter ? '193,68,14' : isSetting ? '124,58,237' : isLogo ? '37,99,235' : '5,150,105';
-  const gradientEnd = isCharacter ? '#E8603C' : isSetting ? '#A855F7' : isLogo ? '#3B82F6' : '#10B981';
+  const { accent, accentRgb, gradientEnd, Icon: TypeIcon } = REF_TYPE_STYLES[type] || REF_TYPE_STYLES.character;
 
   const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
 
@@ -333,71 +314,74 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
       initial={{ opacity: 0, y: 12, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-      className="relative rounded-2xl border overflow-hidden bg-white"
-      style={{ borderColor: `rgba(${accentRgb},0.18)`, borderLeftWidth: 3, borderLeftColor: accent, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+      className="relative rounded-2xl border overflow-hidden bg-white shadow-sm hover:shadow-md transition-all duration-150"
+      style={{ borderColor: `rgba(${accentRgb},0.18)`, borderLeftWidth: 3, borderLeftColor: accent }}
     >
-      {/* Card header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: `rgba(${accentRgb},0.08)`, background: `rgba(${accentRgb},0.025)` }}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${accent}, ${gradientEnd})` }}
-          >
-            {isCharacter
-              ? <Users className="w-2.5 h-2.5 text-white" />
-              : isSetting
-                ? <Camera className="w-2.5 h-2.5 text-white" />
-                : isLogo
-                  ? <Camera className="w-2.5 h-2.5 text-white" />
-                  : <Package className="w-2.5 h-2.5 text-white" />
-            }
-          </div>
-          <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: accent }}>
-            {isCharacter
-              ? `Subject ${index + 1}`
-              : isSetting
-                ? `Background ${index + 1}`
-                : isLogo
-                  ? `Logo ${index + 1}`
-                  : `Product ${index + 1}`
-            }
-          </span>
-        </div>
-        <motion.button
-          whileTap={{ scale: 0.88 }}
-          onClick={() => onRemove(index)}
-          aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
-          className="w-11 h-11 rounded-full flex items-center justify-center transition-colors shrink-0"
-          style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
-        >
-          <X className="w-3 h-3" strokeWidth={2.5} />
-        </motion.button>
-      </div>
-
       <div className="p-4 space-y-3">
 
-        {/* Type selector */}
-        <div>
-          <select
-            value={item.type}
-            onChange={(e) => {
-              const newType = e.target.value;
-              const updates = { ...item, type: newType };
-              if (newType === 'logo') updates.useUpload = true;
-              onChange(index, updates);
-            }}
-            className="w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
-            style={{ background: '#FBFAF8', border: `1.5px solid rgba(${accentRgb},0.12)`, color: 'var(--ink-warm)' }}
+        {/* Header row: icon tile, type label, remove button - one continuous
+            card surface, no separate header band/border. */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${gradientEnd})` }}
+            >
+              <TypeIcon className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: accent }}>
+              {isCharacter
+                ? `Subject ${index + 1}`
+                : isSetting
+                  ? `Background ${index + 1}`
+                  : isLogo
+                    ? `Logo ${index + 1}`
+                    : `Product ${index + 1}`
+              }
+            </span>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.88 }}
+            onClick={() => onRemove(index)}
+            aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
+            className="w-5 h-5 rounded-full flex items-center justify-center transition-colors shrink-0"
+            style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
           >
-            {REF_TYPE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            <X className="w-3 h-3" strokeWidth={2.5} />
+          </motion.button>
+        </div>
+
+        {/* Type selector - tab bar, equal-width tabs with an underline
+            indicator on the active tab (not filled pills). */}
+        <div className="flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
+          {REF_TYPE_OPTIONS.map((opt) => {
+            const optStyle = REF_TYPE_STYLES[opt.value] || REF_TYPE_STYLES.character;
+            const isActive = item.type === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  const newType = opt.value;
+                  const updates = { ...item, type: newType };
+                  if (newType === 'logo') updates.useUpload = true;
+                  onChange(index, updates);
+                }}
+                aria-pressed={isActive}
+                className="flex-1 py-2 text-[11px] font-bold text-center transition-colors -mb-px"
+                style={isActive
+                  ? { color: optStyle.accent, borderBottom: `2px solid ${optStyle.accent}` }
+                  // Neutral regardless of type - only the active tab takes on
+                  // its type's accent color.
+                  : { color: '#9B8FA8', borderBottom: '2px solid transparent' }
+                }
+              >
+                {optStyle.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Name field */}
@@ -477,7 +461,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
                 : { color: '#726481' }
               }
             >
-              <Upload className="w-3 h-3" /> Upload Reference
+              <Upload className="w-3 h-3" /> Upload
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -524,7 +508,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
                   onMouseLeave={e => { e.currentTarget.style.borderColor = `rgba(${accentRgb},0.18)`; e.currentTarget.style.background = '#FBFAF8'; }}
                 >
                   <Upload className="w-4 h-4 mb-1.5" style={{ color: accent, opacity: 0.5 }} />
-                  <span className="text-xs font-semibold text-stone-500">Click to upload reference image</span>
+                  <span className="text-xs font-semibold text-stone-500">Click to upload</span>
                   <span className="text-[10px] text-stone-400 mt-0.5">JPEG or PNG</span>
                   <input type="file" accept={ACCEPTED_IMAGE_ACCEPT} onChange={handleFileChange} className="hidden" />
                 </label>
@@ -627,16 +611,6 @@ export default function PromptStep({
   // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
   // photo upload, advanced settings, and image-count duration advisory.
   const isPromptOnly = pipelineMode === 'prompt';
-  // Section stepper: only list the steps that actually render for this mode
-  // (no "Source" step in prompt-only, matching the header pass above) so the
-  // stepper's step count never disagrees with what's on screen.
-  const stepperSteps = useMemo(
-    () => STEP_DEFS.filter((s) => s.id !== 'source' || !isPromptOnly),
-    [isPromptOnly]
-  );
-  const { register: registerSection, currentId: currentSectionId, registerBottomSentinel } = useSectionScrollSpy(
-    stepperSteps.map((s) => s.id)
-  );
   // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
   // (so page scrolling still works), so the hint must tell users to hold first.
   const isMobile = useIsMobile();
@@ -686,19 +660,13 @@ export default function PromptStep({
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
 
-  // Photos whose shape doesn't match the video's frame. Mirrors the backend's
-  // 8% tolerance (video.service uploadImages), which is the authoritative check;
-  // this one only drives the warning and the toggle below the grid. Dimensions
-  // are measured as each photo is added, so a photo is "on ratio" until it lands.
-  const offRatioCount = useMemo(() => {
-    const [w, h] = String(aspectRatio || '16:9').split(':').map(Number);
-    if (!w || !h) return 0;
-    const target = w / h;
-    return (images ?? []).filter((img) => {
-      if (!img.width || !img.height) return false;
-      return Math.abs(img.width / img.height - target) / target > 0.08;
-    }).length;
-  }, [images, aspectRatio]);
+  // Photos whose shape doesn't match the video's frame. Dimensions are measured
+  // as each photo is added, so a photo is "on ratio" until it lands. Drives the
+  // per-photo "Needs framing" badges and the toggle below the grid.
+  const offRatioCount = useMemo(
+    () => (images ?? []).filter((img) => isOffRatio(img, aspectRatio)).length,
+    [images, aspectRatio]
+  );
   const ctaRef = useRef(null);
   const prevImagesLengthRef = useRef(images?.length ?? 0);
 
@@ -1134,30 +1102,22 @@ export default function PromptStep({
           </h1>
           <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#75695F' }}>
             {isReferencesMode
-              ? 'Define your visual props and settings, then reveal the full storyline.'
+              ? 'Define your characters, settings, style and then let the story unfold.'
               : 'Tell Raphio what you want. It handles everything else.'}
           </p>
         </div>
 
-        {/* Section stepper: pure scroll-position indicator for the Source/
-            Story/Direction/Style headers below, not a wizard gate - every
-            section stays visible and interactive no matter which step it
-            reports as "current". Sticks to the top of the scroll container
-            (AppLayout's own overflow-auto div, not the window) once its
-            natural position scrolls past it. */}
-        <SectionStepper steps={stepperSteps} currentId={currentSectionId} />
-
           {/* Composer card: assets (if any) -> textarea -> strength meter -> chip row,
               identical shape across all four modes. Assets sit above the textarea so
               the prompt you write below already has something to @mention. */}
-          <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
+          <div data-tour="prompt" className="rounded-3xl p-3 sm:p-5 space-y-4" style={CARD_SHADOW}>
 
             {/* "Source" section label: covers both the References list and the
                 Photos upload zone below (only one ever renders per mode), so
                 one header above both is correct rather than duplicated per
                 branch. Absent in prompt-only mode - there's no source asset
                 block there to label. */}
-            {!isPromptOnly && <SectionLabel ref={registerSection('source')}>Source</SectionLabel>}
+            {!isPromptOnly && <p className="sr-only">Source</p>}
 
             {/* References: unified References Section (untouched; redesigned in a separate task) */}
             {isReferencesMode && (
@@ -1165,12 +1125,12 @@ export default function PromptStep({
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                   <div className="flex items-center gap-2">
                     <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                      References
+                      Your world
                     </label>
                     <div className="group relative">
                       <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
-                        Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly, so no AI restyling.
+                        Add the characters, settings, logos, or products that belong in your world. Each one gets a type tag that controls how it's used in generation. Logos are preserved exactly, no AI restyling.
                         <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                       </div>
                     </div>
@@ -1183,12 +1143,12 @@ export default function PromptStep({
                           { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
                         ]);
                       }}
-                      className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full text-white transition-all"
-                      style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 8px rgba(193,68,14,0.30)' }}
-                      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex-shrink-0"
+                      style={{ background: 'rgba(193,68,14,0.08)', color: '#C1440E' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.16)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.08)'; }}
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Reference ({references.length}/8)
+                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add ({references.length}/8)
                     </button>
                   )}
                 </div>
@@ -1216,8 +1176,26 @@ export default function PromptStep({
                 </div>
                 {references.length === 0 && (
                   <div
-                    className="flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
-                    style={{ borderColor: 'rgba(193,68,14,0.15)', background: 'rgba(193,68,14,0.015)' }}
+                    onClick={() => {
+                      onReferencesChange([
+                        ...references,
+                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                      ]);
+                    }}
+                    className="cursor-pointer flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
+                    style={{
+                      borderColor: 'rgba(193,68,14,0.15)',
+                      background: 'rgba(193,68,14,0.015)',
+                      transition: 'background 0.2s ease, border-color 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)';
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.015)';
+                    }}
                   >
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
@@ -1225,8 +1203,22 @@ export default function PromptStep({
                     >
                       <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
                     </div>
-                    <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No references added yet</p>
-                    <p className="text-[11px]" style={{ color: '#726481' }}>Add a character, setting, logo, or product to get started</p>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>Your world is empty</p>
+                    <p className="text-[11px]" style={{ color: '#726481' }}>Add the people, places, or products that belong in it</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReferencesChange([
+                          ...references,
+                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                        ]);
+                      }}
+                      className="mt-3 text-xs font-bold hover:underline"
+                      style={{ color: '#C1440E' }}
+                    >
+                      + Add to your world
+                    </button>
                   </div>
                 )}
               </div>
@@ -1340,7 +1332,7 @@ export default function PromptStep({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.98 }}
                       onClick={() => fileInputRef.current?.click()}
-                      className="cursor-pointer rounded-2xl border-2 border-dashed flex items-center gap-3 py-3.5 px-4 min-h-11"
+                      className="cursor-pointer rounded-2xl border-2 border-dashed flex items-center gap-4 py-5 px-5"
                       style={{
                         borderColor: 'rgba(193,68,14,0.12)',
                         background: '#FBFAF8',
@@ -1356,23 +1348,27 @@ export default function PromptStep({
                       }}
                     >
                       <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
                         style={{
                           background: 'linear-gradient(135deg, #C1440E, #E8603C)',
                           boxShadow: '0 4px 10px rgba(193,68,14,0.28)',
                         }}
                       >
-                        <Upload className="w-4 h-4 text-white" />
+                        <Upload className="w-5 h-5 text-white" />
                       </div>
-                      {/* Two-line copy (design review Variation C), replacing the old
-                          single-line "Drag photos here or click to browse..." */}
                       <div className="min-w-0">
                         <p className="text-sm font-bold" style={{ color: 'var(--ink-warm)' }}>
                           Upload your photos
                         </p>
-                        <p className="text-xs" style={{ color: '#75695F' }}>
-                          Drag &amp; drop or click to browse · up to {MAX_IMAGES}
+                        <p className="text-xs mt-0.5" style={{ color: '#75695F' }}>
+                          Drag &amp; drop or click to browse
                         </p>
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold mt-2"
+                          style={{ background: 'rgba(193,68,14,0.08)', color: '#C1440E' }}
+                        >
+                          Up to {MAX_IMAGES} photos
+                        </span>
                       </div>
                     </motion.div>
                   )}
@@ -1387,15 +1383,20 @@ export default function PromptStep({
                     >
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
                       <SortableContext items={images.map(imageId)} strategy={rectSortingStrategy}>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                         {images.map((img, index) => (
                           <SortableTile
                             key={imageId(img, index)}
                             id={imageId(img, index)}
                             className="cursor-grab active:cursor-grabbing"
                           >
+                          <div
+                            className="rounded-2xl border border-[rgba(193,68,14,0.10)] hover:border-[rgba(193,68,14,0.35)] shadow-sm hover:shadow-md transition-all duration-150 overflow-hidden"
+                            style={{ background: '#fff' }}
+                          >
+                            {/* Photo, with label and remove button overlaid on top of it */}
                             <div
-                              className="relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-300 transition-all duration-150"
+                              className="relative aspect-square"
                               style={{ background: '#FBFAF8' }}
                             >
                               <img
@@ -1403,68 +1404,72 @@ export default function PromptStep({
                                 alt={customLabels[index] || slotLabels[index]}
                                 className="w-full h-full object-cover pointer-events-none"
                               />
+
+                              {/* Remove button, top-right, white circle with terracotta icon */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   removeImage(index);
                                 }}
                                 aria-label="Remove image"
-                                className="absolute top-1 right-1 w-11 h-11 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
-                                style={{ background: '#C1440E' }}
-                                onMouseEnter={(e) =>
-                                  (e.currentTarget.style.background = '#A8380C')
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.currentTarget.style.background = '#C1440E')
-                                }
+                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full transition-all duration-150 flex items-center justify-center shadow-sm z-10 hover:scale-110"
+                                style={{ background: '#fff', color: '#C1440E' }}
                               >
                                 <X className="w-3 h-3" strokeWidth={2.5} />
                               </button>
+
+                              {/* Label, bottom-left, overlaid on the photo */}
+                              {editingLabel === index ? (
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={customLabels[index] ?? slotLabels[index]}
+                                  onChange={(e) =>
+                                    setCustomLabels((c) => ({ ...c, [index]: e.target.value }))
+                                  }
+                                  onBlur={() => setEditingLabel(null)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === 'Escape')
+                                      setEditingLabel(null);
+                                  }}
+                                  className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-white rounded-full px-2 py-0.5 focus:outline-none z-10"
+                                  style={{ color: '#1C1917' }}
+                                />
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingLabel(index);
+                                  }}
+                                  className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-white rounded-full px-2 py-0.5 truncate cursor-text transition-colors z-10 max-w-[calc(100%-16px)]"
+                                  style={{ color: '#1C1917' }}
+                                  title="Click to rename"
+                                >
+                                  {customLabels[index] || slotLabels[index]}
+                                </button>
+                              )}
                             </div>
 
-                            {/* Editable label */}
-                            {editingLabel === index ? (
-                              <input
-                                type="text"
-                                autoFocus
-                                value={customLabels[index] ?? slotLabels[index]}
-                                onChange={(e) =>
-                                  setCustomLabels((c) => ({ ...c, [index]: e.target.value }))
-                                }
-                                onBlur={() => setEditingLabel(null)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === 'Escape')
-                                    setEditingLabel(null);
-                                }}
-                                className="w-full text-[10px] font-bold text-center mt-1.5 bg-transparent border-b focus:outline-none"
-                                style={{
-                                  color: '#C1440E',
-                                  borderColor: 'rgba(193,68,14,0.4)',
-                                }}
-                              />
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingLabel(index);
-                                }}
-                                className="w-full text-[10px] font-bold text-center mt-1.5 truncate cursor-text transition-colors"
-                                style={{
-                                  color: customLabels[index] ? '#C1440E' : '#6B5A52',
-                                }}
-                                title="Click to rename"
-                              >
-                                {customLabels[index] || slotLabels[index]}
-                              </button>
+                            {/* Needs-framing badge — card extends below the photo to hold this */}
+                            {isOffRatio(img, aspectRatio) && (
+                              <div className="px-2 py-1.5 flex justify-center">
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold"
+                                  style={{ background: '#FFF1EA', color: '#C2410C' }}
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                  Needs framing
+                                </span>
+                              </div>
                             )}
+                          </div>
                           </SortableTile>
                         ))}
 
                         {/* Add more tile */}
                         {!atCap && (
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all"
+                          <div
+                            className="rounded-2xl border border-dashed transition-all"
                             style={{
                               background: '#FBFAF8',
                               borderColor: 'rgba(193,68,14,0.15)',
@@ -1478,14 +1483,35 @@ export default function PromptStep({
                               e.currentTarget.style.background = '#FBFAF8';
                             }}
                           >
-                            <Plus
-                              className="w-5 h-5 mb-0.5"
-                              style={{ color: '#C1440E', opacity: 0.5 }}
-                            />
-                            <span className="text-[10px] font-bold text-stone-500">
-                              Add more
-                            </span>
-                          </button>
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="w-full p-0"
+                            >
+                              {/* Inner square, mirroring the photo tile's aspect-square photo div.
+                                  px-2 + text-center keep the icon/label off the rounded corners
+                                  and evenly balanced if the label wraps on narrower columns. */}
+                              <div className="aspect-square flex flex-col items-center justify-center px-2 text-center">
+                                <Plus
+                                  className="w-5 h-5 mb-0.5 flex-shrink-0"
+                                  style={{ color: '#C1440E', opacity: 0.5 }}
+                                />
+                                <span className="text-[10px] font-bold text-stone-500 leading-tight">
+                                  + Add photo
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* Invisible placeholder matching the badge row's exact
+                                markup/height, so this tile's total height matches a
+                                photo tile regardless of whether that tile is showing
+                                the "Needs framing" badge. */}
+                            <div className="px-2 py-1.5 flex justify-center" aria-hidden="true">
+                              <span className="invisible inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold">
+                                <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                Needs framing
+                              </span>
+                            </div>
+                          </div>
                         )}
                       </div>
                       </SortableContext>
@@ -1494,7 +1520,8 @@ export default function PromptStep({
                   )}
                 </AnimatePresence>
 
-                {/* Off-ratio photos: warn, and let the user choose how they're handled */}
+                {/* Off-ratio photos: per-photo badges above already flag which ones,
+                    so this is a single inline row - summary + toggle, not stacked. */}
                 <AnimatePresence>
                   {offRatioCount > 0 && setExtendPhotos && (
                     <motion.div
@@ -1502,47 +1529,31 @@ export default function PromptStep({
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
-                      className="rounded-2xl border p-4 space-y-3"
+                      className="rounded-2xl border overflow-hidden"
                       style={
                         extendPhotos
                           ? { background: 'rgba(193,68,14,0.05)', borderColor: 'rgba(193,68,14,0.20)' }
                           : { background: '#FFF7ED', borderColor: '#FED7AA' }
                       }
                     >
-                      <p
-                        className="font-semibold flex items-center gap-1.5"
-                        style={{ color: extendPhotos ? '#C1440E' : '#C2410C', fontSize: 14.5 }}
-                      >
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        {offRatioCount} of your photos {offRatioCount > 1 ? "aren't" : "isn't"} {aspectRatio}
-                      </p>
-                      <p className="text-xs text-stone-500 leading-relaxed">
-                        {extendPhotos
-                          ? "We'll extend them outward with AI so they fill the frame. Photos with text in them stay untouched, so their words don't get garbled."
-                          : "They'll play with bars down the sides. Turn this on to have AI fill the frame instead."}
-                      </p>
-
                       <button
                         onClick={() => setExtendPhotos(!extendPhotos)}
                         aria-pressed={extendPhotos}
-                        className="w-full flex items-center justify-between gap-4 p-3 rounded-xl transition-colors text-left"
-                        style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
+                        className="w-full flex items-center justify-between gap-4 p-3.5 transition-colors text-left"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                            style={
-                              extendPhotos
-                                ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.30)' }
-                                : { background: 'rgba(193,68,14,0.06)' }
-                            }
+                            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: '#FFF1EA' }}
                           >
-                            <Sparkles style={{ width: 16, height: 16, color: extendPhotos ? '#fff' : '#C1440E' }} />
+                            <AlertTriangle className="w-4 h-4" strokeWidth={2.5} style={{ color: '#C2410C' }} />
                           </div>
-                          <div>
-                            <span className="font-extrabold text-sm block text-stone-800">Extend photos with AI</span>
-                            <span className="text-xs text-stone-400 block leading-relaxed">
-                              Fill the frame instead of showing bars
+                          <div className="min-w-0">
+                            <span className="font-extrabold text-sm block text-stone-800 truncate">
+                              {offRatioCount} photo{offRatioCount > 1 ? 's' : ''} need{offRatioCount > 1 ? '' : 's'} framing adjustment
+                            </span>
+                            <span className="text-xs text-stone-500 block leading-relaxed truncate">
+                              We'll extend {offRatioCount > 1 ? 'them' : 'it'} to fill the {aspectRatio} frame
                             </span>
                           </div>
                         </div>
@@ -1602,7 +1613,7 @@ export default function PromptStep({
             )}
 
             {/* "Story" section label - the textarea block, present in all three modes. */}
-            <SectionLabel ref={registerSection('story')}>Story</SectionLabel>
+            <p className="sr-only">Story</p>
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1713,7 +1724,7 @@ export default function PromptStep({
                 className="flex items-center px-4 pt-2.5 pb-1 sm:px-8"
                 style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }}
               >
-                <SectionLabel ref={registerSection('direction')}>Direction</SectionLabel>
+                <p className="sr-only">Direction</p>
               </div>
               <div
                 className="flex items-center px-4 pb-2.5 sm:px-8"
@@ -2093,10 +2104,9 @@ export default function PromptStep({
 
             {/* Style Selection - renders in all three modes (Photos, Reference, and
                 Prompt-only alike); the outer "settings" section has no mode gate.
-                Label switched from its previous one-off text-sm/stone-500 styling
-                to SectionLabel so it matches Source/Story/Direction. */}
+                Label kept as a sr-only text landmark matching Source/Story/Direction. */}
             <div className="space-y-2">
-              <SectionLabel ref={registerSection('style')}>Style</SectionLabel>
+              <p className="sr-only">Style</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {styleOptions.map((opt) => {
                   const isSelected = style === opt.id;
@@ -2667,14 +2677,6 @@ export default function PromptStep({
                 : "Getting things ready..."}
             </p>
           </div>
-
-          {/* Bottom sentinel for the section stepper: marks the true end of
-              the page's content. On a short page (or a mode with few
-              sections), the last section's own header may never have room
-              to cross the stepper's trigger line before the scroll
-              container hits its max scrollTop - this gives the stepper a
-              direct "there is no more page below this" signal instead. */}
-          <div ref={registerBottomSentinel} aria-hidden="true" className="h-px" />
 
         </motion.div>
       </div>

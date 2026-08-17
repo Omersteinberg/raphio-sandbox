@@ -37,7 +37,7 @@ const TYPE_DOT = {
   beat: '#7C3AED',
 };
 
-export default function PromptMentionField({ value = "", onChange, references = [], title = "Your references", ...props }) {
+export default function PromptMentionField({ value = "", onChange, references = [], title = "Your world", ...props }) {
   const taRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
