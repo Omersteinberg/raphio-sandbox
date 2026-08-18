@@ -238,14 +238,20 @@ const REF_TYPE_OPTIONS = [
   { value: 'product', label: 'Product', color: 'emerald' },
 ];
 
-// Per-type accent + icon, shared by ReferenceInput's header/fields (single
-// active type) and its type-selector pill row (all options rendered at once,
-// each needing its own accent regardless of which is currently selected).
+// Per-type icon, shared by ReferenceInput's header/fields (single active
+// type) and its type-selector tab row (all options rendered at once). Color
+// is deliberately NOT per-type any more - every type shares the same
+// terracotta `accent`/`accentRgb`/`gradientEnd` (this card's whole color
+// scheme, not just the tab bar/icon tile, reads from these three), so
+// nothing in the card - border-left, header label, remove button, name
+// field focus ring, Upload/AI Generate toggle, dropzone, reference image
+// border - can render purple/blue/emerald regardless of which type is
+// selected. Only `Icon` and `label` still vary.
 const REF_TYPE_STYLES = {
   character: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Users, label: 'Character' },
-  setting: { accent: '#7C3AED', accentRgb: '124,58,237', gradientEnd: '#A855F7', Icon: Camera, label: 'Setting' },
-  logo: { accent: '#2563EB', accentRgb: '37,99,235', gradientEnd: '#3B82F6', Icon: Tag, label: 'Logo' },
-  product: { accent: '#059669', accentRgb: '5,150,105', gradientEnd: '#10B981', Icon: Package, label: 'Product' },
+  setting: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Camera, label: 'Setting' },
+  logo: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Tag, label: 'Logo' },
+  product: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Package, label: 'Product' },
 };
 
 // ── Shared step badge: used by every section header in the new flow ──
@@ -391,8 +397,20 @@ const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChang
             indicator on the active tab (not filled pills). Each tab's padding
             is grown past its visible size and pulled back with matching
             negative margin, so the row still reads as thin/compact while the
-            actual tap box is ~44px tall. */}
-        <div role="tablist" aria-label="Reference type" className="flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
+            actual tap box is ~44px tall.
+            The indicator is NOT each tab's own border-bottom any more - a
+            tab's -mt-1.5/-mb-1.5 shrinks its margin box without moving its
+            border box, so a border-bottom drawn on the button itself renders
+            ~6px (the mb amount) below this container's own border-bottom -
+            visibly off the shared divider line instead of flush on it.
+            Pulling the indicator out into one absolutely-positioned bar on
+            the (now `relative`) container instead pins it to the container's
+            own bottom edge - the divider itself - regardless of what the
+            tabs' margins are doing. Hardcoded terracotta rather than
+            `optStyle.accent` here only because every type's accent is
+            terracotta now anyway (see REF_TYPE_STYLES) - this whole card,
+            not just the tab bar, no longer varies color by type. */}
+        <div role="tablist" aria-label="Reference type" className="relative flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
           {REF_TYPE_OPTIONS.map((opt) => {
             const optStyle = REF_TYPE_STYLES[opt.value] || REF_TYPE_STYLES.character;
             const isActive = item.type === opt.value;
@@ -409,19 +427,28 @@ const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChang
                   onChange(index, updates);
                 }}
                 className="flex-1 py-3.5 -mt-1.5 -mb-1.5 text-[11px] font-bold text-center transition-colors"
-                style={isActive
-                  ? { color: optStyle.accent, borderBottom: `2px solid ${optStyle.accent}` }
-                  // Neutral regardless of type - only the active tab takes on
-                  // its type's accent color. #726481 (not #9B8FA8) to clear
-                  // WCAG AA contrast - matches the muted text already used
-                  // elsewhere in this section.
-                  : { color: '#726481', borderBottom: '2px solid transparent' }
-                }
+                style={{
+                  // Neutral unless active - #726481 (not #9B8FA8) to clear
+                  // WCAG AA contrast, matches the muted text already used
+                  // elsewhere in this section. Always terracotta when active,
+                  // never the per-type accent.
+                  color: isActive ? '#C1440E' : '#726481',
+                }}
               >
                 {optStyle.label}
               </button>
             );
           })}
+          <motion.div
+            aria-hidden="true"
+            className="absolute bottom-0 h-[2px] pointer-events-none"
+            style={{ background: '#C1440E' }}
+            animate={{
+              left: `${(REF_TYPE_OPTIONS.findIndex((o) => o.value === item.type) / REF_TYPE_OPTIONS.length) * 100}%`,
+              width: `${100 / REF_TYPE_OPTIONS.length}%`,
+            }}
+            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+          />
         </div>
 
         {/* Name field */}
@@ -480,9 +507,9 @@ const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChang
         {isLogo ? (
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-xl"
-            style={{ background: 'rgba(59,130,246,0.06)', border: '1.5px solid rgba(59,130,246,0.12)' }}
+            style={{ background: `rgba(${accentRgb},0.06)`, border: `1.5px solid rgba(${accentRgb},0.12)` }}
           >
-            <span className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>
+            <span className="text-[11px] font-bold" style={{ color: accent }}>
               Upload only: logos are preserved exactly
             </span>
           </div>
@@ -1485,7 +1512,7 @@ export default function PromptStep({
                     >
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
                       <SortableContext items={images.map(imageId)} strategy={rectSortingStrategy}>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
                         {images.map((img, index) => (
                           <SortableTile
                             key={imageId(img, index)}
@@ -1912,7 +1939,7 @@ export default function PromptStep({
                     ComposerChipRow's default `gap-3` that every other caller relies on.
                     At `sm:` and up this is byte-for-byte the original wrapping+growing
                     row, pixel-verified against the pre-session original. */}
-                <ComposerChipRow className="w-full" gapClassName="gap-0.5 sm:gap-3">
+                <ComposerChipRow className="w-full" gapClassName="gap-2 sm:gap-3">
                   <ImproveButton
                     className="hidden sm:flex mr-7"
                     onClick={handleImprove}
