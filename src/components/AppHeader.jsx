@@ -400,8 +400,10 @@ export default function AppHeader() {
               boxShadow: '-8px 0 32px rgba(44,36,32,0.14)',
             }}
           >
-            {/* Drawer header: avatar + name on the left, close on the right */}
-            <div className="flex items-center justify-between gap-3 px-5 h-14 shrink-0">
+            {/* Drawer header: avatar + name on the left, close on the right.
+                pt-5 (was a flush h-14) gives it real breathing room off the
+                panel's top edge instead of sitting right against it. */}
+            <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
@@ -424,8 +426,44 @@ export default function AppHeader() {
               </button>
             </div>
 
-            {/* Page links - top */}
-            <nav className="flex flex-col px-3 pt-2 gap-1">
+            {/* Credits - directly under the profile header, not pinned to the
+                bottom of the panel (no mt-auto: that pushed everything below
+                the nav list down to the bottom edge regardless of how much
+                content there was, creating a large dead gap). Card treatment
+                strengthened (opaque-ish surface + visible border + a hint of
+                lift) so it reads as a bordered card rather than a tinted
+                button. */}
+            <div className="px-3 pt-3">
+              <button
+                data-tour="drawer-credits"
+                onClick={() => navigate('/buy-credits')}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{
+                  background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(255,255,255,0.65)',
+                  border: isLow ? '1px solid rgba(193,68,14,0.28)' : '1px solid rgba(193,68,14,0.16)',
+                  boxShadow: '0 1px 3px rgba(193,68,14,0.06)',
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
+                  <span className="text-sm font-semibold" style={{ color: '#2C2420' }}>
+                    {credits ?? '...'} credits
+                  </span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: '#C1440E' }}>
+                  {isLow ? 'Running low' : 'Top up'}
+                </span>
+              </button>
+            </div>
+
+            {/* Divider between the credits card and the nav list - a real
+                rule, not just whitespace, matching the reference layout. */}
+            <div className="mx-5 mt-3" style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }} />
+
+            {/* Page links - directly below credits, stacked tight (gap-1.5,
+                no mt-auto push). Dashboard sits above Settings to match the
+                reference layout. */}
+            <nav className="flex flex-col px-3 pt-3 gap-1.5">
               <button
                 data-tour="drawer-create"
                 onClick={goToCreate}
@@ -452,19 +490,6 @@ export default function AppHeader() {
                 <Video className="w-5 h-5 shrink-0" />
                 My Videos
               </button>
-              <button
-                data-tour="drawer-settings"
-                onClick={() => navigate('/settings')}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
-                style={
-                  isActive('/settings')
-                    ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
-                    : { color: '#2C2420', background: 'transparent' }
-                }
-              >
-                <Settings className="w-5 h-5 shrink-0" />
-                Settings
-              </button>
               {isAdmin && (
                 <button
                   onClick={() => navigate('/admin/overview')}
@@ -479,6 +504,19 @@ export default function AppHeader() {
                   Dashboard
                 </button>
               )}
+              <button
+                data-tour="drawer-settings"
+                onClick={() => navigate('/settings')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                style={
+                  isActive('/settings')
+                    ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                    : { color: '#2C2420', background: 'transparent' }
+                }
+              >
+                <Settings className="w-5 h-5 shrink-0" />
+                Settings
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => navigate('/admin/promos')}
@@ -495,35 +533,25 @@ export default function AppHeader() {
               )}
             </nav>
 
-            {/* Bottom: credits + sign out (pinned, no dividers) */}
+            {/* Sign out - pinned to the true bottom of the panel via mt-auto
+                (not a fixed gap): it consumes whatever space is left below
+                the nav list, so it sits at the bottom edge regardless of how
+                tall the nav list is, instead of trailing directly under it.
+                Full-weight ink color, not the old muted `#9B8B83` (that read
+                as a disabled state, not intentional de-emphasis - nothing
+                about this control is actually disabled). The soft border is
+                Sign out's own visual separation from the nav list above it,
+                since it's no longer adjacent enough for whitespace alone to
+                read as a break. */}
             <div
-              className="mt-auto px-3 py-3 flex flex-col gap-2"
+              className="mt-auto px-3 pt-3"
               style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
             >
-              <button
-                data-tour="drawer-credits"
-                onClick={() => navigate('/buy-credits')}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl"
-                style={{
-                  background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(193,68,14,0.06)',
-                  border: isLow ? '1px solid rgba(193,68,14,0.25)' : '1px solid rgba(193,68,14,0.10)',
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
-                  <span className="text-sm font-semibold" style={{ color: '#2C2420' }}>
-                    {credits ?? '...'} credits
-                  </span>
-                </div>
-                <span className="text-xs font-bold" style={{ color: '#C1440E' }}>
-                  {isLow ? 'Running low' : 'Top up'}
-                </span>
-              </button>
               <button
                 data-tour="drawer-signout"
                 onClick={() => { setMobileOpen(false); logout(); }}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-medium"
-                style={{ color: '#9B8B83' }}
+                style={{ color: '#2C2420', border: '1px solid rgba(193,68,14,0.14)' }}
               >
                 <LogOut className="w-5 h-5 shrink-0" />
                 Sign out

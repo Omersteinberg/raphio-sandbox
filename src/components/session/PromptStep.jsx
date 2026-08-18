@@ -270,6 +270,31 @@ const CARD_SHADOW = {
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
+// Ephemeral label bubble for an icon-only pill: `sm:hidden` makes it a no-op
+// at >=640px, where the pill's own inline text label is already visible, so
+// this only ever renders below that breakpoint. Purely visual (aria-hidden) -
+// the button carries its own aria-label for screen readers regardless of tap
+// state.
+function PillTapLabel({ show, children }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.span
+          aria-hidden="true"
+          initial={{ opacity: 0, y: 4, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.92 }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="sm:hidden absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-bold text-white pointer-events-none z-20"
+          style={{ background: '#2C2420', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
+        >
+          {children}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // Memoized: without this, every keystroke in ANY one reference's fields
 // rebuilds the whole `references` array (see handleReferenceChange below),
 // which would re-render every ReferenceInput in the list on every edit.
@@ -660,6 +685,21 @@ export default function PromptStep({
   const [showPromptGuide, setShowPromptGuide] = useState(false);
   const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
+  // Below `sm` the Inspiration/Dictionary/Tips pills lose their inline text
+  // label (space reasons - see the row's flex-nowrap comment below) and go
+  // icon-only. `tappedPill` briefly shows that label above the icon on tap,
+  // as feedback for the same click that fires the action - not a separate
+  // confirm step. `sm:hidden` on the label itself (not this state) is what
+  // keeps it a no-op at >=640px, where the permanent inline text is already
+  // visible.
+  const [tappedPill, setTappedPill] = useState(null);
+  const tappedPillTimeoutRef = useRef(null);
+  const revealPillLabel = useCallback((id) => {
+    clearTimeout(tappedPillTimeoutRef.current);
+    setTappedPill(id);
+    tappedPillTimeoutRef.current = setTimeout(() => setTappedPill(null), 1100);
+  }, []);
+  useEffect(() => () => clearTimeout(tappedPillTimeoutRef.current), []);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('shot');
   const [template, setTemplate] = useState('general');
@@ -928,14 +968,14 @@ export default function PromptStep({
   );
   const promptIsEmpty = !userPrompt?.trim();
   const allFactorsMet = strength.factors.length > 0 && strength.factors.every((f) => f.met);
-  // Details show automatically while the prompt is still incomplete (that's
-  // when the guidance is useful) and collapse the moment every factor passes
-  // - the literal all-met condition from the Phase 1 spec, not a score band.
-  // Lazy-initialized from the current state so a resumed already-strong
-  // session doesn't flash the detail view open before collapsing; the effect
-  // keeps it reactive as the user types. "Show details"/"Hide" overrides
-  // either way.
-  const [showStrengthDetail, setShowStrengthDetail] = useState(() => !allFactorsMet);
+  // Starts collapsed - just the bar + summary line - on both mobile and
+  // desktop now. (Previously auto-opened while the prompt was incomplete;
+  // that made sense as a first-run nudge but read as noisy clutter once the
+  // composer had other things competing for attention, so "Show details" is
+  // now an opt-in on every screen size, not just mobile.) The effect below
+  // still auto-collapses it once every factor passes, in case the user
+  // opened it by hand and then finished the prompt while it was open.
+  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
   useEffect(() => {
     if (allFactorsMet) setShowStrengthDetail(false);
   }, [allFactorsMet]);
@@ -1101,7 +1141,23 @@ export default function PromptStep({
         </button>
       )}
 
-      <div className="min-h-full flex flex-col items-center justify-start px-2 sm:px-4 py-6 sm:py-12 md:py-16 pb-12">
+      {/* py-6 sm:py-12 md:py-16 is the original class list - keep it intact.
+          Its padding-bottom half isn't decorative: `pb-12` further down wins
+          the base (<640px) tier over py-6's own 24px (Tailwind emits `pb-*`
+          after `py-*` within the unprefixed group), and `md:py-16` in turn
+          wins over `pb-12` at >=768px (media-query-grouped utilities are
+          emitted after the base group) - so desktop's real padding-bottom is
+          64px, not pb-12's 48px. Confirmed by inspecting the compiled
+          Tailwind output, not assumed. Splitting `py-6` into a `pt-*` class
+          here to bump only the mobile top padding would have silently
+          dropped that 64px down to 48px on desktop. The inline `paddingTop`
+          override below touches only padding-top, leaving every bit of that
+          padding-bottom cascade - and every other breakpoint's top padding -
+          exactly as it was. */}
+      <div
+        className="min-h-full flex flex-col items-center justify-start px-2 sm:px-4 py-6 sm:py-12 md:py-16 pb-12"
+        style={{ paddingTop: isMobile ? 36 : undefined }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1145,8 +1201,20 @@ export default function PromptStep({
 
           {/* Composer card: assets (if any) -> textarea -> strength meter -> chip row,
               identical shape across all four modes. Assets sit above the textarea so
-              the prompt you write below already has something to @mention. */}
-          <div data-tour="prompt" className="rounded-3xl p-3 sm:p-5 space-y-4" style={CARD_SHADOW}>
+              the prompt you write below already has something to @mention.
+              marginTop below is an inline override, not a Tailwind class: the parent's
+              `space-y-3 sm:space-y-5` compiles to `.space-y-3 > :not([hidden]) ~
+              :not([hidden])`, whose specificity (0,3,0) beats a plain margin utility
+              (0,1,0) regardless of source order, so a `mt-*` class here would be dead
+              on arrival. Inline style always wins over an external class rule, which is
+              the only way to widen just this one boundary without touching the other
+              siblings under that same space-y container. Mobile-only per the design
+              pass; sm+ is left to the parent's space-y-5 (20px) unchanged. */}
+          <div
+            data-tour="prompt"
+            className="rounded-3xl p-3 sm:p-5 space-y-4"
+            style={{ ...CARD_SHADOW, marginTop: isMobile ? 24 : undefined }}
+          >
 
             {/* "Source" section label: covers both the References list and the
                 Photos upload zone below (only one ever renders per mode), so
@@ -1672,38 +1740,50 @@ export default function PromptStep({
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => { setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 min-h-12 rounded-full text-[11px] font-bold transition-all"
-                  style={showInspiration
-                    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
-                    : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
-                  }
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span className="hidden sm:inline">Inspiration</span>
-                </button>
-                <button
-                  onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
-                  className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all"
-                  style={showDictionary
-                    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
-                    : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
-                  }
-                >
-                  <BookOpen className="w-3 h-3" />
-                  <span className="hidden sm:inline">Dictionary</span>
-                </button>
-                <button
-                  onClick={() => setShowPromptGuide(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-11 text-[11px] font-bold transition-colors"
-                  style={{ color: '#75695F' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tips</span>
-                </button>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'inspiration'}>Inspiration</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('inspiration'); setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
+                    aria-label="Inspiration"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 min-h-12 rounded-full text-[11px] font-bold transition-all"
+                    style={showInspiration
+                      ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                      : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
+                    }
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span className="hidden sm:inline">Inspiration</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'dictionary'}>Dictionary</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('dictionary'); setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
+                    aria-label="Dictionary"
+                    className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all"
+                    style={showDictionary
+                      ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                      : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
+                    }
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    <span className="hidden sm:inline">Dictionary</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'tips'}>Tips</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('tips'); setShowPromptGuide(true); }}
+                    aria-label="Tips"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-11 text-[11px] font-bold transition-colors"
+                    style={{ color: '#75695F' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
+                  >
+                    <Lightbulb className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Tips</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1726,7 +1806,15 @@ export default function PromptStep({
                   of the text box, so the count visually collided with the last
                   chip. Scoping it to its own `relative` wrapper around just the
                   textarea fixes that: "bottom" now means the bottom of the
-                  textarea, full stop, regardless of what renders after it. */}
+                  textarea, full stop, regardless of what renders after it.
+                  Improve is docked here too (bottom-right, absolutely positioned
+                  against this same wrapper) so it reads as part of the composer
+                  surface rather than floating on top of the text. `paddingBottom`
+                  on the textarea itself (64px, up from 40px) is what keeps it
+                  safe: it reserves blank space at the bottom of the text box that
+                  typed content can never reach into, so even a max-length prompt's
+                  wrapped last line ends above the button, not under it. The word
+                  count moved to bottom-left so the two never share a corner. */}
               <div className="relative">
                 {isReferencesMode ? (
                   <PromptMentionField
@@ -1735,7 +1823,7 @@ export default function PromptStep({
                     references={references}
                     placeholder={typedPlaceholder === null ? REFERENCE_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
                     className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
-                    style={{ color: 'var(--ink-warm)', paddingBottom: '40px', outline: 'none' }}
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '64px', outline: 'none' }}
                   />
                 ) : (
                   <PromptMentionField
@@ -1745,28 +1833,40 @@ export default function PromptStep({
                     title="Your scenes"
                     placeholder={typedPlaceholder === null ? PROMPT_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
                     className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
-                    style={{ color: 'var(--ink-warm)', paddingBottom: '40px', outline: 'none' }}
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '64px', outline: 'none' }}
                   />
                 )}
-                <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
+                {/* Bottom-left on mobile (clear of the docked Improve copy, which owns
+                    bottom-right there); bottom-right on desktop, where Improve has
+                    moved back into the chip row and left that corner empty. */}
+                <span
+                  className="absolute bottom-2 left-3 sm:left-auto sm:right-3"
+                  style={{ fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}
+                >
                   {wordCount} words
                 </span>
+                {/* Mobile-only copy, docked bottom-right in the textarea's own box.
+                    `sm:hidden` - at `sm:` and up Improve lives back in the chip row
+                    below (the other copy, `hidden sm:flex`) instead. Two CSS-toggled
+                    copies, not a JS-conditional mount, so there's no layout shift or
+                    hydration mismatch right at the breakpoint. */}
+                <ImproveButton
+                  className="absolute bottom-2.5 right-3 z-10 sm:hidden"
+                  onClick={handleImprove}
+                  busy={improving}
+                  disabled={!userPrompt?.trim()}
+                />
               </div>
 
               {/* Chip row: lives inside the same bordered box as the text, below it -
                   the ChatGPT/Claude composer pattern. A hairline (not a tinted tray)
                   separates it from the typed text, since the box itself already gives
-                  the chips a floor to sit on. Improve is the leading item - it used to
-                  float absolutely inside the textarea, which overlapped this row; now
-                  it's a real flex sibling so the two can never collide. It stays on
-                  ImproveButton's filled-gradient default (terra fill, white text/icon)
-                  - a brief outlined experiment was reverted per design feedback - so it
-                  reads as the one action among the outlined value chips.
-                  `className="w-full justify-between"` on ComposerChipRow spreads the
-                  row across the textarea's full width instead of hugging the left
-                  edge; that's opt-in via className specifically so Brand Intro's chip
-                  row (the other ComposerChipRow consumer) is unaffected. Chips stay
-                  size="lg" - a composer's controls, not badges.
+                  the chips a floor to sit on. Improve is the leading item again at
+                  `sm:` and up (`hidden sm:flex`) - its mobile-only twin lives docked
+                  inside the textarea above. It stays on ImproveButton's filled-gradient
+                  default (terra fill, white text/icon) so it reads as the one action
+                  among the outlined value chips. Chips stay size="lg" - a composer's
+                  controls, not badges.
                   "Direction" labels this row's existing hairline seam, inside the
                   same box as the textarea above - the row isn't being pulled out
                   into its own card, just captioned in place. */}
@@ -1779,9 +1879,42 @@ export default function PromptStep({
               <div
                 className="flex items-center px-4 pb-2.5 sm:px-8"
               >
-                <ComposerChipRow className="w-full gap-3">
-                  <ImproveButton 
-                    className="mr-7"
+                {/* Below `sm` these four chips drop their text label entirely (icon +
+                    value only, same pattern as the Inspiration/Dictionary/Tips pills -
+                    see SIZE.lg and the outlined+value render in ComposerChip.jsx), all
+                    four `grow` to fill the row's width EQUALLY at every breakpoint
+                    (unconditional `flex-1`/`w-full`, not `sm:`-gated - see
+                    ComposerChipRow's and ComposerChip's own comments), and each still
+                    carries an explicit `min-w-[Npx]` floor sized to its own longest
+                    possible VALUE (not label), so no chip's text truncates if equal
+                    division would otherwise squeeze it below its content. Two things
+                    that are easy to re-break here if this gets touched again:
+                    (1) the trailing chevron `variant="outlined"` renders - it's part
+                    of every chip's real footprint and has to be in every min-width
+                    calculation, but only Length/Ratio actually have a popover to
+                    indicate, so Voice/Music drop theirs below `sm` (see each chip's
+                    own comment and ComposerChip.jsx's `hasPopover` check) - both to
+                    reclaim the width and because a chevron on a chip with nothing to
+                    expand was never meaningful; (2) `justify-between` only reads
+                    correctly once there's a two-line label/value block to balance
+                    against the chevron - below `sm` (icon + one short value) it's
+                    `justify-center` instead, or the packed content and the isolated
+                    chevron end up looking like two unrelated things in one box. Fits
+                    one line at 360px (Android's narrow baseline) with real slack to
+                    spare, measured in headless Chrome against the real compiled CSS by
+                    tracing the actual nested padding chain (composer card -> textarea
+                    box -> chip-row section) rather than an approximation. No horizontal
+                    scroll needed, so this row no longer opts into ComposerChipRow's
+                    `scroll` mode (dead weight otherwise: nothing left to scroll).
+                    `gapClassName="gap-1 sm:gap-3"` tightens just the inter-chip gap
+                    below `sm` (kept slightly looser than the tightest fit that still
+                    works, for a bit of breathing room between pills), without touching
+                    ComposerChipRow's default `gap-3` that every other caller relies on.
+                    At `sm:` and up this is byte-for-byte the original wrapping+growing
+                    row, pixel-verified against the pre-session original. */}
+                <ComposerChipRow className="w-full" gapClassName="gap-0.5 sm:gap-3">
+                  <ImproveButton
+                    className="hidden sm:flex mr-7"
                     onClick={handleImprove}
                     busy={improving}
                     disabled={!userPrompt?.trim()}
@@ -1793,6 +1926,15 @@ export default function PromptStep({
                       grow
                       size="lg"
                       variant="outlined"
+                      // Measured (headless Chrome, real compiled CSS, actual nested
+                      // padding chain) natural width of the widest duration value
+                      // ("15s"/"30s"/"45s"/"60s" - all equal length) is 53px including
+                      // the trailing chevron - Length has a popover (`panel` below), so
+                      // it keeps its chevron at every width (see ComposerChip.jsx's
+                      // `hasPopover` check); rounded up with a small margin. sm:min-w-0
+                      // confines this to below `sm` - at `sm:` the chip already grows
+                      // past this via `grow` above, and the label reappears.
+                      className="min-w-[58px] sm:min-w-0"
                       icon={Clock}
                       label="Length"
                       value={`${targetDuration}s`}
@@ -1822,6 +1964,11 @@ export default function PromptStep({
                       grow
                       size="lg"
                       variant="outlined"
+                      // Measured natural width of "9:16"/"16:9" (equal length),
+                      // including the trailing chevron (Ratio also has a popover, so
+                      // it keeps its chevron too), is 57px; rounded up with a small
+                      // margin. See the Length chip's comment.
+                      className="min-w-[59px] sm:min-w-0"
                       icon={(aspectRatio || '16:9') === '9:16' ? RectangleVertical : RectangleHorizontal}
                       label="Ratio"
                       value={aspectRatio || '16:9'}
@@ -1854,6 +2001,24 @@ export default function PromptStep({
                       grow
                       size="lg"
                       variant="outlined"
+                      // Voice has no popover (it opens a modal via onClick, not
+                      // `panel`), so below `sm` it drops the chevron entirely - see
+                      // ComposerChip.jsx's `hasPopover` check on the chevron. That's
+                      // not just cosmetic: with the chevron counted, the four chips'
+                      // combined floor didn't fit 360px at all (confirmed - Music
+                      // wrapped to its own row); dropping the two meaningless chevrons
+                      // (Voice, Music - neither has anything to expand) recovered the
+                      // width both actually needed. Measured natural width (icon+value,
+                      // no chevron) across every fallback voice name
+                      // (src/services/voices.js) tops out at 83px ("Louisamay" -
+                      // checked all 64 names, not just the current selection or
+                      // "Default"). Rounded up with a larger margin than the other
+                      // three chips - the widest value gets the least slack of the
+                      // four, so this one leans a bit harder on the fact that it's a
+                      // controlled web font (Figtree), not a system font, for
+                      // cross-device consistency. See the Length chip's comment for
+                      // the mechanism.
+                      className="min-w-[84px] sm:min-w-0"
                       icon={Mic}
                       label="Voice"
                       value={voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default'}
@@ -1868,6 +2033,11 @@ export default function PromptStep({
                       grow
                       size="lg"
                       variant="outlined"
+                      // Music also has no popover (it's an inline toggle), so it
+                      // drops the chevron below `sm` too - see the Voice chip's
+                      // comment. Measured natural width of "On"/"Off" (no chevron) is
+                      // 39px; rounded up with a small margin.
+                      className="min-w-[44px] sm:min-w-0"
                       icon={Music}
                       label="Music"
                       value={backgroundMusic ? 'On' : 'Off'}
@@ -2068,23 +2238,34 @@ export default function PromptStep({
                       {promptIsEmpty ? 'Start typing to see your prompt strength' : allFactorsMet ? 'Strong prompt' : `Prompt strength: ${strength.label}`}
                     </span>
 
-                    {strength.factors.map((f) => (
-                      <span key={f.id} className="flex items-center gap-1.5 flex-shrink-0">
-                        <span
-                          className="flex items-center justify-center rounded-full flex-shrink-0"
-                          style={{
-                            width: 15, height: 15,
-                            background: f.met ? '#22A06B' : 'transparent',
-                            border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
-                          }}
-                        >
-                          {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                    {/* Below `sm` these three indicators are dropped from the collapsed
+                        header entirely (not just visually hidden) - on a phone they
+                        crowded/wrapped awkwardly against the status text and the Show
+                        details toggle, and the same three concepts already exist as the
+                        full criteria list one tap away. `hidden sm:contents`: `hidden`
+                        removes the whole group below `sm`; `contents` at `sm:` makes this
+                        wrapper generate no box of its own, so the spans still act as
+                        direct children of the flex row exactly as before - the desktop
+                        layout is untouched by construction, not just visually similar. */}
+                    <div className="hidden sm:contents">
+                      {strength.factors.map((f) => (
+                        <span key={f.id} className="flex items-center gap-1.5 flex-shrink-0">
+                          <span
+                            className="flex items-center justify-center rounded-full flex-shrink-0"
+                            style={{
+                              width: 15, height: 15,
+                              background: f.met ? '#22A06B' : 'transparent',
+                              border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                            }}
+                          >
+                            {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                          </span>
+                          <span className="text-[11px] font-medium" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
+                            {SEGMENT_FACTOR_LABEL[f.id] || f.label}
+                          </span>
                         </span>
-                        <span className="text-[11px] font-medium" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
-                          {SEGMENT_FACTOR_LABEL[f.id] || f.label}
-                        </span>
-                      </span>
-                    ))}
+                      ))}
+                    </div>
 
                     {strength.factors.length > 0 && (
                       <button
@@ -2103,13 +2284,22 @@ export default function PromptStep({
 
                   <AnimatePresence initial={false}>
                     {showStrengthDetail && strength.factors.length > 0 && (
-                      <motion.ul
-                        id="strength-hints"
+                      <motion.div
                         initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                         transition={{ duration: 0.16 }}
-                        className="overflow-hidden space-y-1.5 pt-2"
+                        className="overflow-hidden"
+                      >
+                      {/* Separates the collapsed header row (status text + the
+                          Detailed/Clear setting/Tone & action indicators, plus
+                          Show details/Hide) from the expanded criteria list below -
+                          previously just `pt-2` whitespace with no visible break
+                          between the two groups. */}
+                      <div className="mt-2 mb-2" style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }} />
+                      <ul
+                        id="strength-hints"
+                        className="space-y-1.5"
                       >
                         {strength.factors.map((f) => (
                           <li key={f.id} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
@@ -2147,7 +2337,8 @@ export default function PromptStep({
                             </span>
                           </li>
                         ))}
-                      </motion.ul>
+                      </ul>
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
@@ -2160,8 +2351,19 @@ export default function PromptStep({
               breathing room above it so it clearly reads as a step AFTER the
               composer, not a competing focal point. (The composer itself is now
               just assets/strength - the chip row lives inside the textarea box
-              above.) Advanced is image mode only. */}
-          <div data-tour="settings" className="mt-4 sm:mt-6 rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
+              above.) Advanced is image mode only.
+              The old `mt-4 sm:mt-6` here was dead: both cards sit in the parent's
+              `space-y-3 sm:space-y-5`, and that utility's compiled selector
+              (`.space-y-3 > :not([hidden]) ~ :not([hidden])`, specificity 0,3,0)
+              always beats a plain `mt-*` class (0,1,0) - the margin never actually
+              applied. Replaced with an inline override, which beats any class-based
+              rule outright. Mobile-only, matching the composer-card boundary above;
+              sm+ still gets the parent's space-y-5 (20px), unchanged. */}
+          <div
+            data-tour="settings"
+            className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6"
+            style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)', marginTop: isMobile ? 24 : undefined }}
+          >
 
             {/* Style Selection - renders in all three modes (Photos, Reference, and
                 Prompt-only alike); the outer "settings" section has no mode gate.
