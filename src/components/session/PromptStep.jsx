@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
@@ -242,7 +242,7 @@ const REF_TYPE_OPTIONS = [
 // active type) and its type-selector pill row (all options rendered at once,
 // each needing its own accent regardless of which is currently selected).
 const REF_TYPE_STYLES = {
-  character: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#E8603C', Icon: Users, label: 'Character' },
+  character: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Users, label: 'Character' },
   setting: { accent: '#7C3AED', accentRgb: '124,58,237', gradientEnd: '#A855F7', Icon: Camera, label: 'Setting' },
   logo: { accent: '#2563EB', accentRgb: '37,99,235', gradientEnd: '#3B82F6', Icon: Tag, label: 'Logo' },
   product: { accent: '#059669', accentRgb: '5,150,105', gradientEnd: '#10B981', Icon: Package, label: 'Product' },
@@ -255,7 +255,7 @@ function StepBadge({ n }) {
       className="inline-flex items-center justify-center rounded-full flex-shrink-0 font-black"
       style={{
         width: 30, height: 30, fontSize: 14,
-        background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+        background: 'var(--gradient-brand)',
         color: '#fff',
         boxShadow: '0 3px 10px rgba(193,68,14,0.28)',
       }}
@@ -270,7 +270,12 @@ const CARD_SHADOW = {
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
-function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
+// Memoized: without this, every keystroke in ANY one reference's fields
+// rebuilds the whole `references` array (see handleReferenceChange below),
+// which would re-render every ReferenceInput in the list on every edit.
+// onChange/onRemove must be stable (see the useCallback-wrapped handlers
+// passed from the .map() below) for this memoization to actually take effect.
+const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
   const handleFileChange = (e) => {
     const file = validateImageFile(e.target.files?.[0]);
     if (file) {
@@ -286,10 +291,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   const isCharacter = type === 'character';
   const isSetting = type === 'setting';
   const isLogo = type === 'logo';
-  const isProduct = type === 'product';
   const { accent, accentRgb, gradientEnd, Icon: TypeIcon } = REF_TYPE_STYLES[type] || REF_TYPE_STYLES.character;
-
-  const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
 
   // What this card still needs before it counts as a usable reference. Shown as
   // a gentle amber footer so it's obvious why the "Create" button stays disabled
@@ -340,22 +342,32 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               }
             </span>
           </div>
+          {/* 44px invisible tap zone; -m-3 cancels its extra size in the flex row
+              so the header's rendered height doesn't grow, while the actual
+              hit box does. The visible tinted circle stays the original 20px. */}
           <motion.button
             whileTap={{ scale: 0.88 }}
             onClick={() => onRemove(index)}
             aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
-            className="w-5 h-5 rounded-full flex items-center justify-center transition-colors shrink-0"
-            style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
+            className="w-11 h-11 -m-3 flex items-center justify-center shrink-0"
           >
-            <X className="w-3 h-3" strokeWidth={2.5} />
+            <span
+              className="w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
+            >
+              <X className="w-3 h-3" strokeWidth={2.5} />
+            </span>
           </motion.button>
         </div>
 
         {/* Type selector - tab bar, equal-width tabs with an underline
-            indicator on the active tab (not filled pills). */}
-        <div className="flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
+            indicator on the active tab (not filled pills). Each tab's padding
+            is grown past its visible size and pulled back with matching
+            negative margin, so the row still reads as thin/compact while the
+            actual tap box is ~44px tall. */}
+        <div role="tablist" aria-label="Reference type" className="flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
           {REF_TYPE_OPTIONS.map((opt) => {
             const optStyle = REF_TYPE_STYLES[opt.value] || REF_TYPE_STYLES.character;
             const isActive = item.type === opt.value;
@@ -363,19 +375,22 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               <button
                 key={opt.value}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => {
                   const newType = opt.value;
                   const updates = { ...item, type: newType };
                   if (newType === 'logo') updates.useUpload = true;
                   onChange(index, updates);
                 }}
-                aria-pressed={isActive}
-                className="flex-1 py-2 text-[11px] font-bold text-center transition-colors -mb-px"
+                className="flex-1 py-3.5 -mt-1.5 -mb-1.5 text-[11px] font-bold text-center transition-colors"
                 style={isActive
                   ? { color: optStyle.accent, borderBottom: `2px solid ${optStyle.accent}` }
                   // Neutral regardless of type - only the active tab takes on
-                  // its type's accent color.
-                  : { color: '#9B8FA8', borderBottom: '2px solid transparent' }
+                  // its type's accent color. #726481 (not #9B8FA8) to clear
+                  // WCAG AA contrast - matches the muted text already used
+                  // elsewhere in this section.
+                  : { color: '#726481', borderBottom: '2px solid transparent' }
                 }
               >
                 {optStyle.label}
@@ -552,7 +567,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
       </div>
     </motion.div>
   );
-}
+});
 
 // Sortable photo tile - dnd-kit so reordering works with mouse AND touch
 // (long-press to start dragging on touch, so page scrolling still works).
@@ -611,6 +626,20 @@ export default function PromptStep({
   // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
   // photo upload, advanced settings, and image-count duration advisory.
   const isPromptOnly = pipelineMode === 'prompt';
+
+  // Stable across renders (functional onReferencesChange update, no `references`
+  // dependency) so ReferenceInput's React.memo actually prevents re-rendering
+  // every other reference card when one card's field changes.
+  const handleReferenceChange = useCallback((i, updated) => {
+    onReferencesChange((prev) => {
+      const next = [...prev];
+      next[i] = updated;
+      return next;
+    });
+  }, [onReferencesChange]);
+  const handleReferenceRemove = useCallback((i) => {
+    onReferencesChange((prev) => prev.filter((_, j) => j !== i));
+  }, [onReferencesChange]);
   // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
   // (so page scrolling still works), so the hint must tell users to hold first.
   const isMobile = useIsMobile();
@@ -684,7 +713,7 @@ export default function PromptStep({
   };
 
   const chipStyle = (active) => active
-    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
+    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
     : { background: '#fff', color: '#6B5E7B', border: '1.5px solid rgba(193,68,14,0.12)' };
 
   // Scroll the CTA into view the moment the user finishes the 0 → 1 image upload transition.
@@ -1027,6 +1056,13 @@ export default function PromptStep({
       : "#E5484D"; // red
 
   return (
+    // reducedMotion="user" defers to the OS/browser prefers-reduced-motion
+    // setting for every motion.* element in this tree - the two manual
+    // reducedMotion ? ... : ... branches elsewhere (strength-meter fade-in,
+    // one AnimatePresence height animation) stay as they were; this provider
+    // covers everything else (card enter/exit, style-tile selection, the
+    // infinite drag-over bounce) without touching each one individually.
+    <MotionConfig reducedMotion="user">
     <div
       className="w-full h-full overflow-y-auto relative"
       style={{ background: '#F5F0EB' }}
@@ -1056,7 +1092,7 @@ export default function PromptStep({
           type="button"
           onClick={onBackToChooser}
           aria-label="Back to mode selection"
-          className="absolute top-4 left-4 z-40 w-10 h-10 rounded-full inline-flex items-center justify-center"
+          className="absolute top-4 left-4 z-40 w-11 h-11 rounded-full inline-flex items-center justify-center"
           style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(45,34,53,0.10)', color: '#7A6A62', boxShadow: '0 2px 10px rgba(45,34,53,0.08)', transition: 'color 0.18s ease, background 0.18s ease' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; }}
@@ -1127,13 +1163,20 @@ export default function PromptStep({
                     <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
                       Your world
                     </label>
-                    <div className="group relative">
+                    {/* 44px invisible tap zone; -m-3.5 cancels its extra size in the flex
+                        row so the header's rendered height doesn't grow, while the actual
+                        hit box does. The visible icon stays the original 16px. */}
+                    <button
+                      type="button"
+                      aria-label="Help"
+                      className="group relative w-11 h-11 -m-3.5 flex items-center justify-center"
+                    >
                       <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-50 pointer-events-none shadow-xl">
                         Add the characters, settings, logos, or products that belong in your world. Each one gets a type tag that controls how it's used in generation. Logos are preserved exactly, no AI restyling.
                         <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                       </div>
-                    </div>
+                    </button>
                   </div>
                   {references.length < 8 && (
                     <button
@@ -1148,7 +1191,7 @@ export default function PromptStep({
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.16)'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.08)'; }}
                     >
-                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add ({references.length}/8)
+                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add to your world ({references.length}/8)
                     </button>
                   )}
                 </div>
@@ -1163,26 +1206,31 @@ export default function PromptStep({
                         !!ref.name?.trim() &&
                         references.some((other, j) => j !== idx && other.name?.trim().toLowerCase() === ref.name.trim().toLowerCase())
                       }
-                      onChange={(i, updated) => {
-                        const updated_refs = [...references];
-                        updated_refs[i] = updated;
-                        onReferencesChange(updated_refs);
-                      }}
-                      onRemove={(i) => {
-                        onReferencesChange(references.filter((_, j) => j !== i));
-                      }}
+                      onChange={handleReferenceChange}
+                      onRemove={handleReferenceRemove}
                     />
                   ))}
                 </div>
                 {references.length === 0 && (
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       onReferencesChange([
                         ...references,
                         { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
                       ]);
                     }}
-                    className="cursor-pointer flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onReferencesChange([
+                          ...references,
+                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                        ]);
+                      }
+                    }}
+                    className="cursor-pointer flex flex-col items-center justify-center py-5 rounded-2xl border-2 border-dashed text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     style={{
                       borderColor: 'rgba(193,68,14,0.15)',
                       background: 'rgba(193,68,14,0.015)',
@@ -1198,27 +1246,13 @@ export default function PromptStep({
                     }}
                   >
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-2"
                       style={{ background: 'rgba(193,68,14,0.06)' }}
                     >
                       <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
                     </div>
                     <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>Your world is empty</p>
                     <p className="text-[11px]" style={{ color: '#726481' }}>Add the people, places, or products that belong in it</p>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReferencesChange([
-                          ...references,
-                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                        ]);
-                      }}
-                      className="mt-3 text-xs font-bold hover:underline"
-                      style={{ color: '#C1440E' }}
-                    >
-                      + Add to your world
-                    </button>
                   </div>
                 )}
               </div>
@@ -1350,7 +1384,7 @@ export default function PromptStep({
                       <div
                         className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
                         style={{
-                          background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                          background: 'var(--gradient-brand)',
                           boxShadow: '0 4px 10px rgba(193,68,14,0.28)',
                         }}
                       >
@@ -1405,17 +1439,24 @@ export default function PromptStep({
                                 className="w-full h-full object-cover pointer-events-none"
                               />
 
-                              {/* Remove button, top-right, white circle with terracotta icon */}
+                              {/* Remove button: a 44px invisible tap zone anchored at the
+                                  photo's top-right corner, padded so the small 20px visible
+                                  circle sits exactly where it did before (6px inset) - the
+                                  circle stays small on purpose, the tap area doesn't. */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   removeImage(index);
                                 }}
                                 aria-label="Remove image"
-                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full transition-all duration-150 flex items-center justify-center shadow-sm z-10 hover:scale-110"
-                                style={{ background: '#fff', color: '#C1440E' }}
+                                className="absolute top-0 right-0 w-11 h-11 p-1.5 flex items-start justify-end z-10"
                               >
-                                <X className="w-3 h-3" strokeWidth={2.5} />
+                                <span
+                                  className="w-5 h-5 rounded-full transition-all duration-150 flex items-center justify-center shadow-sm hover:scale-110"
+                                  style={{ background: '#fff', color: '#C1440E' }}
+                                >
+                                  <X className="w-3 h-3" strokeWidth={2.5} />
+                                </span>
                               </button>
 
                               {/* Label, bottom-left, overlaid on the photo */}
@@ -1436,16 +1477,25 @@ export default function PromptStep({
                                   style={{ color: '#1C1917' }}
                                 />
                               ) : (
+                                /* 44px invisible tap zone anchored bottom-left of the photo,
+                                   padded so the small visible white pill sits exactly where
+                                   it did before (6px inset) - same technique as the remove
+                                   button above. */
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingLabel(index);
                                   }}
-                                  className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-white rounded-full px-2 py-0.5 truncate cursor-text transition-colors z-10 max-w-[calc(100%-16px)]"
-                                  style={{ color: '#1C1917' }}
+                                  className="absolute bottom-0 left-0 z-10 p-1.5 flex items-end justify-start max-w-[calc(100%-4px)]"
+                                  style={{ minHeight: 44, minWidth: 44 }}
                                   title="Click to rename"
                                 >
-                                  {customLabels[index] || slotLabels[index]}
+                                  <span
+                                    className="text-[10px] font-bold bg-white rounded-full px-2 py-0.5 truncate cursor-text transition-colors max-w-full"
+                                    style={{ color: '#1C1917' }}
+                                  >
+                                    {customLabels[index] || slotLabels[index]}
+                                  </span>
                                 </button>
                               )}
                             </div>
@@ -1559,7 +1609,7 @@ export default function PromptStep({
                         </div>
                         <div
                           className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                          style={{ background: extendPhotos ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                          style={{ background: extendPhotos ? 'var(--gradient-brand)' : '#E5DFD8' }}
                         >
                           <motion.span
                             className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -1597,7 +1647,7 @@ export default function PromptStep({
                         }}
                         className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
                         style={{
-                          background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                          background: 'var(--gradient-brand)',
                           boxShadow: '0 8px 24px rgba(193,68,14,0.40)',
                         }}
                       >
@@ -1626,7 +1676,7 @@ export default function PromptStep({
                   onClick={() => { setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 min-h-12 rounded-full text-[11px] font-bold transition-all"
                   style={showInspiration
-                    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
                   }
                 >
@@ -1637,7 +1687,7 @@ export default function PromptStep({
                   onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
                   className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all"
                   style={showDictionary
-                    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
                     : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
                   }
                 >
@@ -1909,7 +1959,7 @@ export default function PromptStep({
                           onClick={() => setActiveCategory(id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer"
                           style={activeCategory === id
-                            ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.30)', border: '1px solid transparent' }
+                            ? { background: 'var(--gradient-brand)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.30)', border: '1px solid transparent' }
                             : { background: 'rgba(255,255,255,0.7)', color: '#6B5E7B', border: '1px solid rgba(193,68,14,0.14)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
                           }
                         >
@@ -1994,7 +2044,18 @@ export default function PromptStep({
                     control instead of a click-per-item interaction. */}
                 <div className={reducedMotion ? undefined : 'strength-fade-in'}>
                   <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${strength.score}%`, background: strengthBarColor, transition: 'width 0.3s ease' }} />
+                    {/* transform: scaleX() instead of animating width - compositor-only,
+                        no layout thrash. transformOrigin: left keeps the fill growing
+                        left-to-right exactly like the old width-based version. */}
+                    <div
+                      className="h-full w-full rounded-full"
+                      style={{
+                        background: strengthBarColor,
+                        transform: `scaleX(${strength.score / 100})`,
+                        transformOrigin: 'left',
+                        transition: 'transform 0.3s ease',
+                      }}
+                    />
                   </div>
 
                   <div className="flex items-center flex-wrap gap-x-5 gap-y-2 pt-2.5">
@@ -2154,7 +2215,7 @@ export default function PromptStep({
                           style={{
                             width: 18,
                             height: 18,
-                            background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                            background: 'var(--gradient-brand)',
                             boxShadow: '0 2px 6px rgba(193,68,14,0.45)',
                           }}
                         >
@@ -2233,7 +2294,7 @@ export default function PromptStep({
                               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
                               style={
                                 enableBridges
-                                  ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                                  ? { background: "var(--gradient-brand)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
                                   : { background: "rgba(193,68,14,0.06)" }
                               }
                             >
@@ -2250,7 +2311,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
+                            style={{ background: enableBridges ? "var(--gradient-brand)" : "#E5DFD8" }}
                           >
                             <motion.span
                               className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2280,7 +2341,7 @@ export default function PromptStep({
                           <div className="flex items-center gap-2.5">
                             <div
                               className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                              style={{ background: openingEnabled ? 'var(--gradient-brand)' : 'rgba(193,68,14,0.08)' }}
                             >
                               <Play className="w-3 h-3" style={{ color: openingEnabled ? '#fff' : '#C1440E' }} />
                             </div>
@@ -2291,7 +2352,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                            style={{ background: openingEnabled ? 'var(--gradient-brand)' : '#E5DFD8' }}
                           >
                             <motion.span
                               className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2432,7 +2493,7 @@ export default function PromptStep({
                           <div className="flex items-center gap-2.5">
                             <div
                               className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                              style={{ background: closingEnabled ? 'var(--gradient-brand)' : 'rgba(193,68,14,0.08)' }}
                             >
                               <Square className="w-3 h-3" style={{ color: closingEnabled ? '#fff' : '#C1440E' }} />
                             </div>
@@ -2443,7 +2504,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                            style={{ background: closingEnabled ? 'var(--gradient-brand)' : '#E5DFD8' }}
                           >
                             <motion.span
                               className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2703,7 +2764,7 @@ export default function PromptStep({
                 <button
                   onClick={() => setVoiceModalOpen(false)}
                   aria-label="Close"
-                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
+                  className="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2718,7 +2779,7 @@ export default function PromptStep({
               <Button
                 onClick={() => setVoiceModalOpen(false)}
                 className="w-full mt-4 text-white border-0 shrink-0"
-                style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+                style={{ background: 'var(--gradient-brand)' }}
               >
                 Done
               </Button>
@@ -2753,7 +2814,7 @@ export default function PromptStep({
                 </h2>
                 <button
                   onClick={() => setShowPromptGuide(false)}
-                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 text-stone-500 font-bold transition-colors"
+                  className="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 text-stone-500 font-bold transition-colors"
                 >
                   ×
                 </button>
@@ -2840,7 +2901,7 @@ export default function PromptStep({
                 <Button
                   onClick={() => setShowImageOrderGuide(false)}
                   className="w-full text-white font-bold py-2.5 rounded-xl"
-                  style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
+                  style={{ background: "var(--gradient-brand)" }}
                 >
                   Confirm Configuration Order
                 </Button>
@@ -2850,5 +2911,6 @@ export default function PromptStep({
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }
