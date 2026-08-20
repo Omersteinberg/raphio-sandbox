@@ -18,6 +18,9 @@ export default function AssetPanel({
   onDeleteAudio,
   onNarrationEdit,
   onRegenerateClip,
+  // "Regenerate" everywhere except the intro pipeline, where a clip is a designed
+  // brand scene and the action reworks it rather than re-rolling AI footage.
+  regenerateLabel = "Regenerate",
 }) {
   const [videoExpanded, setVideoExpanded] = useState(true);
   const [audioExpanded, setAudioExpanded] = useState(true);
@@ -159,8 +162,8 @@ export default function AssetPanel({
                       {onRegenerateClip && (
                         <button
                           className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-opacity flex-shrink-0"
-                          title="Regenerate clip"
-                          aria-label="Regenerate clip"
+                          title={`${regenerateLabel} clip`}
+                          aria-label={`${regenerateLabel} clip`}
                           onClick={(e) => { e.stopPropagation(); onRegenerateClip(section); }}
                         >
                           <RefreshCw className="w-3.5 h-3.5" />

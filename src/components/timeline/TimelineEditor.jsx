@@ -40,6 +40,7 @@ import TTSModal from "./modals/TTSModal";
 import ItemEditModal from "./modals/ItemEditModal";
 import NarrationEditModal from "./modals/NarrationEditModal";
 import RegenerateClipModal from "./modals/RegenerateClipModal";
+import ReworkSceneModal from "./modals/ReworkSceneModal";
 import ExportProgressModal from "./modals/ExportProgressModal";
 import ReferencesModal from "./modals/ReferencesModal";
 
@@ -66,6 +67,13 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState(null); // { percentage, label }
   const [showReferences, setShowReferences] = useState(false); // references-pipeline: view refs used
+
+  // An intro's clips are designed, branded scenes rendered from code, not AI
+  // footage generated from a prompt. Sending one back through the video model
+  // would replace a brand scene with something off-brand and charge for it, so
+  // the per-clip regenerate reaches the intro's own scene rework instead.
+  const isIntro = timeline.pipelineMode === "intro";
+  const regenLabel = isIntro ? "Rework" : "Regenerate";
 
   // Tap-to-add (mobile asset sheet): drop the asset at the playhead, nudged to
   // the next free spot on its track so it doesn't overlap.
@@ -384,6 +392,59 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     }
   };
 
+  // Rework an intro scene from a note. Unlike clip regeneration this reports real
+  // progress: reviseIntroScenes polls the session job and hands back each stage's
+  // own label, so there is nothing to simulate.
+  //
+  // The scene is addressed by its position in the plan. Sections are written in
+  // scene order with orderIndex = index (see introTimeline.service), which is what
+  // makes that mapping safe.
+  const handleReworkScene = async (note) => {
+    const section = regenSection;
+    if (!section || !note) return;
+    setRegenSection(null);
+    setRegenerating(true);
+    setRegenProgress({ percentage: 0, label: "Starting…" });
+
+    try {
+      const updated = await sessionService.reviseIntroScenes(
+        sessionId,
+        [{ index: section.orderIndex, note }],
+        {
+          onProgress: (status) => {
+            const p = status?.jobProgress;
+            if (!p) return;
+            setRegenProgress({
+              percentage: Number(p.percentage) || 0,
+              label: p.label || "Reworking scene…",
+            });
+          },
+        }
+      );
+      // null means the poll saw a different job take the slot, so nothing here is
+      // known to have happened. Say so rather than claiming success.
+      if (!updated) {
+        toast.info("Another job is running on this video. Try again in a moment.");
+        return;
+      }
+      const failed = Array.isArray(updated.reviseFailures) ? updated.reviseFailures : [];
+      if (failed.some((f) => f.index === section.orderIndex)) {
+        toast.error(failed.find((f) => f.index === section.orderIndex).error);
+        return;
+      }
+      setRegenProgress({ percentage: 100, label: "Done" });
+      // The whole plan is re-timed by a rework, so this reloads every clip's new
+      // length and position, not just the scene that changed.
+      await timeline.loadTimeline();
+      toast.success("Scene reworked");
+    } catch (err) {
+      toast.error(describeError(err, "We couldn't rework that scene. Please try again.").userMessage);
+    } finally {
+      setRegenerating(false);
+      setRegenProgress(null);
+    }
+  };
+
   if (timeline.loading && !timeline.timeline) {
     // Skeleton that mirrors the real editor layout, so the chrome appears
     // instantly and only the content fills in - feels incremental instead of a
@@ -518,6 +579,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             onDeleteAudio={timeline.deleteAudio}
             onNarrationEdit={(section) => setEditingNarration({ item: null, section })}
             onRegenerateClip={(section) => setRegenSection(section)}
+            regenerateLabel={regenLabel}
             onDragStart={(asset, type) => {
               // Store drag data
             }}
@@ -609,7 +671,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                     ...(() => {
                       const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
                       return sel && sel.trackType === "VIDEO" && sel.sectionId
-                        ? [{ Icon: RefreshCw, label: "Regenerate", onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) }]
+                        ? [{ Icon: RefreshCw, label: regenLabel, onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) }]
                         : [];
                     })(),
                     // Narration edit - only for a narration audio clip (has a section).
@@ -652,15 +714,27 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         />
       )}
 
-      {regenSection && (
+      {regenSection && (isIntro ? (
+        <ReworkSceneModal
+          section={regenSection}
+          loading={regenerating}
+          onClose={() => setRegenSection(null)}
+          onRework={handleReworkScene}
+        />
+      ) : (
         <RegenerateClipModal
           section={regenSection}
           loading={regenerating}
           onClose={() => setRegenSection(null)}
           onRegenerate={handleRegenerateClip}
         />
+      ))}
+      {regenerating && (
+        <ExportProgressModal
+          progress={regenProgress}
+          title={isIntro ? "Reworking scene" : "Regenerating clip"}
+        />
       )}
-      {regenerating && <ExportProgressModal progress={regenProgress} title="Regenerating clip" />}
 
       {showAudioUpload && (
         <AudioUploadModal
@@ -827,8 +901,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                       <button
                         onClick={() => { setAssetsSheetOpen(false); setRegenSection(section); }}
                         className="p-2 mr-1 text-muted-foreground hover:text-primary shrink-0"
-                        title="Regenerate clip"
-                        aria-label="Regenerate clip"
+                        title={`${regenLabel} clip`}
+                        aria-label={`${regenLabel} clip`}
                       >
                         <RefreshCw className="w-4 h-4" />
                       </button>

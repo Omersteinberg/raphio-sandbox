@@ -15,6 +15,7 @@ export function useTimeline(sessionId) {
   const [sections, setSections] = useState([]);
   const [audioAssets, setAudioAssets] = useState([]);
   const [references, setReferences] = useState([]); // references-pipeline only; empty otherwise
+  const [pipelineMode, setPipelineMode] = useState(null); // which pipeline built this video
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -67,6 +68,7 @@ export function useTimeline(sessionId) {
       setSections(data.sections || []);
       setAudioAssets(data.audioAssets || []);
       setReferences(data.references || []);
+      setPipelineMode(data.pipelineMode || null);
       setDuration(data.duration || 0);
       setPlayheadPosition(data.playheadPos || 0);
       setZoomLevel(data.zoomLevel || 1);
@@ -511,6 +513,7 @@ export function useTimeline(sessionId) {
     sections,
     audioAssets,
     references,
+    pipelineMode,
     duration,
 
     // Playback

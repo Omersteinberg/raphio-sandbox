@@ -5,6 +5,7 @@ import IntroBriefStep from "@/components/session/IntroBriefStep";
 import IntroSceneReviewStep from "@/components/session/IntroSceneReviewStep";
 import VideoGenerationStep from "@/components/session/VideoGenerationStep";
 import ResultStep from "@/components/session/ResultStep";
+import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 import { useIntroSession } from "@/hooks/session/useIntroSession";
@@ -14,6 +15,7 @@ import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
+const EDITING_STEP = 4;
 
 // What the intro pipeline actually does, in the order it does it.
 //
@@ -122,6 +124,7 @@ export default function IntroPipelineCreator({ onModeChange, onBackToChooser }) 
           loading={loading}
           reworkingIndexes={intro.reworkingIndexes}
           reworkLabel={intro.reworkLabel}
+          aspectRatio={intro.aspectRatio}
         />
       );
     }
@@ -144,8 +147,31 @@ export default function IntroPipelineCreator({ onModeChange, onBackToChooser }) 
           finalVideoUrl={intro.finalVideoUrl || intro.session?.video?.finalVideoUrl || null}
           scriptData={null}
           session={intro.session}
-          enterEditingMode={() => {}}
+          enterEditingMode={intro.enterEditingMode}
           reset={intro.reset}
+        />
+      );
+    }
+    if (step === EDITING_STEP) {
+      // Same timeline editor the other pipelines drop into. An assembled intro
+      // now carries one section per scene, so there are real per-beat clips here
+      // rather than the single whole-video clip it used to show.
+      return (
+        <EditingStep
+          session={intro.session}
+          sessionId={intro.sessionId}
+          updateClip={intro.updateClip}
+          regenerateNarration={intro.regenerateNarration}
+          // Flip the stage back BEFORE moving, not after. The stage-sync effect
+          // maps EDITING to this step, so leaving the session reading EDITING and
+          // stepping away by hand just bounces the user straight back into the
+          // editor on the next session refresh.
+          goToResult={async () => {
+            await intro.completeSession();
+            intro.goToStep(COMPLETED_STEP);
+          }}
+          refreshSession={intro.refreshSession}
+          loading={loading}
         />
       );
     }
