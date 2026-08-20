@@ -37,8 +37,9 @@ const fmt = (s) => (Number.isFinite(s) ? `${Math.round(s * 10) / 10}s` : "");
  * unmemoized card would re-render every sibling (and every sibling's video element)
  * on each keystroke.
  */
-const SceneCard = memo(function SceneCard({ scene, index, still, busy, reworking, reworkLabel, note, onNoteChange }) {
+const SceneCard = memo(function SceneCard({ scene, index, still, portrait, busy, reworking, reworkLabel, note, onNoteChange }) {
   const [playing, setPlaying] = useState(false);
+  const [fileRatio, setFileRatio] = useState(null);
   const videoRef = useRef(null);
 
   // A rework replaces the clip, so stop playing the one that is being replaced.
@@ -64,7 +65,10 @@ const SceneCard = memo(function SceneCard({ scene, index, still, busy, reworking
       animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm flex flex-col"
     >
-      <div className="relative aspect-video bg-surface-alt">
+      <div
+        className="relative bg-surface-alt"
+        style={{ aspectRatio: fileRatio || (portrait ? "9 / 16" : "16 / 9") }}
+      >
         {ready ? (
           <>
             <video
@@ -73,7 +77,15 @@ const SceneCard = memo(function SceneCard({ scene, index, still, busy, reworking
               poster={still?.imageUrl || undefined}
               preload="metadata"
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-black"
+              onLoadedMetadata={(e) => {
+                const { videoWidth: w, videoHeight: h } = e.currentTarget;
+                if (!w || !h) return;
+                setFileRatio(`${w} / ${h}`);
+                if (Math.abs(w / h - (portrait ? 9 / 16 : 16 / 9)) > 0.01) {
+                  console.warn(`[intro] scene ${index + 1} clip is ${w}x${h}, expected ${portrait ? "9:16" : "16:9"}`);
+                }
+              }}
               onEnded={() => setPlaying(false)}
               onClick={play}
             />
@@ -93,7 +105,7 @@ const SceneCard = memo(function SceneCard({ scene, index, still, busy, reworking
         ) : (
           <div className="w-full h-full">
             {still?.imageUrl ? (
-              <img src={still.imageUrl} alt={`Scene ${index + 1}`} className="w-full h-full object-cover opacity-60" />
+              <img src={still.imageUrl} alt={`Scene ${index + 1}`} className="w-full h-full object-contain opacity-60" />
             ) : null}
             <div className="absolute inset-0 flex items-center justify-center text-sm text-ink-muted bg-white/60">
               {failed ? "This scene could not be rendered" : "Rendering…"}
@@ -154,12 +166,14 @@ export default function IntroSceneReviewStep({
   loading,
   reworkingIndexes = [],
   reworkLabel,
+  aspectRatio,
 }) {
   const scenes = introScript?.scenes || [];
   const stills = introScript?.sceneFrames || [];
   const allReady = scenes.length > 0 && scenes.every((s) => s?.clipUrl);
   const pending = scenes.filter((s) => !s?.clipUrl).length;
   const totalSeconds = scenes.reduce((a, s) => a + (Number(s?.clipSeconds ?? s?.seconds) || 0), 0);
+  const portrait = aspectRatio === "9:16";
 
   // The notes live here rather than in the cards so the header can count them. A
   // batch is one job, so submitting is all-of-them-at-once and there is no per-card
@@ -304,13 +318,14 @@ export default function IntroSceneReviewStep({
       )}
 
       <div className="flex-1 overflow-y-auto pr-1">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 ${portrait ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
           {scenes.map((scene, index) => (
             <SceneCard
               key={index}
               scene={scene}
               index={index}
               still={stills[index]}
+              portrait={portrait}
               busy={loading}
               reworking={inFlight.has(index)}
               reworkLabel={inFlight.has(index) ? reworkLabel : ""}
@@ -326,14 +341,14 @@ export default function IntroSceneReviewStep({
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"
           onClick={() => setPlayAllAt(-1)}
         >
-          <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-3xl flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
             <video
               ref={playAllRef}
               key={playAllAt}
               src={scenes[playAllAt].clipUrl}
               autoPlay
               playsInline
-              className="w-full rounded-2xl"
+              className="max-w-full max-h-[78vh] w-auto rounded-2xl bg-black"
               onEnded={() => setPlayAllAt((i) => (i + 1 < scenes.length ? i + 1 : -1))}
             />
             <p className="text-white/70 text-sm mt-2 text-center">

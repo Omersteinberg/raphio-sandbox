@@ -377,10 +377,19 @@ export async function getJobStatus(sessionId) {
  * message if the job failed. Each poll is sub-second, so no proxy/cPanel
  * timeout can kill it.
  *
+ * There is deliberately NO wall-clock cap here by default. The backend is the
+ * single authority on when a job is dead: reading /job-status converts a RUNNING
+ * job older than JOB_STALE_MS to FAILED, which this loop already handles, so the
+ * loop always terminates on its own. A client cap on top of that only ever fired
+ * on jobs that were still alive and about to succeed - intro scene creation runs
+ * past ten minutes on an ordinary brief - and the caller's catch then threw away
+ * a session the backend went on to finish normally.
+ *
  * @param {string} sessionId
  * @param {object} [options]
  * @param {number} [options.intervalMs=3000]
- * @param {number} [options.timeoutMs=600000] - 10 min client cap
+ * @param {number|null} [options.timeoutMs=null] - opt-in wall-clock cap in ms.
+ *   Leave unset to defer to the backend's stale guard.
  * @param {(status: object) => void} [options.onProgress]
  * @param {string} [options.expectedJobType] - if set, ignore states belonging to
  *   a different job. A session has ONE job slot shared by export/reassemble, so
@@ -388,7 +397,7 @@ export async function getJobStatus(sessionId) {
  *   (and vice-versa) - e.g. a stray "Reassemble failed" during an export.
  */
 export async function pollJobUntilDone(sessionId, options = {}) {
-  const { intervalMs = 3000, timeoutMs = 600000, onProgress, expectedJobType } = options;
+  const { intervalMs = 3000, timeoutMs = null, onProgress, expectedJobType } = options;
   const startedAt = Date.now();
   let consecutiveFailures = 0;
 
@@ -433,7 +442,7 @@ export async function pollJobUntilDone(sessionId, options = {}) {
       });
       throw jobErr;
     }
-    if (Date.now() - startedAt > timeoutMs) {
+    if (timeoutMs != null && Date.now() - startedAt > timeoutMs) {
       throw new Error(`Job polling timed out after ${Math.round(timeoutMs / 1000)}s`);
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
