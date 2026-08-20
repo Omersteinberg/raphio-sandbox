@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
@@ -38,6 +38,12 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Set by resetBase() before it nulls sessionId, so the resume effect below
+  // doesn't race the URL-sync effect: on that render searchParams still has
+  // the just-cleared session's `?session=` (the URL hasn't updated yet), which
+  // would otherwise re-fetch and reapply the session reset() just cleared.
+  // Mirrors useSession.js's skipResumeRef (useSession.js:101, 328-331).
+  const skipResumeRef = useRef(false);
 
   // ── Session state ──────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState(null);
@@ -97,6 +103,10 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
   const resumeSessionId = searchParams.get("session");
   const resumeModeParam = searchParams.get("mode");
   useEffect(() => {
+    if (skipResumeRef.current) {
+      skipResumeRef.current = false;
+      return;
+    }
     if (resumeSessionId && !sessionId) {
       const loadSession = async () => {
         try {
@@ -570,6 +580,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
 
   // Reset shared state: pipeline hooks should call this and then reset their own state
   const resetBase = useCallback(() => {
+    skipResumeRef.current = true;
     setSessionId(null);
     setSession(null);
     setDirection(0);

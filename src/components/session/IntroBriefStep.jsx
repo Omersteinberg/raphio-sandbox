@@ -2,16 +2,18 @@ import { useRef, useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, X, Image as ImageIcon, ArrowRight, ArrowLeft,
-  Lightbulb, Clock, Palette, Plus, ChevronDown, RotateCcw,
+  Lightbulb, Clock, Palette, Plus, RotateCcw,
   RectangleHorizontal, RectangleVertical,
+  Flame, Scissors, Smartphone, Trees, ChevronRight,
+  Wand2, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PromptMentionField from "./PromptMentionField";
-import ImproveButton from "./ImproveButton";
 import BrandUrlField from "./BrandUrlField";
 import BrandKitPanel from "./BrandKitPanel";
 import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./ComposerChip";
 import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { fetchIntroScenes } from "@/services/session";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
@@ -21,6 +23,15 @@ import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/l
 
 const GRADIENT = "var(--gradient-brand)";
 const MAX_SHOWCASE = 4;
+
+// Same warm-tinted card shadow PromptStep.jsx uses (its own local
+// CARD_SHADOW, not exported - replicated here rather than imported). The
+// third box-shadow layer stands in for a border, so the card carries no
+// separate `border` class alongside it.
+const CARD_SHADOW = {
+  background: '#ffffff',
+  boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
+};
 
 // Worked briefs for the "Help me start" menu. A blank box is the main reason a
 // brief comes back as "we do plumbing", and a vague brief can only produce a
@@ -37,18 +48,22 @@ const EXAMPLES = [
   {
     label: "Heating engineer",
     text: "Gas Safe heating engineers in Manchester. Open on @chat with someone asking about a leak on a Sunday, then @rating, then @service_area for how far we travel, ending on @contact.",
+    Icon: Flame,
   },
   {
     label: "Hair studio",
     text: "A two chair studio in Leeds doing colour corrections. Start with @before_after of a colour, then @price from £49, then @quote from a regular, ending on @logo.",
+    Icon: Scissors,
   },
   {
     label: "App demo",
     text: "A demo of our app. Open on @dashboard, click into @analytics, then @metrics for the numbers that matter, then @features for what you get, ending on @cta.",
+    Icon: Smartphone,
   },
   {
     label: "Garden design",
     text: "Garden design and build across Surrey. @steps for how a job runs, then @before_after of a patio, then @timeline for the years we have been at it, ending on @contact.",
+    Icon: Trees,
   },
 ];
 
@@ -129,17 +144,38 @@ export default function IntroBriefStep({
   loading,
   error,
   onContinue,
-  onModeChange,
+  onBackToChooser,
 }) {
   const logoInputRef = useRef(null);
   const showcaseInputRef = useRef(null);
 
   const [logoPreview, setLogoPreview] = useState(null);
   const [showcasePreviews, setShowcasePreviews] = useState([]);
-  // "Help me start" lives in the header, not the chip row below the textarea,
-  // so it keeps its own open state instead of the chip row's shared popover
-  // coordination (which only spans Photos/Length/Ratio/Brand kit).
-  const [examplesOpen, setExamplesOpen] = useState(false);
+
+  // "Help me start" popover: local open state + click-outside/Escape close,
+  // the same mechanics ComposerChipRow uses for its chip popovers - copied
+  // rather than imported because the trigger here is the bare text+icon
+  // "Tips" pattern (PromptStep.jsx, no bounding box), not a ComposerChip.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpRef = useRef(null);
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  useEffect(() => {
+    if (!helpOpen) return undefined;
+    const onPointerDown = (e) => {
+      if (helpRef.current && !helpRef.current.contains(e.target)) setHelpOpen(false);
+    };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setHelpOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [helpOpen]);
 
   // The placeholder only animates on an untouched, unfocused box. Once someone is
   // about to type, motion behind the caret is just noise, and the placeholder is
@@ -298,29 +334,58 @@ export default function IntroBriefStep({
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-5">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          {onModeChange && (
-            <button
-              onClick={() => onModeChange("image")}
-              className="inline-flex items-center gap-1 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors"
+    <div className="w-full h-full overflow-y-auto relative">
+      {/* Change mode: return to the 3-card chooser (fresh session only) -
+          same floating circular button PromptStep.jsx uses, anchored to this
+          root (position:relative) rather than the viewport, so it sits below
+          the app header instead of behind it. Replaces the old inline
+          "Other pipelines" text link, which jumped straight to Image mode
+          instead of the chooser every other mode's back control returns to. */}
+      {onBackToChooser && (
+        <button
+          type="button"
+          onClick={onBackToChooser}
+          aria-label="Back to mode selection"
+          className="absolute top-4 left-4 z-40 w-11 h-11 rounded-full inline-flex items-center justify-center"
+          style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(45,34,53,0.10)', color: '#7A6A62', boxShadow: '0 2px 10px rgba(45,34,53,0.08)', transition: 'color 0.18s ease, background 0.18s ease' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; }}
+        >
+          <ArrowLeft style={{ width: 18, height: 18 }} />
+        </button>
+      )}
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-5">
+        {/* Header - icon mark + headline size/weight matched to
+            PromptStep.jsx's hero pattern. */}
+        <div className="text-center mb-1">
+          <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
+            <div
+              className="w-[60px] h-[60px] sm:w-[75px] sm:h-[75px] rounded-[20px] sm:rounded-[24px] flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(225deg, #F9B31B, #FF7A1A, #F3283C)',
+                boxShadow: '0 2px 8px rgba(193,68,14,0.25), 0 10px 24px rgba(193,68,14,0.20)',
+                outline: '1.5px solid rgba(255,255,255,0.55)',
+                outlineOffset: '-1.5px',
+              }}
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Other pipelines
-            </button>
-          )}
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#2D2235]">
-            Create a brand intro
+              <img
+                src="/Raphio.png"
+                alt="Raphio"
+                className="w-[50%] h-[50%] object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+            </div>
+          </div>
+          <h1 className="font-black" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
+            Create a <span style={{ color: '#C1440E' }}>brand intro</span>
           </h1>
-          <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed">
+          <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed mt-2">
             Your logo and a sentence about the business. We write the script, animate it and
             land on your logo.
           </p>
         </div>
 
-        {/* Hidden pickers, driven by the pills below */}
+        {/* Hidden pickers, driven by the logo avatar and Photos chip below */}
         <input
           ref={logoInputRef}
           type="file"
@@ -344,81 +409,167 @@ export default function IntroBriefStep({
         />
 
         {/* The brief: one card, everything in it */}
-        <div className="bg-white rounded-3xl border border-border/60 shadow-xs p-5 md:p-7">
+        <div className="rounded-3xl p-5 md:p-7" style={CARD_SHADOW}>
           {/* Optional shortcut. Fills only what is still empty below, so it never
               overwrites something already typed. The length goes with it: the brief
               it drafts names beats, and how many depends on the length picked. */}
           <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
 
-          <div className="flex items-center justify-between gap-3">
+          {/* Identity: logo avatar + business name, grouped as one field since
+              both name the brand on screen. Required behavior (canStart still
+              gates on logoFile) is unchanged - only the control's shape moved
+              from a settings-row pill to an inline avatar upload. */}
+          <div className="flex items-center gap-3 mt-6">
+            <div className="relative shrink-0 group">
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                aria-label={logoFile ? "Change logo" : "Add your logo (required)"}
+                className={`w-11 h-11 rounded-full flex items-center justify-center overflow-hidden transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${
+                  logoFile
+                    ? "border border-border/60 bg-white"
+                    : "border-2 border-dashed border-[var(--terra)]/45 bg-[var(--terra)]/6 hover:border-[var(--terra)]/65 hover:bg-[var(--terra)]/10"
+                }`}
+              >
+                {logoFile && logoPreview ? (
+                  <img src={logoPreview} alt="" className="w-full h-full object-contain bg-white" />
+                ) : (
+                  <Plus className="w-4 h-4 text-[var(--terra)]" />
+                )}
+              </button>
+              {logoFile && (
+                <button
+                  type="button"
+                  onClick={() => setLogoFile(null)}
+                  aria-label="Remove logo"
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-white border border-border/70 text-[#6B5E7B] hover:text-red-500 hover:border-red-200 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            {/* Visible rather than folded into the prompt because it is set on
+                screen in the video and in the corner of every scene. */}
+            <input
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="Business name"
+              aria-label="Business name"
+              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-xl md:text-2xl font-black tracking-tight text-[#2D2235] placeholder:text-[#C9C0D3] placeholder:font-bold"
+            />
+          </div>
+          <div className="h-px bg-border/50 my-4" />
+
+          {/* Section label + brief actions, tightly grouped with the textarea
+              directly below - the label's job is to introduce the field right
+              under it, not to sit between the URL fetch bar and the name. */}
+          <div className="flex items-center justify-between gap-3 mb-2">
             <label htmlFor="intro-description" className="text-xs font-bold uppercase tracking-widest text-ink-muted">
               Tell us about your business
             </label>
             <div className="flex items-center gap-2 shrink-0">
-              <ImproveButton
-                onClick={handleImprove}
-                busy={improving}
-                disabled={!canImprove}
-                label={drafting ? "Write my brief" : "Improve"}
-                busyLabel={drafting ? "Writing…" : "Improving…"}
-              />
-              <button
-                type="button"
-                onClick={() => setExamplesOpen((o) => !o)}
-                aria-expanded={examplesOpen}
-                aria-controls="panel-examples"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6B5E7B] hover:text-[var(--terra)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg px-2.5 min-h-11 shrink-0"
+              {/* Write my brief: matches the outlined-pill style
+                  Inspiration/Dictionary use in PromptStep.jsx's header row
+                  (resting state, not their active/toggled fill) - same
+                  className and inline style values, not an approximation.
+                  Kept as a bespoke button rather than ImproveButton because
+                  ImproveButton's own base className bakes in different
+                  padding/height (px-4 py-2 min-h-11 vs this row's
+                  py-1.5 min-h-12) that a caller-supplied className can't
+                  reliably override. */}
+              <span
+                className="inline-flex"
+                title={!canImprove ? "Add your business name, logo, or a photo first" : undefined}
               >
-                <Lightbulb className="w-4 h-4" />
-                Help me start
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${examplesOpen ? "rotate-180" : ""}`} />
-              </button>
+                <button
+                  type="button"
+                  onClick={handleImprove}
+                  disabled={!canImprove || improving}
+                  className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }}
+                  onMouseEnter={e => { if (!(!canImprove || improving)) e.currentTarget.style.background = 'rgba(193,68,14,0.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {improving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                  <span>{improving ? (drafting ? "Writing…" : "Improving…") : (drafting ? "Write my brief" : "Improve")}</span>
+                </button>
+              </span>
+
+              {/* Help me start: the "Tips" trigger pattern (PromptStep.jsx) -
+                  no bounding box, muted text that only brightens to terra on
+                  hover, icon-only below `sm`. A bespoke trigger rather than
+                  ComposerChip because ComposerChip's `lg`/`outlined` styling
+                  always renders a bordered chip, which is exactly the
+                  equal-weight-to-Improve look this needs to move away from.
+                  The popover panel itself still reuses ComposerChip's Clay
+                  Wash popover markup (bg-surface-alt, same positioning,
+                  same motion values, same click-outside/Escape close) rather
+                  than inventing new popover styling. */}
+              <div className="relative" ref={helpRef}>
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen((o) => !o)}
+                  aria-expanded={helpOpen}
+                  aria-controls="help-start-popover"
+                  aria-label="Help me start"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-11 text-[11px] font-bold transition-colors"
+                  style={{ color: '#75695F' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  <span>Help me start</span>
+                </button>
+                <AnimatePresence>
+                  {helpOpen && (
+                    <motion.div
+                      id="help-start-popover"
+                      role="dialog"
+                      aria-label="Help me start"
+                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -4 }}
+                      transition={reducedMotion ? { duration: 0.1 } : { type: "spring", stiffness: 420, damping: 32 }}
+                      style={{
+                        transformOrigin: "top right",
+                        boxShadow: "0 8px 24px rgba(193,68,14,0.16), 0 2px 8px rgba(193,68,14,0.10)",
+                      }}
+                      className="absolute z-30 top-[calc(100%+8px)] right-0 w-[min(88vw,320px)] max-h-[min(360px,60vh)] overflow-y-auto rounded-2xl bg-surface-alt border border-border/40 p-4"
+                    >
+                      <ChipPanelLabel>Start from one of these</ChipPanelLabel>
+                      <div>
+                        {EXAMPLES.map((ex, i) => (
+                          <button
+                            key={ex.label}
+                            type="button"
+                            onClick={() => {
+                              setDescription(ex.text);
+                              setHelpOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 text-left py-2.5 transition-colors hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded-lg ${
+                              i < EXAMPLES.length - 1 ? "border-b border-border/40" : ""
+                            }`}
+                          >
+                            <span
+                              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+                              style={{ background: 'rgba(193,68,14,0.10)', color: 'var(--terra)' }}
+                            >
+                              <ex.Icon className="w-4 h-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <p className="text-[11px] font-bold text-[#2D2235] truncate">{ex.label}</p>
+                              <p className="text-xs text-[#6B5E7B] truncate">{ex.text}</p>
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#A99FB5] shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
-
-          <AnimatePresence initial={false}>
-            {examplesOpen && (
-              <motion.div
-                id="panel-examples"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="overflow-hidden"
-              >
-                <div className="mt-3 rounded-2xl bg-surface-alt border border-border/30 p-4">
-                  <ChipPanelLabel>Start from one of these</ChipPanelLabel>
-                  <div className="space-y-2">
-                    {EXAMPLES.map((ex) => (
-                      <button
-                        key={ex.label}
-                        type="button"
-                        onClick={() => {
-                          setDescription(ex.text);
-                          setExamplesOpen(false);
-                        }}
-                        className="w-full text-left rounded-xl bg-white border border-border/40 px-3.5 py-3 hover:border-[var(--terra)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
-                      >
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--terra)]">{ex.label}</p>
-                        <p className="text-xs text-[#6B5E7B] leading-relaxed mt-1">{ex.text}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Business name. Visible rather than folded into the prompt because it is
-              set on screen in the video and in the corner of every scene. */}
-          <input
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Business name"
-            aria-label="Business name"
-            className="mt-4 w-full bg-transparent border-0 outline-none text-xl md:text-2xl font-black tracking-tight text-[#2D2235] placeholder:text-[#C9C0D3] placeholder:font-bold"
-          />
-          <div className="h-px bg-border/50 my-3" />
 
           {/* `relative` is what the @ dropdown positions against, and the focus
               handlers live here rather than on the field because
@@ -443,45 +594,28 @@ export default function IntroBriefStep({
             />
           </div>
 
-          {/* Controls: logo stays a bespoke control (it carries a thumbnail +
-              its own remove button, not the icon/label/value chip shape);
-              Photos/Length/Ratio/Brand kit are the shared chip primitive. */}
-          <ComposerChipRow className="pt-1">
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className={`inline-flex items-center gap-2 rounded-full border px-3.5 min-h-11 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 ${
-                logoFile
-                  ? "border-[var(--terra)]/45 bg-[var(--terra)]/6 text-[var(--terra)]"
-                  : "border-[var(--terra)]/55 bg-[var(--terra)]/8 text-[var(--terra)]"
-              }`}
-            >
-              {logoFile && logoPreview ? (
-                <>
-                  <img src={logoPreview} alt="" className="w-5 h-5 rounded object-contain bg-white" />
-                  <span className="max-w-[9rem] truncate">{logoFile.name}</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add logo</span>
-                  <span aria-hidden="true">*</span>
-                </>
-              )}
-            </button>
-            {logoFile && (
-              <button
-                type="button"
-                onClick={() => setLogoFile(null)}
-                aria-label="Remove logo"
-                className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-border/70 text-[#6B5E7B] hover:text-red-500 hover:border-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-
+          {/* Controls: logo now lives as the avatar next to Business name above -
+              Photos/Length/Ratio/Brand kit are the shared chip primitive.
+              `grow` + the row's own `w-full`/`gapClassName` match
+              PromptStep.jsx's Length/Ratio/Voice/Music row byte-for-byte, so
+              this row stretches to fill the card evenly instead of packing
+              left at content width. `whitespace-nowrap min-w-max` stops the
+              longest label ("Brand kit") wrapping to a second line once the
+              equal-width stretch narrowed its column - `min-w-max` gives it
+              (and every chip) a content-width floor so flex-grow only
+              redistributes leftover row space instead of forcing a strict
+              even split that ignores content. `sm:!px-6` (desktop only,
+              `!` forces the override since SIZE.lg's own `sm:px-4` is a
+              same-specificity Tailwind utility with no guaranteed source-
+              order win) widens the resting horizontal padding from 16px to
+              24px for more breathing room now that the row is wider. */}
+          <ComposerChipRow className="w-full pt-1" gapClassName="gap-2 sm:gap-3">
             <ComposerChip
               id="photos"
+              grow
+              size="lg"
+              variant="outlined"
+              className="whitespace-nowrap min-w-max sm:!px-6"
               icon={ImageIcon}
               label="Photos"
               value={photos.length ? `${photos.length}/${MAX_SHOWCASE}` : undefined}
@@ -567,6 +701,10 @@ export default function IntroBriefStep({
 
             <ComposerChip
               id="length"
+              grow
+              size="lg"
+              variant="outlined"
+              className="whitespace-nowrap min-w-max sm:!px-6"
               icon={Clock}
               label="Length"
               value={`${targetDuration}s`}
@@ -589,6 +727,10 @@ export default function IntroBriefStep({
 
             <ComposerChip
               id="ratio"
+              grow
+              size="lg"
+              variant="outlined"
+              className="whitespace-nowrap min-w-max sm:!px-6"
               icon={aspectRatio === "9:16" ? RectangleVertical : RectangleHorizontal}
               label="Ratio"
               value={aspectRatio}
@@ -616,6 +758,10 @@ export default function IntroBriefStep({
 
             <ComposerChip
               id="brandkit"
+              grow
+              size="lg"
+              variant="outlined"
+              className="whitespace-nowrap min-w-max sm:!px-6"
               icon={Palette}
               label="Brand kit"
               modified={!!brandColors}
@@ -677,29 +823,36 @@ export default function IntroBriefStep({
           </div>
         )}
 
-        <Button
-          onClick={onContinue}
-          disabled={!canStart || loading}
-          className="w-full text-white border-0 rounded-2xl py-6 text-base font-bold disabled:opacity-50"
-          style={{ background: GRADIENT }}
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-              />
-              Writing your script…
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              Continue to script
-              <ArrowRight className="w-4 h-4" />
-            </span>
-          )}
-        </Button>
+        {/* Same width cap PromptStep.jsx puts on its own CTA
+            (w-full sm:max-w-[480px] sm:mx-auto): the card just widened to
+            max-w-4xl to match the other modes, and without this the button
+            would stretch to the full ~896px card width instead of reading
+            as a single focused action, same as it would in PromptStep. */}
+        <div className="w-full sm:max-w-[480px] sm:mx-auto">
+          <Button
+            onClick={onContinue}
+            disabled={!canStart || loading}
+            className="w-full text-white border-0 rounded-2xl py-6 text-base font-bold disabled:opacity-50"
+            style={{ background: GRADIENT }}
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                />
+                Writing your script…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Continue to script
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            )}
+          </Button>
+        </div>
 
         {/* A disabled button with no reason is the commonest dead end in a form. */}
         <p className="text-center text-xs text-ink-muted">
