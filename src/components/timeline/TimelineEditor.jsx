@@ -239,17 +239,21 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   };
 
   // Handle drag asset to timeline
-  const handleAssetDrop = async (asset, trackType, startTime, trackIndex = 0) => {
+  const handleAssetDrop = async (asset, trackType, startTime, trackIndex = 0, { ripple = false } = {}) => {
     if (trackType === "VIDEO" && asset.sectionId) {
       const section = timeline.getSection(asset.sectionId);
       if (section) {
-        await timeline.addItem({
+        // `ripple` comes from the canvas, which is what knows whether the row had
+        // room at the drop point. It only ever asks for it on the video row.
+        const add = ripple ? timeline.rippleInsert : timeline.addItem;
+        await add({
           trackType: "VIDEO",
           trackIndex: 0,
           startTime,
-          duration: section.clipDuration || 5,
+          duration: Number(section.clipDuration) || 5,
           sectionId: section.id,
         });
+        if (ripple) toast.success("Clip inserted. The clips after it moved along.");
       }
     } else if (trackType === "AUDIO") {
       if (asset.audioAssetId) {
@@ -259,7 +263,10 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             trackType: "AUDIO",
             trackIndex,
             startTime,
-            duration: audioAsset.duration,
+            // An upload whose duration probe failed stores null, and a null
+            // length here inserts a zero-width clip that cannot be seen or
+            // grabbed. Matches the fallback the tap-to-add path already uses.
+            duration: Number(audioAsset.duration) || 5,
             audioAssetId: audioAsset.id,
           });
         }
@@ -271,7 +278,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             trackType: "AUDIO",
             trackIndex,
             startTime,
-            duration: section.narrationDuration || section.clipDuration || 5,
+            duration: Number(section.narrationDuration || section.clipDuration) || 5,
             sectionId: section.id,
           });
         }
@@ -318,6 +325,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       await onUpdateSection(editingNarration.section.id, updates);
       // Reload timeline to pick up updated section data
       await timeline.loadTimeline();
+      // The change is in the draft, not in the finished video, until an Export.
+      timeline.markDirty();
     }
   };
 
@@ -337,6 +346,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         console.log("[TimelineEditor] onRegenerateNarration prop completed");
         console.log("[TimelineEditor] Reloading timeline...");
         await timeline.loadTimeline();
+        timeline.markDirty();
         console.log("[TimelineEditor] Timeline reloaded");
       } catch (err) {
         console.error("[TimelineEditor] handleRegenerateNarration failed:", err);
@@ -382,6 +392,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       });
       setRegenProgress({ percentage: 100, label: "Done" });
       await timeline.loadTimeline(); // pick up the new generatedClipUrl
+      timeline.markDirty(); // same as a rework: it is not in the video until Export
       toast.success("Clip regenerated");
     } catch (err) {
       toast.error(describeError(err, "We couldn't regenerate that clip. Please try again.").userMessage);
@@ -434,9 +445,17 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       }
       setRegenProgress({ percentage: 100, label: "Done" });
       // The whole plan is re-timed by a rework, so this reloads every clip's new
-      // length and position, not just the scene that changed.
+      // length and position, not just the scene that changed. The sections and
+      // the timeline itself are rebuilt with fresh ids, which is what makes the
+      // undo stack behind us unusable: see resetHistory.
       await timeline.loadTimeline();
-      toast.success("Scene reworked");
+      timeline.resetHistory();
+      // The reworked scene is in the timeline, but the finished video is still
+      // the one assembled before it. Without this the editor thought nothing had
+      // changed: Back left with no warning and the result page played the old
+      // cut, so the rework looked like it had done nothing.
+      timeline.markDirty();
+      toast.success("Scene reworked. Export to put it in your video.");
     } catch (err) {
       toast.error(describeError(err, "We couldn't rework that scene. Please try again.").userMessage);
     } finally {

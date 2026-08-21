@@ -173,6 +173,60 @@ export function useTimeline(sessionId) {
     [sessionId, timeline, loadTimeline, pushHistory]
   );
 
+  /**
+   * Insert an item and push everything at or after it to the right, an insert
+   * edit rather than a stack.
+   *
+   * ALL tracks shift, not just the one being inserted into. Each video clip has
+   * its narration sitting over it, so moving the picture and leaving the voice
+   * where it was would slide every line onto the wrong scene. Anything that
+   * starts BEFORE the insert point stays put, which is what keeps a full-length
+   * music bed anchored at zero.
+   *
+   * Sent as one bulk replace instead of a call per item: it is a single edit and
+   * it lands atomically, and one pushHistory beforehand makes Undo restore the
+   * whole row, inserted clip and all.
+   */
+  const rippleInsert = useCallback(
+    async (itemData) => {
+      if (!sessionId || !timeline) return;
+
+      const at = Number(itemData.startTime) || 0;
+      const shift = Number(itemData.duration) || 0;
+      if (!(shift > 0)) return addItem(itemData);
+
+      pushHistory();
+      setHasUnexportedChanges(true);
+      setSaving(true);
+
+      // EPSILON: a clip starting exactly at the insert point must move, and
+      // these values come off frame math, so an exact compare would leave a
+      // butt-joined neighbour behind by a rounding error.
+      const EPS = 0.005;
+      const shifted = itemsRef.current.map((it) =>
+        it.startTime >= at - EPS ? { ...it, startTime: it.startTime + shift } : it
+      );
+      // The server mints the real id (replaceItems generates one for any item
+      // arriving without). The optimistic copy still needs SOME id, or it renders
+      // with an undefined React key until the round trip lands.
+      const inserted = { ...itemData, startTime: at };
+      setItems([...shifted, { ...inserted, id: `pending_${Date.now()}` }]);
+
+      try {
+        const result = await sessionService.replaceTimelineItems(sessionId, [...shifted, inserted]);
+        if (result?.items) setItems(result.items);
+        if (typeof result?.duration === "number") setDuration(result.duration);
+      } catch (err) {
+        console.error("Failed to insert item:", err);
+        toast.error(describeError(err, "We couldn't add that to the timeline. Please try again.").userMessage);
+        await loadTimeline(); // back to server truth, the optimistic shift never happened
+      } finally {
+        setSaving(false);
+      }
+    },
+    [sessionId, timeline, addItem, loadTimeline, pushHistory]
+  );
+
   // Remove item from timeline
   const removeItem = useCallback(
     async (itemId) => {
@@ -333,6 +387,29 @@ export function useTimeline(sessionId) {
     },
     [sessionId]
   );
+
+  // Flag work that changed the video but did not go through the item mutators
+  // above: a reworked scene, a regenerated or rewritten narration. Those all
+  // land on the server and come back through loadTimeline, so nothing here saw
+  // an edit and the editor believed the finished video was still current. The
+  // user could then leave with no warning and watch the OLD video on the result
+  // page, with nothing saying an Export was needed to pick the change up.
+  const markDirty = useCallback(() => setHasUnexportedChanges(true), []);
+
+  // Throw away the undo stack, for when the server has rebuilt the timeline
+  // underneath it rather than the user having edited it.
+  //
+  // An intro rework drops the Timeline row and every VideoSection and remints
+  // their ids, so every id in a snapshot taken before it is dead. Undoing onto
+  // that replaced the rebuilt rows with items pointing at sections that no
+  // longer exist, and the export manifest silently drops those: the export came
+  // back missing clips. Deliberately NOT done inside loadTimeline, which the
+  // ordinary add/remove mutators call to refresh the duration - clearing there
+  // would wipe the snapshot each of them had just pushed.
+  const resetHistory = useCallback(() => {
+    historyRef.current = [];
+    setCanUndo(false);
+  }, []);
 
   // Export timeline. `onProgress({ percentage, label })` is forwarded to the
   // service's job poller so the caller can drive a real progress bar.
@@ -540,6 +617,7 @@ export function useTimeline(sessionId) {
     // Item operations
     updateItem,
     addItem,
+    rippleInsert,
     removeItem,
     splitItem,
 
@@ -559,6 +637,8 @@ export function useTimeline(sessionId) {
     loading,
     saving,
     hasUnexportedChanges,
+    markDirty,
+    resetHistory,
     loadTimeline,
 
     // Utilities

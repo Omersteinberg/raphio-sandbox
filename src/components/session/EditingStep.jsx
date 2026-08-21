@@ -24,9 +24,13 @@ export default function EditingStep({
       onUpdateSection={async (sectionId, updates) => {
         await updateClip(sectionId, updates);
       }}
-      onRegenerateNarration={async (sectionId, text, voiceId) => {
+      // `tone` is the delivery the user picked in the narration modal. Dropping
+      // it here silently fell back to the section's saved tone, so the picker did
+      // nothing from inside the wizard while working from the My Videos editor
+      // (EditorPage), which always passed it through.
+      onRegenerateNarration={async (sectionId, text, voiceId, tone) => {
         if (regenerateNarration) {
-          await regenerateNarration(sectionId, { narrationText: text, voiceId });
+          await regenerateNarration(sectionId, { narrationText: text, voiceId, tone });
         }
       }}
     />
