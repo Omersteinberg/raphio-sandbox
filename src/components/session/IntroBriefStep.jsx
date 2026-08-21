@@ -18,6 +18,7 @@ import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
+import { INTRO_CREDITS } from "@/lib/limits";
 
 const GRADIENT = "var(--gradient-brand)";
 const MAX_SHOWCASE = 4;
@@ -581,7 +582,7 @@ export default function IntroBriefStep({
                     render={(o) => o.label}
                   />
                   <p className="text-xs text-ink-muted mt-3">
-                    {duration?.desc}. Every intro costs 1 credit, whatever the length.
+                    {duration?.desc}. Every intro costs {INTRO_CREDITS} credits, whatever the length.
                   </p>
                 </>
               )}
@@ -707,7 +708,7 @@ export default function IntroBriefStep({
             ? "Add your logo to continue"
             : !description.trim()
               ? "Describe your business to continue"
-              : `1 credit · ${targetDuration} second intro with music`}
+              : `${INTRO_CREDITS} credits · ${targetDuration} second intro with music`}
         </p>
       </div>
     </div>

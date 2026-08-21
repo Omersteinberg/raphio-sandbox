@@ -12,6 +12,7 @@ import { useIntroSession } from "@/hooks/session/useIntroSession";
 import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildIntroTasks } from "@/lib/journeyTasks";
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
+import { loadPending } from "@/lib/pendingSession";
 
 const GENERATING_STEP = 2;
 const COMPLETED_STEP = 3;
@@ -38,6 +39,31 @@ const INTRO_SUB_STEPS = [
 export default function IntroPipelineCreator({ onModeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
+
+  // Rehydrate the brief the user was part-way through: a hard refresh, the bounce
+  // to /buy-credits when they run out of credits, or switching pipeline mode and
+  // coming back. Mirrors the same mount-time restore in ImagePipelineCreator and
+  // ReferencesPipelineCreator; useIntroSession writes the draft on every change.
+  //
+  // Skipped when resuming a real session (?session=): that session's own stage
+  // drives the wizard, and a stale brief has nothing left to fill in.
+  const restoreBrief = intro.restoreBrief;
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("session")) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadPending("intro");
+        if (cancelled || !saved) return;
+        restoreBrief(saved);
+      } catch (err) {
+        console.warn("[IntroPipelineCreator] rehydrate failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Mount-only: hydrate once when the page loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-approve (skip steps) - Intro fuses approve+generate, so it only respects
   // the "Generate" preference. Loaded from the user's account. Only fires on
@@ -205,7 +231,7 @@ export default function IntroPipelineCreator({ onModeChange }) {
               progress={intro.scriptProgress}
               subSteps={INTRO_SUB_STEPS}
               title={intro.scriptLabel || "Building your scenes"}
-              estimate="~4 minutes"
+              estimate="~10 minutes"
             />
           )}
         </AnimatePresence>

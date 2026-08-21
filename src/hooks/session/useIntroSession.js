@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
+import { savePending, clearPending } from "@/lib/pendingSession";
 import { getCreationDefaults } from "@/lib/preferences";
 import { DEFAULT_INTRO_DURATION } from "@/constants/introDurations";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
@@ -9,6 +10,7 @@ import { isGenerationFailed } from "@/lib/progressTasks";
 import { extractLogoColors } from "@/lib/logoColors";
 import { dataUrlToFile } from "@/lib/dataUrlToFile";
 import { DEFAULT_BRAND_FONTS } from "@/constants/brandFonts";
+import { INTRO_CREDITS } from "@/lib/limits";
 
 const GENERATING_STEP = 2;
 
@@ -32,6 +34,18 @@ const EMPTY_SCRIPT = { businessName: "", scenes: [], musicPrompt: "", narration:
 // elapsed time.
 const log = (msg) => console.log(`[intro] ${msg}`);
 const since = (t) => `${((Date.now() - t) / 1000).toFixed(1)}s`;
+
+// Encode a File to a base64 data URL. Same reasoning as useSession: a File
+// handle restored from IndexedDB doesn't reliably reload into a usable object
+// URL (notably in Firefox), so the bytes are persisted rather than the handle.
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 function scriptFromIntroData(introData) {
   if (!introData) return null;
@@ -147,6 +161,116 @@ export function useIntroSession() {
     if (found.tone) setBrandTone(found.tone);
   }, []);
 
+  // Persist the brief to IndexedDB on every change, so leaving the page cannot
+  // lose it: a hard refresh, the bounce to /buy-credits when credits run out, or
+  // switching pipeline mode and coming back. Same mechanism as the image and
+  // references pipelines (savePending), on its own "intro" key. The logo and
+  // showcase photos are encoded to data URLs (cached per File so unchanged ones
+  // aren't re-read); IntroPipelineCreator restores them on mount via
+  // restoreBrief, and the copy is dropped once the backend confirms the upload.
+  const pendingDataUrlCache = useRef(new Map());
+  useEffect(() => {
+    if (sessionId || step !== 0) return;
+
+    const hasDraft =
+      Boolean(description?.trim()) || Boolean(businessName?.trim())
+      || !!logoFile || showcaseFiles.length > 0;
+    if (!hasDraft) return;
+
+    let cancelled = false;
+    (async () => {
+      const cache = pendingDataUrlCache.current;
+      const encode = async (file) => {
+        if (!file) return null;
+        let dataUrl = cache.get(file);
+        if (!dataUrl) {
+          dataUrl = await fileToDataUrl(file);
+          cache.set(file, dataUrl);
+        }
+        return { dataUrl, name: file.name };
+      };
+
+      const logo = await encode(logoFile);
+      const showcase = (await Promise.all(showcaseFiles.map(encode))).filter(Boolean);
+      if (cancelled) return;
+
+      await savePending("intro", {
+        businessName,
+        description,
+        targetDuration,
+        aspectRatio,
+        brandColors,
+        brandFonts,
+        brandTone,
+        // Whether the kit was set by hand / by a website import, so a restore can
+        // re-claim it (see restoreBrief).
+        brandTouched: brandTouchedRef.current,
+        logo,
+        showcase,
+        showcaseLabels,
+      });
+    })().catch((err) => {
+      console.warn("[intro] autosave pending failed:", err);
+    });
+
+    return () => { cancelled = true; };
+  }, [
+    sessionId, step, businessName, description, targetDuration, aspectRatio,
+    brandColors, brandFonts, brandTone, logoFile, showcaseFiles, showcaseLabels,
+  ]);
+
+  /**
+   * Rehydrate the brief from a saved draft.
+   *
+   * Lives in the hook rather than in the creator page (where the other pipelines
+   * put their restore) because the brand kit is not plain state: brandTouchedRef
+   * decides whether logo-derived colours may overwrite what is set, and only the
+   * hook can restore that flag along with the swatches it guards.
+   *
+   * Every field is restored independently and nothing throws, so a partial or
+   * stale draft can never take the brief down.
+   */
+  const restoreBrief = useCallback((saved) => {
+    if (!saved) return;
+
+    if (saved.businessName) setBusinessName(saved.businessName);
+    if (saved.description) setDescription(saved.description);
+    if (Number.isFinite(saved.targetDuration)) setTargetDuration(saved.targetDuration);
+    if (saved.aspectRatio) setAspectRatio(saved.aspectRatio);
+
+    // Re-claim the kit only if it was actually claimed when saved. Claiming it
+    // for any restored colours would also stop a LATER logo swap from re-deriving
+    // them; an untouched kit's colours came off this same logo anyway, so letting
+    // the extract effect re-run over them changes nothing.
+    if (saved.brandTouched) brandTouchedRef.current = true;
+    if (saved.brandColors) setBrandColors(saved.brandColors);
+    if (saved.brandFonts) setBrandFonts(saved.brandFonts);
+    if (saved.brandTone) setBrandTone(saved.brandTone);
+
+    if (Array.isArray(saved.showcaseLabels)) setShowcaseLabels(saved.showcaseLabels);
+
+    const toFile = (entry, fallbackName) =>
+      (entry?.dataUrl ? dataUrlToFile(entry.dataUrl, entry.name || fallbackName) : null);
+
+    const logo = toFile(saved.logo, "logo.png");
+    if (logo) {
+      // Seed the encode cache with the bytes we just decoded: the autosave effect
+      // fires immediately on this restore, and without it every restored photo is
+      // re-read through FileReader for a data URL we already have.
+      pendingDataUrlCache.current.set(logo, saved.logo.dataUrl);
+      setLogoFile(logo);
+    }
+
+    const photos = (Array.isArray(saved.showcase) ? saved.showcase : [])
+      .map((entry, i) => {
+        const file = toFile(entry, `photo-${i + 1}.png`);
+        if (file) pendingDataUrlCache.current.set(file, entry.dataUrl);
+        return file;
+      })
+      .filter(Boolean);
+    if (photos.length) setShowcaseFiles(photos);
+  }, [setAspectRatio]);
+
   // Review state
   const [introScript, setIntroScript] = useState(EMPTY_SCRIPT);
   // Which scenes are being reworked right now. One job slot per session means a
@@ -187,8 +311,8 @@ export function useIntroSession() {
   const startIntroSession = useCallback(async () => {
     if (!logoFile) { toast.error("Please upload a logo"); return; }
     if (!description.trim()) { toast.error("Please describe what your business does"); return; }
-    if (credits != null && credits < 1) {
-      toast.info("You need at least 1 credit to generate an intro.");
+    if (credits != null && credits < INTRO_CREDITS) {
+      toast.info(`You need at least ${INTRO_CREDITS} credits to generate an intro.`);
       navigate("/buy-credits");
       return;
     }
@@ -243,6 +367,16 @@ export function useIntroSession() {
       setScriptProgress(20);
       log(`brief saved in ${since(t)}`);
 
+      // The backend now has the logo, the photos and the brief, so the local
+      // draft copy can go. Kept until this point on purpose: a failed upload
+      // leaves the user back on the brief with their work intact to retry with.
+      try {
+        await clearPending("intro");
+        pendingDataUrlCache.current.clear();
+      } catch (e) {
+        console.warn("[intro] clearPending failed:", e);
+      }
+
       // The long one: a plan, then a voiceover and a rendered clip per scene. The
       // bar reads the job's own progress rather than being ticked by hand here,
       // because the backend is the only thing that knows which scene it is on.
@@ -292,7 +426,7 @@ export function useIntroSession() {
       if (isProviderUnavailable(err)) {
         setProviderUnavailable({ message: err.response.data.error });
       } else if (err.response?.status === 402) {
-        toast.info("You need at least 1 credit to generate an intro.");
+        toast.info(`You need at least ${INTRO_CREDITS} credits to generate an intro.`);
         navigate("/buy-credits");
       } else {
         toast.error(userMessage);
@@ -427,6 +561,10 @@ export function useIntroSession() {
   const reset = useCallback(() => {
     resetBase();
     setStep(0);
+    // Drop the saved draft as well, or the next new intro rehydrates the brief
+    // the user just finished.
+    clearPending("intro").catch((e) => console.warn("[intro] clearPending failed:", e));
+    pendingDataUrlCache.current.clear();
     setLogoFile(null);
     setBusinessName("");
     setDescription("");
@@ -466,6 +604,7 @@ export function useIntroSession() {
     applyExtractedBrand,
     showcaseFiles, setShowcaseFiles,
     showcaseLabels, setShowcaseLabels,
+    restoreBrief,
 
     // Review
     introScript, setIntroScript, updateScriptField,
