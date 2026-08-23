@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, X, Image as ImageIcon, ArrowRight, ArrowLeft,
+  Sparkles, X, Image as ImageIcon, ArrowRight,
   Lightbulb, Clock, Palette, Plus, RotateCcw,
   RectangleHorizontal, RectangleVertical,
   Flame, Scissors, Smartphone, Trees, ChevronRight,
@@ -169,7 +169,7 @@ export default function IntroBriefStep({
   loading,
   error,
   onContinue,
-  onBackToChooser,
+  onModeChange,
 }) {
   const logoInputRef = useRef(null);
   const showcaseInputRef = useRef(null);
@@ -203,12 +203,13 @@ export default function IntroBriefStep({
   }, [helpOpen]);
 
   // First-run tour for this screen, mirroring PromptStep.jsx's own
-  // useStepTour call. `enabled` mirrors that file's `!!onModeChange` gate:
-  // `onBackToChooser` is likewise only passed down for a genuinely fresh
-  // session (see IntroPipelineCreator.jsx), never a resumed draft. No
-  // `intro.tourEnabled`-style video-sequencing gate here - Brand Intro has
-  // no first-visit video to race against, only the tour.
-  const introTour = useStepTour(TOUR_KEYS.introBrief, startIntroTour, { enabled: !!onBackToChooser });
+  // useStepTour call: `enabled` gates on `onModeChange`, which
+  // IntroPipelineCreator only passes down for a genuinely fresh session
+  // (`!intro.sessionId`), never a resumed draft - the underlying signal this
+  // was always meant to gate on. No `intro.tourEnabled`-style video-sequencing
+  // gate here - Brand Intro has no first-visit video to race against, only
+  // the tour.
+  const introTour = useStepTour(TOUR_KEYS.introBrief, startIntroTour, { enabled: !!onModeChange });
 
   // The placeholder only animates on an untouched, unfocused box. Once someone is
   // about to type, motion behind the caret is just noise, and the placeholder is
@@ -399,25 +400,6 @@ export default function IntroBriefStep({
           the video/tour picker menu PromptStep's does. */}
       <HelpFab onStartTour={introTour.replay} />
 
-      {/* Change mode: return to the 3-card chooser (fresh session only) -
-          same floating circular button PromptStep.jsx uses, anchored to this
-          root (position:relative) rather than the viewport, so it sits below
-          the app header instead of behind it. Replaces the old inline
-          "Other pipelines" text link, which jumped straight to Image mode
-          instead of the chooser every other mode's back control returns to. */}
-      {onBackToChooser && (
-        <button
-          type="button"
-          onClick={onBackToChooser}
-          aria-label="Back to mode selection"
-          className="absolute top-4 left-4 z-40 w-11 h-11 rounded-full inline-flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(45,34,53,0.10)', color: '#7A6A62', boxShadow: '0 2px 10px rgba(45,34,53,0.08)', transition: 'color 0.18s ease, background 0.18s ease' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; }}
-        >
-          <ArrowLeft style={{ width: 18, height: 18 }} />
-        </button>
-      )}
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-5">
         {/* Header - icon mark + headline size/weight matched to
             PromptStep.jsx's hero pattern. */}

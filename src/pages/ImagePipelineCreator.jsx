@@ -47,10 +47,35 @@ const IMAGE_SCRIPT_SUB_STEPS = [
   { id: "script",  label: "Generating script",        range: [70, 100] },
 ];
 
-export default function ImagePipelineCreator({ mode = "image", onModeChange, onBackToChooser }) {
+export default function ImagePipelineCreator({
+  mode = "image", onModeChange, onBackToChooser,
+  // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
+  // style/setStyle are renamed at this boundary (rawStyle/setRawStyle) so
+  // useSession.js's own wrapped `setStyle` - which clamps every write via
+  // imageSafeStyle() - can be destructured from `session` below without a
+  // naming collision. Using the raw param directly in the JSX further down
+  // would silently bypass that clamp (this happened once already - see the
+  // bug report this comment replaced).
+  userPrompt, setUserPrompt,
+  style: rawStyle, setStyle: setRawStyle,
+  targetDuration, setTargetDuration,
+  aspectRatio, setAspectRatio,
+  voiceId, setVoiceId,
+  videoModel, setVideoModel,
+  backgroundMusic, setBackgroundMusic,
+}) {
   const isPromptOnly = mode === "prompt";
   const navigate = useNavigate();
-  const session = useSession({ promptOnly: isPromptOnly });
+  const session = useSession({
+    promptOnly: isPromptOnly,
+    userPrompt, setUserPrompt,
+    style: rawStyle, setStyle: setRawStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
+  });
 
   const {
     step,
@@ -59,15 +84,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     handlePrev,
     sessionRestoring,
 
-    // Prompt step
-    userPrompt,
-    setUserPrompt,
+    // Prompt step (userPrompt/targetDuration/aspectRatio/voiceId/videoModel/
+    // backgroundMusic are lifted to Creator.jsx - already in scope as function
+    // params above; session.<field> is the identical pass-through value, so
+    // destructuring them again here would redeclare the same identifiers.
+    // style/setStyle are the exception: useSession.js wraps setStyle with an
+    // imageSafeStyle() clamp, so they ARE destructured from session below,
+    // under the renamed params above.)
     style,
     setStyle,
-    targetDuration,
-    setTargetDuration,
-    aspectRatio,
-    setAspectRatio,
     startSession,
     styleOptions,
     enableBridges,
@@ -101,10 +126,6 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     closingFrame,
     setClosingFrame,
     generatedFrameImages,
-    voiceId,
-    setVoiceId,
-    backgroundMusic,
-    setBackgroundMusic,
     configureFrames,
     startGeneration,
     generationError,
@@ -142,10 +163,16 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     let cancelled = false;
     (async () => {
       try {
+        // userPrompt/style are no longer restored here - they're lifted to
+        // Creator.jsx now, which survives a mode-switch remount on its own.
+        // This effect re-fires on every mode switch (key={pipelineMode}), so
+        // restoring them here as well used to clobber the correctly-lifted
+        // value with whatever was last saved under this specific mode's key.
+        // Creator.jsx does its own one-time pending-draft read for userPrompt
+        // on a genuine page-level remount (e.g. the /buy-credits round trip);
+        // style already survives that via getCreationDefaults()/localStorage.
         const saved = await loadPending(isPromptOnly ? "prompt" : "image");
         if (cancelled || !saved) return;
-        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
-        if (saved.style) setStyle(saved.style);
         if (Array.isArray(saved.images) && saved.images.length > 0) {
           // Support both raw File entries and base64 entries.
           const files = await Promise.all(
@@ -166,7 +193,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
         // Restore saved frame defaults. Skipped when resuming an existing
         // session (?session=): the session's own frames load from the
         // backend. The pending draft above doesn't carry frames, so there is
-        // no overlap; draft prompt/style still win over saved defaults.
+        // no overlap.
         if (!new URLSearchParams(window.location.search).has("session")) {
           const savedFrames = await loadSavedFrames();
           if (!cancelled && savedFrames.opening) {

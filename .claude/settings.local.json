@@ -110,7 +110,25 @@
       "Bash(taskkill //PID 20432 //F //T)",
       "Bash(curl -s -o /dev/null -w \"root: %{http_code}\\\\n\" http://localhost:5340/)",
       "Bash(curl -s http://localhost:5340/src/lib/promptStrength.js)",
-      "Bash(taskkill //PID 25428 //F //T)"
+      "Bash(taskkill //PID 25428 //F //T)",
+      "Bash(git stash *)",
+      "Bash(curl -s -o /dev/null -w \"root: %{http_code}\\\\n\" http://localhost:5341/)",
+      "Bash(curl -s http://localhost:5341/src/pages/Creator.jsx -o /tmp/c1.js -w \"Creator.jsx: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:5341/src/hooks/session/useSession.js -o /tmp/c2.js -w \"useSession.js: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:5341/src/hooks/session/useReferencesSession.js -o /tmp/c3.js -w \"useReferencesSession.js: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:5341/src/pages/ImagePipelineCreator.jsx -o /tmp/c4.js -w \"ImagePipelineCreator.jsx: %{http_code}\\\\n\")",
+      "Bash(taskkill //PID 28524 //F //T)",
+      "Bash(rm -f /tmp/c1.js /tmp/c2.js /tmp/c3.js /tmp/c4.js /tmp/c5.js /tmp/orig_ipc.jsx /tmp/orig_rpc.jsx /tmp/vite_out.log)",
+      "Bash(curl -s -o /dev/null -w \"root: %{http_code}\\\\n\" http://localhost:5342/)",
+      "Bash(curl -s http://localhost:5342/src/pages/Creator.jsx -o /tmp/v_c.js -w \"Creator.jsx: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:5342/src/pages/ImagePipelineCreator.jsx -o /tmp/v_ipc.js -w \"ImagePipelineCreator.jsx: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:5342/src/pages/ReferencesPipelineCreator.jsx -o /tmp/v_rpc.js -w \"ReferencesPipelineCreator.jsx: %{http_code}\\\\n\")",
+      "Bash(taskkill //PID 15608 //F //T)",
+      "Bash(rm -f /tmp/vite2.log /tmp/v_c.js /tmp/v_ipc.js /tmp/v_rpc.js)",
+      "Bash(taskkill //PID 19548 //F //T)",
+      "Bash(rm -f /tmp/vite3.log /tmp/tp_out.js)",
+      "Bash(taskkill //PID 19648 //F //T)",
+      "Bash(rm -f /tmp/vite4.log /tmp/tp4_out.js)"
     ]
   }
 }

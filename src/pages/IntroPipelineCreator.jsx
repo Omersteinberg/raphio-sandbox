@@ -35,7 +35,7 @@ const INTRO_SUB_STEPS = [
   { id: "render",  label: "Rendering your scenes",          range: [48, 100] },
 ];
 
-export default function IntroPipelineCreator({ onModeChange, onBackToChooser }) {
+export default function IntroPipelineCreator({ onModeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
 
@@ -107,7 +107,6 @@ export default function IntroPipelineCreator({ onModeChange, onBackToChooser }) 
           {...intro}
           onContinue={intro.startIntroSession}
           onModeChange={!intro.sessionId ? onModeChange : undefined}
-          onBackToChooser={!intro.sessionId ? onBackToChooser : undefined}
         />
       );
     }

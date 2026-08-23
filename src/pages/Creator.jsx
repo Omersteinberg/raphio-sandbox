@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Sparkles, Image as ImageIcon, Wand2, Clapperboard } from "lucide-react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import IntroPipelineCreator from "./IntroPipelineCreator";
-import ModeChooser from "@/components/session/ModeChooser";
+import PipelineModeTabs from "@/components/session/PipelineModeTabs";
 import MaintenanceScreen from "@/components/session/MaintenanceScreen";
 import IntroVideoModal from "@/components/IntroVideoModal";
-import HelpFab from "@/components/ui/HelpFab";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 import { MAINTENANCE_MODE } from "@/config";
+import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
+import { loadPending } from "@/lib/pendingSession";
 
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
 // (ImagePipelineCreator) with photos + advanced settings hidden. "intro" is the
@@ -18,99 +20,182 @@ import { MAINTENANCE_MODE } from "@/config";
 // Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
 const ENABLED_MODES = RESUMABLE_MODES;
 
+// The always-visible mode toggle. Icons match ModeChooser.jsx's four cards
+// (kept as the source of truth there too) so the iconography is identical
+// whether someone lands via this toggle or the marketing/legacy chooser.
+const MODE_TABS = [
+  { id: "prompt", label: "Idea", icon: Sparkles },
+  { id: "image", label: "Photos", icon: ImageIcon },
+  { id: "references", label: "References", icon: Wand2 },
+  { id: "intro", label: "Intro", icon: Clapperboard },
+];
+
 export default function Creator() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Must run before the `!chosen` early return: hooks cannot be conditional.
   const intro = useIntroVideo(INTRO_VIDEO_KEYS.modeChooser);
 
   // When resuming a session (?session=&mode=), the session's own pipeline mode is
-  // authoritative, otherwise the last-selected "new video" mode (localStorage)
-  // renders the wrong creator and the resume drops the user on step 0 of the
-  // wrong pipeline. Read once at mount; resume always remounts via /videos.
+  // authoritative, otherwise the last-selected mode (localStorage) renders the
+  // wrong creator and the resume drops the user on step 0 of the wrong pipeline.
+  // Read once at mount; resume always remounts via /videos.
   const resumeMode = searchParams.get("mode");
   const resumeSession = searchParams.get("session");
 
   const [pipelineMode, setPipelineMode] = useState(() => {
     if (ENABLED_MODES.includes(resumeMode)) return resumeMode;
     const stored = localStorage.getItem("raphio_pipeline_mode");
-    return ENABLED_MODES.includes(stored) ? stored : "image";
+    return ENABLED_MODES.includes(stored) ? stored : "prompt";
   });
 
-  // A resume (either ?session= or a valid ?mode=) must bypass the chooser and
-  // load straight into the pipeline. A bare /create (the "New video" button)
-  // starts with no mode chosen, so the chooser shows first.
-  const [chosen, setChosen] = useState(
-    () => Boolean(resumeSession) || ENABLED_MODES.includes(resumeMode)
-  );
+  // User-intent state (not session/generation mechanics) shared between Prompt,
+  // Photos, and Reference-Image mode, so it survives switching between them - a
+  // prompt/duration/ratio/voice/music/style choice made in one no longer resets
+  // when the user picks another. Owned here (above the per-mode creators) so it
+  // outlives ImagePipelineCreator's own remount on a Prompt<->Photos switch.
+  // Brand Intro is a different component/hook entirely and does not receive this -
+  // it manages its own via useIntroSession.
+  const [savedDefaults] = useState(getCreationDefaults);
+  const [userPrompt, setUserPrompt] = useState("");
+  const [style, setStyle] = useState(savedDefaults.style);
+  const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
+  const [aspectRatio, setAspectRatio] = useState(savedDefaults.aspectRatio);
+  const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
+  const [videoModel, setVideoModel] = useState("KLING");
+  const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
 
-  const handleModeChange = (mode) => {
-    const next = ENABLED_MODES.includes(mode) ? mode : "image";
-    localStorage.setItem("raphio_pipeline_mode", next);
-    // Reflect the picked mode in the URL so the selection survives a route
-    // change (e.g. visiting /settings and pressing Back): the /create history
-    // entry then carries ?mode=, which re-initializes `chosen` to true instead
-    // of dropping the user back on the chooser. A bare /create ("New video")
-    // still has no mode param, so it correctly shows the chooser.
-    setSearchParams({ mode: next }, { replace: true });
-    setPipelineMode(next);
-    setChosen(true);
+  // Auto-save last-used choices so the next new video starts from them. Moved up
+  // from useSession.js/useSessionBase.js along with the state itself - both hooks
+  // used to run this same effect independently; now there is one source of truth.
+  useEffect(() => {
+    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic });
+  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic]);
+
+  // One-time restore of a pending draft's prompt after a genuine page-level
+  // remount (e.g. returning from the /buy-credits round trip, which unmounts
+  // Creator.jsx itself, not just the child pipeline creator). Deliberately
+  // mount-only - fires exactly once, never on an in-page mode switch. The
+  // per-mode rehydrate effects in ImagePipelineCreator.jsx/
+  // ReferencesPipelineCreator.jsx used to do this instead, but they re-fire
+  // on every mode-switch remount and were clobbering this lifted state with
+  // whatever was last saved under that mode's own pending-draft key. style
+  // needs no equivalent here: it's already seeded from savedDefaults above
+  // (getCreationDefaults()/localStorage), which the auto-save effect keeps
+  // in sync in real time, so it already survives this same remount. Brand
+  // Intro manages its own state via useIntroSession and is excluded.
+  useEffect(() => {
+    if (pipelineMode === "intro") return;
+    let cancelled = false;
+    loadPending(pipelineMode)
+      .then((saved) => {
+        if (cancelled || !saved?.userPrompt) return;
+        setUserPrompt(saved.userPrompt);
+      })
+      .catch((err) => console.warn("[Creator] pending-draft rehydrate failed:", err));
+    return () => { cancelled = true; };
+    // Mount-only by design - see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const sharedIntentProps = {
+    userPrompt, setUserPrompt,
+    style, setStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
   };
 
-  if (!chosen) {
-    if (MAINTENANCE_MODE) {
-      return <MaintenanceScreen />;
-    }
-    return (
-      <>
-        <ModeChooser
-          initialMode={localStorage.getItem("raphio_pipeline_mode")}
-          onPick={handleModeChange}
-        />
-        <IntroVideoModal
-          open={intro.open}
-          src={intro.src}
-          title={intro.title}
-          onClose={intro.close}
-          onDismissWithoutSeen={intro.dismissWithoutSeen}
-        />
-        {/* No tour on this screen, so the FAB skips the menu and replays the
-            video straight into the modal above. */}
-        <HelpFab onPlayVideo={intro.replay} />
-      </>
-    );
+  const handleModeChange = (mode) => {
+    const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
+    localStorage.setItem("raphio_pipeline_mode", next);
+    // Reflect the picked mode in the URL so the selection survives a route
+    // change (e.g. visiting /settings and pressing Back), and so it stays a
+    // real, shareable/bookmarkable deep link (LandingPage's mode CTAs,
+    // WelcomeHero/MyVideosPage resume links, and resumeModeFor's resume
+    // correction all read ?mode= directly from the URL).
+    setSearchParams({ mode: next }, { replace: true });
+    setPipelineMode(next);
+  };
+
+  // A bare, undirected `/create` (no ?session=, no valid ?mode=) is the only
+  // case the old chooser gate ever actually blocked during maintenance - a
+  // deep link or resume already bypassed it. Preserved here so maintenance
+  // mode still lets an in-progress or freshly-linked visit through.
+  const bypassMaintenance = Boolean(resumeSession) || ENABLED_MODES.includes(resumeMode);
+  if (MAINTENANCE_MODE && !bypassMaintenance) {
+    return <MaintenanceScreen />;
   }
 
-  const backToChooser = () => setChosen(false);
+  // Not passing onBackToChooser to any child on purpose: there is no longer a
+  // separate chooser screen to return to (the toggle below replaces it), so
+  // each pipeline's own "back to mode selection" affordance - gated on this
+  // prop being present - now correctly stays hidden without needing changes
+  // to those step components.
+  const activePipeline =
+    pipelineMode === "references" ? (
+      <ReferencesPipelineCreator onModeChange={handleModeChange} {...sharedIntentProps} />
+    ) : pipelineMode === "intro" ? (
+      <IntroPipelineCreator onModeChange={handleModeChange} />
+    ) : (
+      // Both "prompt" and "image" render the image pipeline; the mode
+      // distinguishes the simplified prompt-only variant (photos + advanced
+      // hidden). `key` forces a remount when the user switches between them:
+      // without it React keeps the same instance and useSession's own
+      // mode-specific local state (photos, frames, bridges - everything NOT
+      // lifted to sharedIntentProps above) bleeds across modes. The lifted
+      // fields (prompt, style, duration, ratio, voice, music) live in this
+      // component instead and correctly survive the remount.
+      <ImagePipelineCreator
+        key={pipelineMode}
+        mode={pipelineMode}
+        onModeChange={handleModeChange}
+        {...sharedIntentProps}
+      />
+    );
 
-  if (pipelineMode === "references") {
-    return (
-      <ReferencesPipelineCreator
-        onModeChange={handleModeChange}
-        onBackToChooser={backToChooser}
-      />
-    );
-  }
-  if (pipelineMode === "intro") {
-    return (
-      <IntroPipelineCreator
-        onModeChange={handleModeChange}
-        onBackToChooser={backToChooser}
-      />
-    );
-  }
-  // Both "prompt" and "image" render the image pipeline; the mode distinguishes
-  // the simplified prompt-only variant (photos + advanced hidden).
-  // `key` forces a remount when the user switches between them: without it React
-  // keeps the same instance and useSession's state (prompt, photos, style) bleeds
-  // across modes — a photo picked in image mode then survives into prompt-only as
-  // an invisible @mention target ("@Opening shot").
   return (
-    <ImagePipelineCreator
-      key={pipelineMode}
-      mode={pipelineMode}
-      onModeChange={handleModeChange}
-      onBackToChooser={backToChooser}
-    />
+    <div className="h-full flex flex-col">
+      {/* Kept as tight as possible: the pipeline creator below (via
+          PromptStep.jsx's own py-6 sm:py-12 md:py-16 composer-card padding,
+          out of scope to edit here) already reserves its own vertical space
+          above the card, so this wrapper adds no bottom spacing of its own -
+          stacking padding on top of that would push the toggle further from
+          the card than intended. A fully seamless "one shared card" look
+          (shared rounded top corners, zero visual seam) would need that
+          padding itself edited from inside PromptStep.jsx, which is out of
+          scope for this step - this gets it as close as Creator.jsx alone
+          can. overflow-x-auto is a safety net, not a fix: at 4 segments the
+          toggle should fit even the narrowest supported phone widths, but a
+          user font-size override or an unusually narrow viewport won't force
+          the page itself to scroll horizontally. */}
+      <div className="px-2 sm:px-4 pt-2 sm:pt-3 overflow-x-auto">
+        <div className="max-w-4xl mx-auto">
+          <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
+        {activePipeline}
+      </div>
+
+      {/* First-visit "Getting started" video - previously shown only on the
+          removed chooser screen, now unconditional so it still triggers once
+          on a user's first-ever visit to /create regardless of which mode
+          they land in. It already self-gates on the persisted
+          introVideosSeen "modeChooser" flag. No standalone HelpFab paired
+          with it here (unlike the old chooser screen): every pipeline's own
+          composer step already renders its own contextual HelpFab
+          (PromptStep, IntroBriefStep), fixed to the same bottom-right
+          corner - a second one here would render on top of it. */}
+      <IntroVideoModal
+        open={intro.open}
+        src={intro.src}
+        title={intro.title}
+        onClose={intro.close}
+        onDismissWithoutSeen={intro.dismissWithoutSeen}
+      />
+    </div>
   );
 }

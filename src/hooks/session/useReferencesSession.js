@@ -6,6 +6,7 @@ import { fetchStyles } from "@/services/session";
 import { useSessionBase, STAGES } from "./useSessionBase";
 import { STYLE_OPTIONS } from "../../constants/styles";
 import { creditsForDuration } from "@/lib/limits";
+import { getCreationDefaults } from "@/lib/preferences";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { logFailure } from "@/lib/genLog";
 import { isGenerationFailed } from "@/lib/progressTasks";
@@ -41,7 +42,20 @@ const REF_STAGE_TO_STEP = {
   SCRIPT_APPROVED: 2,
 };
 
-export function useReferencesSession() {
+export function useReferencesSession({
+  // User-intent state lifted to Creator.jsx so it survives switching between
+  // Prompt, Photos, and Reference-Image mode. This hook reads/writes through
+  // what's passed in instead of the copies useSessionBase keeps internally -
+  // those become vestigial for this hook (mirrors how useIntroSession already
+  // shadows base's own targetDuration with its own local one).
+  userPrompt, setUserPrompt,
+  style, setStyle,
+  targetDuration, setTargetDuration,
+  aspectRatio, setAspectRatio,
+  voiceId, setVoiceId,
+  videoModel, setVideoModel,
+  backgroundMusic, setBackgroundMusic,
+} = {}) {
   const [step, setStep] = useState(0);
   const onSessionLoadedRef = useRef(null);
   // Cache of File -> data URL so re-saving the draft on every keystroke doesn't
@@ -60,7 +74,6 @@ export function useReferencesSession() {
     sessionId, setSessionId, session, setSession,
     direction, setDirection, loading, setLoading,
     error, setError,
-    userPrompt, style, targetDuration, voiceId, videoModel, backgroundMusic, aspectRatio,
     scriptData, setScriptData,
     setScriptProgress,
     setInsufficientCredits,
@@ -150,7 +163,7 @@ export function useReferencesSession() {
         setFinalVideoUrl(session.video.finalVideoUrl);
       }
       if (session.videoModel) {
-        base.setVideoModel(session.videoModel);
+        setVideoModel(session.videoModel);
       }
     }
   }, [session]);
@@ -629,13 +642,26 @@ export function useReferencesSession() {
   // ── Reset ──────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     resetBase();
+    // resetBase() only resets useSessionBase's own (now vestigial, for these
+    // fields) copies - the lifted state lives in Creator.jsx, so it must be
+    // reset through the injected setters here. Mirrors what resetBase() used
+    // to do for them: style/aspectRatio/voiceId/videoModel/backgroundMusic and
+    // userPrompt reset to saved defaults; targetDuration is deliberately left
+    // alone ("last touched wins").
+    const defaults = getCreationDefaults();
+    setUserPrompt("");
+    setStyle(defaults.style);
+    setAspectRatio(defaults.aspectRatio);
+    setVoiceId(defaults.voiceId);
+    setVideoModel("KLING");
+    setBackgroundMusic(defaults.backgroundMusic);
     setStep(0);
     setReferences([]);
     setReferenceData(null);
     setSceneFrames([]);
     setLockLoading(new Set());
     setFramesLoading(false);
-  }, [resetBase]);
+  }, [resetBase, setUserPrompt, setStyle, setAspectRatio, setVoiceId, setVideoModel, setBackgroundMusic]);
 
   return {
     ...base,
@@ -646,6 +672,17 @@ export function useReferencesSession() {
     direction: base.direction,
     loading: base.loading,
     error: base.error,
+
+    // Lifted user-intent state - overrides base's own (vestigial, for these
+    // fields) copies with the ones injected from Creator.jsx. On purpose: see
+    // the function signature comment above.
+    userPrompt, setUserPrompt,
+    style, setStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
 
     // References-specific state
     references,
