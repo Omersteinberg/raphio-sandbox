@@ -5,7 +5,7 @@ import {
   Lightbulb, Clock, Palette, Plus, RotateCcw,
   RectangleHorizontal, RectangleVertical,
   Flame, Scissors, Smartphone, Trees, ChevronRight,
-  Wand2, Loader2,
+  Wand2, Loader2, Check, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PromptMentionField from "./PromptMentionField";
@@ -17,9 +17,14 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { fetchIntroScenes } from "@/services/session";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
+import { scoreIntroBrief } from "@/lib/promptStrength";
 import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
+import HelpFab from "@/components/ui/HelpFab";
+import { startIntroTour } from "@/lib/promptTour";
+import { TOUR_KEYS } from "@/lib/tourState";
+import { useStepTour } from "@/lib/useStepTour";
 
 const GRADIENT = "var(--gradient-brand)";
 const MAX_SHOWCASE = 4;
@@ -31,6 +36,26 @@ const MAX_SHOWCASE = 4;
 const CARD_SHADOW = {
   background: '#ffffff',
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
+};
+
+// Short pill labels for the strength meter's collapsed row (PromptStep.jsx's
+// SEGMENT_FACTOR_LABEL) - the full descriptive strings from scoreIntroBrief()
+// still drive the expanded hint text below. "identity" is shortened from its
+// full label ("What you offer & who it's for") to fit the compact pill row;
+// "detail"/"clearMessage" already match scoreIntroBrief's own factor labels.
+const INTRO_SEGMENT_FACTOR_LABEL = {
+  detail: 'Detailed',
+  identity: 'What & who',
+  clearMessage: 'Clear message',
+};
+
+// Met criteria swap their "what to add" hint for a short confirmation
+// instead (PromptStep.jsx's FACTOR_CONFIRMATION) - unmet criteria keep
+// showing the instructional hint unchanged.
+const INTRO_FACTOR_CONFIRMATION = {
+  detail: 'Your brief has enough detail to write a good script.',
+  identity: 'Says what you offer and who it serves.',
+  clearMessage: 'Connects what you offer to why it matters.',
 };
 
 // Worked briefs for the "Help me start" menu. A blank box is the main reason a
@@ -177,6 +202,14 @@ export default function IntroBriefStep({
     };
   }, [helpOpen]);
 
+  // First-run tour for this screen, mirroring PromptStep.jsx's own
+  // useStepTour call. `enabled` mirrors that file's `!!onModeChange` gate:
+  // `onBackToChooser` is likewise only passed down for a genuinely fresh
+  // session (see IntroPipelineCreator.jsx), never a resumed draft. No
+  // `intro.tourEnabled`-style video-sequencing gate here - Brand Intro has
+  // no first-visit video to race against, only the tour.
+  const introTour = useStepTour(TOUR_KEYS.introBrief, startIntroTour, { enabled: !!onBackToChooser });
+
   // The placeholder only animates on an untouched, unfocused box. Once someone is
   // about to type, motion behind the caret is just noise, and the placeholder is
   // not visible at all once there is any text.
@@ -276,6 +309,30 @@ export default function IntroBriefStep({
     ];
   }, [photos, labels, showcasePreviews, beats]);
 
+  // Brief strength - a transparent checklist that doubles as guidance, same
+  // pattern PromptStep.jsx uses for its own prompt-strength meter (pure,
+  // synchronous, recomputed as the brief changes).
+  const strength = useMemo(
+    () => scoreIntroBrief({ userPrompt: description }),
+    [description]
+  );
+  const briefIsEmpty = !description?.trim();
+  const allFactorsMet = strength.factors.length > 0 && strength.factors.every((f) => f.met);
+  // Starts collapsed - just the bar + summary line - same as PromptStep's,
+  // and auto-collapses once every factor passes even if opened by hand.
+  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
+  useEffect(() => {
+    if (allFactorsMet) setShowStrengthDetail(false);
+  }, [allFactorsMet]);
+
+  const strengthBarColor = briefIsEmpty
+    ? "#D8CFC5" // neutral clay - not yet evaluative
+    : strength.band === "strong"
+      ? "#1C8357" // green, AA-safe as text
+      : strength.band === "ok"
+      ? "#F0B429" // yellow
+      : "#E5484D"; // red
+
   // "Improve with AI". With an empty box it drafts the first brief instead, which
   // is why the enable check is not simply "is there text".
   const [improving, setImproving] = useState(false);
@@ -335,6 +392,13 @@ export default function IntroBriefStep({
 
   return (
     <div className="w-full h-full overflow-y-auto relative">
+      {/* Help FAB: same shared component + fixed bottom-right position as
+          PromptStep.jsx. Tour-only (no onPlayVideo) - there is no Brand
+          Intro tutorial video, so resolveHelpMode resolves to "tour" and
+          the button opens the tour directly on click instead of showing
+          the video/tour picker menu PromptStep's does. */}
+      <HelpFab onStartTour={introTour.replay} />
+
       {/* Change mode: return to the 3-card chooser (fresh session only) -
           same floating circular button PromptStep.jsx uses, anchored to this
           root (position:relative) rather than the viewport, so it sits below
@@ -412,14 +476,23 @@ export default function IntroBriefStep({
         <div className="rounded-3xl p-5 md:p-7" style={CARD_SHADOW}>
           {/* Optional shortcut. Fills only what is still empty below, so it never
               overwrites something already typed. The length goes with it: the brief
-              it drafts names beats, and how many depends on the length picked. */}
-          <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
+              it drafts names beats, and how many depends on the length picked.
+              Wrapped in its own div for the tour anchor - same reason
+              intro-settings wraps ComposerChipRow instead of tagging it
+              directly: BrandUrlField doesn't spread unlisted props onto its
+              own root, so a data-tour prop passed straight to it would be
+              silently dropped. The wrapper has no layout classes of its own,
+              so BrandUrlField's own mb-4 still collapses through it exactly
+              as if the wrapper weren't there. */}
+          <div data-tour="intro-fetch">
+            <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
+          </div>
 
           {/* Identity: logo avatar + business name, grouped as one field since
               both name the brand on screen. Required behavior (canStart still
               gates on logoFile) is unchanged - only the control's shape moved
               from a settings-row pill to an inline avatar upload. */}
-          <div className="flex items-center gap-3 mt-6">
+          <div data-tour="intro-identity" className="flex items-center gap-3 mt-6">
             <div className="relative shrink-0 group">
               <button
                 type="button"
@@ -576,6 +649,7 @@ export default function IntroBriefStep({
               PromptMentionField sets its own onBlur after spreading props. Focus
               events bubble, so the wrapper sees both. */}
           <div
+            data-tour="intro-brief"
             className="relative"
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
@@ -609,6 +683,7 @@ export default function IntroBriefStep({
               same-specificity Tailwind utility with no guaranteed source-
               order win) widens the resting horizontal padding from 16px to
               24px for more breathing room now that the row is wider. */}
+          <div data-tour="intro-settings">
           <ComposerChipRow className="w-full pt-1" gapClassName="gap-2 sm:gap-3">
             <ComposerChip
               id="photos"
@@ -785,6 +860,114 @@ export default function IntroBriefStep({
               )}
             />
           </ComposerChipRow>
+          </div>
+
+          {/* Strength meter: copied from PromptStep.jsx's own (same classes,
+              colors, motion values - not an approximation), wired to
+              scoreIntroBrief() and its three brief-specific factors instead
+              of scorePrompt()'s four video-scene ones. `mt-6` matches this
+              composer's own section-break convention (the same gap used
+              above the Business name row) - PromptStep's copy relies on its
+              parent's `space-y-4`/`space-y-6` for this same separation, which
+              this card doesn't have, so it sat flush against the chip row
+              above it without an explicit margin of its own. */}
+          <div className={`mt-6 ${reducedMotion ? '' : 'strength-fade-in'}`}>
+            <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
+              <div
+                className="h-full w-full rounded-full"
+                style={{
+                  background: strengthBarColor,
+                  transform: `scaleX(${strength.score / 100})`,
+                  transformOrigin: 'left',
+                  transition: 'transform 0.3s ease',
+                }}
+              />
+            </div>
+
+            <div className="flex items-center flex-wrap gap-x-5 gap-y-2 pt-2.5">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold flex-shrink-0" style={{ color: briefIsEmpty ? '#75695F' : strengthBarColor }}>
+                {allFactorsMet && (
+                  <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 15, height: 15, background: '#22A06B' }}>
+                    <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />
+                  </span>
+                )}
+                {briefIsEmpty ? 'Start typing to see your brief strength' : allFactorsMet ? 'Strong brief' : `Brief strength: ${strength.label}`}
+              </span>
+
+              <div className="hidden sm:contents">
+                {strength.factors.map((f) => (
+                  <span key={f.id} className="flex items-center gap-1.5 flex-shrink-0">
+                    <span
+                      className="flex items-center justify-center rounded-full flex-shrink-0"
+                      style={{
+                        width: 15, height: 15,
+                        background: f.met ? '#22A06B' : 'transparent',
+                        border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                      }}
+                    >
+                      {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                    </span>
+                    <span className="text-[11px] font-medium" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
+                      {INTRO_SEGMENT_FACTOR_LABEL[f.id] || f.label}
+                    </span>
+                  </span>
+                ))}
+              </div>
+
+              {strength.factors.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowStrengthDetail((s) => !s)}
+                  aria-expanded={showStrengthDetail}
+                  aria-controls="intro-strength-hints"
+                  className="flex items-center gap-1 text-[11px] font-bold ml-auto flex-shrink-0"
+                  style={{ color: allFactorsMet ? '#1C8357' : '#C1440E' }}
+                >
+                  {showStrengthDetail ? 'Hide' : 'Show details'}
+                  {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence initial={false}>
+              {showStrengthDetail && strength.factors.length > 0 && (
+                <motion.div
+                  initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                  transition={{ duration: 0.16 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 mb-2" style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }} />
+                  <ul id="intro-strength-hints" className="space-y-1.5">
+                    {strength.factors.map((f) => (
+                      <li key={f.id} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
+                        <span
+                          className="flex items-center justify-center rounded-full flex-shrink-0 mt-0.5"
+                          style={{
+                            width: 13, height: 13,
+                            background: f.met ? '#22A06B' : 'transparent',
+                            border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                          }}
+                        >
+                          {f.met && <Check className="w-2 h-2" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block font-bold" style={{ color: f.met ? '#1C8357' : '#6B5E7B' }}>
+                            {f.label}
+                            {f.detail && <span className="font-medium" style={{ color: '#75695F' }}> · {f.detail}</span>}
+                          </span>
+                          <span className="block" style={{ color: '#75695F' }}>
+                            {f.met && INTRO_FACTOR_CONFIRMATION[f.id] ? INTRO_FACTOR_CONFIRMATION[f.id] : f.hint}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Undo after an AI write. Restores the brief and the name together. */}
@@ -827,7 +1010,9 @@ export default function IntroBriefStep({
             (w-full sm:max-w-[480px] sm:mx-auto): the card just widened to
             max-w-4xl to match the other modes, and without this the button
             would stretch to the full ~896px card width instead of reading
-            as a single focused action, same as it would in PromptStep. */}
+            as a single focused action, same as it would in PromptStep.
+            No data-tour anchor here any more - the tour's "Write your
+            script" step (startIntroTour, promptTour.js) was removed. */}
         <div className="w-full sm:max-w-[480px] sm:mx-auto">
           <Button
             onClick={onContinue}

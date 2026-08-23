@@ -61,6 +61,67 @@ export function startImageTour(isMobile) {
   return runTour(steps);
 }
 
+// Brand Intro's own composer (IntroBriefStep) - a different screen shape than
+// Prompt/Image/References (identity fields + one brief textarea, not a
+// photo/reference upload), so this mirrors the SHAPE of the other two tours
+// (identity/content -> settings -> CTA -> help) rather than reusing their
+// copy. Scoped to the composer step only, same as startImageTour/
+// startReferencesTour are scoped to PromptStep alone, not the steps after it.
+export function startIntroTour(isMobile) {
+  const steps = [
+    {
+      element: '[data-tour="intro-fetch"]',
+      popover: {
+        title: "Paste your website",
+        description: "We'll scan it and draft your brief automatically - skip typing it all out yourself.",
+        side: "bottom",
+        align: "center",
+      },
+    },
+    {
+      element: '[data-tour="intro-identity"]',
+      popover: {
+        title: "Add your logo and name",
+        description: "Your logo is required - it lands on the closing scene. Your business name shows on screen too.",
+        side: "bottom",
+        align: "center",
+      },
+    },
+    {
+      element: '[data-tour="intro-brief"]',
+      popover: {
+        title: "Describe your business",
+        description: "Say what you do, who it's for, and what makes you different. We'll write the script from this.",
+        side: "bottom",
+        align: "center",
+      },
+    },
+    {
+      element: '[data-tour="intro-settings"]',
+      popover: {
+        title: "Photos, length, and brand kit",
+        description: isMobile
+          ? "Tap to add photos, set a length and shape, and tweak your brand colors."
+          : "Add photos, pick a length and shape, and tweak your brand colors.",
+        side: "top",
+        align: "center",
+      },
+    },
+    {
+      element: '[data-tour="help"]',
+      popover: {
+        title: "Need a refresher?",
+        description: isMobile
+          ? "Tap this button any time to replay this guide."
+          : "Click this button any time to replay this guide.",
+        side: "left",
+        align: "end",
+      },
+    },
+  ];
+  return runTour(steps);
+}
+
 export function startReferencesTour(isMobile) {
   const steps = [
     {
