@@ -13,7 +13,8 @@ import BrandUrlField from "./BrandUrlField";
 import BrandKitPanel from "./BrandKitPanel";
 import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./ComposerChip";
 import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
+import { ComposerFrame } from "./PipelineShell";
 import { fetchIntroScenes } from "@/services/session";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
@@ -184,6 +185,11 @@ export default function IntroBriefStep({
   const [helpOpen, setHelpOpen] = useState(false);
   const helpRef = useRef(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  // Fed into the shared ComposerFrame below for the mobile top-padding
+  // override, same as PromptStep.jsx does - both now render through the
+  // same component, so this can't drift out of sync with the other three
+  // modes again.
+  const isMobile = useIsMobile();
   useEffect(() => {
     if (!helpOpen) return undefined;
     const onPointerDown = (e) => {
@@ -400,43 +406,29 @@ export default function IntroBriefStep({
           the video/tour picker menu PromptStep's does. */}
       <HelpFab onStartTour={introTour.replay} />
 
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-5">
-        {/* Header - icon mark + headline size/weight matched to
-            PromptStep.jsx's hero pattern. */}
-        <div className="text-center mb-1">
-          <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
-            <div
-              className="w-[60px] h-[60px] sm:w-[75px] sm:h-[75px] rounded-[20px] sm:rounded-[24px] flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(225deg, #F9B31B, #FF7A1A, #F3283C)',
-                boxShadow: '0 2px 8px rgba(193,68,14,0.25), 0 10px 24px rgba(193,68,14,0.20)',
-                outline: '1.5px solid rgba(255,255,255,0.55)',
-                outlineOffset: '-1.5px',
-              }}
-            >
-              <img
-                src="/Raphio.png"
-                alt="Raphio"
-                className="w-[50%] h-[50%] object-contain"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-            </div>
-          </div>
-          <h1 className="font-black" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-            Create a <span style={{ color: '#C1440E' }}>brand intro</span>
-          </h1>
-          <p className="text-sm max-w-md mx-auto text-[#6B5E7B] font-medium leading-relaxed mt-2">
-            Your logo and a sentence about the business. We write the script, animate it and
-            land on your logo.
-          </p>
-        </div>
-
-        {/* Hidden pickers, driven by the logo avatar and Photos chip below */}
+      {/* Outer max-width/padding/centering now lives in the shared
+          ComposerFrame (PipelineShell.jsx) - both this and PromptStep.jsx's
+          composer render through it, so the two can't independently drift in
+          width or top spacing again (this used to apply its horizontal
+          padding INSIDE the max-w-4xl box, shrinking this card, while
+          PromptStep.jsx applied it OUTSIDE, on an ancestor - same numbers,
+          different box model, different rendered width). */}
+      <ComposerFrame isMobile={isMobile}>
+      <div className="space-y-5">
+        {/* Hidden pickers, driven by the logo avatar and Photos chip below.
+            The native `hidden` attribute, not a `className="hidden"` -
+            Tailwind's space-y-* utility compiles to
+            `:not([hidden]) ~ :not([hidden])`, which only excludes elements
+            using the real HTML attribute. A CSS class named "hidden" doesn't
+            match that selector, so these still counted as preceding
+            siblings and space-y-5 added a phantom 20px margin-top above the
+            composer card below - extra spacing PromptStep.jsx's equivalent
+            card never had, since it has no such siblings before it. */}
         <input
           ref={logoInputRef}
           type="file"
           accept={ACCEPTED_IMAGE_ACCEPT}
-          className="hidden"
+          hidden
           onChange={(e) => {
             pickLogo(e.target.files?.[0]);
             e.target.value = "";
@@ -447,7 +439,7 @@ export default function IntroBriefStep({
           type="file"
           accept={ACCEPTED_IMAGE_ACCEPT}
           multiple
-          className="hidden"
+          hidden
           onChange={(e) => {
             addShowcase(Array.from(e.target.files || []));
             e.target.value = "";
@@ -1030,6 +1022,7 @@ export default function IntroBriefStep({
               : `1 credit · ${targetDuration} second intro with music`}
         </p>
       </div>
+      </ComposerFrame>
     </div>
   );
 }

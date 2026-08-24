@@ -1,18 +1,33 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-// Segmented mode toggle for the creation screen - controlled, generic version
-// of the animated tablist built for LandingPage.jsx's "Choose how you start"
-// preview (MobileInputStage, LandingPage.jsx ~1236-1289). Same pattern: a real
-// tablist with roving tabIndex + arrow-key navigation, one always-mounted pill
-// that translates between segments instead of a per-tab conditional element.
-// The landing version also drives an auto-cycling illustration; this one is
-// purely a controlled switch (value/onChange), since it's wired to real
-// pipelineMode state here, not a decorative preview.
+// Text tabs with a single sliding underline - icon + label, no pill/background/
+// border on either state. Unlike a segmented pill control (this component's own
+// prior version), tab labels here are naturally different widths ("Idea" vs
+// "References"), so the underline can't use simple 1/n percentage math the way
+// a pill can - it's measured against each tab button's actual rendered
+// offsetLeft/offsetWidth instead, the standard approach for variable-width
+// underline tabs (Reach UI/Radix use the same technique).
 export default function PipelineModeTabs({ options, value, onChange, className = "" }) {
   const n = options.length;
   const activeIndex = Math.max(0, options.findIndex((o) => o.id === value));
   const tabRefs = useRef([]);
+  const [indicator, setIndicator] = useState(null);
+
+  const measure = () => {
+    const el = tabRefs.current[activeIndex];
+    if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+  };
+
+  // Re-measure whenever the active tab changes, and on resize - the sm:
+  // breakpoint changes each button's own padding, which shifts every
+  // offsetLeft/offsetWidth after it.
+  useLayoutEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, options]);
 
   const handleKeyDown = (e) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
@@ -31,33 +46,8 @@ export default function PipelineModeTabs({ options, value, onChange, className =
       role="tablist"
       aria-label="Choose how you start"
       onKeyDown={handleKeyDown}
-      // inline-flex (shrink-to-fit) is what makes this compact instead of
-      // spanning the whole composer card - but that's also what broke it the
-      // first time: flex-1's equal-width distribution only works when the
-      // flex container has a DEFINITE width to divide, which a shrink-to-fit
-      // container doesn't have (LandingPage's source dodges this because its
-      // track is `flex`, not `inline-flex`, filling a sized parent). With no
-      // width to distribute, each button fell back to its own content size -
-      // different per label, and the sliding pill's percentage math (which
-      // assumes equal segments) had nothing consistent to align against.
-      // Fixed here by giving every button an explicit min-width floor (sized
-      // to the widest label) instead of relying on flex-grow distribution -
-      // the container still shrinks to fit, but every segment is now exactly
-      // that floor width, so the pill's math lines up again.
-      className={`relative inline-flex rounded-full ${className}`}
-      style={{ background: "#F0EAE5", padding: 4 }}
+      className={`relative inline-flex items-stretch ${className}`}
     >
-      <motion.div
-        aria-hidden="true"
-        className="absolute top-0 bottom-0 left-0 rounded-full"
-        style={{
-          width: `${100 / n}%`,
-          background: "var(--gradient-brand)",
-          boxShadow: "0 0 0 2px #FFFAF7, 0 0 0 4px rgba(193,68,14,0.35), 0 4px 14px rgba(193,68,14,0.30)",
-        }}
-        animate={{ x: `${activeIndex * 100}%` }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      />
       {options.map((opt, i) => {
         const selected = opt.id === value;
         const Icon = opt.icon;
@@ -71,14 +61,41 @@ export default function PipelineModeTabs({ options, value, onChange, className =
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(opt.id)}
-            className="relative z-10 flex-1 min-w-[76px] sm:min-w-[104px] flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-xs sm:text-[13px] font-bold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C1440E]/40"
-            style={{ color: selected ? "#fff" : "#75695F", background: "transparent", border: "none", boxShadow: "none" }}
+            className="flex items-center justify-center gap-1.5 px-4 sm:px-5 h-11 rounded-md text-sm font-bold whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C1440E]/40"
+            style={
+              selected
+                ? {
+                    background: "var(--gradient-brand)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    color: "transparent",
+                    border: "none",
+                  }
+                : { color: "#B3A8BA", background: "transparent", border: "none" }
+            }
+            onMouseEnter={(e) => { if (!selected) e.currentTarget.style.color = "#6B5E7B"; }}
+            onMouseLeave={(e) => { if (!selected) e.currentTarget.style.color = "#B3A8BA"; }}
           >
-            {Icon && <Icon style={{ width: 14, height: 14 }} strokeWidth={2.5} />}
+            {Icon && (
+              <Icon
+                style={{ width: 14, height: 14, color: selected ? "#C1440E" : "currentColor" }}
+                strokeWidth={2.5}
+              />
+            )}
             {opt.label}
           </button>
         );
       })}
+      {indicator && (
+        <motion.div
+          aria-hidden="true"
+          className="absolute bottom-0 h-[3px] rounded-full"
+          style={{ background: "var(--gradient-brand)", boxShadow: "0 1px 6px rgba(193,68,14,0.55)" }}
+          animate={{ x: indicator.left, width: indicator.width }}
+          initial={false}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        />
+      )}
     </div>
   );
 }

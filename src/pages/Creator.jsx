@@ -5,6 +5,8 @@ import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import IntroPipelineCreator from "./IntroPipelineCreator";
 import PipelineModeTabs from "@/components/session/PipelineModeTabs";
+import CreatorHeader from "@/components/session/CreatorHeader";
+import PipelineShell from "@/components/session/PipelineShell";
 import MaintenanceScreen from "@/components/session/MaintenanceScreen";
 import IntroVideoModal from "@/components/IntroVideoModal";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
@@ -133,11 +135,21 @@ export default function Creator() {
   // each pipeline's own "back to mode selection" affordance - gated on this
   // prop being present - now correctly stays hidden without needing changes
   // to those step components.
-  const activePipeline =
+  //
+  // Split into an Intro branch and a non-Intro branch (rather than one
+  // combined ternary) - Brand Intro is a structurally separate component
+  // with its own internal step-transition animation, kept entirely apart
+  // from Idea/Photos/References here. (A framer-motion AnimatePresence/
+  // motion.div height-animation wrapper was tried around the non-Intro
+  // branch and reverted: ImagePipelineCreator/ReferencesPipelineCreator's
+  // own root divs use h-full, a percentage height, which framer-motion
+  // can't reliably auto-measure for a height:0->auto animation - the
+  // measurement resolved to 0 and the content went invisible. Revisiting
+  // this would need a different technique that doesn't require the
+  // wrapped content to be intrinsically sized.)
+  const nonIntroPipeline =
     pipelineMode === "references" ? (
       <ReferencesPipelineCreator onModeChange={handleModeChange} {...sharedIntentProps} />
-    ) : pipelineMode === "intro" ? (
-      <IntroPipelineCreator onModeChange={handleModeChange} />
     ) : (
       // Both "prompt" and "image" render the image pipeline; the mode
       // distinguishes the simplified prompt-only variant (photos + advanced
@@ -156,28 +168,39 @@ export default function Creator() {
     );
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Kept as tight as possible: the pipeline creator below (via
-          PromptStep.jsx's own py-6 sm:py-12 md:py-16 composer-card padding,
-          out of scope to edit here) already reserves its own vertical space
-          above the card, so this wrapper adds no bottom spacing of its own -
-          stacking padding on top of that would push the toggle further from
-          the card than intended. A fully seamless "one shared card" look
-          (shared rounded top corners, zero visual seam) would need that
-          padding itself edited from inside PromptStep.jsx, which is out of
-          scope for this step - this gets it as close as Creator.jsx alone
-          can. overflow-x-auto is a safety net, not a fix: at 4 segments the
-          toggle should fit even the narrowest supported phone widths, but a
-          user font-size override or an unusually narrow viewport won't force
-          the page itself to scroll horizontally. */}
-      <div className="px-2 sm:px-4 pt-2 sm:pt-3 overflow-x-auto">
+    <PipelineShell>
+      {/* Header + tab row: rendered once here instead of per-pipeline (each
+          mode used to carry its own headline/icon mark, and Brand Intro's own
+          version was a different size - that mismatch was the layout "jump"
+          on switching tabs). PipelineShell now owns the page background at
+          THIS level (the true page root), not one level down inside each
+          *PipelineCreator.jsx - it used to be applied there, which left this
+          header/tab area with no background of its own, showing the flat
+          app-shell color behind it instead of the gradient and creating a
+          visible seam right below the tabs. The tabs sit close beneath the
+          subtitle (grouped with it) and the card sits close beneath the tabs
+          (via ComposerFrame's own reduced top padding) - deliberately
+          asymmetric from the larger gap above the headline, so the page
+          reads as headline, then a tighter subtitle+tabs+card cluster.
+          overflow-x-auto on the tab row is a safety net, not a fix: it
+          should fit even the narrowest supported phone widths, but a user
+          font-size override or an unusually narrow viewport won't force the
+          page itself to scroll horizontally. */}
+      <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
         <div className="max-w-4xl mx-auto">
-          <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+          <CreatorHeader />
+          <div className="flex justify-center mt-4 sm:mt-6">
+            <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+          </div>
         </div>
       </div>
 
       <div className="flex-1 min-h-0">
-        {activePipeline}
+        {pipelineMode === "intro" ? (
+          <IntroPipelineCreator onModeChange={handleModeChange} />
+        ) : (
+          nonIntroPipeline
+        )}
       </div>
 
       {/* First-visit "Getting started" video - previously shown only on the
@@ -196,6 +219,6 @@ export default function Creator() {
         onClose={intro.close}
         onDismissWithoutSeen={intro.dismissWithoutSeen}
       />
-    </div>
+    </PipelineShell>
   );
 }

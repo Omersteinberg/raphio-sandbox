@@ -625,10 +625,7 @@ export default function ImagePipelineCreator({
   const showProgressBar = (step > 0 && step <= generatingStep) || showMergedRun;
 
   return (
-    <div
-      className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
-    >
+    <div className="h-full flex flex-col font-figtree">
       {showProgressBar && (
         <JourneyTimeline
           tasks={journeyTasks}
