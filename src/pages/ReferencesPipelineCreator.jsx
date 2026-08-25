@@ -24,9 +24,27 @@ import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 
-export default function ReferencesPipelineCreator({ onModeChange, onBackToChooser }) {
+export default function ReferencesPipelineCreator({
+  onModeChange, onBackToChooser,
+  // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
+  userPrompt, setUserPrompt,
+  style, setStyle,
+  targetDuration, setTargetDuration,
+  aspectRatio, setAspectRatio,
+  voiceId, setVoiceId,
+  videoModel, setVideoModel,
+  backgroundMusic, setBackgroundMusic,
+}) {
   const navigate = useNavigate();
-  const session = useReferencesSession();
+  const session = useReferencesSession({
+    userPrompt, setUserPrompt,
+    style, setStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
+  });
 
   const {
     step,
@@ -36,16 +54,11 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     sessionId,
     sessionRestoring,
 
-    // Prompt step
-    userPrompt,
-    setUserPrompt,
-    style,
-    setStyle,
+    // Prompt step (userPrompt/style/targetDuration/aspectRatio/voiceId/videoModel/
+    // backgroundMusic are lifted to Creator.jsx - already in scope as function
+    // params above; session.<field> is the identical pass-through value, so
+    // destructuring them again here would redeclare the same identifiers)
     styleOptions,
-    targetDuration,
-    setTargetDuration,
-    aspectRatio,
-    setAspectRatio,
     startReferencesSession,
 
     // References state
@@ -75,10 +88,6 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     deleteScene,
 
     // Voice step
-    voiceId,
-    setVoiceId,
-    backgroundMusic,
-    setBackgroundMusic,
     startGeneration,
     generationError,
     failedSession,
@@ -308,10 +317,16 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
     let cancelled = false;
     (async () => {
       try {
+        // userPrompt/style are no longer restored here - they're lifted to
+        // Creator.jsx now, which survives a mode-switch remount on its own.
+        // This effect re-fires on every mode switch, so restoring them here
+        // too used to clobber the correctly-lifted value with whatever was
+        // last saved under the "references" key. Creator.jsx does its own
+        // one-time pending-draft read for userPrompt on a genuine page-level
+        // remount (e.g. the /buy-credits round trip); style already survives
+        // that via getCreationDefaults()/localStorage.
         const saved = await loadPending("references");
         if (cancelled || !saved) return;
-        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
-        if (saved.style) setStyle(saved.style);
         if (saved.references) {
           const rawRefs = Array.isArray(saved.references)
             ? saved.references
@@ -493,10 +508,7 @@ export default function ReferencesPipelineCreator({ onModeChange, onBackToChoose
   ];
 
   return (
-    <div
-      className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
-    >
+    <div className="h-full flex flex-col font-figtree">
       {showProgressBar && (
         <JourneyTimeline
           tasks={journeyTasks}

@@ -15,7 +15,12 @@ import { Check, Loader2 } from "lucide-react";
 // Manual nodes (input/review) get a sequential number so the count never jumps
 // when a review is auto-approved (auto nodes are icon-only).
 
-const GRADIENT = "linear-gradient(135deg, #C1440E, #E8603C)";
+// var(--gradient-brand) = linear-gradient(135deg, #C1440E, #D34019) - was
+// hardcoded to the pre-contrast-fix #E8603C end color (white text on it
+// measured 3.40:1, below WCAG AA; #D34019 clears 4.65:1). Using the token
+// keeps this in sync with any future gradient change instead of drifting
+// again.
+const GRADIENT = "var(--gradient-brand)";
 
 function TaskNode({ task, manualNumber, clickable, onClick }) {
   const { kind, state, label } = task;

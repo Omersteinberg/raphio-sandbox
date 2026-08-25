@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { detectScriptJobOnResume, attachToRunningScriptJob, notifyScriptJobFailedOnResume, scriptProgressForResumedSession, SCRIPT_JOB_TYPES } from "./scriptJobResume";
-import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
+import { getCreationDefaults } from "@/lib/preferences";
 import { isEmptyFrame, toSavedFrame, saveSavedFrame } from "@/lib/savedFrames";
 import { resetGenLog, logFailure, logEvent, logObserve } from "@/lib/genLog";
 import { isGenerationFailed, clearVideoFailure } from "@/lib/progressTasks";
@@ -94,7 +94,19 @@ function reportSkippedPhotos(restyleResult) {
   }
 }
 
-export function useSession({ promptOnly = false } = {}) {
+export function useSession({
+  promptOnly = false,
+  // User-intent state lifted to Creator.jsx so it survives switching between
+  // Prompt, Photos, and Reference-Image mode. This hook reads/writes through
+  // what's passed in instead of maintaining its own copies.
+  userPrompt, setUserPrompt,
+  style, setStyle: setStyleRaw,
+  targetDuration, setTargetDuration,
+  aspectRatio, setAspectRatio,
+  voiceId, setVoiceId,
+  videoModel, setVideoModel,
+  backgroundMusic, setBackgroundMusic,
+} = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,16 +136,20 @@ export function useSession({ promptOnly = false } = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Form state
-  const [userPrompt, setUserPrompt] = useState("");
-  // Last-used creation choices (saved defaults) - read once on mount.
-  const [savedDefaults] = useState(getCreationDefaults);
-  const [style, setStyle] = useState(() => imageSafeStyle(savedDefaults.style));
-  const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
-  const [aspectRatio, setAspectRatio] = useState(savedDefaults.aspectRatio);
-  const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
-  const [videoModel, setVideoModel] = useState("KLING");
-  const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
+  // style is shared with References mode (full palette), but image/prompt mode
+  // only supports 4 styles. Wrap the setter so any write from within this hook
+  // clamps, and correct an already-unsafe value (e.g. inherited from a style
+  // picked while in References mode) the moment this hook is active.
+  const setStyle = useCallback((next) => {
+    setStyleRaw((prev) => imageSafeStyle(typeof next === "function" ? next(prev) : next));
+  }, [setStyleRaw]);
+
+  useEffect(() => {
+    const safe = imageSafeStyle(style);
+    if (safe !== style) setStyleRaw(safe);
+  }, [style, setStyleRaw]);
+
+  // Form state (mode-specific; not lifted to Creator.jsx)
   const [enableBridges, setEnableBridges] = useState(false);
   // Whether photos that don't match the video's frame get extended outward by AI
   // so they fill it. Off means they play untouched, with bars. Default on.
@@ -175,12 +191,6 @@ export function useSession({ promptOnly = false } = {}) {
     opening: null, // { imageUrl, prompt }
     closing: null, // { imageUrl, prompt }
   });
-
-  // Auto-save last-used choices so the next new video starts from them.
-  // Also fires when a resumed session loads its values ("last touched wins").
-  useEffect(() => {
-    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic });
-  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic]);
 
   // Persist frame configs (incl. the uploaded image's data URL) as defaults
   // for the next video. Empty configs are skipped: the mount-time initial

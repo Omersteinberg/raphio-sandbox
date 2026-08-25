@@ -43,6 +43,7 @@ import HelpFab from "@/components/ui/HelpFab";
 import IntroVideoModal from "@/components/IntroVideoModal";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
+import { ComposerFrame } from "./PipelineShell";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -1130,10 +1131,7 @@ export default function PromptStep({
     // covers everything else (card enter/exit, style-tile selection, the
     // infinite drag-over bounce) without touching each one individually.
     <MotionConfig reducedMotion="user">
-    <div
-      className="w-full h-full overflow-y-auto relative"
-      style={{ background: '#F5F0EB' }}
-    >
+    <div className="w-full h-full overflow-y-auto relative">
       {/* Help FAB: offers the current mode's video and tour on demand. */}
       <HelpFab onStartTour={promptTour.replay} onPlayVideo={intro.replay} />
 
@@ -1168,64 +1166,21 @@ export default function PromptStep({
         </button>
       )}
 
-      {/* py-6 sm:py-12 md:py-16 is the original class list - keep it intact.
-          Its padding-bottom half isn't decorative: `pb-12` further down wins
-          the base (<640px) tier over py-6's own 24px (Tailwind emits `pb-*`
-          after `py-*` within the unprefixed group), and `md:py-16` in turn
-          wins over `pb-12` at >=768px (media-query-grouped utilities are
-          emitted after the base group) - so desktop's real padding-bottom is
-          64px, not pb-12's 48px. Confirmed by inspecting the compiled
-          Tailwind output, not assumed. Splitting `py-6` into a `pt-*` class
-          here to bump only the mobile top padding would have silently
-          dropped that 64px down to 48px on desktop. The inline `paddingTop`
-          override below touches only padding-top, leaving every bit of that
-          padding-bottom cascade - and every other breakpoint's top padding -
-          exactly as it was. */}
-      <div
-        className="min-h-full flex flex-col items-center justify-start px-2 sm:px-4 py-6 sm:py-12 md:py-16 pb-12"
-        style={{ paddingTop: isMobile ? 36 : undefined }}
-      >
+      {/* Outer max-width/padding/centering now lives in the shared
+          ComposerFrame (PipelineShell.jsx) - both this and
+          IntroBriefStep.jsx's composer render through it, so the two can't
+          independently drift in width or top spacing again (they had:
+          IntroBriefStep applied its horizontal padding INSIDE the max-w-4xl
+          box, shrinking its card, while this applied it OUTSIDE, on an
+          ancestor - same numbers, different box model, different rendered
+          width). */}
+      <ComposerFrame isMobile={isMobile}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-4xl space-y-3 sm:space-y-5"
+          className="space-y-3 sm:space-y-5"
         >
-        {/* Hero headline */}
-        <div className="text-center mb-1">
-          <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
-            <div
-              className="w-[60px] h-[60px] sm:w-[75px] sm:h-[75px] rounded-[20px] sm:rounded-[24px] flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(225deg, #F9B31B, #FF7A1A, #F3283C)',
-                boxShadow: '0 2px 8px rgba(193,68,14,0.25), 0 10px 24px rgba(193,68,14,0.20)',
-                outline: '1.5px solid rgba(255,255,255,0.55)',
-                outlineOffset: '-1.5px',
-              }}
-            >
-              <img
-                src="/Raphio.png"
-                alt="Raphio"
-                className="w-[50%] h-[50%] object-contain"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-            </div>
-          </div>
-
-          <h1 className="font-black" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-            {isReferencesMode ? (
-              <>Studio Blueprint <span style={{ color: '#C1440E' }}>Builder.</span></>
-            ) : (
-              <>Your story. Your <span style={{ color: '#C1440E' }}>video.</span></>
-            )}
-          </h1>
-          <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#75695F' }}>
-            {isReferencesMode
-              ? 'Define your characters, settings, style and then let the story unfold.'
-              : 'Tell Raphio what you want. It handles everything else.'}
-          </p>
-        </div>
-
           {/* Composer card: assets (if any) -> textarea -> strength meter -> chip row,
               identical shape across all four modes. Assets sit above the textarea so
               the prompt you write below already has something to @mention.
@@ -2969,7 +2924,7 @@ export default function PromptStep({
           </div>
 
         </motion.div>
-      </div>
+      </ComposerFrame>
 
       {/* Voice picker modal - a bottom sheet on phones, centered card on desktop */}
       <AnimatePresence>
