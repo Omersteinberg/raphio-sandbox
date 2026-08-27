@@ -108,13 +108,20 @@ export function useIntroSession() {
   // logo image, so they stay null until one happens or the user picks.
   const [brandFonts, setBrandFonts] = useState(null);
   const [brandTone, setBrandTone] = useState(null);
+  // Claimed: something better than the logo's own pixels has set the kit, so the
+  // logo-derived effect below must not overwrite it. A website import claims it
+  // too, which is why it cannot also be the test for "the user chose this".
   const brandTouchedRef = useRef(false);
+  // Chosen by hand in the brand kit panel. Only this blocks a later import.
+  const brandEditedRef = useRef(false);
   const setBrandColor = useCallback((key, value) => {
     brandTouchedRef.current = true;
+    brandEditedRef.current = true;
     setBrandColors((prev) => ({ ...(prev || {}), [key]: value }));
   }, []);
   const setBrandFont = useCallback((which, family) => {
     brandTouchedRef.current = true;
+    brandEditedRef.current = true;
     setBrandFonts((prev) => ({ ...(prev || DEFAULT_BRAND_FONTS), [which]: family }));
   }, []);
   useEffect(() => {
@@ -129,10 +136,11 @@ export function useIntroSession() {
   /**
    * Fill the brief from a website import.
    *
-   * Only writes fields that are still empty, so pasting a URL after typing never
-   * destroys what was typed. Colours and fonts additionally respect
-   * brandTouchedRef, the same guard that stops logo-derived colours overwriting a
-   * manual edit: once someone has adjusted the kit by hand, their choice wins.
+   * Typed copy is only written when still empty, so pasting a URL after typing
+   * never destroys what was typed. The brand kit is not copy: pressing Fetch is
+   * the user asking for that site's identity, so the logo is replaced outright
+   * and the colours and fonts are re-read on every import. Only a swatch or font
+   * picked by hand (brandEditedRef) outranks the site.
    */
   const applyExtractedBrand = useCallback((found) => {
     if (!found) return;
@@ -142,10 +150,10 @@ export function useIntroSession() {
 
     if (found.logo?.dataUrl) {
       const file = dataUrlToFile(found.logo.dataUrl, "website-logo.png");
-      if (file) setLogoFile((cur) => cur || file);
+      if (file) setLogoFile(file);
     }
 
-    if (!brandTouchedRef.current) {
+    if (!brandEditedRef.current) {
       if (found.brandColors) {
         setBrandColors(found.brandColors);
         // The server read these off the real site, which beats the client's
@@ -203,8 +211,11 @@ export function useIntroSession() {
         brandFonts,
         brandTone,
         // Whether the kit was set by hand / by a website import, so a restore can
-        // re-claim it (see restoreBrief).
+        // re-claim it (see restoreBrief). Both flags, because they answer
+        // different questions and a restore that collapsed them would let a
+        // restored import block the next one.
         brandTouched: brandTouchedRef.current,
+        brandEdited: brandEditedRef.current,
         logo,
         showcase,
         showcaseLabels,
@@ -243,6 +254,7 @@ export function useIntroSession() {
     // them; an untouched kit's colours came off this same logo anyway, so letting
     // the extract effect re-run over them changes nothing.
     if (saved.brandTouched) brandTouchedRef.current = true;
+    if (saved.brandEdited) brandEditedRef.current = true;
     if (saved.brandColors) setBrandColors(saved.brandColors);
     if (saved.brandFonts) setBrandFonts(saved.brandFonts);
     if (saved.brandTone) setBrandTone(saved.brandTone);
@@ -576,6 +588,7 @@ export function useIntroSession() {
     setBrandFonts(null);
     setBrandTone(null);
     brandTouchedRef.current = false;
+    brandEditedRef.current = false;
     setIntroScript(EMPTY_SCRIPT);
     setReworkingIndexes([]);
     setReworkLabel("");

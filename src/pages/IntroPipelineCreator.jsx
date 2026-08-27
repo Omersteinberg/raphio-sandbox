@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ScriptLoadingScreen from "@/components/session/ScriptLoadingScreen";
 import IntroBriefStep from "@/components/session/IntroBriefStep";
@@ -36,7 +36,7 @@ const INTRO_SUB_STEPS = [
   { id: "render",  label: "Rendering your scenes",          range: [48, 100] },
 ];
 
-export default function IntroPipelineCreator({ onModeChange }) {
+export default function IntroPipelineCreator({ onModeChange, onChromeChange }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
 
@@ -205,6 +205,14 @@ export default function IntroPipelineCreator({ onModeChange }) {
 
   const showProgressBar = step > 0 && step <= GENERATING_STEP;
 
+  // See ImagePipelineCreator: composer (brief) step, nothing running -> hero +
+  // tabs stay up and the step flows in the page scroll.
+  const composerChrome = step === 0 && !loading && !intro.providerUnavailable;
+  // The finished-video screen flows too; EDITING_STEP keeps the fixed frame.
+  const flowLayout = composerChrome || step === COMPLETED_STEP;
+  useLayoutEffect(() => { onChromeChange?.(composerChrome, flowLayout); },
+    [composerChrome, flowLayout, onChromeChange]);
+
   return (
     <div className="h-full flex flex-col font-figtree">
       {showProgressBar && (
@@ -214,9 +222,9 @@ export default function IntroPipelineCreator({ onModeChange }) {
         />
       )}
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className={flowLayout ? "relative" : "flex-1 relative overflow-hidden"}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
-          <motion.div key={step} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={transition} className="absolute inset-0 flex">
+          <motion.div key={step} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={transition} className={flowLayout ? "w-full flex" : "absolute inset-0 flex"}>
             <div className="w-full h-full">{renderStep()}</div>
           </motion.div>
         </AnimatePresence>

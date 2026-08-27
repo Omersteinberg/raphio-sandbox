@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, Sparkles, Images } from "lucide-react";
@@ -48,7 +48,7 @@ const IMAGE_SCRIPT_SUB_STEPS = [
 ];
 
 export default function ImagePipelineCreator({
-  mode = "image", onModeChange, onBackToChooser,
+  mode = "image", onModeChange, onBackToChooser, onChromeChange,
   // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
   // style/setStyle are renamed at this boundary (rawStyle/setRawStyle) so
   // useSession.js's own wrapped `setStyle` - which clamps every write via
@@ -624,6 +624,19 @@ export default function ImagePipelineCreator({
   // prompt screen and the final result/editing screens).
   const showProgressBar = (step > 0 && step <= generatingStep) || showMergedRun;
 
+  // Composer step with nothing running: Creator.jsx keeps the hero + tabs up and
+  // the step flows in the page instead of sitting in a fixed, self-scrolling
+  // frame, so the hero scrolls away with the composer. Anything else (a run in
+  // flight, a later step, a full-screen error) reverts to the fixed layout the
+  // overlays and the two-pane steps need, and drops the chrome.
+  const composerChrome =
+    step === 0 && !loading && !showMergedRun && !providerUnavailable && !sessionRestoring;
+  // The finished-video screen flows too, so the hero scrolls away with the
+  // player. The editing step is excluded - the timeline needs a fixed frame.
+  const flowLayout = composerChrome || step === completedStep;
+  useLayoutEffect(() => { onChromeChange?.(composerChrome, flowLayout); },
+    [composerChrome, flowLayout, onChromeChange]);
+
   return (
     <div className="h-full flex flex-col font-figtree">
       {showProgressBar && (
@@ -634,7 +647,7 @@ export default function ImagePipelineCreator({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className={flowLayout ? "relative" : "flex-1 relative overflow-hidden"}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={step}
@@ -644,7 +657,7 @@ export default function ImagePipelineCreator({
             animate="center"
             exit="exit"
             transition={transition}
-            className="absolute inset-0 flex"
+            className={flowLayout ? "w-full flex" : "absolute inset-0 flex"}
           >
             <div className="w-full h-full">{renderStep()}</div>
           </motion.div>

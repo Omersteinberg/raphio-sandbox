@@ -40,6 +40,7 @@ import TTSModal from "./modals/TTSModal";
 import ItemEditModal from "./modals/ItemEditModal";
 import NarrationEditModal from "./modals/NarrationEditModal";
 import RegenerateClipModal from "./modals/RegenerateClipModal";
+import RegenerateMusicModal from "./modals/RegenerateMusicModal";
 import ReworkSceneModal from "./modals/ReworkSceneModal";
 import ExportProgressModal from "./modals/ExportProgressModal";
 import ReferencesModal from "./modals/ReferencesModal";
@@ -64,8 +65,10 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
+  const [showMusicModal, setShowMusicModal] = useState(false); // background-music prompt modal
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState(null); // { percentage, label }
+  const [regenTitle, setRegenTitle] = useState(null); // heading for the shared progress modal
   const [showReferences, setShowReferences] = useState(false); // references-pipeline: view refs used
 
   // An intro's clips are designed, branded scenes rendered from code, not AI
@@ -111,6 +114,11 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     timeline.addItem({ trackType: "AUDIO", trackIndex: idx, startTime: freeSlot("AUDIO", idx, dur), duration: dur, audioAssetId: asset.id });
     setAssetsSheetOpen(false);
   };
+
+  // The AI background-music asset, if this video has one. Drives the regenerate
+  // entry points and the modal's preview of the current track. Absent means the
+  // video was rendered without music, and the same modal offers to add some.
+  const musicAsset = (timeline.audioAssets || []).find((a) => a.sourceType === "AI_MUSIC") || null;
 
   const containerRef = useRef(null);
 
@@ -403,6 +411,42 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     }
   };
 
+  // Regenerate the background music with a (possibly edited) style prompt, or
+  // generate it from scratch when the video has none. Same job + progress shape
+  // as clip regeneration; music comes back much faster, hence the shorter estimate.
+  const handleRegenerateMusic = async (musicPrompt) => {
+    const hadMusic = !!musicAsset;
+    setShowMusicModal(false); // close the prompt modal; the progress modal takes over
+    setRegenTitle(hadMusic ? "Regenerating music" : "Generating music");
+    setRegenerating(true);
+    setRegenProgress({ percentage: 0, label: "Starting…" });
+
+    const start = Date.now();
+    const ESTIMATE_MS = 90 * 1000; // ~90s for a PiAPI track; creeps on overrun
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      setRegenProgress({
+        percentage: estimatedProgress(elapsed, ESTIMATE_MS),
+        label: elapsed < 25000 ? "Composing your track…" : "Still working, almost there…",
+      });
+    }, 1000);
+
+    try {
+      await sessionService.regenerateBackgroundMusic(sessionId, { musicPrompt });
+      setRegenProgress({ percentage: 100, label: "Done" });
+      await timeline.loadTimeline(); // pick up the swapped-in track
+      timeline.markDirty(); // like a clip regen: not in the video until Export
+      toast.success(hadMusic ? "Music regenerated" : "Music added");
+    } catch (err) {
+      toast.error(describeError(err, "We couldn't generate that music. Please try again.").userMessage);
+    } finally {
+      clearInterval(timer);
+      setRegenerating(false);
+      setRegenProgress(null);
+      setRegenTitle(null);
+    }
+  };
+
   // Rework an intro scene from a note. Unlike clip regeneration this reports real
   // progress: reviseIntroScenes polls the session job and hands back each stage's
   // own label, so there is nothing to simulate.
@@ -598,6 +642,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             onDeleteAudio={timeline.deleteAudio}
             onNarrationEdit={(section) => setEditingNarration({ item: null, section })}
             onRegenerateClip={(section) => setRegenSection(section)}
+            onRegenerateMusic={() => setShowMusicModal(true)}
             regenerateLabel={regenLabel}
             onDragStart={(asset, type) => {
               // Store drag data
@@ -700,6 +745,13 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                         ? [{ Icon: Mic, label: "Narration", onClick: () => setEditingNarration({ item: sel, section: timeline.getSection(sel.sectionId) }) }]
                         : [];
                     })(),
+                    // Regenerate music - only for the background-music clip.
+                    ...(() => {
+                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+                      return sel && sel.audioAssetId && musicAsset && sel.audioAssetId === musicAsset.id
+                        ? [{ Icon: RefreshCw, label: "New music", onClick: () => setShowMusicModal(true) }]
+                        : [];
+                    })(),
                     { Icon: Trash2, label: "Delete", danger: true, onClick: () => timeline.removeItem(timeline.selectedItem) },
                   ]
                 : [
@@ -748,10 +800,19 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           onRegenerate={handleRegenerateClip}
         />
       ))}
+      {showMusicModal && (
+        <RegenerateMusicModal
+          musicPrompt={timeline.timeline?.musicPrompt}
+          currentUrl={musicAsset?.url}
+          loading={regenerating}
+          onClose={() => setShowMusicModal(false)}
+          onRegenerate={handleRegenerateMusic}
+        />
+      )}
       {regenerating && (
         <ExportProgressModal
           progress={regenProgress}
-          title={isIntro ? "Reworking scene" : "Regenerating clip"}
+          title={regenTitle || (isIntro ? "Reworking scene" : "Regenerating clip")}
         />
       )}
 
@@ -986,9 +1047,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               </div>
               {/* Music (background music) */}
               <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5" /> Music
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5" /> Music
+                  </p>
+                  <button
+                    onClick={() => { setAssetsSheetOpen(false); setShowMusicModal(true); }}
+                    className="text-xs font-medium text-primary flex items-center gap-1 hover:opacity-80"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {musicAsset ? "Regenerate" : "Generate"}
+                  </button>
+                </div>
                 <div className="space-y-1.5">
                   {timeline.audioAssets.filter((a) => a.sourceType === "AI_MUSIC").map((asset) => (
                     <button key={asset.id} onClick={() => addAudioAsset(asset)} className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-left">

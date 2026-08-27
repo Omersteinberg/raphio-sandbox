@@ -16,9 +16,9 @@
 //   PromptStep.jsx used to have, and IntroBriefStep.jsx never did) is what
 //   caused the two to visibly diverge despite the gradient value matching.
 
-export default function PipelineShell({ children, className = "" }) {
+export default function PipelineShell({ children, className = "", heightClass = "h-full" }) {
   return (
-    <div className={`h-full flex flex-col font-figtree ${className}`} style={{ background: "var(--gradient-app)" }}>
+    <div className={`${heightClass} flex flex-col font-figtree ${className}`} style={{ background: "var(--gradient-app)" }}>
       {children}
     </div>
   );

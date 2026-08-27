@@ -892,6 +892,22 @@ export async function generateTTS(sessionId, { text, voiceId, name }) {
 }
 
 /**
+ * Regenerate the background music (or add it, for a video that has none).
+ * Runs as a background job like clip regeneration, so it is polled to completion.
+ * `musicPrompt` is the style description; omit it to reuse the video's own.
+ */
+export async function regenerateBackgroundMusic(sessionId, { musicPrompt } = {}) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/audio/music/regenerate`, {
+    musicPrompt,
+  });
+  // Another job already owns this video's single slot - don't poll its result.
+  if (data && data.jobType && data.jobType !== 'REGENERATE_MUSIC') {
+    throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
+  }
+  return await pollJobUntilDone(sessionId, { expectedJobType: 'REGENERATE_MUSIC' });
+}
+
+/**
  * Get audio waveform data
  */
 export async function getAudioWaveform(sessionId, audioId) {

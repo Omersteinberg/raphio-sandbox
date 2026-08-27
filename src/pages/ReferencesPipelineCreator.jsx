@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wand2, Sparkles, Image as ImageIcon, Film } from "lucide-react";
@@ -25,7 +25,7 @@ import InsufficientCreditsModal from "@/components/session/InsufficientCreditsMo
 import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 
 export default function ReferencesPipelineCreator({
-  onModeChange, onBackToChooser,
+  onModeChange, onBackToChooser, onChromeChange,
   // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
   userPrompt, setUserPrompt,
   style, setStyle,
@@ -492,6 +492,17 @@ export default function ReferencesPipelineCreator({
 
   const showProgressBar = (step >= 1 && step <= 5) || showRefMergedRun;
 
+  // See ImagePipelineCreator: composer step, nothing running -> hero + tabs stay
+  // up and the step flows in the page scroll; anything else -> fixed layout, no
+  // chrome.
+  const composerChrome =
+    step === 0 && !loading && !showRefMergedRun && !providerUnavailable && !sessionRestoring;
+  // Step 6 is the finished-video screen - it flows too, so the hero scrolls away
+  // with the player. Step 7 (editing) keeps the fixed frame the timeline needs.
+  const flowLayout = composerChrome || step === 6;
+  useLayoutEffect(() => { onChromeChange?.(composerChrome, flowLayout); },
+    [composerChrome, flowLayout, onChromeChange]);
+
   const REFERENCES_SUB_STEPS = [
     { id: "session",    label: "Setting up your session",    range: [0, 15]  },
     { id: "references", label: "Locking in your references", range: [15, 40] },
@@ -516,7 +527,7 @@ export default function ReferencesPipelineCreator({
         />
       )}
 
-      <div className="flex-1 relative overflow-y-auto">
+      <div className={flowLayout ? "relative" : "flex-1 relative overflow-y-auto"}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={step}
@@ -526,7 +537,7 @@ export default function ReferencesPipelineCreator({
             animate="center"
             exit="exit"
             transition={transition}
-            className="absolute inset-0 flex"
+            className={flowLayout ? "w-full flex" : "absolute inset-0 flex"}
           >
             <div className="w-full h-full">{renderStep()}</div>
           </motion.div>

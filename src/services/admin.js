@@ -38,6 +38,22 @@ export async function getUser(userId, { page = 1, limit = 25 } = {}) {
 }
 
 /**
+ * Paginated gallery of every video across all users, newest first.
+ * @param {{page?:number, limit?:number, search?:string, status?:string}} opts
+ *        status: 'all' or a VideoStatus (COMPLETED / FAILED / PROCESSING / ...)
+ * @returns {Promise<{videos:Array, total:number, page:number, limit:number, status:string}>}
+ */
+export async function listVideos({ page = 1, limit = 24, search = "", status = "COMPLETED" } = {}) {
+  const params = new URLSearchParams();
+  params.append("page", String(page));
+  params.append("limit", String(limit));
+  params.append("status", status);
+  if (search) params.append("search", search);
+  const response = await axios.get(`${ADMIN_URL}/videos?${params.toString()}`);
+  return response.data.data;
+}
+
+/**
  * Grant / set / deduct a user's credits.
  * @param {number|string} userId
  * @param {{mode:'grant'|'set'|'deduct', amount:number, note?:string}} payload

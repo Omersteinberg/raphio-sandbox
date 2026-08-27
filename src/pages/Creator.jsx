@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Sparkles, Image as ImageIcon, Wand2, Clapperboard } from "lucide-react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
@@ -49,6 +49,19 @@ export default function Creator() {
     const stored = localStorage.getItem("raphio_pipeline_mode");
     return ENABLED_MODES.includes(stored) ? stored : "prompt";
   });
+
+  // Reported by the active pipeline. showChrome = parked on the composer, the only
+  // place the hero + mode tabs belong: inside the wizard the step spine is the
+  // header, and during a run the checklist owns the screen.
+  // flowLayout = this step lays out in the page, so the hero scrolls away with it
+  // (composer + finished video); otherwise the fixed viewport-height layout the
+  // review steps, overlays and the timeline editor need, each scrolling itself.
+  const [showChrome, setShowChrome] = useState(true);
+  const [flowLayout, setFlowLayout] = useState(true);
+  const handleChromeChange = useCallback((tabs, flow) => {
+    setShowChrome(tabs);
+    setFlowLayout(flow);
+  }, []);
 
   // User-intent state (not session/generation mechanics) shared between Prompt,
   // Photos, and Reference-Image mode, so it survives switching between them - a
@@ -149,7 +162,7 @@ export default function Creator() {
   // wrapped content to be intrinsically sized.)
   const nonIntroPipeline =
     pipelineMode === "references" ? (
-      <ReferencesPipelineCreator onModeChange={handleModeChange} {...sharedIntentProps} />
+      <ReferencesPipelineCreator onModeChange={handleModeChange} onChromeChange={handleChromeChange} {...sharedIntentProps} />
     ) : (
       // Both "prompt" and "image" render the image pipeline; the mode
       // distinguishes the simplified prompt-only variant (photos + advanced
@@ -163,12 +176,13 @@ export default function Creator() {
         key={pipelineMode}
         mode={pipelineMode}
         onModeChange={handleModeChange}
+        onChromeChange={handleChromeChange}
         {...sharedIntentProps}
       />
     );
 
   return (
-    <PipelineShell>
+    <PipelineShell heightClass={flowLayout ? "min-h-full" : "h-full"}>
       {/* Header + tab row: rendered once here instead of per-pipeline (each
           mode used to carry its own headline/icon mark, and Brand Intro's own
           version was a different size - that mismatch was the layout "jump"
@@ -186,18 +200,20 @@ export default function Creator() {
           should fit even the narrowest supported phone widths, but a user
           font-size override or an unusually narrow viewport won't force the
           page itself to scroll horizontally. */}
-      <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
-        <div className="max-w-4xl mx-auto">
-          <CreatorHeader />
-          <div className="flex justify-center mt-4 sm:mt-6">
-            <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+      {showChrome && (
+        <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
+          <div className="max-w-4xl mx-auto">
+            <CreatorHeader />
+            <div className="flex justify-center mt-4 sm:mt-6">
+              <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex-1 min-h-0">
+      <div className={flowLayout ? "" : "flex-1 min-h-0"}>
         {pipelineMode === "intro" ? (
-          <IntroPipelineCreator onModeChange={handleModeChange} />
+          <IntroPipelineCreator onModeChange={handleModeChange} onChromeChange={handleChromeChange} />
         ) : (
           nonIntroPipeline
         )}

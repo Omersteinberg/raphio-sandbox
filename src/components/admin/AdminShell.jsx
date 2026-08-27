@@ -1,16 +1,17 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Ticket } from 'lucide-react';
+import { LayoutDashboard, Users, Film, Ticket } from 'lucide-react';
 import { C } from '../../lib/adminTheme';
 
 const TABS = [
   { label: 'Overview', to: '/admin/overview', match: '/admin/overview', Icon: LayoutDashboard },
   { label: 'Users',    to: '/admin/users',    match: '/admin/users',    Icon: Users },
+  { label: 'Videos',   to: '/admin/videos',   match: '/admin/videos',   Icon: Film },
   { label: 'Promo Codes', to: '/admin/promos', match: '/admin/promos',  Icon: Ticket },
 ];
 
 /**
  * Shared chrome for every admin page: the warm gradient background, a centered
- * container, and the Overview / Users / Promo Codes tab strip. Children render
+ * container, and the Overview / Users / Videos / Promo Codes tab strip. Children render
  * below the tabs.
  */
 export default function AdminShell({ children, maxWidth = 'max-w-6xl' }) {

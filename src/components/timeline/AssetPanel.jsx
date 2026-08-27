@@ -18,6 +18,9 @@ export default function AssetPanel({
   onDeleteAudio,
   onNarrationEdit,
   onRegenerateClip,
+  // Opens the background-music prompt modal. Optional: the Music group hides the
+  // action when the host does not provide one.
+  onRegenerateMusic,
   // "Regenerate" everywhere except the intro pipeline, where a clip is a designed
   // brand scene and the action reworks it rather than re-rolling AI footage.
   regenerateLabel = "Regenerate",
@@ -255,7 +258,19 @@ export default function AssetPanel({
               )}
 
               {/* Music (background music) */}
-              {groupLabel("Music")}
+              <div className="flex items-center justify-between pr-1">
+                {groupLabel("Music")}
+                {onRegenerateMusic && (
+                  <button
+                    onClick={onRegenerateMusic}
+                    className="text-[11px] font-medium text-primary flex items-center gap-1 pt-1 hover:opacity-80"
+                    title={musicAssets.length ? "Generate a different background track" : "Generate background music for this video"}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {musicAssets.length ? "Regenerate" : "Generate"}
+                  </button>
+                )}
+              </div>
               {musicAssets.map((asset) => assetRow(asset, "bg-purple-500 hover:bg-purple-400"))}
               {musicAssets.length === 0 && (
                 <p className="text-[11px] text-muted-foreground px-1 py-1">None</p>
