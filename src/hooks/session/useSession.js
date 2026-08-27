@@ -749,7 +749,7 @@ export function useSession({
           )
         );
 
-        await savePending("image", {
+        await savePending(draftKey, {
           userPrompt,
           style,
           images: imagesToSave,
@@ -1111,7 +1111,7 @@ export function useSession({
         setProviderUnavailable({ message: err.response.data.error });
       } else if (err.response?.status === 402) {
         try {
-          await savePending("image", {
+          await savePending(draftKey, {
             userPrompt,
             style,
             images: images.map((img) => ({ file: img.file, name: img.name })),

@@ -58,7 +58,7 @@ export default function ScriptLoadingScreen({ progress = 0, subSteps, estimate =
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
       className="absolute inset-0 z-40"
-      style={{ background: "#F5F0EB" }}
+      style={{ background: "var(--gradient-app)" }}
     >
       <ProgressChecklist
         title={title}

@@ -67,13 +67,23 @@ export default function Creator() {
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
 
-  // Whether References' merged-run overlay (generating references/script/scenes/
-  // video with no manual review in between) is currently on screen. Reported up
-  // by ReferencesPipelineCreator via onMergedRunActiveChange - a tab switch while
-  // this is true would unmount that component's session state and drop ?session=
-  // from the URL in the same batched update, orphaning an in-flight generation
-  // with no resume path. Guarded in handleModeChange below.
+  // Whether an auto-progressing generation is currently in flight, in WHICHEVER
+  // pipeline is mounted (References' merged-run overlay, Image/Prompt's
+  // showMergedRun, or Intro's generating state). Reported up via
+  // onMergedRunActiveChange - a tab switch while this is true would unmount
+  // that component's session state and drop ?session= from the URL in the same
+  // batched update, orphaning an in-flight generation with no resume path.
+  // Guarded in handleModeChange below. Only one pipeline is ever mounted at a
+  // time (see the ternary below), so there is only ever one live reporter.
   const [isMergedRunActive, setIsMergedRunActive] = useState(false);
+
+  // Whether the completion ("Your Video is Ready!") screen is currently on
+  // screen, in whichever pipeline is mounted. A plain boolean can't express
+  // three header states (full / compact-logo / none), so this and
+  // isMergedRunActive combine below: compact while isMergedRunActive, then
+  // suppressed entirely on top of that once isCompletionActive too - the logo
+  // stays visible during generation but disappears once the video is ready.
+  const [isCompletionActive, setIsCompletionActive] = useState(false);
 
   // Auto-save last-used choices so the next new video starts from them. Moved up
   // from useSession.js/useSessionBase.js along with the state itself - both hooks
@@ -166,6 +176,7 @@ export default function Creator() {
       <ReferencesPipelineCreator
         onModeChange={handleModeChange}
         onMergedRunActiveChange={setIsMergedRunActive}
+        onCompletionActiveChange={setIsCompletionActive}
         {...sharedIntentProps}
       />
     ) : (
@@ -181,6 +192,8 @@ export default function Creator() {
         key={pipelineMode}
         mode={pipelineMode}
         onModeChange={handleModeChange}
+        onMergedRunActiveChange={setIsMergedRunActive}
+        onCompletionActiveChange={setIsCompletionActive}
         {...sharedIntentProps}
       />
     );
@@ -206,7 +219,9 @@ export default function Creator() {
           page itself to scroll horizontally. */}
       <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
         <div className="max-w-4xl mx-auto">
-          <CreatorHeader compact={isMergedRunActive} />
+          {/* No logo at all on the completion screen (isCompletionActive) - only
+              compact (logo, no headline/tabs) during generation. */}
+          {!isCompletionActive && <CreatorHeader compact={isMergedRunActive} />}
           {/* Tabs hidden during the merged run: this is the visual counterpart
               to handleModeChange's guard above, not a substitute for it - the
               guard is what actually stops the switch, this just stops
@@ -221,7 +236,11 @@ export default function Creator() {
 
       <div className="flex-1 min-h-0">
         {pipelineMode === "intro" ? (
-          <IntroPipelineCreator onModeChange={handleModeChange} />
+          <IntroPipelineCreator
+            onModeChange={handleModeChange}
+            onMergedRunActiveChange={setIsMergedRunActive}
+            onCompletionActiveChange={setIsCompletionActive}
+          />
         ) : (
           nonIntroPipeline
         )}
