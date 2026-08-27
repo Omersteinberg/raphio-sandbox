@@ -16,22 +16,33 @@ export default function TimelineTrack({
   getAudioAsset,
   onDrop,
   onDragOver,
+  onDragLeave,
+  isDropTarget = false,
   overlappingItems = new Set(),
   dragPreview = null,
 }) {
-  const isMusic = trackType === "AUDIO" && trackIndex === 1;
+  // Which ROW this is, not what any item stores: the canvas renders Narration,
+  // Audio and Music as trackIndex 0, 1 and 2. This read 1, the uploads row, so
+  // the green music styling sat on Audio and Music got the blue meant for it.
+  // (Items themselves are grouped by source kind, which is why only the colours
+  // were ever wrong and the clips still landed on the right rows.)
+  const isMusic = trackType === "AUDIO" && trackIndex === 2;
   const Icon = trackType === "VIDEO" ? Film : Music;
   const trackColor = trackType === "VIDEO" ? "bg-primary/5" : isMusic ? "bg-green-500/10" : "bg-blue-500/10";
   const borderColor = trackType === "VIDEO" ? "border-primary/20" : isMusic ? "border-green-500/25" : "border-blue-500/25";
 
   return (
     <div
-      className={`relative flex ${trackColor} border-b ${borderColor}`}
+      className={`relative flex ${trackColor} border-b ${borderColor} ${
+        isDropTarget ? "ring-2 ring-inset ring-accent" : ""
+      }`}
       style={{ height }}
       onDrop={onDrop}
       onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
     >
-      {/* Track Label */}
+      {/* Track Label. Its width is TRACK_LABEL_WIDTH in TimelineCanvas, which
+          converts pointer positions to times against it - keep the two in step. */}
       <div className="w-20 flex-shrink-0 bg-card border-r border-border flex items-center justify-center gap-1">
         <Icon className="w-4 h-4 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">{label}</span>

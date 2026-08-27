@@ -26,6 +26,12 @@ export default function AssetPanel({
   const [audioExpanded, setAudioExpanded] = useState(true);
   const [playingAudio, setPlayingAudio] = useState(null);
 
+  // Every payload carries the asset's real length. The canvas fits the drop into
+  // a gap that size, so it has to be the length the item will actually get (see
+  // handleAssetDrop in TimelineEditor, which reads the same fields). It used to
+  // send ids only, leaving the canvas to assume 3 seconds for everything and
+  // place a 5 second clip in a gap it does not fit.
+
   // Handle drag start for video clips
   const handleVideoDragStart = (e, section) => {
     e.dataTransfer.setData(
@@ -33,6 +39,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "video",
         sectionId: section.id,
+        duration: Number(section.clipDuration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";
@@ -45,6 +52,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "audio",
         audioAssetId: asset.id,
+        duration: Number(asset.duration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";
@@ -57,6 +65,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "audio",
         sectionId: section.id,
+        duration: Number(section.narrationDuration || section.clipDuration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";

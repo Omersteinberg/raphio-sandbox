@@ -22,6 +22,7 @@ import { scoreIntroBrief } from "@/lib/promptStrength";
 import { INTRO_DURATION_OPTIONS } from "../../constants/introDurations";
 import { ASPECT_RATIO_OPTIONS } from "../../constants/aspectRatios";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
+import { INTRO_CREDITS } from "@/lib/limits";
 import HelpFab from "@/components/ui/HelpFab";
 import { startIntroTour } from "@/lib/promptTour";
 import { TOUR_KEYS } from "@/lib/tourState";
@@ -768,7 +769,7 @@ export default function IntroBriefStep({
                     render={(o) => o.label}
                   />
                   <p className="text-xs text-ink-muted mt-3">
-                    {duration?.desc}. Every intro costs 1 credit, whatever the length.
+                    {duration?.desc}. Every intro costs {INTRO_CREDITS} credits, whatever the length.
                   </p>
                 </>
               )}
@@ -1019,7 +1020,7 @@ export default function IntroBriefStep({
             ? "Add your logo to continue"
             : !description.trim()
               ? "Describe your business to continue"
-              : `1 credit · ${targetDuration} second intro with music`}
+              : `${INTRO_CREDITS} credits · ${targetDuration} second intro with music`}
         </p>
       </div>
       </ComposerFrame>
