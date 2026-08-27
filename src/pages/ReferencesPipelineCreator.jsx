@@ -26,6 +26,13 @@ import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableS
 
 export default function ReferencesPipelineCreator({
   onModeChange, onBackToChooser,
+  // Reports the merged-run overlay's live/dead state up to Creator.jsx, which
+  // owns the mode tabs - a tab switch mid-run unmounts this component and its
+  // useReferencesSession() instance (sessionId, generationProgress, the poll
+  // loop) with no resume path, so Creator.jsx uses this to block the switch
+  // instead. Same lifted-state pattern as sharedIntentProps below, just
+  // flowing the other direction (child -> parent) via a callback prop.
+  onMergedRunActiveChange,
   // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
   userPrompt, setUserPrompt,
   style, setStyle,
@@ -302,6 +309,17 @@ export default function ReferencesPipelineCreator({
     !videoFatal &&
     !insufficientCredits;
 
+  // Mirror showRefMergedRun up to Creator.jsx so it can block a mode-tab switch
+  // while it's true. The unmount cleanup covers every exit path that isn't "the
+  // run finished" (nav away via the Leave button, an error state unmounting
+  // this component, etc.) so the parent's flag can never get stuck true once
+  // this instance is gone.
+  useEffect(() => {
+    onMergedRunActiveChange?.(showRefMergedRun);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRefMergedRun]);
+  useEffect(() => () => onMergedRunActiveChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // The bar is a weighted function of the rows above, all of which are derived
   // from durable backend state - so a reload or a resume lands on the real
   // percentage instead of restarting a mount-time ramp.
@@ -508,15 +526,41 @@ export default function ReferencesPipelineCreator({
   ];
 
   return (
-    <div className="h-full flex flex-col font-figtree">
+    <div className={`flex flex-col font-figtree ${showRefMergedRun ? "" : "h-full"}`}>
+      {/* Shown on every manual review step AND during the merged-run overlay,
+          but only interactive in the former. onStepClick is omitted entirely
+          during the merged run (not just guarded inside the handler) - a
+          completed step's approve action (ReferenceLockStep/ScriptStep/
+          FrameGenerationStep) is a forward-only, side-effecting call, and
+          re-approving a stage the backend has already moved past mid-run can
+          silently kick off a second real video generation with no warning
+          (see reference.service.js's approveAllReferences, which rewrites
+          `stage` unconditionally, and video.service.js's claimGenerationLock,
+          which happily reopens an already-COMPLETED session). JourneyTimeline
+          itself already supports this exact no-click mode - onStepClick is
+          optional there. */}
       {showProgressBar && (
         <JourneyTimeline
           tasks={journeyTasks}
-          onStepClick={(t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          onStepClick={showRefMergedRun ? undefined : (t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          bare={showRefMergedRun}
         />
       )}
 
-      <div className="flex-1 relative overflow-y-auto">
+      {/* h-full/overflow-y-auto are dropped during the merged run (both here
+          and on the root above): each was, on its own, a hard height cap
+          that forced ProgressChecklist's own `h-full` + `overflow-y-auto`
+          (untouched - see below) to clip and scroll internally, stranding
+          the compact logo header - a normal sibling in Creator.jsx, outside
+          this box entirely - looking pinned even though nothing here is
+          actually position:sticky or fixed. With every ancestor's height
+          left as `auto` instead, ProgressChecklist's own `height:100%`
+          resolves to `auto` too (percentage height against a non-explicit-
+          height parent), which makes its own overflow-y-auto a no-op, and
+          the page's real scroll container (AppLayout's overflow-auto)
+          scrolls everything - header included - as one unit, like normal
+          content. */}
+      <div className={`relative ${showRefMergedRun ? "" : "flex-1 overflow-y-auto"}`}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={step}
@@ -532,7 +576,20 @@ export default function ReferencesPipelineCreator({
           </motion.div>
         </AnimatePresence>
 
-        {/* Fully-automatic run: one persistent checklist across all phases. */}
+        {/* Fully-automatic run: one persistent checklist across all phases.
+            Matches PipelineShell's own page background (var(--gradient-app))
+            rather than a flat color, so it reads as one continuous screen
+            with the compact logo header above it instead of two stacked
+            panels with a visible seam between them.
+            In-flow (not absolute) on purpose: an absolutely-positioned box
+            is sized against its containing block's *definite* height, which
+            forces ProgressChecklist's own h-full to a hard pixel value and
+            re-creates the internal-scroll/pinned-header bug this is fixing.
+            min-h-[100dvh] keeps the short-content case filling the screen
+            the way the old absolute-inset-0 version did; min-height alone
+            doesn't establish a definite `height` for descendants the way
+            `height` does, so ProgressChecklist's h-full still resolves to
+            auto and its own overflow-y-auto stays a no-op. */}
         {showRefMergedRun && (
           <motion.div
             key="ref-merged-run"
@@ -540,8 +597,8 @@ export default function ReferencesPipelineCreator({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-40"
-            style={{ background: "#F5F0EB" }}
+            className="relative z-40 min-h-[100dvh]"
+            style={{ background: "var(--gradient-app)" }}
           >
             {/* The leave hint shows from the script phase on: those phases are
                 detached backend jobs (script, REF_SCENE_FRAMES, video) that keep

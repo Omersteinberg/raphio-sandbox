@@ -15,6 +15,7 @@ import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 import { MAINTENANCE_MODE } from "@/config";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { loadPending } from "@/lib/pendingSession";
+import { toast } from "@/lib/toast";
 
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
 // (ImagePipelineCreator) with photos + advanced settings hidden. "intro" is the
@@ -66,6 +67,14 @@ export default function Creator() {
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
 
+  // Whether References' merged-run overlay (generating references/script/scenes/
+  // video with no manual review in between) is currently on screen. Reported up
+  // by ReferencesPipelineCreator via onMergedRunActiveChange - a tab switch while
+  // this is true would unmount that component's session state and drop ?session=
+  // from the URL in the same batched update, orphaning an in-flight generation
+  // with no resume path. Guarded in handleModeChange below.
+  const [isMergedRunActive, setIsMergedRunActive] = useState(false);
+
   // Auto-save last-used choices so the next new video starts from them. Moved up
   // from useSession.js/useSessionBase.js along with the state itself - both hooks
   // used to run this same effect independently; now there is one source of truth.
@@ -111,6 +120,11 @@ export default function Creator() {
 
   const handleModeChange = (mode) => {
     const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
+    if (next === pipelineMode) return;
+    if (isMergedRunActive) {
+      toast.info("Hold on - your video is still generating. Switching modes now would lose track of it.");
+      return;
+    }
     localStorage.setItem("raphio_pipeline_mode", next);
     // Reflect the picked mode in the URL so the selection survives a route
     // change (e.g. visiting /settings and pressing Back), and so it stays a
@@ -149,7 +163,11 @@ export default function Creator() {
   // wrapped content to be intrinsically sized.)
   const nonIntroPipeline =
     pipelineMode === "references" ? (
-      <ReferencesPipelineCreator onModeChange={handleModeChange} {...sharedIntentProps} />
+      <ReferencesPipelineCreator
+        onModeChange={handleModeChange}
+        onMergedRunActiveChange={setIsMergedRunActive}
+        {...sharedIntentProps}
+      />
     ) : (
       // Both "prompt" and "image" render the image pipeline; the mode
       // distinguishes the simplified prompt-only variant (photos + advanced
@@ -188,10 +206,16 @@ export default function Creator() {
           page itself to scroll horizontally. */}
       <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
         <div className="max-w-4xl mx-auto">
-          <CreatorHeader />
-          <div className="flex justify-center mt-4 sm:mt-6">
-            <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
-          </div>
+          <CreatorHeader compact={isMergedRunActive} />
+          {/* Tabs hidden during the merged run: this is the visual counterpart
+              to handleModeChange's guard above, not a substitute for it - the
+              guard is what actually stops the switch, this just stops
+              offering a control that would be blocked anyway. */}
+          {!isMergedRunActive && (
+            <div className="flex justify-center mt-4 sm:mt-6">
+              <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
+            </div>
+          )}
         </div>
       </div>
 

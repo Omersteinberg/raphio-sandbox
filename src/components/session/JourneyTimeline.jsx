@@ -81,7 +81,13 @@ function TaskNode({ task, manualNumber, clickable, onClick }) {
   return circle;
 }
 
-export default function JourneyTimeline({ tasks = [], onStepClick, className = "" }) {
+// `bare` drops the white translucent chrome band (background/blur/border),
+// used only for the merged-run overlay - the tabs and full header that used
+// to justify grouping the stepper into its own "band" are already gone in
+// that state, so the band read as a stray seam between the logo above and
+// the checklist below. Every other caller (manual review steps, Image/Intro
+// pipelines) omits the prop and keeps the normal chrome band.
+export default function JourneyTimeline({ tasks = [], onStepClick, className = "", bare = false }) {
   // Sequential numbers for manual nodes only, so auto nodes stay icon-only and
   // the numbering never jumps when a review step is auto-approved.
   let manualCount = 0;
@@ -92,8 +98,8 @@ export default function JourneyTimeline({ tasks = [], onStepClick, className = "
 
   return (
     <div
-      className={`px-3 md:px-6 py-3 border-b ${className}`}
-      style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
+      className={`px-3 md:px-6 py-3 ${bare ? "" : "border-b"} ${className}`}
+      style={bare ? undefined : { background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", borderColor: "rgba(45,34,53,0.08)" }}
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-2">
