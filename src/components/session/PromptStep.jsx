@@ -1183,7 +1183,6 @@ export default function PromptStep({
               siblings under that same space-y container. Mobile-only per the design
               pass; sm+ is left to the parent's space-y-5 (20px) unchanged. */}
           <div
-            data-tour="prompt"
             className="rounded-3xl p-3 sm:p-5 space-y-4"
             style={{ ...CARD_SHADOW, marginTop: isMobile ? 24 : undefined }}
           >
@@ -1690,11 +1689,19 @@ export default function PromptStep({
               </div>
             )}
 
-            {/* "Story" section label - the textarea block, present in all three modes. */}
-            <p className="sr-only">Story</p>
+            {/* "Story" section label - the textarea block, present in all three modes.
+                data-tour="prompt" wraps this label through the textarea box below (not
+                the outer composer card, and not just the textarea box alone) so
+                promptTour.js's "Describe your video" step spotlights the "What's your
+                video about?" heading, the Inspiration/Dictionary/Tips row, and the
+                textarea as the single visual section they read as - while still
+                excluding the references/upload block above, which has its own
+                dedicated step. */}
+            <div data-tour="prompt">
+              <p className="sr-only">Story</p>
 
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
                 <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? "What's your video about?" : "What's your video about?"}
                 </h2>
@@ -2008,6 +2015,7 @@ export default function PromptStep({
                   )}
                 </ComposerChipRow>
               </div>
+            </div>
             </div>
 
             {/* Inspiration Panel */}

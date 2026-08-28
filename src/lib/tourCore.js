@@ -61,6 +61,40 @@ export function unlockScrollContainer() {
   lockedScrollContainer = null;
 }
 
+// Scrolls the page's real scroll container to the top, via the same
+// findScrollContainer lookup the lock above uses - window.scrollTo is a
+// no-op here since AppLayout's nested `overflow-auto` div is what actually
+// scrolls, not <body>/<html> (see the file-level comment). Used by a tour's
+// first step (e.g. the mode-tabs step) so the tour always starts from a
+// consistent scroll position regardless of where the page was scrolled to
+// when the tour launched. Exported for individual tour modules to call from
+// a per-step onHighlightStarted - driver.js uses a step's own
+// onHighlightStarted INSTEAD of the config-level one above when both are
+// present, so a step that needs this must also call lockScrollContainerFor
+// itself to keep that behavior.
+export function scrollTourToTop(element) {
+  const container = element && findScrollContainer(element);
+  (container || document.scrollingElement || document.documentElement).scrollTop = 0;
+}
+
+// Aligns a highlighted element to the TOP of the viewport, replacing
+// driver.js's own default (centered, unless the element is itself taller
+// than the viewport - see its internal scrollIntoView call, which only
+// uses block: "start" in that one case). Wired into the shared
+// onHighlightStarted below, so every step of every tour uses this same
+// alignment, forward AND backward: driver.js re-fires onHighlightStarted
+// (and re-runs its own scrollIntoView) on Back exactly the same as on Next,
+// so Back re-aligns to the previous step's section the same way Next
+// scrolled down to it - no separate handling needed for either direction.
+// behavior: "auto" (not "smooth") is deliberate: it resolves synchronously,
+// so by the time driver.js runs its own scrollIntoView immediately after
+// this hook returns, the element is already fully in view and driver.js's
+// internal visibility check (isElementVisible) skips its own scroll
+// entirely - one scroll happens, not two fighting each other.
+export function alignElementToTop(element) {
+  element?.scrollIntoView({ block: "start", inline: "nearest", behavior: "auto" });
+}
+
 export const DRIVER_OPTS = {
   showProgress: true,
   allowClose: true,
@@ -77,7 +111,10 @@ export const DRIVER_OPTS = {
   // user-driven wheel/touch scroll, not a script-driven scrollIntoView/
   // scrollTop write).
   onDeselected: () => unlockScrollContainer(),
-  onHighlightStarted: (element) => lockScrollContainerFor(element),
+  onHighlightStarted: (element) => {
+    alignElementToTop(element);
+    lockScrollContainerFor(element);
+  },
   overlayColor: "var(--ink-warm)", // matches the app's warm-dark ink
   popoverClass: "raphio-tour",
   nextBtnText: "Next",
@@ -100,6 +137,17 @@ export function runTour(steps) {
   const present = steps.filter((s) => !s.element || document.querySelector(s.element));
   if (!present.length) return null;
   destroyActiveTour();
+
+  // Reset to a known scroll position before the first popover appears,
+  // regardless of where the page was scrolled to when the tour was
+  // launched - both the first-visit auto-run and a manual "Take the tour"
+  // replay go through this one function, so this covers both without
+  // either caller needing its own scroll-to-top step. alignElementToTop
+  // (via onHighlightStarted below) takes over from here for this and
+  // every subsequent step.
+  const firstElement = typeof present[0].element === "string" ? document.querySelector(present[0].element) : null;
+  scrollTourToTop(firstElement);
+
   activeTour = driver({
     ...DRIVER_OPTS,
     steps: present,

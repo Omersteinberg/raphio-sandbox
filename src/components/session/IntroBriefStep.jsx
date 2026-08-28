@@ -986,9 +986,11 @@ export default function IntroBriefStep({
             max-w-4xl to match the other modes, and without this the button
             would stretch to the full ~896px card width instead of reading
             as a single focused action, same as it would in PromptStep.
-            No data-tour anchor here any more - the tour's "Write your
-            script" step (startIntroTour, promptTour.js) was removed. */}
-        <div className="w-full sm:max-w-[480px] sm:mx-auto">
+            data-tour="intro-cta" re-added: startIntroTour (promptTour.js)
+            was missing the final CTA step every other tour has (Image/
+            References' own "cta" step targeting their Create-video
+            button) - this is that step's anchor. */}
+        <div data-tour="intro-cta" className="w-full sm:max-w-[480px] sm:mx-auto">
           <Button
             onClick={onContinue}
             disabled={!canStart || loading}

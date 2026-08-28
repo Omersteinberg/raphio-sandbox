@@ -1,5 +1,21 @@
 import { runTour } from "./tourCore";
 
+// Shared first step for startImageTour/startReferencesTour. No custom
+// onHighlightStarted needed: runTour() already resets the page to the top
+// before the first popover appears (any tour, not just this one), and the
+// shared per-step alignment (tourCore.js's DRIVER_OPTS.onHighlightStarted)
+// aligns this element to the viewport top like every other step - both
+// apply automatically through the normal runTour() path.
+const modeTabsStep = {
+  element: '[data-tour="mode-tabs"]',
+  popover: {
+    title: "Switch modes anytime",
+    description: "Everything you've entered comes with you.",
+    side: "bottom",
+    align: "center",
+  },
+};
+
 // First-run onboarding tours for the creation screen (PromptStep). Two separate
 // tours, one per pipeline mode, mirroring the editor's overview/clip split.
 // Steps target `[data-tour="..."]` anchors in PromptStep.jsx; any step whose
@@ -8,15 +24,7 @@ import { runTour } from "./tourCore";
 
 export function startImageTour(isMobile) {
   const steps = [
-    {
-      element: '[data-tour="prompt"]',
-      popover: {
-        title: "Describe your video",
-        description: "Tell us what your video is about here. More detail means better results.",
-        side: "bottom",
-        align: "center",
-      },
-    },
+    modeTabsStep,
     {
       element: '[data-tour="upload"]',
       popover: {
@@ -29,10 +37,19 @@ export function startImageTour(isMobile) {
       },
     },
     {
+      element: '[data-tour="prompt"]',
+      popover: {
+        title: "Describe your video",
+        description: "Tell us what your video is about here. More detail means better results.",
+        side: "bottom",
+        align: "center",
+      },
+    },
+    {
       element: '[data-tour="settings"]',
       popover: {
-        title: "Style and format",
-        description: "Pick a look, length, and shape for your video.",
+        title: "Pick your style",
+        description: "Choose the visual look for your video.",
         side: "top",
         align: "center",
       },
@@ -108,6 +125,15 @@ export function startIntroTour(isMobile) {
       },
     },
     {
+      element: '[data-tour="intro-cta"]',
+      popover: {
+        title: "Write your script",
+        description: "When you're ready, hit Continue to script.",
+        side: "top",
+        align: "center",
+      },
+    },
+    {
       element: '[data-tour="help"]',
       popover: {
         title: "Need a refresher?",
@@ -124,15 +150,7 @@ export function startIntroTour(isMobile) {
 
 export function startReferencesTour(isMobile) {
   const steps = [
-    {
-      element: '[data-tour="prompt"]',
-      popover: {
-        title: "Set the direction",
-        description: "Describe the overall direction of your video here.",
-        side: "bottom",
-        align: "center",
-      },
-    },
+    modeTabsStep,
     {
       element: '[data-tour="references"]',
       popover: {
@@ -145,10 +163,19 @@ export function startReferencesTour(isMobile) {
       },
     },
     {
+      element: '[data-tour="prompt"]',
+      popover: {
+        title: "Set the direction",
+        description: "Describe the overall direction of your video here.",
+        side: "bottom",
+        align: "center",
+      },
+    },
+    {
       element: '[data-tour="settings"]',
       popover: {
-        title: "Style and format",
-        description: "Pick a look, length, and shape.",
+        title: "Pick your style",
+        description: "Choose the visual look.",
         side: "top",
         align: "center",
       },
