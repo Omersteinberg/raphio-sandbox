@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Film, Ticket } from 'lucide-react';
+import { LayoutDashboard, Users, Film, Ticket, Bot } from 'lucide-react';
 import { C } from '../../lib/adminTheme';
 
 const TABS = [
@@ -7,6 +7,7 @@ const TABS = [
   { label: 'Users',    to: '/admin/users',    match: '/admin/users',    Icon: Users },
   { label: 'Videos',   to: '/admin/videos',   match: '/admin/videos',   Icon: Film },
   { label: 'Promo Codes', to: '/admin/promos', match: '/admin/promos',  Icon: Ticket },
+  { label: 'Critic',   to: '/admin/agent-runs', match: '/admin/agent-runs', Icon: Bot },
 ];
 
 /**

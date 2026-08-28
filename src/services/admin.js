@@ -54,6 +54,33 @@ export async function listVideos({ page = 1, limit = 24, search = "", status = "
 }
 
 /**
+ * Storyboard critic runs, newest first.
+ *
+ * Each run is the agent looking over a session's scene frames at full resolution and
+ * across the whole set, which is what the per-frame validator cannot do. Reading
+ * these is how you judge whether the critic is worth letting act.
+ *
+ * @param {{limit?:number, sessionId?:string}} opts
+ * @returns {Promise<Array>} runs with their state
+ */
+export async function listAgentRuns({ limit = 25, sessionId = "" } = {}) {
+  const params = new URLSearchParams();
+  params.append("limit", String(limit));
+  if (sessionId) params.append("sessionId", sessionId);
+  const response = await axios.get(`${ADMIN_URL}/agent-runs?${params.toString()}`);
+  return response.data.data;
+}
+
+/**
+ * One run with every step it took: tokens, cost, verdicts, and what it changed.
+ * @param {number|string} runId
+ */
+export async function getAgentRun(runId) {
+  const response = await axios.get(`${ADMIN_URL}/agent-runs/${runId}`);
+  return response.data.data;
+}
+
+/**
  * Grant / set / deduct a user's credits.
  * @param {number|string} userId
  * @param {{mode:'grant'|'set'|'deduct', amount:number, note?:string}} payload
