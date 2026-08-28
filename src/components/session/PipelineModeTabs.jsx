@@ -43,6 +43,7 @@ export default function PipelineModeTabs({ options, value, onChange, className =
 
   return (
     <div
+      data-tour="mode-tabs"
       role="tablist"
       aria-label="Choose how you start"
       onKeyDown={handleKeyDown}
