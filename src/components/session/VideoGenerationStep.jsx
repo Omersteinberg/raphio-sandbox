@@ -39,6 +39,12 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
   const slowClips = progressData.slowClips || 0;
   const isAfter = !!activeSession?.video?.finalVideoUrl || (progressData.stage || "GENERATING") === "ASSEMBLY";
 
+  // Every render on the server shares a small pool of assembly slots. When they are
+  // all busy this video waits its turn, which without a caption is indistinguishable
+  // from a stuck progress bar. Deliberately NOT gated on !isAfter the way slowClips
+  // is: the wait happens DURING assembly, which is exactly when isAfter is true.
+  const queuedForCapacity = !!progressData.queuedForCapacity;
+
   // The bar is a weighted function of the rows, which come from the backend
   // snapshot - so it resumes at the real percentage. This screen only spans the
   // render phase, so the rows above are the whole 0-100.
@@ -56,7 +62,12 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
     const attributed = !!failure?.fatal && !!failure.rowId;
 
     const providerDown = progressData.code === "PROVIDER_UNAVAILABLE";
-    const message = failure?.displayReason || "Something went wrong while generating your video.";
+    // Every render slot stayed busy for the whole wait. Nothing is broken and the
+    // video itself is fine, so this reads as "come back shortly", not as a failure.
+    const atCapacity = progressData.code === "AT_CAPACITY";
+    const message = atCapacity
+      ? "We were at maximum capacity and couldn't start your video in time."
+      : failure?.displayReason || "Something went wrong while generating your video.";
 
     return (
       <ProgressChecklist
@@ -64,12 +75,16 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
         sessionId={activeSession?.id}
         tasks={attributed ? stages : []}
         failure={{
-          title: "Generation Failed",
-          subtitle: "We couldn't finish generating your video.",
+          title: atCapacity ? "We're at Capacity" : "Generation Failed",
+          subtitle: atCapacity
+            ? "Too many videos are being made right now."
+            : "We couldn't finish generating your video.",
           message,
           hint: providerDown
             ? "You won't be charged extra."
-            : "Please click Regenerate below. You won't be charged extra.",
+            : atCapacity
+              ? "Please try again in a few minutes. You won't be charged extra."
+              : "Please click Regenerate below. You won't be charged extra.",
           onRetry: onRegenerate,
           retryLabel: "Regenerate Video",
         }}
@@ -82,9 +97,11 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
       title="Creating Your Video"
       subtitle={`${scriptData?.title || "Your video"} is being generated`}
       caption={
-        slowClips > 0 && !isAfter
-          ? "Some clips are taking longer than usual to render. Hang tight, your video is still generating."
-          : `This can take ${estimatedLabel} depending on model and clip count.`
+        queuedForCapacity
+          ? "We're at maximum capacity right now, so your video is queued. It will finish on its own, you don't need to stay on this page."
+          : slowClips > 0 && !isAfter
+            ? "Some clips are taking longer than usual to render. Hang tight, your video is still generating."
+            : `This can take ${estimatedLabel} depending on model and clip count.`
       }
       progress={progress}
       tasks={stages}
