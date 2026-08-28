@@ -15,6 +15,7 @@ import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 import { MAINTENANCE_MODE } from "@/config";
 import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
 import { loadPending } from "@/lib/pendingSession";
+import { toast } from "@/lib/toast";
 
 // "prompt" is the simplified text-to-video mode; it reuses the image pipeline
 // (ImagePipelineCreator) with photos + advanced settings hidden. "intro" is the
@@ -79,6 +80,21 @@ export default function Creator() {
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
 
+  // Whether an auto-progressing generation is currently in flight, in WHICHEVER
+  // pipeline is mounted (References' merged-run overlay, Image/Prompt's
+  // showMergedRun, or Intro's generating state). Reported up via
+  // onMergedRunActiveChange - a tab switch while this is true would unmount
+  // that component's session state and drop ?session= from the URL in the same
+  // batched update, orphaning an in-flight generation with no resume path.
+  // Guarded in handleModeChange below. Only one pipeline is ever mounted at a
+  // time (see the ternary below), so there is only ever one live reporter.
+  // Used ONLY for the handleModeChange guard, not for header rendering:
+  // showChrome above already hides the whole header/tab row during a run, so
+  // the three-state (full / compact-logo / none) header this used to drive,
+  // along with its companion onCompletionActiveChange, is gone. The pipelines
+  // still report this up because the guard genuinely needs it.
+  const [isMergedRunActive, setIsMergedRunActive] = useState(false);
+
   // Auto-save last-used choices so the next new video starts from them. Moved up
   // from useSession.js/useSessionBase.js along with the state itself - both hooks
   // used to run this same effect independently; now there is one source of truth.
@@ -124,6 +140,11 @@ export default function Creator() {
 
   const handleModeChange = (mode) => {
     const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
+    if (next === pipelineMode) return;
+    if (isMergedRunActive) {
+      toast.info("Hold on - your video is still generating. Switching modes now would lose track of it.");
+      return;
+    }
     localStorage.setItem("raphio_pipeline_mode", next);
     // Reflect the picked mode in the URL so the selection survives a route
     // change (e.g. visiting /settings and pressing Back), and so it stays a
@@ -162,7 +183,12 @@ export default function Creator() {
   // wrapped content to be intrinsically sized.)
   const nonIntroPipeline =
     pipelineMode === "references" ? (
-      <ReferencesPipelineCreator onModeChange={handleModeChange} onChromeChange={handleChromeChange} {...sharedIntentProps} />
+      <ReferencesPipelineCreator
+        onModeChange={handleModeChange}
+        onChromeChange={handleChromeChange}
+        onMergedRunActiveChange={setIsMergedRunActive}
+        {...sharedIntentProps}
+      />
     ) : (
       // Both "prompt" and "image" render the image pipeline; the mode
       // distinguishes the simplified prompt-only variant (photos + advanced
@@ -177,6 +203,7 @@ export default function Creator() {
         mode={pipelineMode}
         onModeChange={handleModeChange}
         onChromeChange={handleChromeChange}
+        onMergedRunActiveChange={setIsMergedRunActive}
         {...sharedIntentProps}
       />
     );
@@ -200,6 +227,14 @@ export default function Creator() {
           should fit even the narrowest supported phone widths, but a user
           font-size override or an unusually narrow viewport won't force the
           page itself to scroll horizontally. */}
+      {/* showChrome subsumes the per-state header variants this block briefly
+          grew on the other branch (compact logo during a run, no logo on the
+          completion screen): it is false for both of those states already, so
+          the whole row - logo, headline and tabs - is simply absent there.
+          Hiding the tabs during a run is still the visual counterpart to
+          handleModeChange's guard, not a substitute for it: the guard is what
+          actually stops the switch, this just stops offering a control that
+          would be blocked anyway. */}
       {showChrome && (
         <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
           <div className="max-w-4xl mx-auto">
@@ -213,7 +248,11 @@ export default function Creator() {
 
       <div className={flowLayout ? "" : "flex-1 min-h-0"}>
         {pipelineMode === "intro" ? (
-          <IntroPipelineCreator onModeChange={handleModeChange} onChromeChange={handleChromeChange} />
+          <IntroPipelineCreator
+            onModeChange={handleModeChange}
+            onChromeChange={handleChromeChange}
+            onMergedRunActiveChange={setIsMergedRunActive}
+          />
         ) : (
           nonIntroPipeline
         )}

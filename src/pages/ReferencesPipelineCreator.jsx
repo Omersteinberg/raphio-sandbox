@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wand2, Sparkles, Image as ImageIcon, Film } from "lucide-react";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
@@ -11,6 +11,7 @@ import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
 import { buildVideoTasks, progressFromTasks, REF_PHASE_WEIGHTS } from "@/lib/progressTasks";
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
+import { MOCK_VIDEO_URL, MOCK_SCRIPT_DATA, mockSession } from "@/lib/mockGeneration";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -24,8 +25,19 @@ import EditingStep from "@/components/session/EditingStep";
 import InsufficientCreditsModal from "@/components/session/InsufficientCreditsModal";
 import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableScreen";
 
+// Hoisted so the dev-only mock preview (below) can validate its ?mockLoading=
+// value against the same order the real refDone/refPhase derivation uses.
+const REF_PHASE_ORDER = ["refs", "script", "scenes", "video"];
+
 export default function ReferencesPipelineCreator({
   onModeChange, onBackToChooser, onChromeChange,
+  // Reports the merged-run overlay's live/dead state up to Creator.jsx, which
+  // owns the mode tabs - a tab switch mid-run unmounts this component and its
+  // useReferencesSession() instance (sessionId, generationProgress, the poll
+  // loop) with no resume path, so Creator.jsx uses this to block the switch
+  // instead. Same lifted-state pattern as sharedIntentProps below, just
+  // flowing the other direction (child -> parent) via a callback prop.
+  onMergedRunActiveChange,
   // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
   userPrompt, setUserPrompt,
   style, setStyle,
@@ -36,6 +48,29 @@ export default function ReferencesPipelineCreator({
   backgroundMusic, setBackgroundMusic,
 }) {
   const navigate = useNavigate();
+
+  // Dev-only preview of the merged-run loading state (references/script/scenes/
+  // video auto-progressing, no manual review in between) AND the completion
+  // state, without a real session or any billed backend/VEO/ElevenLabs call.
+  // import.meta.env.DEV is a Vite build-time constant that is `false` in a
+  // production build, and since it's statically known, the bundler dead-code-
+  // eliminates this whole branch (and the ?mockLoading param it reads) from
+  // the shipped bundle - not merely unreachable there, actually absent.
+  // isMockLoading feeds the SAME refDone -> refPhase -> refMergedTasks ->
+  // progressFromTasks -> useSmoothProgress pipeline real completion does (see
+  // refDone/showRefMergedRun below), just from a fake refDone instead of real
+  // backend signals, so the preview can't visually drift from the real thing.
+  // isMockDone short-circuits straight to ResultStep with fake data instead -
+  // it's a different screen entirely, not a phase of the merged run, and
+  // deliberately does NOT set isMergedRunActive (the real completion screen
+  // shows the full header/tabs too). Usage:
+  //   /create?mode=references&mockLoading=refs|script|scenes|video|done
+  const [searchParams] = useSearchParams();
+  const mockLoadingParam = import.meta.env.DEV ? searchParams.get("mockLoading") : null;
+  const isMockDone = mockLoadingParam === "done";
+  const isMockLoading = !!mockLoadingParam && !isMockDone;
+  const mockPhase = REF_PHASE_ORDER.includes(mockLoadingParam) ? mockLoadingParam : "refs";
+
   const session = useReferencesSession({
     userPrompt, setUserPrompt,
     style, setStyle,
@@ -238,13 +273,14 @@ export default function ReferencesPipelineCreator({
   // references had actually finished earlier. Each phase now checks its own
   // completion signal; the `step >= N` fallbacks keep a card marked done if that
   // signal isn't loaded in this view (so it never regresses below the old logic).
-  const REF_PHASE_ORDER = ["refs", "script", "scenes", "video"];
-  const refDone = {
-    refs: refLockReady || step >= 2,
-    script: !!scriptData || step >= 3,
-    scenes: (sceneFrames?.length ?? 0) > 0 || step >= 5,
-    video: !!finalVideoUrl,
-  };
+  const refDone = isMockLoading
+    ? Object.fromEntries(REF_PHASE_ORDER.map((p, i) => [p, i < REF_PHASE_ORDER.indexOf(mockPhase)]))
+    : {
+        refs: refLockReady || step >= 2,
+        script: !!scriptData || step >= 3,
+        scenes: (sceneFrames?.length ?? 0) > 0 || step >= 5,
+        video: !!finalVideoUrl,
+      };
   // The active (spinning) phase is the first one that isn't done yet.
   const refPhase = REF_PHASE_ORDER.find((p) => !refDone[p]) || "video";
   const refStatus = (p) => {
@@ -295,12 +331,43 @@ export default function ReferencesPipelineCreator({
       framesError // only a genuine failure (not first entry) hands the screen to the retry UI
     ));
   const showRefMergedRun =
-    step <= 5 &&
-    (loading || framesLoading || (sessionId && step >= 1)) &&
-    !atManualReview &&
-    !generationError &&
-    !videoFatal &&
-    !insufficientCredits;
+    isMockLoading ||
+    (step <= 5 &&
+      (loading || framesLoading || (sessionId && step >= 1)) &&
+      !atManualReview &&
+      !generationError &&
+      !videoFatal &&
+      !insufficientCredits);
+
+  // Mirror showRefMergedRun (plus the completion screen) up to Creator.jsx so
+  // it can block a mode-tab switch while true, AND keep tabs hidden on "Your
+  // Video is Ready!" too - they previously came back the instant
+  // showRefMergedRun went false at step 6, even though nothing about the
+  // page's chrome should change between "still generating" and "just
+  // finished". step 6 is ResultStep specifically (not EditingStep/7, which
+  // keeps the full header) and isMockDone covers the ?mockLoading=done
+  // preview the same way. showRefMergedRun itself is left alone - it still
+  // means exactly "the merged checklist overlay is showing", used untouched
+  // everywhere else in this file.
+  //
+  // isCompletionScreen stays broken out as its own name because it is the
+  // half of hideCreatorChrome that is NOT "a run is in flight" - it is only
+  // folded in below, not reported separately. It used to be its own upward
+  // report (onCompletionActiveChange) driving a third header state; Creator's
+  // showChrome covers that case already, so the report is gone and this is
+  // now purely local.
+  //
+  // The unmount cleanup covers every exit path that isn't "the run
+  // finished" (nav away via the Leave button, an error state unmounting this
+  // component, etc.) so the parent's flag can never get stuck true once
+  // this instance is gone.
+  const isCompletionScreen = step === 6 || isMockDone;
+  const hideCreatorChrome = showRefMergedRun || isCompletionScreen;
+  useEffect(() => {
+    onMergedRunActiveChange?.(hideCreatorChrome);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hideCreatorChrome]);
+  useEffect(() => () => onMergedRunActiveChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The bar is a weighted function of the rows above, all of which are derived
   // from durable backend state - so a reload or a resume lands on the real
@@ -518,15 +585,55 @@ export default function ReferencesPipelineCreator({
     { id: "script",   label: "Generating your script",     range: [80, 100] },
   ];
 
+  // Short-circuits straight to the completion screen with fake data, bypassing
+  // the real step machinery entirely rather than trying to force step=6 (which
+  // would ripple into the auto-approve/resume effects above). Deliberately
+  // does NOT touch isMergedRunActive - the real completion screen shows the
+  // full header/tabs too (step 6 is past showRefMergedRun's step<=5 window),
+  // so the mock must match that rather than "fixing" it here.
+  if (isMockDone) {
+    return (
+      <div className="h-full flex flex-col font-figtree">
+        <ResultStep
+          finalVideoUrl={MOCK_VIDEO_URL}
+          scriptData={MOCK_SCRIPT_DATA}
+          session={mockSession(style)}
+          enterEditingMode={enterEditingMode}
+          reset={reset}
+          showSurvey={false}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col font-figtree">
+    <div className={`flex flex-col font-figtree ${showRefMergedRun ? "" : "h-full"}`}>
+      {/* Shown on every manual review step AND during the merged-run overlay,
+          but only interactive in the former. onStepClick is omitted entirely
+          during the merged run (not just guarded inside the handler) - a
+          completed step's approve action (ReferenceLockStep/ScriptStep/
+          FrameGenerationStep) is a forward-only, side-effecting call, and
+          re-approving a stage the backend has already moved past mid-run can
+          silently kick off a second real video generation with no warning
+          (see reference.service.js's approveAllReferences, which rewrites
+          `stage` unconditionally, and video.service.js's claimGenerationLock,
+          which happily reopens an already-COMPLETED session). JourneyTimeline
+          itself already supports this exact no-click mode - onStepClick is
+          optional there. */}
       {showProgressBar && (
         <JourneyTimeline
           tasks={journeyTasks}
-          onStepClick={(t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          onStepClick={showRefMergedRun ? undefined : (t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          bare={showRefMergedRun}
         />
       )}
 
+      {/* flowLayout drops the height cap and the self-scrolling frame wherever
+          the step is meant to flow in the page. The merged run is deliberately
+          NOT one of those (composerChrome, and so flowLayout, is false during
+          it): it keeps the fixed frame, and there is no header sibling left up
+          in Creator.jsx for that frame to strand, since showChrome hides the
+          whole row for the duration of the run. */}
       <div className={flowLayout ? "relative" : "flex-1 relative overflow-y-auto"}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
@@ -543,7 +650,20 @@ export default function ReferencesPipelineCreator({
           </motion.div>
         </AnimatePresence>
 
-        {/* Fully-automatic run: one persistent checklist across all phases. */}
+        {/* Fully-automatic run: one persistent checklist across all phases.
+            Matches PipelineShell's own page background (var(--gradient-app))
+            rather than a flat color, so it reads as one continuous screen
+            with the compact logo header above it instead of two stacked
+            panels with a visible seam between them.
+            In-flow (not absolute) on purpose: an absolutely-positioned box
+            is sized against its containing block's *definite* height, which
+            forces ProgressChecklist's own h-full to a hard pixel value and
+            re-creates the internal-scroll/pinned-header bug this is fixing.
+            min-h-[100dvh] keeps the short-content case filling the screen
+            the way the old absolute-inset-0 version did; min-height alone
+            doesn't establish a definite `height` for descendants the way
+            `height` does, so ProgressChecklist's h-full still resolves to
+            auto and its own overflow-y-auto stays a no-op. */}
         {showRefMergedRun && (
           <motion.div
             key="ref-merged-run"
@@ -551,8 +671,8 @@ export default function ReferencesPipelineCreator({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-40"
-            style={{ background: "#F5F0EB" }}
+            className="relative z-40 min-h-[100dvh]"
+            style={{ background: "var(--gradient-app)" }}
           >
             {/* The leave hint shows from the script phase on: those phases are
                 detached backend jobs (script, REF_SCENE_FRAMES, video) that keep
@@ -565,7 +685,7 @@ export default function ReferencesPipelineCreator({
               headerIcon={refMergedIcon}
               progress={sessionRestoring ? null : refMergedProgress}
               tasks={refMergedTasks}
-              sessionId={session.sessionId}
+              sessionId={isMockLoading ? "mock-preview" : session.sessionId}
               logPhase={refPhase === "refs" ? "references" : "script"}
               onLeave={refPhase === "refs" ? undefined : () => navigate("/videos")}
             />

@@ -765,7 +765,6 @@ export default function PromptStep({
     [images, aspectRatio]
   );
   const ctaRef = useRef(null);
-  const prevImagesLengthRef = useRef(images?.length ?? 0);
 
   // dnd-kit: photo reordering that works with mouse AND touch.
   const imageId = (img, i) => img?.preview || img?.name || `img-${i}`;
@@ -783,15 +782,6 @@ export default function PromptStep({
   const chipStyle = (active) => active
     ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
     : { background: '#fff', color: '#6B5E7B', border: '1.5px solid rgba(193,68,14,0.12)' };
-
-  // Scroll the CTA into view the moment the user finishes the 0 → 1 image upload transition.
-  useEffect(() => {
-    const currentLength = images?.length ?? 0;
-    if (prevImagesLengthRef.current === 0 && currentLength > 0) {
-      ctaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    prevImagesLengthRef.current = currentLength;
-  }, [images?.length]);
 
   // First-run onboarding for this creation screen. Both the intro video and the
   // tour auto-run once per mode (persisted) and only for a fresh creation: the
@@ -1489,6 +1479,18 @@ export default function PromptStep({
                                 className="w-full h-full object-cover pointer-events-none"
                               />
 
+                              {/* Needs-framing badge, overlaid top-left (the one free corner -
+                                  top-right is the remove button, bottom-left is the label) */}
+                              {isOffRatio(img, aspectRatio) && (
+                                <span
+                                  className="absolute top-1.5 left-1.5 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold"
+                                  style={{ background: '#FFF1EA', color: '#C2410C' }}
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                  Needs framing
+                                </span>
+                              )}
+
                               {/* Remove button: a 44px invisible tap zone anchored at the
                                   photo's top-right corner, padded so the small 20px visible
                                   circle sits exactly where it did before (6px inset) - the
@@ -1549,19 +1551,6 @@ export default function PromptStep({
                                 </button>
                               )}
                             </div>
-
-                            {/* Needs-framing badge — card extends below the photo to hold this */}
-                            {isOffRatio(img, aspectRatio) && (
-                              <div className="px-2 py-1.5 flex justify-center">
-                                <span
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold"
-                                  style={{ background: '#FFF1EA', color: '#C2410C' }}
-                                >
-                                  <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
-                                  Needs framing
-                                </span>
-                              </div>
-                            )}
                           </div>
                           </SortableTile>
                         ))}
@@ -1585,7 +1574,7 @@ export default function PromptStep({
                           >
                             <button
                               onClick={() => fileInputRef.current?.click()}
-                              className="w-full p-0"
+                              className="w-full h-full p-0"
                             >
                               {/* Inner square, mirroring the photo tile's aspect-square photo div.
                                   px-2 + text-center keep the icon/label off the rounded corners
@@ -1600,17 +1589,6 @@ export default function PromptStep({
                                 </span>
                               </div>
                             </button>
-
-                            {/* Invisible placeholder matching the badge row's exact
-                                markup/height, so this tile's total height matches a
-                                photo tile regardless of whether that tile is showing
-                                the "Needs framing" badge. */}
-                            <div className="px-2 py-1.5 flex justify-center" aria-hidden="true">
-                              <span className="invisible inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold">
-                                <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
-                                Needs framing
-                              </span>
-                            </div>
                           </div>
                         )}
                       </div>
