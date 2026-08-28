@@ -67,6 +67,56 @@ function Verdict({ verdict, url }) {
   );
 }
 
+/**
+ * Script fan-out: the angles it tried and which one it shipped.
+ *
+ * A different shape from the critic entirely, so it gets its own view. Candidate 0 is
+ * always the original, and it winning means nothing was written to the session.
+ */
+function FanoutDetail({ run }) {
+  const state = run.state || {};
+  const winner = state.winner;
+  const candidates = [
+    { label: 'Original', angle: '', script: state.original },
+    ...(state.variants || []).map((v, i) => ({ label: `Alternative ${i + 1}`, angle: v.angle, script: v.script })),
+  ];
+
+  return (
+    <div className="px-4 pb-4">
+      {winner && (
+        <div className="rounded-lg px-3 py-2 my-3 text-sm"
+          style={winner.applied
+            ? { color: C.green, background: C.greenBg }
+            : { color: C.muted, background: C.faint }}>
+          {winner.applied
+            ? `Shipped ${candidates[winner.index]?.label || `candidate ${winner.index}`}, script replaced.`
+            : 'Kept the original, nothing was written to the session.'}
+          {winner.reason && <span className="block mt-0.5" style={{ color: C.muted }}>{winner.reason}</span>}
+        </div>
+      )}
+
+      {candidates.map((c, i) => {
+        const won = winner && winner.index === i;
+        return (
+          <div key={i} className="py-3" style={{ borderTop: `1px solid ${C.faint}` }}>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="text-sm font-semibold" style={{ color: C.charcoal }}>{c.label}</span>
+              {won && <Pill tone="green">chosen</Pill>}
+              {c.angle && <Pill tone="blue">{c.angle}</Pill>}
+            </div>
+            <p className="text-sm font-medium mb-1" style={{ color: C.charcoal }}>{c.script?.title}</p>
+            <ol className="text-xs space-y-0.5" style={{ color: C.muted }}>
+              {(c.script?.sections || []).map((s, n) => (
+                <li key={n}>{n + 1}. {s.narrationText}</li>
+              ))}
+            </ol>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Everything one run found and did. Loaded lazily, since the steps can be large. */
 function RunDetail({ runId }) {
   const [run, setRun] = useState(null);
@@ -82,6 +132,10 @@ function RunDetail({ runId }) {
 
   if (error) return <p className="text-sm px-4 py-3" style={{ color: C.red }}>{error}</p>;
   if (!run) return <p className="text-sm px-4 py-3" style={{ color: C.muted }}>Loading…</p>;
+
+  // Each agent kind writes a different state shape, so each gets its own view.
+  // Without this branch a fan-out run renders as an empty critique.
+  if (run.kind === 'script_fanout') return <FanoutDetail run={run} />;
 
   const state = run.state || {};
   const frames = state.frames || [];
@@ -207,9 +261,11 @@ export default function AdminAgentRunsPage() {
       <div className="rounded-2xl overflow-hidden" style={cardStyle}>
         {runs.map((r, n) => {
           const state = r.state || {};
+          const fanout = r.kind === 'script_fanout';
           const flagged = (state.verdicts || []).filter((v) => !v.ok).length;
           const issues = (state.consistency?.issues || []).length;
           const kept = (state.fixes || []).filter((f) => f.kept).length;
+          const angles = (state.variants || []).length;
           const isOpen = open === r.id;
           return (
             <div key={r.id} style={n ? { borderTop: `1px solid ${C.faint}` } : undefined}>
@@ -220,8 +276,15 @@ export default function AdminAgentRunsPage() {
                 <span className="px-2 py-0.5 rounded-md text-xs font-semibold" style={pill(r.status)}>
                   {r.status}
                 </span>
+                <Pill>{fanout ? 'fan-out' : 'critic'}</Pill>
                 <span className="font-mono text-xs" style={{ color: C.muted }}>{r.session_id}</span>
                 <span className="ml-auto flex items-center gap-3 text-xs" style={{ color: C.muted }}>
+                  {fanout && <span>{angles + 1} angles</span>}
+                  {fanout && state.winner && (
+                    <span style={{ color: state.winner.applied ? C.green : C.muted }}>
+                      {state.winner.applied ? 'swapped' : 'kept original'}
+                    </span>
+                  )}
                   {flagged > 0 && <span style={{ color: C.red }}>{flagged} flagged</span>}
                   {issues > 0 && <span style={{ color: C.red }}>{issues} sequence</span>}
                   {kept > 0 && <span style={{ color: C.green }}>{kept} fixed</span>}
