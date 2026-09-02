@@ -12,6 +12,27 @@ import { TOUR_KEYS } from "@/lib/tourState";
 import { startScriptReviewTour } from "@/lib/scriptTour";
 import { useAuth } from "@/hooks/useAuth";
 
+// Hard ceiling on an edited Visual Description.
+//
+// What the section says here is not sent alone: the backend prepends the canonical
+// cast, setting and style block to it before it reaches the video model, and the
+// provider rejects the ENTIRE task past its prompt ceiling (2500 characters on
+// Kling) rather than truncating, which loses the clip. This leaves room for that
+// block, and is already generous against what the models are asked for, 50 to 80
+// words a scene.
+const VISUAL_DESC_MAX = 1200;
+
+function CharCount({ value, max }) {
+  const used = (value || "").length;
+  return (
+    <p
+      className={`mt-1 text-[10px] text-right ${used >= max * 0.9 ? "text-red-600" : "text-ink-muted"}`}
+    >
+      {used}/{max}
+    </p>
+  );
+}
+
 export default function ScriptStep({
   scriptData,
   setScriptData,
@@ -326,7 +347,9 @@ export default function ScriptStep({
                             onChange={(e) => handleSectionEdit(getOriginalIndex(openingSection), "visualDescription", e.target.value)}
                             className="text-sm"
                             rows={2}
+                            maxLength={VISUAL_DESC_MAX}
                           />
+                          <CharCount value={openingSection.visualDescription} max={VISUAL_DESC_MAX} />
                         </div>
                         <div>
                           <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
@@ -480,7 +503,9 @@ export default function ScriptStep({
                               onChange={(e) => handleSectionEdit(originalIndex, "visualDescription", e.target.value)}
                               className="text-sm"
                               rows={2}
+                              maxLength={VISUAL_DESC_MAX}
                             />
+                            <CharCount value={section.visualDescription} max={VISUAL_DESC_MAX} />
                           </div>
                           <div>
                             <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
@@ -591,7 +616,9 @@ export default function ScriptStep({
                             onChange={(e) => handleSectionEdit(getOriginalIndex(closingSection), "visualDescription", e.target.value)}
                             className="text-sm"
                             rows={2}
+                            maxLength={VISUAL_DESC_MAX}
                           />
+                          <CharCount value={closingSection.visualDescription} max={VISUAL_DESC_MAX} />
                         </div>
                         <div>
                           <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
@@ -848,7 +875,9 @@ export default function ScriptStep({
                     onChange={(e) => handleSectionEdit(activeEditIndex, "visualDescription", e.target.value)}
                     className="text-sm"
                     rows={2}
+                    maxLength={VISUAL_DESC_MAX}
                   />
+                  <CharCount value={activeEditSection.visualDescription} max={VISUAL_DESC_MAX} />
                 </div>
                 <div>
                   <label className="text-xs text-ink-muted mb-1 block">Duration (seconds)</label>
