@@ -111,11 +111,20 @@ export default function VideoGenerationStep({ session, failedSession, scriptData
             ? "Too many videos are being made right now."
             : "We couldn't finish generating your video.",
           message,
-          hint: providerDown
-            ? "You won't be charged extra."
-            : atCapacity
-              ? "Please try again in a few minutes. You won't be charged extra."
-              : "Please click Regenerate below. You won't be charged extra.",
+          hint: (
+            <>
+              {providerDown
+                ? "You won't be charged extra."
+                : atCapacity
+                  ? "Please try again in a few minutes. You won't be charged extra."
+                  : "Please click Regenerate below. You won't be charged extra."}{" "}
+              If you'd rather have a refund for this video, email{" "}
+              <a href="mailto:mikhalangelo156@gmail.com" className="text-terra underline">
+                mikhalangelo156@gmail.com
+              </a>
+              .
+            </>
+          ),
           onRetry: onRegenerate,
           retryLabel: "Regenerate Video",
         }}

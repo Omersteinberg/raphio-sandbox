@@ -224,7 +224,11 @@ export default function ScriptStep({
                     Script Generation Failed
                   </h3>
                   <p className="text-ink-muted max-w-md">
-                    Something went wrong while generating your script. The credits for that attempt were refunded. Click below to retry.
+                    Something went wrong while generating your script. Click below to retry, you won't be charged again for this video. If you'd rather have a refund, email{" "}
+                    <a href="mailto:mikhalangelo156@gmail.com" className="text-terra underline">
+                      mikhalangelo156@gmail.com
+                    </a>
+                    .
                   </p>
                 </>
               ) : (

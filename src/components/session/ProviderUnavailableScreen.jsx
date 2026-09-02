@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 const FALLBACK_MESSAGE =
   "We're having an internal issue on our side and our team is already working on it. " +
-  "Your progress is saved, so please come back shortly and try again. You won't be charged.";
+  "Your progress is saved, so please come back shortly and try again. You won't be charged again.";
 
 /**
  * Shown in place of the wizard when the backend refuses to start because OUR video
