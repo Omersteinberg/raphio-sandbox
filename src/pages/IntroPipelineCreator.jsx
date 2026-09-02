@@ -331,7 +331,7 @@ export default function IntroPipelineCreator({
   }
 
   return (
-    <div className={`flex flex-col font-figtree ${isGeneratingIntro ? "" : "h-full"}`}>
+    <div className="h-full flex flex-col font-figtree">
       {/* Presentational-only (no onStepClick, bare chrome) while a generation is
           in flight - same reasoning/pattern as the other three pipelines: a
           completed step's action is forward-only and side-effecting, and the
