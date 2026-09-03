@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket, LayoutDashboard } from 'lucide-react';
+import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket, LayoutDashboard, MessageCircleQuestion } from 'lucide-react';
 
 export default function AppHeader() {
   const { user, credits, logout, isAdmin } = useAuth();
@@ -315,31 +315,24 @@ export default function AppHeader() {
               </button>
             </div>
 
-            {/* Admin dashboard + promo codes (admin only) */}
-            {isAdmin && (
-              <div className="py-1.5">
-                <button
-                  onClick={() => { setDropdownOpen(false); navigate('/admin/overview'); }}
-                  className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
-                  style={{ color: '#2C2420' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <LayoutDashboard className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
-                  <span className="text-sm font-medium">Dashboard</span>
-                </button>
-                <button
-                  onClick={() => { setDropdownOpen(false); navigate('/admin/promos'); }}
-                  className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
-                  style={{ color: '#2C2420' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <Ticket className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
-                  <span className="text-sm font-medium">Promo Codes</span>
-                </button>
-              </div>
-            )}
+            {/* Support - Dashboard/Promo Codes were removed from here (2026-09):
+                both are admin-only and already reachable via the always-visible
+                top nav for admins, so this dropdown was a pure duplicate for
+                that surface. Left untouched in the mobile drawer below, since
+                its top nav equivalent is desktop-only (`hidden md:flex`) -
+                the drawer is the only mobile path to those admin pages. */}
+            <div className="py-1.5">
+              <button
+                onClick={() => { setDropdownOpen(false); navigate('/support'); }}
+                className="w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors"
+                style={{ color: '#2C2420' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(193,68,14,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <MessageCircleQuestion className="w-4 h-4 shrink-0" style={{ color: '#9B8B83' }} />
+                <span className="text-sm font-medium">Support</span>
+              </button>
+            </div>
 
             {/* Sign out */}
             <div className="py-1.5" style={{ borderTop: '1px solid rgba(193,68,14,0.08)' }}>
@@ -531,6 +524,19 @@ export default function AppHeader() {
                   Promo Codes
                 </button>
               )}
+              <button
+                data-tour="drawer-support"
+                onClick={() => navigate('/support')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left text-sm font-semibold"
+                style={
+                  isActive('/support')
+                    ? { background: 'rgba(193,68,14,0.08)', color: '#C1440E' }
+                    : { color: '#2C2420', background: 'transparent' }
+                }
+              >
+                <MessageCircleQuestion className="w-5 h-5 shrink-0" />
+                Support
+              </button>
             </nav>
 
             {/* Sign out - pinned to the true bottom of the panel via mt-auto
