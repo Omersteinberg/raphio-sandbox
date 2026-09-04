@@ -493,8 +493,17 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
  */
 export async function generateScript(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202: starts the job
+  // 202. The body names the job that actually holds the session's single slot, which
+  // is NOT always the one we asked for: startSessionJob's atomic claim no-ops when the
+  // backend pipeline runner already has GENERATE_OUTLINE in flight, and reports THAT
+  // job back. Waiting on the reported type stops this resolving on a third job the
+  // runner chained on afterwards and returning its result as our session - the runner
+  // re-enters advanceSession from each onDone, so the DONE window between two chained
+  // jobs is ~200ms against a 3s poll, making the wrong job the likely one to catch.
+  // Returns null once the slot moves on; callers refetch the session instead.
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload);
   return await pollJobUntilDone(sessionId, {
+    expectedJobType: data?.jobType,
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
 }
@@ -507,8 +516,11 @@ export async function generateScript(sessionId, frameOptions = null, options = {
  */
 export async function generateOutline(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202: starts the job
+  // 202, and the same single-slot caveat as generateScript above: wait on the job
+  // the backend reports, not on whatever happens to be in the slot when we look.
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload);
   return await pollJobUntilDone(sessionId, {
+    expectedJobType: data?.jobType,
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
 }

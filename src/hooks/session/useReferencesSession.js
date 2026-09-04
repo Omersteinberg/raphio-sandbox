@@ -10,6 +10,7 @@ import { getCreationDefaults } from "@/lib/preferences";
 import { savePending, clearPending } from "@/lib/pendingSession";
 import { logFailure } from "@/lib/genLog";
 import { isGenerationFailed } from "@/lib/progressTasks";
+import { isSessionPayload } from "@/lib/scriptPhase";
 import { describeError, isProviderUnavailable } from "@/lib/errorDetail";
 
 // Encode a File to a base64 data URL so uploaded reference images survive a
@@ -167,6 +168,27 @@ export function useReferencesSession({
       }
     }
   }, [session]);
+
+  // ── Observe a backend-driven script phase ──────────────────────────
+  // The pre-script pipeline runs server-side, so when nothing in this tab is awaiting
+  // it only a poll notices the script land. The stage-sync effect above does the
+  // advancing; this just keeps `session` fresh. Mirrors useSession.js, which the
+  // references pipeline never got - without it a single missed job handoff was
+  // permanent, since nothing else here refetches before the generating step.
+  const hasScript = !!scriptData;
+  useEffect(() => {
+    if (!sessionId || step !== 2 || hasScript || loading) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        setSession(await sessionService.getSession(sessionId));
+      } catch (err) {
+        console.error("[useReferencesSession] script phase poll failed:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [sessionId, step, hasScript, loading]);
 
   // ── Persist draft while on step 0 (before session starts) ─────────
   useEffect(() => {
@@ -396,13 +418,22 @@ export function useReferencesSession({
       // Generate script after approval. This kickoff is where the
       // duration-priced charge lands for the references pipeline.
       console.log("[useReferencesSession] Generating script...");
-      const sessionAfterScript = await sessionService.generateScript(sessionId);
-      setSession(sessionAfterScript);
-      setScriptData(sessionAfterScript.scriptData);
+      const jobResult = await sessionService.generateScript(sessionId);
+
+      // Never trust the job result's shape: the runner shares this session's single
+      // job slot, so the poll returns null once the slot moves on. Assigning a
+      // foreign payload to `session` wipes the `stage` every sync effect reads.
+      const refreshed = isSessionPayload(jobResult)
+        ? jobResult
+        : await sessionService.getSession(sessionId);
+      setSession(refreshed);
+      if (refreshed?.scriptData) setScriptData(refreshed.scriptData);
       setScriptProgress(100);
 
       setDirection(1);
-      setStep(2);
+      // A floor, not an assignment: the runner may already have carried this session
+      // past the script review, and the stage-sync effect moves us up to match.
+      setStep((prev) => Math.max(prev, 2));
       toast.success("References approved! Review your script.");
       return true;
     } catch (err) {
@@ -486,8 +517,23 @@ export function useReferencesSession({
     try {
       console.log("[useReferencesSession] Generating scene frames...");
       const result = await referenceApi.generateSceneFrames(sessionId);
-      setSceneFrames(result.sceneFrames || result.frames || result);
-      toast.success("Scene frames generated!");
+      const frames = result?.sceneFrames || result?.frames || (Array.isArray(result) ? result : null);
+      if (frames?.length) {
+        setSceneFrames(frames);
+        toast.success("Scene frames generated!");
+      } else {
+        // The runner's chain took the job slot, so our poll stopped without a result.
+        // It may well have generated the frames itself; the session is what says so.
+        const refreshed = await sessionService.getSession(sessionId);
+        setSession(refreshed);
+        if (refreshed?.sceneFrames?.length) {
+          setSceneFrames(refreshed.sceneFrames);
+          toast.success("Scene frames generated!");
+        } else {
+          setFramesError(true);
+          toast.error("We couldn't generate your scene frames. Please try again.");
+        }
+      }
     } catch (err) {
       console.error("[useReferencesSession] Failed to generate frames:", err);
       if (err.response?.status === 402) {

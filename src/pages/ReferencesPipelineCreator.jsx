@@ -11,6 +11,8 @@ import JourneyTimeline from "@/components/session/JourneyTimeline";
 import { buildReferencesTasks } from "@/lib/journeyTasks";
 import { buildVideoTasks, progressFromTasks, REF_PHASE_WEIGHTS } from "@/lib/progressTasks";
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
+import { isPreScriptWorking, REF_PRE_SCRIPT_STAGES } from "@/lib/scriptPhase";
+import { SCRIPT_JOB_TYPES } from "@/hooks/session/scriptJobResume";
 import { MOCK_VIDEO_URL, MOCK_SCRIPT_DATA, mockSession } from "@/lib/mockGeneration";
 
 // Step components
@@ -28,6 +30,11 @@ import ProviderUnavailableScreen from "@/components/session/ProviderUnavailableS
 // Hoisted so the dev-only mock preview (below) can validate its ?mockLoading=
 // value against the same order the real refDone/refPhase derivation uses.
 const REF_PHASE_ORDER = ["refs", "script", "scenes", "video"];
+
+// How long an idle script phase must HOLD before we call it a deadlock. The backend
+// hands off between jobs (one job's DONE re-enters the runner, which claims the slot
+// for the next one, ~200ms later), and a poll landing inside that gap reads as stuck.
+const SCRIPT_STUCK_GRACE_MS = 8000;
 
 export default function ReferencesPipelineCreator({
   onModeChange, onBackToChooser, onChromeChange,
@@ -323,9 +330,35 @@ export default function ReferencesPipelineCreator({
   // `manualGate` (not the raw pref) is what decides: a gate whose auto-approve is
   // switched off, has already failed, or was reached by stepping back is a manual
   // gate, and the overlay must never cover it.
+  //
+  // A missing script does NOT mean the script phase is idle: a healthy run sits at
+  // step 2 with `scriptData` null while the backend writes it. Work is in flight when
+  // this tab is driving (`loading`), the job slot is RUNNING, or the stage is one the
+  // backend has yet to leave. When none of those hold, nothing will ever advance this
+  // session and the overlay MUST uncover ScriptStep's Generate/Retry button - the only
+  // control that can.
+  const backend = session.session;
+  const preScriptWorking = isPreScriptWorking(backend, REF_PRE_SCRIPT_STAGES);
+  const rawScriptStuck = step === 2 && !loading && !scriptData && !preScriptWorking;
+  const [scriptStuckConfirmed, setScriptStuckConfirmed] = useState(false);
+  useEffect(() => {
+    if (!rawScriptStuck) {
+      setScriptStuckConfirmed(false);
+      return;
+    }
+    const t = setTimeout(() => setScriptStuckConfirmed(true), SCRIPT_STUCK_GRACE_MS);
+    return () => clearTimeout(t);
+  }, [rawScriptStuck]);
+  const scriptStuckManual = rawScriptStuck && scriptStuckConfirmed;
+  // Tells the retry screen apart from the first-run screen, so a script the backend
+  // actually failed says so instead of pretending nothing has happened yet.
+  const scriptJobFailed =
+    !scriptData && backend?.jobStatus === "FAILED" && SCRIPT_JOB_TYPES.has(backend?.jobType);
+
   const atManualReview =
     (step === 1 && !loading && refLockReady && manualGate("references")) ||
     (step === 2 && !loading && !!scriptData && manualGate("script")) ||
+    scriptStuckManual ||
     (step === 3 && !framesLoading && (
       ((sceneFrames?.length ?? 0) > 0 && manualGate("frames")) ||
       framesError // only a genuine failure (not first entry) hands the screen to the retry UI
@@ -496,6 +529,12 @@ export default function ReferencesPipelineCreator({
             approveScript={approveScript}
             session={session.session}
             loading={loading}
+            // The empty/retry state's only button; with no handler it rendered dead, so
+            // uncovering this step would swap one stuck screen for another.
+            // approveAllReferences IS the references path to a script, and safe to
+            // re-run: approve-all is idempotent and the charge behind it is ensure-once.
+            generateScript={approveAllReferences}
+            scriptGenFailed={scriptJobFailed}
             onNext={handleNext}
           />
         );
