@@ -109,7 +109,7 @@ export default function SupportPage() {
                 placeholder="Search for help topics..."
                 aria-label="Search the FAQ"
                 className="support-search-input w-full font-figtree"
-                style={{ height: 56, borderRadius: 9999, border: `1px solid ${C.border}`, background: "#FFFFFF", padding: "0 108px 0 46px", fontSize: 15, color: C.ink }}
+                style={{ height: 56, borderRadius: 9999, border: `1px solid ${C.border}`, background: "#FFFFFF", padding: "0 108px 0 46px", fontSize: 16, color: C.ink }}
               />
               <button
                 type="submit"

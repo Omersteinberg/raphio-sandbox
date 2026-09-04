@@ -291,7 +291,10 @@ const fieldStyle = {
   border: `1px solid ${C.fieldBorder}`,
   background: C.fieldBg,
   padding: "0 12px",
-  fontSize: 14,
+  // 16px, not 14 (2026-09) - anything under 16px triggers iOS Safari's
+  // auto-zoom on focus, which is jarring on a form this short (the zoomed
+  // viewport doesn't reliably reset when the user taps to the next field).
+  fontSize: 16,
   color: C.ink,
   outline: "none",
 };
