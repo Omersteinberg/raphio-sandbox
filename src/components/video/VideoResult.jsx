@@ -37,6 +37,7 @@ export default function VideoResult({
   title,
   style,
   sectionsCount,
+  duration,
   model,
   posterUrl,
   downloadLabel = "Download",
@@ -225,8 +226,8 @@ export default function VideoResult({
     <div className={className}>
       {/* Ready header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-          <Check className="w-8 h-8 text-green-600" />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-success/10 rounded-full mb-4">
+          <Check className="w-8 h-8 text-success" />
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
           Your Video is Ready!
@@ -318,7 +319,7 @@ export default function VideoResult({
                       aria-label={linkCopied ? "Link copied" : "Copy link"}
                     >
                       {linkCopied ? (
-                        <Check className="w-4 h-4 text-green-600" />
+                        <Check className="w-4 h-4 text-success" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
@@ -377,6 +378,7 @@ export default function VideoResult({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Detail label="Title" value={displayTitle} />
           <Detail label="Style" value={style || "-"} capitalize />
+          <Detail label="Duration" value={duration || "-"} />
           <Detail label="Sections" value={sectionsCount ?? 0} />
           <Detail label="Model" value={model || "-"} />
         </div>

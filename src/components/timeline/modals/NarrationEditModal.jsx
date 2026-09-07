@@ -65,19 +65,12 @@ export default function NarrationEditModal({
   };
 
   const handleSave = async () => {
-    console.log("[NarrationEditModal] handleSave called");
-    console.log("[NarrationEditModal] hasChanges:", hasChanges);
-    console.log("[NarrationEditModal] onRegenerateNarration exists:", !!onRegenerateNarration);
-
     setSaving(true);
     try {
       // If text or voice changed, regenerate the TTS audio instead of just saving text
       if (hasChanges && onRegenerateNarration) {
-        console.log("[NarrationEditModal] Changes detected, calling onRegenerateNarration from save");
         await onRegenerateNarration(section.id, narrationText, voiceId, tone);
-        console.log("[NarrationEditModal] onRegenerateNarration from save completed");
       } else {
-        console.log("[NarrationEditModal] No changes or no regenerate handler, calling onSave");
         await onSave({
           narrationText,
           voiceId,
@@ -92,24 +85,11 @@ export default function NarrationEditModal({
   };
 
   const handleRegenerate = async () => {
-    console.log("[NarrationEditModal] handleRegenerate called");
-    console.log("[NarrationEditModal] onRegenerateNarration exists:", !!onRegenerateNarration);
-    console.log("[NarrationEditModal] section.id:", section?.id);
-    console.log("[NarrationEditModal] narrationText:", narrationText);
-    console.log("[NarrationEditModal] voiceId:", voiceId);
-    console.log("[NarrationEditModal] tone:", tone);
-    console.log("[NarrationEditModal] hasChanges:", hasChanges);
-
-    if (!onRegenerateNarration) {
-      console.warn("[NarrationEditModal] onRegenerateNarration is not provided, returning early");
-      return;
-    }
+    if (!onRegenerateNarration) return;
 
     setRegenerating(true);
     try {
-      console.log("[NarrationEditModal] Calling onRegenerateNarration...");
       await onRegenerateNarration(section.id, narrationText, voiceId, tone);
-      console.log("[NarrationEditModal] onRegenerateNarration completed successfully");
       onClose();
     } catch (err) {
       console.error("[NarrationEditModal] onRegenerateNarration failed:", err);

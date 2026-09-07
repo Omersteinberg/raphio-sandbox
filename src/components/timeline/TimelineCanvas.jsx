@@ -327,6 +327,7 @@ export default function TimelineCanvas({
         itemId: dragItem.id,
         previewStartTime: resolveMoveStart(dragItem, Math.max(0, dragStartValue + deltaTime)),
         previewDuration: dragItem.duration,
+        dragType,
       };
     }
 
@@ -334,7 +335,7 @@ export default function TimelineCanvas({
       const sourceDuration = getSourceDuration(dragItem);
       const ts = dragItem.trimStart || 0;
       const newDuration = Math.max(MIN_DURATION, Math.min(dragStartValue + deltaTime, sourceDuration - ts));
-      return { itemId: dragItem.id, previewStartTime: dragItem.startTime, previewDuration: newDuration };
+      return { itemId: dragItem.id, previewStartTime: dragItem.startTime, previewDuration: newDuration, dragType };
     }
 
     if (dragType === "trim-start") {
@@ -346,6 +347,7 @@ export default function TimelineCanvas({
         itemId: dragItem.id,
         previewStartTime: Math.max(0, dragItem.startTime + delta),
         previewDuration: te - newTrimStart,
+        dragType,
       };
     }
 

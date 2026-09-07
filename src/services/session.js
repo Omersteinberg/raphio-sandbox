@@ -706,16 +706,6 @@ export async function regenerateNarration(sessionId, clipId, { narrationText, vo
 }
 
 /**
- * Update a clip's image
- */
-export async function updateClipImage(sessionId, clipId, imageUrl) {
-  const response = await axios.put(`${API_BASE}/${sessionId}/clips/${clipId}/image`, {
-    imageUrl,
-  });
-  return response.data;
-}
-
-/**
  * Reorder clips
  */
 export async function reorderClips(sessionId, order) {
@@ -751,14 +741,6 @@ export async function reassembleVideo(sessionId, { regenerateAudio, voiceId } = 
  */
 export async function deleteClip(sessionId, clipId) {
   const response = await axios.delete(`${API_BASE}/${sessionId}/clips/${clipId}`);
-  return response.data;
-}
-
-/**
- * Add a new clip
- */
-export async function addClip(sessionId, clipData) {
-  const response = await axios.post(`${API_BASE}/${sessionId}/clips`, clipData);
   return response.data;
 }
 
@@ -925,6 +907,19 @@ export async function regenerateBackgroundMusic(sessionId, { musicPrompt } = {})
 export async function getAudioWaveform(sessionId, audioId) {
   const response = await axios.get(
     `${API_BASE}/${sessionId}/audio/${audioId}/waveform`
+  );
+  return response.data;
+}
+
+/**
+ * Get waveform data for a section's baked-in narration (no separate
+ * AudioAsset row - the narration lives on the VideoSection itself).
+ * Returns { waveform: [] } while the section's narration hasn't been
+ * generated yet, which is a normal state, not an error.
+ */
+export async function getSectionWaveform(sessionId, sectionId) {
+  const response = await axios.get(
+    `${API_BASE}/${sessionId}/clips/${sectionId}/waveform`
   );
   return response.data;
 }

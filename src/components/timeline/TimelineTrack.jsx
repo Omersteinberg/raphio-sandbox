@@ -81,6 +81,7 @@ export default function TimelineTrack({
               isOverlapping={overlappingItems.has(item.id)}
               dragPreviewOffset={dragPreview?.itemId === item.id ? dragPreview.previewStartTime - item.startTime : 0}
               dragPreviewDuration={dragPreview?.itemId === item.id ? dragPreview.previewDuration : null}
+              activeDragType={dragPreview?.itemId === item.id ? dragPreview.dragType : null}
             />
           );
         })}

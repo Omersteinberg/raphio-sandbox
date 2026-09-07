@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { Film, Music, Mic, Upload, Volume2, Scissors, ChevronLeft, ChevronRight } from "lucide-react";
+import { Film, Music, Mic, Upload, Volume2, Scissors } from "lucide-react";
 
 export default function TimelineItem({
   item,
@@ -16,9 +16,11 @@ export default function TimelineItem({
   isOverlapping = false,
   dragPreviewOffset = 0,
   dragPreviewDuration = null,
+  activeDragType = null,
 }) {
   const itemRef = useRef(null);
   const lastTapRef = useRef(0);
+  const DOUBLE_TAP_MS = 300;
 
   // Apply drag preview offset to the position
   const baseLeft = item.startTime * pixelsPerSecond;
@@ -71,19 +73,31 @@ export default function TimelineItem({
   };
 
   const bgColor = getBackgroundColor();
-  const borderColor = isSelected ? "border-primary-foreground" : isOverlapping ? "border-red-300" : "border-transparent";
+  // Selection reads as an outline only - no fill/overlay change - so the
+  // thumbnail underneath never gets obscured. A white inner ring plus a
+  // terracotta outer ring (layered box-shadow) keeps the brand color visible
+  // even on a video clip, whose own fill is already terracotta.
+  const borderColor = isOverlapping && !isSelected ? "border-red-300" : "border-transparent";
+  const selectionRing = isSelected
+    ? "0 0 0 1px hsl(var(--primary-foreground)), 0 0 0 2px rgb(var(--terra-rgb))"
+    : undefined;
 
   return (
     <motion.div
       ref={itemRef}
-      className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "shadow-xl z-50" : ""}`}
-      style={{
+      className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
+      animate={{
         left,
         width: Math.max(width, 20),
-        height,
+        scale: isDragging ? 1.02 : 1,
         opacity: isDragging ? 0.9 : 1,
-        transform: isDragging ? "scale(1.02)" : undefined,
-        transition: isDragging ? "none" : "left 0.1s ease-out",
+      }}
+      transition={isDragging ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 32 }}
+      style={{
+        height,
+        boxShadow: isDragging
+          ? [selectionRing, "0 8px 24px rgba(0,0,0,0.35)"].filter(Boolean).join(", ")
+          : selectionRing,
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -134,37 +148,73 @@ export default function TimelineItem({
         </div>
       </div>
 
-      {/* Move handle - full clip. Trim via the edge handles (or double-tap for the modal). */}
+      {/* Move handle - full clip. Trim via the edge handles (or double-click /
+          double-tap for the trim + waveform modal). */}
       <div
         className="absolute inset-0 cursor-move touch-none"
         onMouseDown={(e) => {
           e.stopPropagation();
           onDragStart(item, "move", e);
         }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
         onTouchStart={(e) => {
           e.stopPropagation();
+          const now = Date.now();
+          if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+            lastTapRef.current = 0;
+            onEdit();
+            return;
+          }
+          lastTapRef.current = now;
           onDragStart(item, "move", e);
         }}
       />
 
       {/* Trim handles - shown when selected; drag the edges to trim (right edge
-          stays put when trimming the left). They sit above the move handle. */}
+          stays put when trimming the left). They sit above the move handle.
+          The DRAWN grip is a slim terracotta bar (~4px) so it doesn't
+          dominate the clip, but the invisible hit area around it stays a
+          full w-6 (24px) - a bigger tap/drag target than what's drawn is the
+          standard, correct pattern for small controls, especially on touch. */}
       {isSelected && (
         <>
           <div
-            className="absolute left-0 top-0 bottom-0 w-5 z-20 flex items-center justify-center cursor-ew-resize touch-none bg-white rounded-l"
+            className="absolute left-0 top-0 bottom-0 w-6 z-20 flex items-center justify-center cursor-ew-resize touch-none"
             onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
           >
-            <ChevronLeft className="w-4 h-4 text-black/70" />
+            <div
+              className={`rounded-full bg-terra transition-all ${
+                activeDragType === "trim-start" ? "w-1.5 brightness-125" : "w-1 hover:brightness-110"
+              }`}
+              style={{ height: Math.max(height - 8, 8) }}
+            />
           </div>
           <div
-            className="absolute right-0 top-0 bottom-0 w-5 z-20 flex items-center justify-center cursor-ew-resize touch-none bg-white rounded-r"
+            className="absolute right-0 top-0 bottom-0 w-6 z-20 flex items-center justify-center cursor-ew-resize touch-none"
             onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
           >
-            <ChevronRight className="w-4 h-4 text-black/70" />
+            <div
+              className={`rounded-full bg-terra transition-all ${
+                activeDragType === "trim-end" ? "w-1.5 brightness-125" : "w-1 hover:brightness-110"
+              }`}
+              style={{ height: Math.max(height - 8, 8) }}
+            />
           </div>
+
+          {/* Cut-point cue: a bright line at the exact edge currently being
+              trimmed, drawn over the handle itself so it stays visible
+              regardless of the clip's own fill color. */}
+          {activeDragType === "trim-start" && (
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.9)] z-30 pointer-events-none" />
+          )}
+          {activeDragType === "trim-end" && (
+            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.9)] z-30 pointer-events-none" />
+          )}
         </>
       )}
     </motion.div>

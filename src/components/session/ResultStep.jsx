@@ -17,6 +17,15 @@ export default function ResultStep({
   // never pass this, so the survey is unaffected everywhere else.
   showSurvey = true,
 }) {
+  // Real length = sum of the generated section clip durations (ffmpeg-probed
+  // during generation), same as VideoCard - the Video row has no duration column.
+  const durationSections = session?.video?.sections ?? scriptData?.sections ?? [];
+  const totalSecs = Math.round(
+    durationSections.reduce((sum, s) => sum + (Number(s.clipDuration) || 0), 0)
+  );
+  const durationLabel =
+    totalSecs > 0 ? `${Math.floor(totalSecs / 60)}:${String(totalSecs % 60).padStart(2, "0")}` : null;
+
   return (
     <div className="w-full h-full overflow-y-auto flex flex-col items-center justify-start p-4 md:p-8 pb-16">
       <div className="w-full max-w-4xl">
@@ -26,6 +35,7 @@ export default function ResultStep({
           title={scriptData?.title}
           style={scriptData?.style || session?.style}
           sectionsCount={scriptData?.sections?.length ?? session?.video?.sections?.length}
+          duration={durationLabel}
           model={session?.videoModel}
           onEdit={enterEditingMode}
           onCreateNew={reset}

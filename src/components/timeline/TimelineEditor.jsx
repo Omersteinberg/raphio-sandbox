@@ -340,27 +340,13 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   // Handle narration regeneration
   const handleRegenerateNarration = async (sectionId, text, voiceId, tone) => {
-    console.log("[TimelineEditor] handleRegenerateNarration called");
-    console.log("[TimelineEditor] sectionId:", sectionId);
-    console.log("[TimelineEditor] text:", text);
-    console.log("[TimelineEditor] voiceId:", voiceId);
-    console.log("[TimelineEditor] tone:", tone);
-    console.log("[TimelineEditor] onRegenerateNarration exists:", !!onRegenerateNarration);
-
-    if (onRegenerateNarration) {
-      try {
-        console.log("[TimelineEditor] Calling onRegenerateNarration prop...");
-        await onRegenerateNarration(sectionId, text, voiceId, tone);
-        console.log("[TimelineEditor] onRegenerateNarration prop completed");
-        console.log("[TimelineEditor] Reloading timeline...");
-        await timeline.loadTimeline();
-        timeline.markDirty();
-        console.log("[TimelineEditor] Timeline reloaded");
-      } catch (err) {
-        console.error("[TimelineEditor] handleRegenerateNarration failed:", err);
-      }
-    } else {
-      console.warn("[TimelineEditor] onRegenerateNarration prop is not provided!");
+    if (!onRegenerateNarration) return;
+    try {
+      await onRegenerateNarration(sectionId, text, voiceId, tone);
+      await timeline.loadTimeline();
+      timeline.markDirty();
+    } catch (err) {
+      console.error("[TimelineEditor] handleRegenerateNarration failed:", err);
     }
   };
 
@@ -832,6 +818,17 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         />
       )}
 
+
+      {editingItem && (
+        <ItemEditModal
+          item={editingItem}
+          section={editingItem.sectionId ? timeline.getSection(editingItem.sectionId) : null}
+          audioAsset={editingItem.audioAssetId ? timeline.getAudioAsset(editingItem.audioAssetId) : null}
+          sessionId={sessionId}
+          onClose={() => setEditingItem(null)}
+          onSave={handleItemUpdate}
+        />
+      )}
 
       {editingNarration && (
         <NarrationEditModal
