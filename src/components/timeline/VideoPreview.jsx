@@ -8,6 +8,7 @@ export default function VideoPreview({
   audioAssets,
   playheadPosition,
   isPlaying,
+  muted = false,
   getSection,
   getAudioAsset,
   registerVideoEl,
@@ -148,6 +149,9 @@ export default function VideoPreview({
           }
           // HTML media volume must be 0-1; clamp (the export can still boost >1).
           el.volume = Math.max(0, Math.min(1, item.volume ?? 1));
+          // Preview-only monitoring mute (the player bar's speaker icon) - a
+          // separate concern from each item's own persisted volume above.
+          el.muted = muted;
           if (isPlaying && el.paused) {
             el.play().catch(() => {});
           } else if (!isPlaying && !el.paused) {
@@ -158,7 +162,7 @@ export default function VideoPreview({
         el.pause();
       }
     });
-  }, [audioItems, playheadPosition, isPlaying, getSection, getAudioAsset]);
+  }, [audioItems, playheadPosition, isPlaying, muted, getSection, getAudioAsset]);
 
   // Pause everything when playback stops.
   useEffect(() => {

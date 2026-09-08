@@ -1,6 +1,8 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Film, Music, Mic, Upload, Volume2, Scissors } from "lucide-react";
+import { getCachedWaveform, setCachedWaveform } from "@/lib/waveformCache";
+import { getAudioWaveform, getSectionWaveform } from "@/services/session";
 
 export default function TimelineItem({
   item,
@@ -17,6 +19,7 @@ export default function TimelineItem({
   dragPreviewOffset = 0,
   dragPreviewDuration = null,
   activeDragType = null,
+  sessionId,
 }) {
   const itemRef = useRef(null);
   const lastTapRef = useRef(0);
@@ -72,6 +75,53 @@ export default function TimelineItem({
     return isSelected ? "bg-blue-500" : "bg-blue-400"; // narration
   };
 
+  // Track-level waveform. Seeded from the shared cache (a hit means the trim
+  // modal, or another clip's scroll-into-view fetch, already has it) and
+  // otherwise fetched lazily when THIS clip actually scrolls into view - see
+  // the IntersectionObserver effect below. Never fetches on mount regardless
+  // of scroll position, so a long timeline doesn't fire one request per clip
+  // the moment it loads.
+  const waveformKind = audioAsset?.id ? "audio" : "section";
+  const waveformId = audioAsset?.id || item.sectionId;
+  const [trackWaveform, setTrackWaveform] = useState(() =>
+    trackType === "AUDIO" ? getCachedWaveform(waveformKind, waveformId) : null
+  );
+
+  useEffect(() => {
+    if (trackType !== "AUDIO" || trackWaveform || !sessionId || !waveformId) return;
+    const el = itemRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        observer.disconnect();
+        const fetchWaveform =
+          waveformKind === "audio"
+            ? getAudioWaveform(sessionId, waveformId)
+            : getSectionWaveform(sessionId, waveformId);
+        fetchWaveform
+          .then((data) => {
+            if (Array.isArray(data?.waveform) && data.waveform.length > 0) {
+              setTrackWaveform(data.waveform);
+              setCachedWaveform(waveformKind, waveformId, data.waveform);
+            }
+          })
+          .catch(() => {
+            /* no waveform to show - the clip still works without it */
+          });
+      },
+      // rootMargin starts the fetch slightly before the clip is fully on
+      // screen, not once it's already loaded, without needing to know the
+      // exact scrolling ancestor - IntersectionObserver accounts for
+      // clipping by every ancestor's overflow, not just an explicit root.
+      { rootMargin: "200px", threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackType, waveformKind, waveformId, sessionId]);
+
   const bgColor = getBackgroundColor();
   // Selection reads as an outline only - no fill/overlay change - so the
   // thumbnail underneath never gets obscured. A white inner ring plus a
@@ -85,6 +135,7 @@ export default function TimelineItem({
   return (
     <motion.div
       ref={itemRef}
+      data-item-id={item.id}
       className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
       animate={{
         left,
@@ -113,6 +164,20 @@ export default function TimelineItem({
             alt=""
             className="w-full h-full object-cover"
           />
+        </div>
+      )}
+
+      {/* Track-level waveform, cache-hit only (see waveformCache.js) - not
+          fetched here, just opportunistically reused if already fetched. */}
+      {trackWaveform && (
+        <div className="absolute inset-0 flex items-center gap-px px-1 opacity-40 pointer-events-none">
+          {trackWaveform.map((v, i) => (
+            <div
+              key={i}
+              className="flex-1 bg-white rounded-sm"
+              style={{ height: `${Math.max(8, Math.min(100, Number(v) * 100))}%` }}
+            />
+          ))}
         </div>
       )}
 
@@ -175,10 +240,11 @@ export default function TimelineItem({
 
       {/* Trim handles - shown when selected; drag the edges to trim (right edge
           stays put when trimming the left). They sit above the move handle.
-          The DRAWN grip is a slim terracotta bar (~4px) so it doesn't
-          dominate the clip, but the invisible hit area around it stays a
-          full w-6 (24px) - a bigger tap/drag target than what's drawn is the
-          standard, correct pattern for small controls, especially on touch. */}
+          The DRAWN grip is a short rounded capsule (not full clip height) so
+          it reads as a distinct, grabbable handle rather than a divider
+          line, but the invisible hit area around it stays a full w-6 (24px)
+          - a bigger tap/drag target than what's drawn is the standard,
+          correct pattern for small controls, especially on touch. */}
       {isSelected && (
         <>
           <div
@@ -188,9 +254,8 @@ export default function TimelineItem({
           >
             <div
               className={`rounded-full bg-terra transition-all ${
-                activeDragType === "trim-start" ? "w-1.5 brightness-125" : "w-1 hover:brightness-110"
+                activeDragType === "trim-start" ? "w-2 h-8 brightness-125" : "w-1.5 h-6 hover:brightness-110"
               }`}
-              style={{ height: Math.max(height - 8, 8) }}
             />
           </div>
           <div
@@ -200,9 +265,8 @@ export default function TimelineItem({
           >
             <div
               className={`rounded-full bg-terra transition-all ${
-                activeDragType === "trim-end" ? "w-1.5 brightness-125" : "w-1 hover:brightness-110"
+                activeDragType === "trim-end" ? "w-2 h-8 brightness-125" : "w-1.5 h-6 hover:brightness-110"
               }`}
-              style={{ height: Math.max(height - 8, 8) }}
             />
           </div>
 

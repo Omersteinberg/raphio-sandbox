@@ -35,15 +35,14 @@ export function startOverviewTour(isMobile) {
       element: '[data-tour="controls"]',
       popover: {
         title: "Playback",
-        description: isMobile
-          ? "Play and pause your video here."
-          : "Play, pause, and zoom the timeline in or out here.",
+        description: "Play, pause, and zoom the timeline in or out here.",
         side: "bottom",
         align: "center",
       },
     },
-    // Desktop only: the Assets sidebar (hidden on mobile, where media is added
-    // from the bottom bar instead).
+    // Desktop only: the persistent Assets + Audio panel (hidden on mobile,
+    // where media is added from the bottom bar instead). It never disappears
+    // based on what's selected, so it only needs describing once here.
     ...(!isMobile
       ? [
           {
@@ -51,24 +50,29 @@ export function startOverviewTour(isMobile) {
             popover: {
               title: "Your media",
               description:
-                "All your clips and audio live here. Drag any of them onto a track in the timeline.",
+                "All your clips and audio live here, and stay here no matter what's selected. Upload audio or generate an AI voice-over from the top, or drag any clip onto a track below.",
               side: "right",
               align: "start",
             },
           },
         ]
       : []),
-    {
-      element: '[data-tour="action-bar"]',
-      popover: {
-        title: "Add to your video",
-        description: isMobile
-          ? "Add clips, audio or a voice-over, and zoom in or out, all from here."
-          : "Add clips, audio or a voice-over here too.",
-        side: "top",
-        align: "center",
-      },
-    },
+    // Mobile only: media lives in the bottom bar instead of a sidebar, and
+    // that row is always present (unlike desktop, this step has no
+    // no-selection anchor on desktop, so it's skipped there entirely).
+    ...(isMobile
+      ? [
+          {
+            element: '[data-tour="action-bar"]',
+            popover: {
+              title: "Add to your video",
+              description: "Add clips, audio or a voice-over here, any time.",
+              side: "top",
+              align: "center",
+            },
+          },
+        ]
+      : []),
     // References-pipeline only: the button is absent otherwise, so runTour drops
     // this step automatically.
     {

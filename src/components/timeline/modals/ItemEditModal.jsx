@@ -4,6 +4,7 @@ import { X, Loader2, Film, Music, Play, Pause, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { computeTrim } from "@/lib/timelineTrim";
 import { getAudioWaveform, getSectionWaveform } from "@/services/session";
+import { getCachedWaveform, setCachedWaveform } from "@/lib/waveformCache";
 
 const MIN_DURATION = 0.5;
 
@@ -63,8 +64,15 @@ export default function ItemEditModal({ item, section, audioAsset, sessionId, on
   // section-baked narration (no AudioAsset at all, GET /clips/:sectionId/waveform).
   // They're mutually exclusive - an item never carries both audioAssetId and
   // sectionId - so at most one of these ever fires.
+  // Cache key for this item's source, shared with the timeline track view
+  // (waveformCache.js) - "audio"/audioAsset.id or "section"/section.id,
+  // matching whichever fetch path applies below.
+  const cacheKind = audioAsset?.id ? "audio" : section?.id ? "section" : null;
+  const cacheId = audioAsset?.id || section?.id || null;
+
   const [waveform, setWaveform] = useState(() =>
-    Array.isArray(audioAsset?.waveformData) ? audioAsset.waveformData : null
+    getCachedWaveform(cacheKind, cacheId) ||
+    (Array.isArray(audioAsset?.waveformData) ? audioAsset.waveformData : null)
   );
   const [waveformLoading, setWaveformLoading] = useState(false);
 
@@ -88,6 +96,7 @@ export default function ItemEditModal({ item, section, audioAsset, sessionId, on
         // clip without one.
         if (Array.isArray(data?.waveform) && data.waveform.length > 0) {
           setWaveform(data.waveform);
+          setCachedWaveform(cacheKind, cacheId, data.waveform);
         }
       })
       .catch(() => {

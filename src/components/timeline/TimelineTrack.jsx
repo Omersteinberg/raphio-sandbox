@@ -1,4 +1,4 @@
-import { Film, Music } from "lucide-react";
+import { Film, Music, Eye, EyeOff } from "lucide-react";
 import TimelineItem from "./TimelineItem";
 
 export default function TimelineTrack({
@@ -20,6 +20,9 @@ export default function TimelineTrack({
   isDropTarget = false,
   overlappingItems = new Set(),
   dragPreview = null,
+  isHidden = false,
+  onToggleVisibility,
+  sessionId,
 }) {
   // Which ROW this is, not what any item stores: the canvas renders Narration,
   // Audio and Music as trackIndex 0, 1 and 2. This read 1, the uploads row, so
@@ -43,13 +46,23 @@ export default function TimelineTrack({
     >
       {/* Track Label. Its width is TRACK_LABEL_WIDTH in TimelineCanvas, which
           converts pointer positions to times against it - keep the two in step. */}
-      <div className="w-20 flex-shrink-0 bg-card border-r border-border flex items-center justify-center gap-1">
+      <div className="w-20 flex-shrink-0 bg-card border-r border-border flex items-center justify-center gap-1 relative group">
         <Icon className="w-4 h-4 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">{label}</span>
+        {/* Show/hide is local + visual only - it never touches item data or
+            the export, purely what's rendered in this row right now. */}
+        <button
+          onClick={onToggleVisibility}
+          title={isHidden ? `Show ${label}` : `Hide ${label}`}
+          aria-label={isHidden ? `Show ${label}` : `Hide ${label}`}
+          className="absolute right-1 p-0.5 rounded text-muted-foreground/50 hover:text-foreground opacity-0 group-hover:opacity-100"
+        >
+          {isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+        </button>
       </div>
 
       {/* Track Content */}
-      <div className="flex-1 relative">
+      <div className={`flex-1 relative ${isHidden ? "opacity-25 pointer-events-none" : ""}`}>
         {/* Grid lines */}
         <div className="absolute inset-0 pointer-events-none">
           {Array.from({ length: Math.ceil(1000 / pixelsPerSecond) }).map((_, i) => (
@@ -82,6 +95,7 @@ export default function TimelineTrack({
               dragPreviewOffset={dragPreview?.itemId === item.id ? dragPreview.previewStartTime - item.startTime : 0}
               dragPreviewDuration={dragPreview?.itemId === item.id ? dragPreview.previewDuration : null}
               activeDragType={dragPreview?.itemId === item.id ? dragPreview.dragType : null}
+              sessionId={sessionId}
             />
           );
         })}

@@ -48,9 +48,22 @@ export default function TimelineCanvas({
   getSection,
   getAudioAsset,
   onAssetDrop,
+  sessionId,
 }) {
   const containerRef = useRef(null);
   const [scrollLeft, setScrollLeft] = useState(0);
+  // Per-track show/hide - local, visual only, never touches item data or the
+  // export. Keyed "TRACKTYPE-trackIndex" so Video/Narration/Audio/Music each
+  // toggle independently.
+  const [hiddenTracks, setHiddenTracks] = useState(() => new Set());
+  const toggleTrackVisibility = useCallback((key) => {
+    setHiddenTracks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const [dragType, setDragType] = useState(null); // 'move', 'trim-start', 'trim-end'
   const [dragItem, setDragItem] = useState(null);
@@ -627,6 +640,9 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "VIDEO"}
             overlappingItems={videoOverlaps}
             dragPreview={dragPreview}
+            isHidden={hiddenTracks.has("VIDEO-0")}
+            onToggleVisibility={() => toggleTrackVisibility("VIDEO-0")}
+            sessionId={sessionId}
           />
 
           {/* Narration Track (section narration + TTS voice) */}
@@ -649,6 +665,9 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 0}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
+            isHidden={hiddenTracks.has("AUDIO-0")}
+            onToggleVisibility={() => toggleTrackVisibility("AUDIO-0")}
+            sessionId={sessionId}
           />
 
           {/* Audio Track (uploaded audio) */}
@@ -671,6 +690,9 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 1}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
+            isHidden={hiddenTracks.has("AUDIO-1")}
+            onToggleVisibility={() => toggleTrackVisibility("AUDIO-1")}
+            sessionId={sessionId}
           />
 
           {/* Music Track (background music) */}
@@ -693,6 +715,9 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 2}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
+            isHidden={hiddenTracks.has("AUDIO-2")}
+            onToggleVisibility={() => toggleTrackVisibility("AUDIO-2")}
+            sessionId={sessionId}
           />
 
           {/* Snap indicator line */}

@@ -13,16 +13,27 @@ import {
   Trash2,
   ZoomIn,
   ZoomOut,
-  Gauge,
   SplitSquareHorizontal,
   Mic,
   RefreshCw,
   Volume2,
+  VolumeX,
   Layers,
   Undo2,
+  Play,
+  Pause,
+  Square,
+  Maximize,
+  Eye,
+  EyeOff,
+  Image,
+  Type,
+  Shapes,
+  Settings,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { startOverviewTour, startClipTour } from "@/lib/editorTour";
 import { TOUR_KEYS } from "@/lib/tourState";
@@ -33,7 +44,8 @@ import { useTimeline } from "@/hooks/timeline/useTimeline";
 import * as sessionService from "@/services/session";
 import TimelineCanvas from "./TimelineCanvas";
 import TimelineControls from "./TimelineControls";
-import AssetPanel from "./AssetPanel";
+import EditorSidePanel from "./EditorSidePanel";
+import ClipActionPill from "./ClipActionPill";
 import VideoPreview from "./VideoPreview";
 import AudioUploadModal from "./modals/AudioUploadModal";
 import TTSModal from "./modals/TTSModal";
@@ -50,9 +62,18 @@ import ReferencesModal from "./modals/ReferencesModal";
 const LEAVE_MSG =
   "Your edits are saved as a draft, but won't appear in the video until you Export. Leave anyway?";
 
+function formatPreviewTime(seconds) {
+  const s = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  const mins = Math.floor(s / 60);
+  const secs = Math.floor(s % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
 export default function TimelineEditor({ sessionId, onBack, onExportComplete, onUpdateSection, onRegenerateNarration }) {
   const timeline = useTimeline(sessionId);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const avatarInitial = (user?.username || user?.email || "?").charAt(0).toUpperCase();
   const [showAudioUpload, setShowAudioUpload] = useState(false);
   const [showTTSModal, setShowTTSModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -64,12 +85,14 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [volumeDraft, setVolumeDraft] = useState(1); // 0-1.5 while the volume sheet is open
   const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
+  const [mobileAudioSheetOpen, setMobileAudioSheetOpen] = useState(false); // mobile rail's "Audio" category: Upload / AI Voice choice
   const [regenSection, setRegenSection] = useState(null); // section being regenerated (opens the prompt modal)
   const [showMusicModal, setShowMusicModal] = useState(false); // background-music prompt modal
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState(null); // { percentage, label }
   const [regenTitle, setRegenTitle] = useState(null); // heading for the shared progress modal
   const [showReferences, setShowReferences] = useState(false); // references-pipeline: view refs used
+  const [timelineHidden, setTimelineHidden] = useState(false); // "Hide timeline" transport-strip toggle (local, visual only)
 
   // An intro's clips are designed, branded scenes rendered from code, not AI
   // footage generated from a prompt. Sending one back through the video model
@@ -121,6 +144,16 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const musicAsset = (timeline.audioAssets || []).find((a) => a.sourceType === "AI_MUSIC") || null;
 
   const containerRef = useRef(null);
+  const previewContainerRef = useRef(null);
+  const [previewMuted, setPreviewMuted] = useState(false); // preview-only monitoring toggle - doesn't touch any item's own volume data
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      previewContainerRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
 
   // Confirm before leaving if there are edits that haven't been exported yet.
   // (Edits auto-save as a draft, but the video only updates on Export.)
@@ -220,6 +253,91 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     const keptSource = sel.duration * (sel.speed || 1);
     timeline.updateItem(sel.id, { speed: s, duration: keptSource / s });
   };
+
+  // What to show in the Speed/Volume sheets (and the Clip Details panel) so
+  // it's clear which clip they're editing - "Clip N" matches
+  // NarrationEditModal's convention, and a thumbnail (video clips only -
+  // audio has no frame to show) matches RegenerateClipModal's preview. Every
+  // one of these controls already scopes its actual read/write correctly to
+  // timeline.selectedItem; this is purely the missing visual confirmation.
+  const selectedClipInfo = () => {
+    const item = timeline.items.find((i) => i.id === timeline.selectedItem);
+    if (!item) return null;
+    const section = item.sectionId ? timeline.getSection(item.sectionId) : null;
+    const audioAsset = item.audioAssetId ? timeline.getAudioAsset(item.audioAssetId) : null;
+    const label = section
+      ? `Clip ${section.orderIndex + 1}`
+      : audioAsset?.name?.substring(0, 30) || "Audio clip";
+    const thumbnail = item.trackType === "VIDEO" ? section?.imageUrl : null;
+    return { item, section, audioAsset, label, thumbnail };
+  };
+
+  // The Clip Details panel is persistent (not opened by a click like the old
+  // bottom sheets were), so its Speed/Volume drafts need to re-seed from
+  // whichever clip is CURRENTLY selected, not just at the moment a button was
+  // clicked. Runs whenever the selection changes.
+  useEffect(() => {
+    const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+    if (!sel) return;
+    setSpeedDraft(Number(sel.speed) || 1);
+    setVolumeDraft(sel.volume ?? 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline.selectedItem]);
+
+  // The Clip Details panel's action row - same conditional set the old bottom
+  // action bar computed (Split always; Regenerate/Narration/New-music depend
+  // on the clip's track type and whether it's the background-music clip;
+  // Delete always), just relocated. Speed/Volume live as their own controls
+  // in the panel, not in this row.
+  const clipActions = (sel) => {
+    if (!sel) return [];
+    const list = [
+      { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(sel.id) },
+    ];
+    if (sel.trackType === "VIDEO" && sel.sectionId) {
+      list.push({ Icon: RefreshCw, label: regenLabel, onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) });
+    }
+    if (sel.trackType === "AUDIO" && sel.sectionId) {
+      list.push({ Icon: Mic, label: "Narration", onClick: () => setEditingNarration({ item: sel, section: timeline.getSection(sel.sectionId) }) });
+    }
+    if (sel.audioAssetId && musicAsset && sel.audioAssetId === musicAsset.id) {
+      list.push({ Icon: RefreshCw, label: "New music", onClick: () => setShowMusicModal(true) });
+    }
+    list.push({ Icon: Trash2, label: "Delete", danger: true, onClick: () => timeline.removeItem(sel.id) });
+    return list;
+  };
+
+  // The floating action pill (replaces the old persistent right-hand Clip
+  // Details panel) needs the selected clip's on-screen position to anchor
+  // itself above it. TimelineItem stamps its DOM node with data-item-id, so
+  // this looks it up directly rather than threading a ref through
+  // TimelineCanvas -> TimelineTrack -> TimelineItem. Recomputed on selection
+  // change, zoom, item changes (position can shift), and on scroll/resize of
+  // ANY ancestor (capture-phase listener catches nested scroll containers,
+  // not just window) - a `position: fixed` pill rendered here, outside the
+  // timeline's overflow-hidden wrappers, then tracks the clip without being
+  // clipped by them.
+  const [pillAnchorRect, setPillAnchorRect] = useState(null);
+  useEffect(() => {
+    if (!timeline.selectedItem) {
+      setPillAnchorRect(null);
+      return;
+    }
+    const update = () => {
+      const el = document.querySelector(`[data-item-id="${timeline.selectedItem}"]`);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPillAnchorRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline.selectedItem, timeline.zoomLevel, timeline.items]);
 
   // Handle export - download video and save as completed
   const handleExport = async () => {
@@ -524,7 +642,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
           <div className="flex-1 flex flex-col min-w-0">
             {/* Preview (subtle spinner so it reads as loading) */}
-            <div className={`${isMobile ? "h-[32vh] shrink-0" : "flex-1 min-h-[400px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
+            <div className={`${isMobile ? "h-[34vh] shrink-0" : "flex-1 min-h-[420px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
               <Loader2 className="w-7 h-7 animate-spin text-primary/60" />
             </div>
 
@@ -536,7 +654,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             </div>
 
             {/* Timeline tracks */}
-            <div className={`${isMobile ? "flex-1 min-h-0" : "h-64 flex-shrink-0"} bg-muted/30 p-3 space-y-2 overflow-hidden`}>
+            <div className={`${isMobile ? "flex-1 min-h-0" : "h-48 flex-shrink-0"} bg-muted/30 p-3 space-y-2 overflow-hidden`}>
               {[0, 1, 2].map((i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="h-10 w-16 rounded bg-muted animate-pulse shrink-0" />
@@ -552,20 +670,33 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
   return (
     <div className="w-full h-full flex flex-col bg-background text-foreground" ref={containerRef}>
-      {/* Header */}
-      <div className="bg-card border-b border-border px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 md:gap-4 min-w-0">
-          <Button
-            variant="ghost"
+      {/* Header - single unified bar (the global AppHeader is hidden for this
+          route specifically, see AppLayout.jsx). Logo + "My Videos" breadcrumb
+          both trigger the same guarded back navigation as before - relabeled
+          for the reference layout, not a new destination. No Redo icon: the
+          undo stack is deliberately undo-only (see useTimeline.js), and a
+          Redo button with nothing behind it would be a fake control. */}
+      <div className="bg-card border-b border-border px-3 py-2 md:px-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <button
             onClick={handleBack}
-            className="text-muted-foreground hover:text-foreground px-2 md:px-4"
+            aria-label="Back to My Videos"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
           >
-            <ArrowLeft className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Back</span>
-          </Button>
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <img src="/Logo.svg" alt="Raphio" className="h-6 hidden md:block shrink-0" />
+          <div className="hidden md:block w-px h-5 bg-border shrink-0" />
           <div className="min-w-0">
-            <h2 className="text-base md:text-lg font-semibold text-foreground truncate">Video Editor</h2>
-            <p className="hidden md:block text-xs text-muted-foreground">
+            <nav className="hidden md:flex items-center gap-1.5 text-sm">
+              <button onClick={handleBack} className="text-muted-foreground hover:text-foreground">
+                My Videos
+              </button>
+              <span className="text-muted-foreground/50">/</span>
+              <span className="text-foreground font-medium">Video Editor</span>
+            </nav>
+            <h2 className="md:hidden text-base font-semibold text-foreground truncate">Video Editor</h2>
+            <p className="text-xs text-muted-foreground truncate">
               {timeline.duration.toFixed(1)}s total duration
             </p>
           </div>
@@ -615,14 +746,26 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
             <span className="hidden md:inline">&nbsp;Video</span>
           </Button>
+          {user && (
+            <div
+              className="hidden md:flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ml-1 shrink-0"
+              style={{ background: "var(--gradient-brand)" }}
+              title={user.username || user.email}
+            >
+              {avatarInitial}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Assets (desktop only; touch drag-to-timeline isn't supported yet) */}
-        <div data-tour="asset-panel" className={`${isMobile ? "hidden" : "block"} w-64 bg-card border-r border-border overflow-y-auto`}>
-          <AssetPanel
+        {/* Left rail + panel - Media/Audio/Text/Elements/Settings (desktop
+            only; touch drag-to-timeline isn't supported yet). Persistent -
+            never disappears based on selection, unlike the old bottom-bar
+            row it replaces. */}
+        {!isMobile && (
+          <EditorSidePanel
             sections={timeline.sections}
             audioAssets={timeline.audioAssets}
             onDeleteAudio={timeline.deleteAudio}
@@ -630,69 +773,155 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             onRegenerateClip={(section) => setRegenSection(section)}
             onRegenerateMusic={() => setShowMusicModal(true)}
             regenerateLabel={regenLabel}
-            onDragStart={(asset, type) => {
-              // Store drag data
-            }}
+            onOpenAudioUpload={() => setShowAudioUpload(true)}
+            onOpenVoice={() => setShowTTSModal(true)}
           />
-        </div>
+        )}
 
         {/* Center - Preview and Timeline */}
-        <div className={`flex-1 flex flex-col ${isMobile ? "overflow-hidden" : "overflow-y-auto"}`}>
-          {/* Video Preview */}
-          <div data-tour="preview" className={`${isMobile ? "h-[32vh] shrink-0" : "flex-1 min-h-[400px]"} bg-gray-900 flex items-center justify-center border-b border-border`}>
-            <VideoPreview
-              items={timeline.videoItems}
-              audioItems={timeline.audioItems}
-              sections={timeline.sections}
-              audioAssets={timeline.audioAssets}
-              playheadPosition={timeline.playheadPosition}
-              isPlaying={timeline.isPlaying}
-              getSection={timeline.getSection}
-              getAudioAsset={timeline.getAudioAsset}
-              registerVideoEl={timeline.registerVideoEl}
-              registerAudioEl={timeline.registerAudioEl}
-            />
+        <div className={`flex-1 flex flex-col min-w-0 ${isMobile ? "overflow-hidden" : "overflow-y-auto"}`}>
+          {/* Video Preview - the dominant element now that the timeline strip
+              below it is shorter and the side panel carries the asset tools. */}
+          <div
+            ref={previewContainerRef}
+            data-tour="preview"
+            className={`${isMobile ? "h-[34vh] shrink-0" : "flex-1 min-h-[420px]"} bg-gray-900 flex flex-col border-b border-border`}
+          >
+            <div className="flex-1 min-h-0 flex items-center justify-center">
+              <VideoPreview
+                items={timeline.videoItems}
+                audioItems={timeline.audioItems}
+                sections={timeline.sections}
+                audioAssets={timeline.audioAssets}
+                playheadPosition={timeline.playheadPosition}
+                isPlaying={timeline.isPlaying}
+                muted={previewMuted}
+                getSection={timeline.getSection}
+                getAudioAsset={timeline.getAudioAsset}
+                registerVideoEl={timeline.registerVideoEl}
+                registerAudioEl={timeline.registerAudioEl}
+              />
+            </div>
+            {/* Player controls directly under the frame - separate from the
+                transport strip below, which drives the timeline itself. */}
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-black/40">
+              <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} aria-label={timeline.isPlaying ? "Pause" : "Play"} className="text-white/90 hover:text-white p-1">
+                {timeline.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </button>
+              <span className="text-[11px] text-white/70 tabular-nums shrink-0">
+                {formatPreviewTime(timeline.playheadPosition)} / {formatPreviewTime(timeline.duration)}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={timeline.duration || 0}
+                step={0.01}
+                value={Math.min(timeline.playheadPosition, timeline.duration || 0)}
+                onChange={(e) => timeline.seek(Number(e.target.value))}
+                className="flex-1 accent-primary h-1"
+                aria-label="Seek"
+              />
+              <button onClick={() => setPreviewMuted((m) => !m)} aria-label={previewMuted ? "Unmute" : "Mute"} className="text-white/90 hover:text-white p-1">
+                {previewMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <button onClick={toggleFullscreen} aria-label="Fullscreen" className="text-white/90 hover:text-white p-1">
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Timeline Controls */}
-          <div data-tour="controls">
-            <TimelineControls
-              isPlaying={timeline.isPlaying}
-              playheadPosition={timeline.playheadPosition}
-              duration={timeline.duration}
-              zoomLevel={timeline.zoomLevel}
-              onPlay={timeline.play}
-              onPause={timeline.pause}
-              onStop={timeline.stop}
-              onSeek={timeline.seek}
-              onZoomIn={timeline.zoomIn}
-              onZoomOut={timeline.zoomOut}
-              selectedItem={timeline.selectedItem}
-              onDelete={() => timeline.selectedItem && timeline.removeItem(timeline.selectedItem)}
-              compact
-            />
+          {/* Transport strip: playback, Split, current speed, Hide-timeline
+              toggle and zoom together in one stable row on both platforms
+              (zoom and Split used to only live in the bottom action bar's
+              no-selection state, which meant they vanished the moment a clip
+              was selected or deselected). */}
+          <div data-tour="controls" className="flex items-center gap-1 bg-card border-y border-border px-2 py-1.5 shrink-0 flex-wrap">
+            <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} title={timeline.isPlaying ? "Pause" : "Play"} className="p-1.5 rounded-lg text-foreground hover:bg-muted">
+              {timeline.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </button>
+            <button onClick={timeline.stop} title="Stop" className="p-1.5 rounded-lg text-foreground hover:bg-muted">
+              <Square className="w-4 h-4" />
+            </button>
+            <span className="text-xs text-muted-foreground font-mono ml-1 mr-2 tabular-nums">
+              {formatPreviewTime(timeline.playheadPosition)} / {formatPreviewTime(timeline.duration)}
+            </span>
+
+            <div className="w-px h-5 bg-border mx-1" />
+
+            <button
+              onClick={() => timeline.selectedItem && timeline.splitItem(timeline.selectedItem)}
+              disabled={!timeline.selectedItem}
+              title="Split (needs a selected clip, playhead inside it)"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-foreground hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <SplitSquareHorizontal className="w-4 h-4" />
+              <span className="text-xs font-medium hidden lg:inline">Split</span>
+            </button>
+
+            <div className="flex-1" />
+
+            <button
+              onClick={() => setTimelineHidden((v) => !v)}
+              title={timelineHidden ? "Show timeline" : "Hide timeline"}
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              {timelineHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span className="text-xs font-medium hidden lg:inline">{timelineHidden ? "Show timeline" : "Hide timeline"}</span>
+            </button>
+
+            <div className="flex items-center gap-0.5">
+              <button onClick={timeline.zoomOut} title="Zoom out (-)" aria-label="Zoom out" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">
+                {Math.round(timeline.zoomLevel * 100)}%
+              </span>
+              <button onClick={timeline.zoomIn} title="Zoom in (+)" aria-label="Zoom in" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
+                <ZoomIn className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Timeline Canvas - fills remaining height on mobile, fixed on desktop */}
-          <div className={`${isMobile ? "flex-1 min-h-0" : "h-64 flex-shrink-0"} overflow-hidden`}>
-            <TimelineCanvas
-              videoItems={timeline.videoItems}
-              audioItems={timeline.audioItems}
-              duration={timeline.duration}
-              playheadPosition={timeline.playheadPosition}
-              pixelsPerSecond={timeline.pixelsPerSecond}
-              selectedItem={timeline.selectedItem}
-              onSelectItem={timeline.setSelectedItem}
-              onSeek={timeline.seek}
-              onUpdateItem={timeline.updateItem}
-              onItemEdit={handleItemEdit}
-              getSection={timeline.getSection}
-              getAudioAsset={timeline.getAudioAsset}
-              onAssetDrop={handleAssetDrop}
-            />
-          </div>
+          {!timelineHidden && (
+            <>
+              {/* Timeline Canvas - fills remaining height on mobile, a shorter
+                  fixed band on desktop (was h-64) so the preview above gets
+                  the extra room. */}
+              <div className={`${isMobile ? "flex-1 min-h-0" : "h-48 flex-shrink-0"} overflow-hidden`}>
+                <TimelineCanvas
+                  videoItems={timeline.videoItems}
+                  audioItems={timeline.audioItems}
+                  duration={timeline.duration}
+                  playheadPosition={timeline.playheadPosition}
+                  pixelsPerSecond={timeline.pixelsPerSecond}
+                  selectedItem={timeline.selectedItem}
+                  onSelectItem={timeline.setSelectedItem}
+                  onSeek={timeline.seek}
+                  onUpdateItem={timeline.updateItem}
+                  onItemEdit={handleItemEdit}
+                  getSection={timeline.getSection}
+                  getAudioAsset={timeline.getAudioAsset}
+                  onAssetDrop={handleAssetDrop}
+                  sessionId={sessionId}
+                />
+              </div>
 
-          {/* Slim "done editing" bar to deselect the clip (shown when one is selected) */}
+              {/* Add music affordance below the tracks - reuses the same
+                  generate/regenerate music modal Media > Music already opens. */}
+              <button
+                onClick={() => setShowMusicModal(true)}
+                className="shrink-0 w-full py-1.5 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card border-t border-border hover:bg-muted"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {musicAsset ? "Change music" : "Add music"}
+              </button>
+            </>
+          )}
+
+          {/* Slim "done editing" bar to deselect the clip (shown when one is
+              selected) - both platforms now that there's no persistent
+              panel with its own close (X) button; the floating pill below
+              has no dismiss control of its own. */}
           {timeline.selectedItem && (
             <button
               data-tour="done-editing"
@@ -703,63 +932,59 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             </button>
           )}
 
-          {/* Bottom action bar (CapCut/VLLO style) - on mobile and desktop.
-              Swaps to clip actions when a clip is selected. */}
-            <div data-tour="action-bar" className="bg-card border-t border-border shrink-0 flex items-center justify-around px-1 py-1.5">
-              {(timeline.selectedItem
-                ? [
-                    { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(timeline.selectedItem) },
-                    { Icon: Gauge, label: "Speed", onClick: () => { const s = timeline.items.find((i) => i.id === timeline.selectedItem); setSpeedDraft(Number(s?.speed) || 1); setSpeedSheetOpen(true); } },
-                    // Volume - only for audio clips (narration / audio / music).
-                    ...(() => {
-                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-                      return sel && sel.trackType === "AUDIO"
-                        ? [{ Icon: Volume2, label: "Volume", onClick: () => { setVolumeDraft(sel.volume ?? 1); setVolumeSheetOpen(true); } }]
-                        : [];
-                    })(),
-                    // Regenerate - only for a video clip backed by a section.
-                    ...(() => {
-                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-                      return sel && sel.trackType === "VIDEO" && sel.sectionId
-                        ? [{ Icon: RefreshCw, label: regenLabel, onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) }]
-                        : [];
-                    })(),
-                    // Narration edit - only for a narration audio clip (has a section).
-                    ...(() => {
-                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-                      return sel && sel.trackType === "AUDIO" && sel.sectionId
-                        ? [{ Icon: Mic, label: "Narration", onClick: () => setEditingNarration({ item: sel, section: timeline.getSection(sel.sectionId) }) }]
-                        : [];
-                    })(),
-                    // Regenerate music - only for the background-music clip.
-                    ...(() => {
-                      const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-                      return sel && sel.audioAssetId && musicAsset && sel.audioAssetId === musicAsset.id
-                        ? [{ Icon: RefreshCw, label: "New music", onClick: () => setShowMusicModal(true) }]
-                        : [];
-                    })(),
-                    { Icon: Trash2, label: "Delete", danger: true, onClick: () => timeline.removeItem(timeline.selectedItem) },
-                  ]
-                : [
-                    { Icon: Plus, label: "Assets", onClick: () => setAssetsSheetOpen(true) },
-                    { Icon: Upload, label: "Audio", onClick: () => setShowAudioUpload(true) },
-                    { Icon: Music, label: "Voice", onClick: () => setShowTTSModal(true) },
-                    { Icon: ZoomOut, label: "Zoom −", onClick: timeline.zoomOut },
-                    { Icon: ZoomIn, label: "Zoom +", onClick: timeline.zoomIn },
-                  ]
-              ).map(({ Icon, label, onClick, danger }) => (
-                <button
-                  key={label}
-                  onClick={onClick}
-                  className={`flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-lg ${danger ? "text-destructive" : "text-muted-foreground"}`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium leading-none">{label}</span>
-                </button>
-              ))}
+          {/* Bottom action bar - mobile only. Desktop's persistent tools live
+              in the left rail (EditorSidePanel); clip-contextual tools live
+              in the floating ClipActionPill on both platforms now. */}
+          {isMobile && (
+            <div data-tour="action-bar" className="bg-card border-t border-border shrink-0">
+              {/* Mobile equivalent of the desktop left rail - same five
+                  categories, Media/Audio wired to real actions, Text/Elements/
+                  Settings acknowledged rather than built (nothing exists for
+                  them yet on either platform). Always present regardless of
+                  selection. */}
+              <div className="flex items-center justify-center gap-5 px-1 py-1">
+                {[
+                  { Icon: Image, label: "Media", onClick: () => setAssetsSheetOpen(true) },
+                  { Icon: Music, label: "Audio", onClick: () => setMobileAudioSheetOpen(true) },
+                  { Icon: Type, label: "Text", onClick: () => toast.info("Text overlays aren't available yet.") },
+                  { Icon: Shapes, label: "Elements", onClick: () => toast.info("Elements aren't available yet.") },
+                  { Icon: Settings, label: "Settings", onClick: () => toast.info("Editor settings aren't available yet.") },
+                ].map(({ Icon, label, onClick }) => (
+                  <button
+                    key={label}
+                    onClick={onClick}
+                    className="flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-lg text-muted-foreground"
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-[10px] font-medium leading-none">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
         </div>
       </div>
+
+      {/* Floating clip action pill - replaces the old persistent right-hand
+          Clip Details panel. Anchored above the selected clip via
+          pillAnchorRect (position: fixed, rendered here so it isn't clipped
+          by the timeline's overflow-hidden ancestors); Speed/Volume open the
+          existing bottom sheets (already usable on both platforms), the rest
+          reuses clipActions(). */}
+      {timeline.selectedItem && (() => {
+        const info = selectedClipInfo();
+        if (!info) return null;
+        const isAudioClip = info.item.trackType === "AUDIO";
+        return (
+          <ClipActionPill
+            anchorRect={pillAnchorRect}
+            actions={clipActions(info.item)}
+            isAudioClip={isAudioClip}
+            onSpeed={() => { setSpeedDraft(Number(info.item.speed) || 1); setSpeedSheetOpen(true); }}
+            onVolume={() => { setVolumeDraft(info.item.volume ?? 1); setVolumeSheetOpen(true); }}
+          />
+        );
+      })()}
 
       {/* Modals */}
       {exporting && <ExportProgressModal progress={exportProgress} />}
@@ -844,12 +1069,25 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {speedSheetOpen && timeline.selectedItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setSpeedSheetOpen(false)}>
           <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-foreground">Playback speed</h3>
               <button onClick={() => setSpeedSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {/* Which clip this sheet is editing - without this it reads as a
+                global setting. */}
+            {(() => {
+              const info = selectedClipInfo();
+              return info ? (
+                <div className="flex items-center gap-2 mb-3">
+                  {info.thumbnail && (
+                    <img src={info.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+                  )}
+                  <span className="text-xs text-muted-foreground truncate">{info.label}</span>
+                </div>
+              ) : null;
+            })()}
             <div className="space-y-4">
               {/* Exact current speed - shows the AI narration-fit's fractional
                   value (e.g. 1.33×), which the presets alone can't represent. */}
@@ -904,12 +1142,25 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {volumeSheetOpen && timeline.selectedItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setVolumeSheetOpen(false)}>
           <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-foreground">Volume</h3>
               <button onClick={() => setVolumeSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {/* Which clip this sheet is editing - without this it reads as a
+                global setting. */}
+            {(() => {
+              const info = selectedClipInfo();
+              return info ? (
+                <div className="flex items-center gap-2 mb-3">
+                  {info.thumbnail && (
+                    <img src={info.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+                  )}
+                  <span className="text-xs text-muted-foreground truncate">{info.label}</span>
+                </div>
+              ) : null;
+            })()}
             <div className="flex items-center gap-3">
               <Volume2 className="w-5 h-5 text-muted-foreground shrink-0" />
               <input
@@ -940,6 +1191,38 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile "Audio" rail category - a small choice sheet, mirroring the
+          desktop Audio panel's two quick-action buttons. */}
+      {mobileAudioSheetOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setMobileAudioSheetOpen(false)}>
+          <div
+            className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold text-foreground">Audio</h3>
+              <button onClick={() => setMobileAudioSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              onClick={() => { setMobileAudioSheetOpen(false); setShowAudioUpload(true); }}
+              className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Upload className="w-4 h-4" />
+              Upload audio
+            </button>
+            <button
+              onClick={() => { setMobileAudioSheetOpen(false); setShowTTSModal(true); }}
+              className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Mic className="w-4 h-4" />
+              Generate AI voice
+            </button>
           </div>
         </div>
       )}
