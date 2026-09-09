@@ -2,7 +2,15 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Film, Music, Mic, Upload, Volume2, Scissors } from "lucide-react";
 import { getCachedWaveform, setCachedWaveform } from "@/lib/waveformCache";
-import { getAudioWaveform, getSectionWaveform } from "@/services/session";
+import { getCachedThumbnails, setCachedThumbnails } from "@/lib/thumbnailCache";
+import { getAudioWaveform, getSectionWaveform, getClipThumbnails } from "@/services/session";
+
+// Filmstrip frame count is chosen from the clip's on-screen width at the
+// moment it scrolls into view, so a narrow clip doesn't request more frames
+// than it could ever show and a very long one doesn't request one per pixel.
+const THUMB_TARGET_PX = 60; // ~on-screen width budgeted per frame
+const THUMB_MIN_FRAMES = 1;
+const THUMB_MAX_FRAMES = 8;
 
 export default function TimelineItem({
   item,
@@ -122,6 +130,51 @@ export default function TimelineItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackType, waveformKind, waveformId, sessionId]);
 
+  // Filmstrip thumbnails - identical lazy/on-scroll-into-view + cache pattern
+  // as the waveform above, just for VIDEO clips instead of AUDIO. Seeded from
+  // the shared cache; otherwise fetched once this clip's DOM node actually
+  // scrolls into view, never on mount regardless of scroll position.
+  const [clipThumbnails, setClipThumbnails] = useState(() =>
+    trackType === "VIDEO" && item.sectionId ? getCachedThumbnails(item.sectionId) : null
+  );
+
+  useEffect(() => {
+    if (trackType !== "VIDEO" || clipThumbnails || !sessionId || !item.sectionId) return;
+    const el = itemRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        observer.disconnect();
+        const frameCount = Math.max(
+          THUMB_MIN_FRAMES,
+          Math.min(THUMB_MAX_FRAMES, Math.round(width / THUMB_TARGET_PX))
+        );
+        getClipThumbnails(sessionId, item.sectionId, frameCount)
+          .then((data) => {
+            if (Array.isArray(data?.thumbnails) && data.thumbnails.length > 0) {
+              setClipThumbnails(data.thumbnails);
+              setCachedThumbnails(item.sectionId, data.thumbnails);
+            }
+            // Empty array means the clip isn't rendered yet - not an error,
+            // just nothing to cache; the static section.imageUrl cover stays
+            // the fallback (see the render below) instead of a blank clip.
+          })
+          .catch(() => {
+            /* no thumbnails to show yet - the clip still works with the static fallback */
+          });
+      },
+      // Same rootMargin/threshold as the waveform observer above, for the
+      // same reason: start the fetch slightly before the clip is fully on
+      // screen, and account for clipping by every scrolling ancestor.
+      { rootMargin: "200px", threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackType, item.sectionId, sessionId]);
+
   const bgColor = getBackgroundColor();
   // Selection reads as an outline only - no fill/overlay change - so the
   // thumbnail underneath never gets obscured. A white inner ring plus a
@@ -156,14 +209,30 @@ export default function TimelineItem({
       }}
       whileHover={{ scale: isDragging ? 1.02 : 1.01 }}
     >
-      {/* Thumbnail for video items */}
-      {trackType === "VIDEO" && thumbnail && (
-        <div className="absolute inset-0 opacity-50">
-          <img
-            src={thumbnail}
-            alt=""
-            className="w-full h-full object-cover"
-          />
+      {/* Filmstrip for video items - a row of real frames evenly filling the
+          clip's width once fetched (see the effect above); falls back to the
+          single static section cover while frames are still loading, and
+          stays on that fallback if the clip isn't rendered yet (empty
+          thumbnails array) so the clip is never blank. */}
+      {trackType === "VIDEO" && (clipThumbnails?.length > 0 || thumbnail) && (
+        <div className="absolute inset-0 opacity-50 flex">
+          {clipThumbnails?.length > 0
+            ? clipThumbnails.map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  className="flex-1 min-w-0 h-full object-cover"
+                />
+              ))
+            : (
+                <img
+                  src={thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              )}
         </div>
       )}
 
@@ -240,32 +309,38 @@ export default function TimelineItem({
 
       {/* Trim handles - shown when selected; drag the edges to trim (right edge
           stays put when trimming the left). They sit above the move handle.
-          The DRAWN grip is a short rounded capsule (not full clip height) so
-          it reads as a distinct, grabbable handle rather than a divider
-          line, but the invisible hit area around it stays a full w-6 (24px)
-          - a bigger tap/drag target than what's drawn is the standard,
-          correct pattern for small controls, especially on touch. */}
+          The DRAWN bar is now a thickened strip flush against the clip's own
+          left/right edge (full height) rather than a floating rounded
+          capsule, so it reads as grabbing the clip's own border. The
+          invisible hit area stays a full w-6 (24px) - a bigger tap/drag
+          target than what's drawn is the standard, correct pattern for
+          small controls, especially on touch.
+          A thin white outline (same device the cut-point cue below already
+          uses) rides along the bar - without it, a selected VIDEO clip's
+          own fill is bg-primary, which IS bg-terra (--primary and --terra
+          are the same Kiln Terracotta value), so a bare bg-terra bar would
+          have zero edge contrast against its own clip and read as invisible. */}
       {isSelected && (
         <>
           <div
-            className="absolute left-0 top-0 bottom-0 w-6 z-20 flex items-center justify-center cursor-ew-resize touch-none"
+            className="absolute left-0 top-0 bottom-0 w-6 z-20 flex items-center justify-start cursor-ew-resize touch-none"
             onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
           >
             <div
-              className={`rounded-full bg-terra transition-all ${
-                activeDragType === "trim-start" ? "w-2 h-8 brightness-125" : "w-1.5 h-6 hover:brightness-110"
+              className={`h-full bg-terra shadow-[0_0_0_1px_rgba(255,255,255,0.55)] transition-all ${
+                activeDragType === "trim-start" ? "w-[6px] brightness-125" : "w-1 group-hover:w-1.5"
               }`}
             />
           </div>
           <div
-            className="absolute right-0 top-0 bottom-0 w-6 z-20 flex items-center justify-center cursor-ew-resize touch-none"
+            className="absolute right-0 top-0 bottom-0 w-6 z-20 flex items-center justify-end cursor-ew-resize touch-none"
             onMouseDown={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
           >
             <div
-              className={`rounded-full bg-terra transition-all ${
-                activeDragType === "trim-end" ? "w-2 h-8 brightness-125" : "w-1.5 h-6 hover:brightness-110"
+              className={`h-full bg-terra shadow-[0_0_0_1px_rgba(255,255,255,0.55)] transition-all ${
+                activeDragType === "trim-end" ? "w-[6px] brightness-125" : "w-1 group-hover:w-1.5"
               }`}
             />
           </div>

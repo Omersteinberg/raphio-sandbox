@@ -30,6 +30,8 @@ import {
   Type,
   Shapes,
   Settings,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -83,6 +85,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
   const [volumeSheetOpen, setVolumeSheetOpen] = useState(false);
   const [volumeDraft, setVolumeDraft] = useState(1); // 0-1.5 while the volume sheet is open
+  const [fadeInDraft, setFadeInDraft] = useState(0); // 0-5s, lives in the same sheet as volume
+  const [fadeOutDraft, setFadeOutDraft] = useState(0); // 0-5s, lives in the same sheet as volume
   const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed sheet is open
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
   const [mobileAudioSheetOpen, setMobileAudioSheetOpen] = useState(false); // mobile rail's "Audio" category: Upload / AI Voice choice
@@ -254,6 +258,30 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     timeline.updateItem(sel.id, { speed: s, duration: keptSource / s });
   };
 
+  // Closing a clip-contextual sheet/modal generally means "I'm done with
+  // this clip for now", so the pill should dismiss along with it. Speed is
+  // the deliberate exception: on an audio clip, Volume sits right next to
+  // it in the same pill, so a likely next step is adjusting Volume - closing
+  // Speed only dismisses when there's no Volume action to chain into (i.e.
+  // the clip isn't audio).
+  const closeSpeedSheet = () => {
+    setSpeedSheetOpen(false);
+    const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
+    if (!sel || sel.trackType !== "AUDIO") timeline.setSelectedItem(null);
+  };
+  const closeVolumeSheet = () => {
+    setVolumeSheetOpen(false);
+    timeline.setSelectedItem(null);
+  };
+  const closeRegenModal = () => {
+    setRegenSection(null);
+    timeline.setSelectedItem(null);
+  };
+  const closeNarrationModal = () => {
+    setEditingNarration(null);
+    timeline.setSelectedItem(null);
+  };
+
   // What to show in the Speed/Volume sheets (and the Clip Details panel) so
   // it's clear which clip they're editing - "Clip N" matches
   // NarrationEditModal's convention, and a thumbnail (video clips only -
@@ -281,6 +309,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     if (!sel) return;
     setSpeedDraft(Number(sel.speed) || 1);
     setVolumeDraft(sel.volume ?? 1);
+    setFadeInDraft(Number(sel.fadeIn) || 0);
+    setFadeOutDraft(Number(sel.fadeOut) || 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline.selectedItem]);
 
@@ -292,7 +322,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const clipActions = (sel) => {
     if (!sel) return [];
     const list = [
-      { Icon: SplitSquareHorizontal, label: "Split", onClick: () => timeline.splitItem(sel.id) },
+      {
+        Icon: SplitSquareHorizontal,
+        label: "Split",
+        // Dismiss the pill only once the split actually happened - a
+        // rejected split (bad playhead position) leaves the clip selected
+        // so the user can fix the playhead and retry, instead of losing
+        // their selection on a no-op.
+        onClick: async () => {
+          const didSplit = await timeline.splitItem(sel.id);
+          if (didSplit) timeline.setSelectedItem(null);
+        },
+      },
     ];
     if (sel.trackType === "VIDEO" && sel.sectionId) {
       list.push({ Icon: RefreshCw, label: regenLabel, onClick: () => setRegenSection(timeline.getSection(sel.sectionId)) });
@@ -475,6 +516,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     const section = regenSection;
     if (!section) return;
     setRegenSection(null); // close the prompt modal; the progress modal takes over
+    timeline.setSelectedItem(null);
     setRegenerating(true);
     setRegenProgress({ percentage: 0, label: "Starting…" });
 
@@ -562,6 +604,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     const section = regenSection;
     if (!section || !note) return;
     setRegenSection(null);
+    timeline.setSelectedItem(null);
     setRegenerating(true);
     setRegenProgress({ percentage: 0, label: "Starting…" });
 
@@ -849,7 +892,11 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             <div className="w-px h-5 bg-border mx-1" />
 
             <button
-              onClick={() => timeline.selectedItem && timeline.splitItem(timeline.selectedItem)}
+              onClick={async () => {
+                if (!timeline.selectedItem) return;
+                const didSplit = await timeline.splitItem(timeline.selectedItem);
+                if (didSplit) timeline.setSelectedItem(null);
+              }}
               disabled={!timeline.selectedItem}
               title="Split (needs a selected clip, playhead inside it)"
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-foreground hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
@@ -981,7 +1028,12 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             actions={clipActions(info.item)}
             isAudioClip={isAudioClip}
             onSpeed={() => { setSpeedDraft(Number(info.item.speed) || 1); setSpeedSheetOpen(true); }}
-            onVolume={() => { setVolumeDraft(info.item.volume ?? 1); setVolumeSheetOpen(true); }}
+            onVolume={() => {
+              setVolumeDraft(info.item.volume ?? 1);
+              setFadeInDraft(Number(info.item.fadeIn) || 0);
+              setFadeOutDraft(Number(info.item.fadeOut) || 0);
+              setVolumeSheetOpen(true);
+            }}
           />
         );
       })()}
@@ -1000,14 +1052,14 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <ReworkSceneModal
           section={regenSection}
           loading={regenerating}
-          onClose={() => setRegenSection(null)}
+          onClose={closeRegenModal}
           onRework={handleReworkScene}
         />
       ) : (
         <RegenerateClipModal
           section={regenSection}
           loading={regenerating}
-          onClose={() => setRegenSection(null)}
+          onClose={closeRegenModal}
           onRegenerate={handleRegenerateClip}
         />
       ))}
@@ -1059,7 +1111,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         <NarrationEditModal
           section={editingNarration.section}
           currentVoiceId={timeline.timeline?.voiceId}
-          onClose={() => setEditingNarration(null)}
+          onClose={closeNarrationModal}
           onSave={handleNarrationSave}
           onRegenerateNarration={handleRegenerateNarration}
         />
@@ -1067,11 +1119,11 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
 
       {/* Playback speed sheet (mobile clip action) */}
       {speedSheetOpen && timeline.selectedItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setSpeedSheetOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={closeSpeedSheet}>
           <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-foreground">Playback speed</h3>
-              <button onClick={() => setSpeedSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+              <button onClick={closeSpeedSheet} aria-label="Close" className="text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1140,11 +1192,11 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
       {/* Volume sheet (audio clip action). Commits on release so the slider
           doesn't flood the save endpoint while dragging. */}
       {volumeSheetOpen && timeline.selectedItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setVolumeSheetOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={closeVolumeSheet}>
           <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-foreground">Volume</h3>
-              <button onClick={() => setVolumeSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+              <h3 className="text-sm font-semibold text-foreground">Volume &amp; Fade</h3>
+              <button onClick={closeVolumeSheet} aria-label="Close" className="text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1190,6 +1242,55 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   {v === 0 ? "Mute" : `${Math.round(v * 100)}%`}
                 </button>
               ))}
+            </div>
+
+            {/* Fade in/out - same sheet as Volume (not a separate pill action),
+                same commit-on-release convention as the sliders above so
+                dragging doesn't flood the save endpoint. 0-5s in 0.5s steps,
+                matching the backend's clamp. */}
+            <div className="mt-4 pt-4 border-t border-border space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Fade in
+                  </span>
+                  <span className="text-sm font-medium text-foreground tabular-nums">{fadeInDraft.toFixed(1)}s</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.5"
+                  value={fadeInDraft}
+                  onChange={(e) => setFadeInDraft(Number(e.target.value))}
+                  onPointerUp={() => timeline.updateItem(timeline.selectedItem, { fadeIn: fadeInDraft })}
+                  onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { fadeIn: fadeInDraft })}
+                  aria-label="Fade in duration, seconds"
+                  className="w-full accent-primary"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <TrendingDown className="w-3.5 h-3.5" />
+                    Fade out
+                  </span>
+                  <span className="text-sm font-medium text-foreground tabular-nums">{fadeOutDraft.toFixed(1)}s</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.5"
+                  value={fadeOutDraft}
+                  onChange={(e) => setFadeOutDraft(Number(e.target.value))}
+                  onPointerUp={() => timeline.updateItem(timeline.selectedItem, { fadeOut: fadeOutDraft })}
+                  onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { fadeOut: fadeOutDraft })}
+                  aria-label="Fade out duration, seconds"
+                  className="w-full accent-primary"
+                />
+              </div>
             </div>
           </div>
         </div>

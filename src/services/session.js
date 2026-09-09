@@ -925,6 +925,19 @@ export async function getSectionWaveform(sessionId, sectionId) {
 }
 
 /**
+ * Get filmstrip thumbnail frames for a video clip. Always returns exactly
+ * `count` chronological URLs, or { thumbnails: [] } while the clip hasn't
+ * been rendered yet - a normal state, not an error.
+ */
+export async function getClipThumbnails(sessionId, sectionId, count) {
+  const response = await axios.get(
+    `${API_BASE}/${sessionId}/clips/${sectionId}/thumbnails`,
+    { params: { count } }
+  );
+  return response.data;
+}
+
+/**
  * Delete audio asset
  */
 export async function deleteAudioAsset(sessionId, audioId) {

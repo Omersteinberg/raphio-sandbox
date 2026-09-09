@@ -253,18 +253,21 @@ export function useTimeline(sessionId) {
   );
 
   // Split item at playhead
+  // Returns true/false so callers (the clip action pill) know whether to
+  // dismiss the selection - a rejected split (bad playhead position) or a
+  // failed request must NOT be treated the same as a completed one.
   const splitItem = useCallback(
     async (itemId) => {
-      if (!sessionId) return;
+      if (!sessionId) return false;
 
       const item = items.find((i) => i.id === itemId);
-      if (!item) return;
+      if (!item) return false;
 
       // Check if playhead is within item bounds
       const itemEnd = item.startTime + item.duration;
       if (playheadPosition <= item.startTime || playheadPosition >= itemEnd) {
         toast.error("Playhead must be within the item to split");
-        return;
+        return false;
       }
 
       pushHistory();
@@ -281,9 +284,11 @@ export function useTimeline(sessionId) {
           const filtered = prev.filter((i) => i.id !== itemId);
           return [...filtered, ...newItems];
         });
+        return true;
       } catch (err) {
         console.error("Failed to split item:", err);
         toast.error(describeError(err, "We couldn't split that clip. Please try again.").userMessage);
+        return false;
       } finally {
         setSaving(false);
       }

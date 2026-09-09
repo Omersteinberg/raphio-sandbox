@@ -28,6 +28,13 @@ function ComingSoon({ label }) {
  * state persists across sessions via localStorage. Never auto-collapses:
  * it only changes on an explicit click of the toggle. Desktop only; mobile
  * gets its own bottom-icon-row equivalent.
+ *
+ * The toggle itself is a small chevron "notch" docked to the panel's outer
+ * right edge, vertically centered - the common sidebar-collapse affordance
+ * (VS Code, Notion, Figma) - rather than buried at the bottom of the rail
+ * where it went unnoticed. It's positioned relative to the whole panel
+ * (not just the rail), so it stays in the same spot whether the content
+ * panel is open or collapsed.
  */
 export default function EditorSidePanel({
   sections,
@@ -69,7 +76,7 @@ export default function EditorSidePanel({
   };
 
   return (
-    <div data-tour="asset-panel" className="flex bg-card border-r border-border shrink-0">
+    <div data-tour="asset-panel" className="relative flex bg-card border-r border-border shrink-0">
       {/* Rail */}
       <div className="w-16 flex flex-col items-center py-2 gap-1 border-r border-border shrink-0">
         {SECTIONS.map(({ key, label, Icon }) => {
@@ -88,17 +95,6 @@ export default function EditorSidePanel({
             </button>
           );
         })}
-
-        <div className="flex-1" />
-
-        <button
-          onClick={toggleCollapsed}
-          title={collapsed ? "Expand panel" : "Collapse panel"}
-          aria-label={collapsed ? "Expand panel" : "Collapse panel"}
-          className="w-full flex items-center justify-center py-2 mx-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
       </div>
 
       {/* Active section's panel */}
@@ -143,6 +139,18 @@ export default function EditorSidePanel({
           {active === "settings" && <ComingSoon label="Editor settings" />}
         </div>
       )}
+
+      {/* Collapse notch - docked to the panel's outer edge, vertically
+          centered, so it's immediately visible without scrolling or hunting
+          and stays put whether the panel is expanded or collapsed. */}
+      <button
+        onClick={toggleCollapsed}
+        title={collapsed ? "Expand panel" : "Collapse panel"}
+        aria-label={collapsed ? "Expand panel" : "Collapse panel"}
+        className="absolute top-1/2 -right-3.5 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground shadow-sm hover:text-primary hover:border-primary/50"
+      >
+        {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+      </button>
     </div>
   );
 }
