@@ -33,12 +33,24 @@ export default function TimelineItem({
   const lastTapRef = useRef(0);
   const DOUBLE_TAP_MS = 300;
 
-  // Apply drag preview offset to the position
-  const baseLeft = item.startTime * pixelsPerSecond;
+  const isDragging = dragPreviewOffset !== 0 || dragPreviewDuration != null;
+
+  // Static (non-dragging) position uses effectiveStartTime, not startTime, so
+  // an active transition's overlap is reflected live instead of only showing
+  // up after export - a video item with an incoming crossfade renders pulled
+  // back to where it actually starts playing, producing the small overlap
+  // wedge against its neighbour that a transition implies. While THIS item is
+  // being dragged/trimmed, fall back to plain startTime: the drag math in
+  // TimelineCanvas/TimelineTrack computes dragPreviewOffset relative to
+  // item.startTime, so basing the live position on effectiveStartTime instead
+  // would offset the preview from the pointer by a constant amount for the
+  // whole gesture. Every other (non-dragged) item keeps rendering from its
+  // effective position throughout.
+  const baseStartTime = isDragging ? item.startTime : (item.effectiveStartTime ?? item.startTime);
+  const baseLeft = baseStartTime * pixelsPerSecond;
   const left = baseLeft + (dragPreviewOffset * pixelsPerSecond);
   const effectiveDuration = dragPreviewDuration != null ? dragPreviewDuration : item.duration;
   const width = effectiveDuration * pixelsPerSecond;
-  const isDragging = dragPreviewOffset !== 0 || dragPreviewDuration != null;
 
   // Get display info
   let label = "";
@@ -179,17 +191,28 @@ export default function TimelineItem({
   // Selection reads as an outline only - no fill/overlay change - so the
   // thumbnail underneath never gets obscured. A white inner ring plus a
   // terracotta outer ring (layered box-shadow) keeps the brand color visible
-  // even on a video clip, whose own fill is already terracotta.
+  // even on a video clip, whose own fill is already terracotta. 3px outer
+  // ring (was 2px) so the highlighted border reads clearly as its own thing
+  // against the dark grip lines at the trim edges (see below).
   const borderColor = isOverlapping && !isSelected ? "border-red-300" : "border-transparent";
   const selectionRing = isSelected
-    ? "0 0 0 1px hsl(var(--primary-foreground)), 0 0 0 2px rgb(var(--terra-rgb))"
+    ? "0 0 0 1px hsl(var(--primary-foreground)), 0 0 0 3px rgb(var(--terra-rgb))"
     : undefined;
+
+  // Resting elevation, per DESIGN.md's "flat by default, lifted on emphasis":
+  // a clip is not floating, but with no shadow at all it read as a bare
+  // coloured rectangle rather than a designed element. Warm-tinted toward
+  // Ink Plum (the Warm Shadow Rule - never a neutral or pure-black shadow);
+  // the drag shadow below is deepened from the same warm triple for the same
+  // reason, replacing the plain rgba(0,0,0,…) it used to use.
+  const restingShadow = "0 1px 2px rgb(var(--ink-rgb) / 0.16), 0 1px 4px rgb(var(--ink-rgb) / 0.10)";
+  const dragShadow = "0 8px 24px rgb(var(--ink-warm-rgb) / 0.34)";
 
   return (
     <motion.div
       ref={itemRef}
       data-item-id={item.id}
-      className={`absolute top-1 rounded ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
+      className={`absolute top-1.5 rounded-md ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
       animate={{
         left,
         width: Math.max(width, 20),
@@ -200,8 +223,8 @@ export default function TimelineItem({
       style={{
         height,
         boxShadow: isDragging
-          ? [selectionRing, "0 8px 24px rgba(0,0,0,0.35)"].filter(Boolean).join(", ")
-          : selectionRing,
+          ? [selectionRing, dragShadow].filter(Boolean).join(", ")
+          : [selectionRing, restingShadow].filter(Boolean).join(", "),
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -309,17 +332,19 @@ export default function TimelineItem({
 
       {/* Trim handles - shown when selected; drag the edges to trim (right edge
           stays put when trimming the left). They sit above the move handle.
-          The DRAWN bar is now a thickened strip flush against the clip's own
-          left/right edge (full height) rather than a floating rounded
-          capsule, so it reads as grabbing the clip's own border. The
-          invisible hit area stays a full w-6 (24px) - a bigger tap/drag
-          target than what's drawn is the standard, correct pattern for
-          small controls, especially on touch.
-          A thin white outline (same device the cut-point cue below already
-          uses) rides along the bar - without it, a selected VIDEO clip's
-          own fill is bg-primary, which IS bg-terra (--primary and --terra
-          are the same Kiln Terracotta value), so a bare bg-terra bar would
-          have zero edge contrast against its own clip and read as invisible. */}
+          Two-tone with the selection ring above: the ring is the terracotta
+          "this clip is selected" border, the grip lines at each edge are the
+          dark ink-warm "grab here to trim" affordance - distinct roles, distinct
+          colors, matching the reference's outline+grip-line look. Dark reads
+          against every clip fill (terracotta video, blue/green/purple audio)
+          without needing a contrast hack. Turns terracotta while actively
+          dragged, tying it back to the selection ring as "this edge is now
+          the thing moving." The DRAWN bar is a thickened strip flush against
+          the clip's own edge (full height), not a floating capsule, so it
+          reads as grabbing the clip's own border. The invisible hit area
+          stays a full w-6 (24px) - a bigger tap/drag target than what's
+          drawn is the standard, correct pattern for small controls,
+          especially on touch. */}
       {isSelected && (
         <>
           <div
@@ -328,8 +353,8 @@ export default function TimelineItem({
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-start", e); }}
           >
             <div
-              className={`h-full bg-terra shadow-[0_0_0_1px_rgba(255,255,255,0.55)] transition-all ${
-                activeDragType === "trim-start" ? "w-[6px] brightness-125" : "w-1 group-hover:w-1.5"
+              className={`h-full transition-all ${
+                activeDragType === "trim-start" ? "w-[6px] bg-terra" : "w-1 bg-ink-warm group-hover:w-1.5"
               }`}
             />
           </div>
@@ -339,8 +364,8 @@ export default function TimelineItem({
             onTouchStart={(e) => { e.stopPropagation(); onDragStart(item, "trim-end", e); }}
           >
             <div
-              className={`h-full bg-terra shadow-[0_0_0_1px_rgba(255,255,255,0.55)] transition-all ${
-                activeDragType === "trim-end" ? "w-[6px] brightness-125" : "w-1 group-hover:w-1.5"
+              className={`h-full transition-all ${
+                activeDragType === "trim-end" ? "w-[6px] bg-terra" : "w-1 bg-ink-warm group-hover:w-1.5"
               }`}
             />
           </div>

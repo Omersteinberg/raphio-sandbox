@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
+import { toast } from "@/lib/toast";
 
 const SNAP_THRESHOLD_PX = 10; // Snap within 10 pixels
 const MIN_DURATION = 0.5; // Shortest a clip can be trimmed to (seconds)
@@ -49,6 +50,7 @@ export default function TimelineCanvas({
   getAudioAsset,
   onAssetDrop,
   sessionId,
+  onBoundaryClick,
 }) {
   const containerRef = useRef(null);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -212,6 +214,17 @@ export default function TimelineCanvas({
   // overlaps in place instead of teleporting to the end of the timeline.
   const findNonOverlappingPosition = useCallback(
     (itemId, startTime, itemDuration, trackType, trackIdx = 0, maxNudge = Infinity) => {
+      // Only VIDEO needs its items kept apart - the export concatenates video
+      // clips in start order, so overlap there silently plays both clips in
+      // full rather than compositing, producing a longer video than the
+      // timeline implies (see detectOverlaps below). AUDIO items amix, so
+      // overlap is a normal, intended edit (a narration line over a music
+      // bed) - detectOverlaps/videoOverlaps already never flags it as an
+      // error for audio; this system was the one place still disagreeing
+      // with that, silently nudging a dragged/dropped audio item away from
+      // an overlap it should have been allowed to create.
+      if (trackType !== "VIDEO") return startTime;
+
       const others = rowFor(itemId, trackType, trackIdx).filter((it) => it.id !== itemId);
 
       const wouldOverlap = (st) => {
@@ -278,10 +291,17 @@ export default function TimelineCanvas({
       // means the nearest point can be a neighbour's START, and snapping to it
       // lays the clip straight on top of that neighbour: a collision, not an
       // alignment, and one the user saw flagged red the moment it landed. So a
-      // snap that leaves the row clear wins over a nearer one that does not.
-      const clear = candidates.find(
-        (c) => c.pos >= 0 && !collidesOnRow(item.id, Math.max(0, c.pos), dur, item.trackType, item.trackIndex)
-      );
+      // snap that leaves the row clear wins over a nearer one that does not -
+      // VIDEO only. AUDIO overlap is a legitimate edit (see
+      // findNonOverlappingPosition), so audio just takes the nearest snap
+      // candidate outright; biasing it away from a "colliding" one would
+      // still be second-guessing an overlap the user is allowed to make.
+      const clear =
+        item.trackType === "VIDEO"
+          ? candidates.find(
+              (c) => c.pos >= 0 && !collidesOnRow(item.id, Math.max(0, c.pos), dur, item.trackType, item.trackIndex)
+            )
+          : null;
       const chosen = clear || candidates[0];
       const snapped = Math.max(0, chosen ? chosen.pos : rawStart);
 
@@ -328,6 +348,36 @@ export default function TimelineCanvas({
   // nothing was.
   const videoOverlaps = useMemo(() => detectOverlaps(videoItems), [videoItems, detectOverlaps]);
   const noOverlaps = useMemo(() => new Set(), []);
+
+  // One boundary per pair of adjacent (touching, no gap) VIDEO clips, in
+  // nominal startTime/duration terms - the same terms adjacency is defined in
+  // everywhere else on this canvas (OVERLAP_EPSILON), and the terms that stay
+  // stable regardless of whether a transition is currently applied there (a
+  // transition never changes startTime/duration, only how the pair renders
+  // via effectiveStartTime and how it exports). `transitionIn`/
+  // `transitionInDuration` live on the LATER clip of the pair - "this clip
+  // transitions in from the one before it".
+  const videoBoundaries = useMemo(() => {
+    const sorted = [...videoItems].sort((a, b) => a.startTime - b.startTime);
+    const boundaries = [];
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const before = sorted[i];
+      const after = sorted[i + 1];
+      const gap = after.startTime - (before.startTime + before.duration);
+      if (Math.abs(gap) > OVERLAP_EPSILON) continue; // a real gap - not a valid transition boundary
+      boundaries.push({
+        id: `${before.id}:${after.id}`,
+        time: before.startTime + before.duration,
+        beforeId: before.id,
+        afterId: after.id,
+        transition:
+          after.transitionIn === "crossfade"
+            ? { type: "crossfade", duration: Number(after.transitionInDuration) || 0.5 }
+            : null,
+      });
+    }
+    return boundaries;
+  }, [videoItems]);
 
   // Calculate drag preview position for the dragged item (with snapping)
   const getDragPreview = useCallback(() => {
@@ -454,6 +504,44 @@ export default function TimelineCanvas({
   );
 
   // Handle drag end (with snapping + overlap prevention)
+  // Would this proposed change pull a VIDEO clip away from a neighbour it has
+  // an active transition against? Checked before the update is sent, not only
+  // after a backend rejection - the backend throws for the same reason
+  // (adjacency required), but the UI should never show a drag "succeed" and
+  // then have it silently revert once the save comes back an error.
+  const wouldBreakTransition = useCallback(
+    (item, newStartTime, newDuration) => {
+      if (item.trackType !== "VIDEO") return false;
+      const others = videoItems.filter((o) => o.id !== item.id);
+
+      // This item's own incoming transition (from whichever clip currently
+      // touches its left edge) breaks if that left edge moves away.
+      if (item.transitionIn === "crossfade") {
+        const leftNeighbor = others.find(
+          (o) => Math.abs(o.startTime + o.duration - item.startTime) <= OVERLAP_EPSILON
+        );
+        if (
+          leftNeighbor &&
+          Math.abs(leftNeighbor.startTime + leftNeighbor.duration - newStartTime) > OVERLAP_EPSILON
+        ) {
+          return true;
+        }
+      }
+
+      // The next clip's incoming transition (referencing THIS item) breaks if
+      // this item's right edge moves away from that neighbour's start.
+      const currentEnd = item.startTime + item.duration;
+      const rightNeighbor = others.find((o) => Math.abs(o.startTime - currentEnd) <= OVERLAP_EPSILON);
+      if (rightNeighbor?.transitionIn === "crossfade") {
+        const newEnd = newStartTime + newDuration;
+        if (Math.abs(rightNeighbor.startTime - newEnd) > OVERLAP_EPSILON) return true;
+      }
+
+      return false;
+    },
+    [videoItems]
+  );
+
   const handleDragEnd = useCallback(
     async (e) => {
       if (!isDragging || !dragItem) return;
@@ -504,10 +592,16 @@ export default function TimelineCanvas({
       setSnapIndicator(null);
 
       if (Object.keys(updates).length > 0) {
+        const proposedStart = updates.startTime ?? dragItem.startTime;
+        const proposedDuration = updates.duration ?? dragItem.duration;
+        if (wouldBreakTransition(dragItem, proposedStart, proposedDuration)) {
+          toast.error("This clip has a transition — remove it before moving these clips apart.");
+          return;
+        }
         await onUpdateItem(dragItem.id, updates);
       }
     },
-    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, resolveMoveStart, getSection, getAudioAsset]
+    [isDragging, dragItem, dragStartX, dragStartValue, dragType, pixelsPerSecond, onUpdateItem, resolveMoveStart, getSection, getAudioAsset, wouldBreakTransition]
   );
 
   // Add mouse + touch event listeners for dragging
@@ -643,6 +737,8 @@ export default function TimelineCanvas({
             isHidden={hiddenTracks.has("VIDEO-0")}
             onToggleVisibility={() => toggleTrackVisibility("VIDEO-0")}
             sessionId={sessionId}
+            boundaries={videoBoundaries}
+            onBoundaryClick={onBoundaryClick}
           />
 
           {/* Narration Track (section narration + TTS voice) */}
@@ -719,6 +815,32 @@ export default function TimelineCanvas({
             onToggleVisibility={() => toggleTrackVisibility("AUDIO-2")}
             sessionId={sessionId}
           />
+
+          {/* Past-the-end fill - timelineWidth pads a couple hundred px past
+              `duration` for scroll/drop breathing room, and every track row
+              stretches to fill it, so without this the tracks read as
+              ambiguous empty rows continuing forever once scrolled/zoomed
+              past the last clip. Painted bg-muted - the SAME token the
+              canvas's own root scroll container uses (below), not
+              bg-background - so this reads as a seamless continuation of
+              that surface rather than a second, differently-shaded fill
+              butted up against it. Spans the full track stack height (every
+              row, not just Video) and sits above the tracks' own colored
+              fill and grid lines (default stacking order, rendered after
+              them) but below the snap line/playhead/boundary markers.
+              Pointer-events-none: nothing should ever exist past `duration`
+              anyway, but this must never be what blocks a drop there if it
+              did. */}
+          {duration * pixelsPerSecond + TRACK_LABEL_WIDTH < timelineWidth && (
+            <div
+              className="absolute top-0 bg-muted pointer-events-none"
+              style={{
+                left: duration * pixelsPerSecond + TRACK_LABEL_WIDTH,
+                width: timelineWidth - (duration * pixelsPerSecond + TRACK_LABEL_WIDTH),
+                height: trackHeight * totalTracks,
+              }}
+            />
+          )}
 
           {/* Snap indicator line */}
           {snapIndicator && (

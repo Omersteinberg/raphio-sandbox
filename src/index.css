@@ -211,6 +211,105 @@
   color: hsl(var(--foreground));
 }
 
+/* ── Editor surface elevation ─────────────────────────────────────
+   DESIGN.md's Warm Shadow Rule: every intentional shadow is tinted, never
+   neutral or pure black. These are the editor's two working elevations,
+   both tinted toward Ink Plum (the warm text near-black) so they read as
+   warm depth rather than grey haze.
+
+   `.editor-surface-raised` is for chrome that sits IN FRONT of the canvas
+   (left rail, transport strip): a directional edge shadow only, no lift -
+   the point is to separate planes, not to make toolbars float.
+
+   `.editor-screen` frames the video preview so it reads as a screen rather
+   than an image dropped in a box - the deeper "Emphasis, ink" tier
+   DESIGN.md reserves for large surfaces that genuinely float. */
+.editor-surface-raised {
+  box-shadow: 1px 0 3px rgb(var(--ink-rgb) / 0.06);
+}
+.editor-surface-raised-y {
+  box-shadow: 0 1px 3px rgb(var(--ink-rgb) / 0.06);
+}
+.editor-screen {
+  box-shadow: 0 12px 32px rgb(var(--ink-warm-rgb) / 0.18), 0 2px 8px rgb(var(--ink-warm-rgb) / 0.10);
+}
+
+/* ── Range sliders (zoom, speed, volume, fade, seek) ──────────────
+   The native control reads as generic browser chrome in an otherwise
+   designed tool, so track + thumb are drawn explicitly. Track fill uses
+   --range-progress (set inline where a filled-to-value look is wanted);
+   without it the track is simply the unfilled border colour, so this class
+   is safe on any slider whether or not the caller computes progress.
+
+   Thumb scales up on hover and down on press (Emil's press-feedback rule),
+   with the strong ease-out curve rather than a built-in easing. */
+.range-terra {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  /* Taller than the 4px track it draws: WebKit centres the runnable track
+     vertically, so the extra height is pure hit area for touch without
+     changing how the control looks. */
+  height: 22px;
+}
+.range-terra::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--terra) 0%,
+    var(--terra) var(--range-progress, 0%),
+    hsl(var(--border)) var(--range-progress, 0%),
+    hsl(var(--border)) 100%
+  );
+}
+.range-terra::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--terra) 0%,
+    var(--terra) var(--range-progress, 0%),
+    hsl(var(--border)) var(--range-progress, 0%),
+    hsl(var(--border)) 100%
+  );
+}
+.range-terra::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border-radius: 9999px;
+  background: hsl(var(--card));
+  border: 2px solid var(--terra);
+  box-shadow: 0 1px 3px rgb(var(--ink-rgb) / 0.22);
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.range-terra::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: hsl(var(--card));
+  border: 2px solid var(--terra);
+  box-shadow: 0 1px 3px rgb(var(--ink-rgb) / 0.22);
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* Hover growth is gated behind a real pointer - on touch, :hover sticks
+   after a tap and would leave the thumb permanently enlarged. */
+@media (hover: hover) and (pointer: fine) {
+  .range-terra:hover::-webkit-slider-thumb { transform: scale(1.12); }
+  .range-terra:hover::-moz-range-thumb { transform: scale(1.12); }
+}
+.range-terra:active::-webkit-slider-thumb { transform: scale(0.94); }
+.range-terra:active::-moz-range-thumb { transform: scale(0.94); }
+.range-terra:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
+
 /* ── Toasts (react-toastify) ──────────────────────────────────────
    Smaller, tighter toasts in ONE consistent brand color. With the
    `colored` theme, react-toastify derives every variant's background from

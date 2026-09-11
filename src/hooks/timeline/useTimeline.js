@@ -123,9 +123,29 @@ export function useTimeline(sessionId) {
 
       pushHistory();
 
-      // Optimistically apply updates to local state immediately
+      // Optimistically apply updates to local state immediately. When
+      // startTime moves, also carry effectiveStartTime along with it -
+      // TimelineItem.jsx renders position from effectiveStartTime ??
+      // startTime, and effectiveStartTime is a real, present value (not
+      // undefined) once the backend starts returning it, so leaving it
+      // untouched here meant the clip rendered from its now-stale value the
+      // instant a drag ended, i.e. visually snapped back to its old position
+      // even though startTime itself was correctly updated. Assuming
+      // effectiveStartTime simply equals the new startTime is exactly right
+      // whenever no transition is involved (the common case, and the only
+      // case this fix touches); the rarer case - a transition elsewhere on
+      // the timeline making them genuinely diverge - self-corrects on the
+      // next full reload, same as any other optimistic update would.
       setItems((prev) =>
-        prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
+        prev.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                ...updates,
+                ...(updates.startTime !== undefined ? { effectiveStartTime: updates.startTime } : null),
+              }
+            : item
+        )
       );
       setHasUnexportedChanges(true);
 
@@ -541,6 +561,13 @@ export function useTimeline(sessionId) {
     setZoomLevel((prev) => Math.max(0.1, prev / 1.5));
   }, []);
 
+  // Same 0.1-10 clamp as zoomIn/zoomOut, exposed so a slider can set an
+  // arbitrary value directly (continuous drag) rather than only the fixed
+  // 1.5x steps those two buttons take.
+  const setZoomLevelClamped = useCallback((value) => {
+    setZoomLevel(Math.max(0.1, Math.min(10, Number(value) || 1)));
+  }, []);
+
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
   }, []);
@@ -613,6 +640,7 @@ export function useTimeline(sessionId) {
     setScrollPosition,
     zoomIn,
     zoomOut,
+    setZoomLevel: setZoomLevelClamped,
     resetZoom,
 
     // Selection

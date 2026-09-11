@@ -60,16 +60,19 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
       {/* Playhead line */}
       <div className="w-0.5 h-full bg-primary" />
 
-      {/* Playhead handle - visible triangle with a larger invisible touch target */}
+      {/* Playhead head - a flagged marker (flat/rounded top, tapering to a
+          point) rather than a bare triangle, so it reads as a distinct,
+          grabbable control rather than a sliver. Larger invisible touch
+          target than what's drawn, same pattern as the trim handles. */}
       <div
-        className="absolute -top-1 -left-4 w-8 h-7 pointer-events-auto cursor-ew-resize flex justify-center touch-none"
+        className="absolute -top-1 -left-4 w-8 h-8 pointer-events-auto cursor-ew-resize flex justify-center touch-none"
         onMouseDown={handleDown}
         onTouchStart={handleDown}
       >
         <div
-          className="w-4 h-4"
+          className="w-5 h-5 rounded-t-[3px] shadow-sm"
           style={{
-            clipPath: "polygon(50% 100%, 0 0, 100% 0)",
+            clipPath: "polygon(0% 0%, 100% 0%, 100% 55%, 50% 100%, 0% 55%)",
             background: "hsl(var(--primary))",
           }}
         />

@@ -189,7 +189,7 @@ export default function VideoPreview({
   const hasShown = shownId != null;
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
+    <div className="relative w-full h-full flex items-center justify-center bg-muted">
       {/* One <video> per clip, preloaded and stacked. Only the revealed one is
           visible; switching between them is instant (no src reload, no black). */}
       {items.map((item) => {

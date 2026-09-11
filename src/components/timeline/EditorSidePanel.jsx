@@ -76,22 +76,29 @@ export default function EditorSidePanel({
   };
 
   return (
-    <div data-tour="asset-panel" className="relative flex bg-card border-r border-border shrink-0">
-      {/* Rail */}
-      <div className="w-16 flex flex-col items-center py-2 gap-1 border-r border-border shrink-0">
+    <div data-tour="asset-panel" className="relative z-10 flex bg-card border-r border-border shrink-0 editor-surface-raised">
+      {/* Rail. Icon and label sit side-by-side on one row (was stacked, which
+          forced a 64px column and a cramped 10px label); the wider rail lets
+          both use their normal sizes with real breathing room. The active row
+          is marked by a terracotta left bar as well as fill + colour, so the
+          current section is legible without relying on colour alone. */}
+      <div className="w-32 flex flex-col py-3 px-2 gap-1 border-r border-border shrink-0">
         {SECTIONS.map(({ key, label, Icon }) => {
           const isActive = !collapsed && active === key;
           return (
             <button
               key={key}
               onClick={() => selectSection(key)}
-              className={`w-full flex flex-col items-center gap-1 py-2.5 rounded-lg mx-1 ${
+              className={`relative w-full flex items-center gap-2.5 py-2.5 px-3 rounded-lg transition-colors ${
                 isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
               aria-current={isActive}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium leading-none">{label}</span>
+              {isActive && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
+              )}
+              <Icon className="w-[18px] h-[18px] shrink-0" />
+              <span className="text-sm font-medium leading-none">{label}</span>
             </button>
           );
         })}
@@ -99,7 +106,7 @@ export default function EditorSidePanel({
 
       {/* Active section's panel */}
       {!collapsed && (
-        <div className="w-56 overflow-y-auto flex flex-col">
+        <div className="w-64 overflow-y-auto flex flex-col">
           {active === "media" && (
             <AssetPanel
               sections={sections}
@@ -113,22 +120,22 @@ export default function EditorSidePanel({
           )}
 
           {active === "audio" && (
-            <div className="p-3 space-y-2">
+            <div className="p-4 space-y-2.5">
               <button
                 onClick={onOpenAudioUpload}
-                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+                className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
               >
-                <Upload className="w-4 h-4" />
+                <Upload className="w-4 h-4 text-primary shrink-0" />
                 Upload audio
               </button>
               <button
                 onClick={onOpenVoice}
-                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+                className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
               >
-                <Mic className="w-4 h-4" />
+                <Mic className="w-4 h-4 text-primary shrink-0" />
                 Generate AI voice
               </button>
-              <p className="text-xs text-muted-foreground px-1 pt-1">
+              <p className="text-xs text-muted-foreground leading-relaxed pt-1.5">
                 Already-generated narration and music live under Media.
               </p>
             </div>
