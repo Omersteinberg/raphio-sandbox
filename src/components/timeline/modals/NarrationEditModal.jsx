@@ -1,11 +1,19 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, Volume2, RefreshCw, Play, Pause } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X, Loader2, Mic, RefreshCw, ChevronDown } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { getVoiceOptionLabel } from "@/lib/voiceMetadata";
 import { getVoices } from "@/services/voices";
 import { NARRATION_TONES, DEFAULT_TONE } from "@/constants/narrationTones";
+import MediaPlayer from "../MediaPlayer";
 
+/**
+ * Edit a clip's narration text, voice and tone, and save or regenerate the
+ * audio. Deliberately a modal, not the expandable clip pill: a long text field
+ * plus a voice list plus a tone chip row is real content, and the pill is
+ * reserved for the slider-only controls (Speed / Volume) that fit beside a
+ * clip.
+ */
 export default function NarrationEditModal({
   section,
   currentVoiceId,
@@ -25,8 +33,6 @@ export default function NarrationEditModal({
   const [voices, setVoices] = useState([]);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioElement] = useState(() => new Audio());
 
   // Load voices
   useEffect(() => {
@@ -40,29 +46,6 @@ export default function NarrationEditModal({
     }
     loadVoices();
   }, []);
-
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      audioElement.pause();
-      audioElement.src = "";
-    };
-  }, [audioElement]);
-
-  // Handle audio playback
-  const togglePlayback = () => {
-    if (!section?.narrationUrl) return;
-
-    if (isPlaying) {
-      audioElement.pause();
-      setIsPlaying(false);
-    } else {
-      audioElement.src = section.narrationUrl;
-      audioElement.play();
-      setIsPlaying(true);
-      audioElement.onended = () => setIsPlaying(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -103,162 +86,176 @@ export default function NarrationEditModal({
     voiceId !== initialVoiceId ||
     tone !== initialTone;
 
+  const busy = saving || regenerating;
+
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 editor-scrim flex items-center justify-center z-50 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-xl w-full max-w-lg p-4 md:p-6 max-h-[90vh] overflow-y-auto"
+          className="bg-card border border-border rounded-xl editor-modal w-full max-w-lg p-5 md:p-6 max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
+          transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Volume2 className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">
-                Edit Narration
-              </h3>
-            </div>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Mic className="w-4 h-4 text-primary" /> Edit Narration
+            </h3>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
+              aria-label="Close"
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Current audio playback */}
+          {/* Current narration - the editor's compact audio player. Replaces a
+              one-off play button that had no scrubber and no time readout. */}
           {section?.narrationUrl && (
-            <div className="bg-muted/50 rounded-lg p-3 mb-4 flex items-center gap-3">
-              <button
-                onClick={togglePlayback}
-                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-white"
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5" />
-                ) : (
-                  <Play className="w-5 h-5 ml-0.5" />
-                )}
-              </button>
-              <div className="flex-1">
-                <p className="text-sm text-foreground">Current Narration</p>
-                <p className="text-xs text-muted-foreground">
-                  Clip {(section.orderIndex || 0) + 1}
-                </p>
-              </div>
+            <div className="mb-5">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Current narration</p>
+              <MediaPlayer
+                kind="audio"
+                src={section.narrationUrl}
+                label={`Clip ${(section.orderIndex || 0) + 1}`}
+              />
             </div>
           )}
 
           {/* Form */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Narration Text */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Narration Text
+              <label htmlFor="narration-text" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Narration text
               </label>
-              <textarea
+              <Textarea
+                id="narration-text"
                 value={narrationText}
                 onChange={(e) => setNarrationText(e.target.value)}
-                placeholder="Enter the narration text..."
+                placeholder="Enter the narration text…"
                 rows={4}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary resize-none"
+                className="text-sm focus-visible:border-ring"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
                 {narrationText.length} characters
               </p>
             </div>
 
-            {/* Voice Selection */}
+            {/* Voice Selection. Styled to match the shadcn Input primitive
+                (h-9, rounded-md, border-input, bg-card, terracotta focus ring)
+                rather than the browser's native select chrome; appearance-none
+                plus an explicit chevron so it reads as one of ours. */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1">Voice</label>
-              <select
-                value={voiceId}
-                onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-              >
-                {voices.map((voice) => (
-                  <option key={voice.key || voice.id} value={voice.key || voice.id}>
-                    {getVoiceOptionLabel(voice)}
-                  </option>
-                ))}
-              </select>
+              <label htmlFor="narration-voice" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Voice
+              </label>
+              <div className="relative">
+                <select
+                  id="narration-voice"
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  className="appearance-none h-9 w-full rounded-md border border-input bg-card pl-3 pr-9 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {voices.map((voice) => (
+                    <option key={voice.key || voice.id} value={voice.key || voice.id}>
+                      {getVoiceOptionLabel(voice)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              </div>
             </div>
 
-            {/* Tone. A chip row rather than a select: there are only eight, and the
-                choice is worth seeing all at once so the user can compare. */}
+            {/* Tone. A chip row rather than a select: there are only eight, and
+                the choice is worth seeing all at once so the user can compare.
+                Styled as the editor's established selectable-option pattern
+                (the Speed / Volume presets, the Cut / Crossfade pair): a
+                bordered rounded-lg chip with a terracotta outline + wash when
+                active - not a filled white-on-terracotta pill, which spent the
+                accent on a state indicator rather than an action. */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-2">Tone</label>
-              <div className="flex flex-wrap gap-2">
+              <p className="block text-xs font-medium text-muted-foreground mb-2" id="narration-tone-label">
+                Tone
+              </p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="narration-tone-label">
                 {NARRATION_TONES.map((t) => (
                   <button
                     key={t.key}
                     type="button"
                     onClick={() => setTone(t.key)}
                     aria-pressed={tone === t.key}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
                       tone === t.key
-                        ? "bg-primary text-white border-primary"
-                        : "bg-muted text-muted-foreground border-border hover:text-foreground hover:border-primary/50"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-foreground hover:bg-muted"
                     }`}
                   >
                     {t.label}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                 Changes how the line is delivered. Applied when you regenerate the audio.
               </p>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 sm:gap-3 mt-6">
-            <Button
+          {/* Actions. Regenerate Audio is the secondary outline-in-terracotta
+              register (DESIGN.md's "outline/ghost" button); Cancel / Save are
+              the same pair as the transition picker. */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
+            <button
               onClick={handleRegenerate}
-              disabled={!hasChanges || regenerating || saving}
-              variant="outline"
-              className="border-primary text-primary hover:bg-primary/10"
+              disabled={!hasChanges || busy}
+              className="px-4 py-2 rounded-lg border border-primary text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {regenerating ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Regenerating...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Regenerating…
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-4 h-4" />
                   Regenerate Audio
                 </>
               )}
-            </Button>
+            </button>
 
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={onClose} disabled={saving || regenerating}>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onClose}
+                disabled={busy}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={handleSave}
-                disabled={saving || regenerating}
-                className="text-white border-0"
+                disabled={busy}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 style={{ background: "var(--gradient-brand)" }}
               >
                 {saving ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving…
                   </>
                 ) : (
                   "Save Changes"
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         </motion.div>

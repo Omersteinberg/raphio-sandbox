@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Music, Type, Shapes, Settings, Upload, Mic, ChevronLeft, ChevronRight } from "lucide-react";
+import { Image, Music, Type, Shapes, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import AssetPanel from "./AssetPanel";
 
 const SECTIONS = [
@@ -104,41 +104,36 @@ export default function EditorSidePanel({
         })}
       </div>
 
-      {/* Active section's panel */}
+      {/* Active section's panel. w-80 rather than the previous w-64: the
+          Audio panel's sub-tabs (Narration / Audio / Music, each with a
+          count) could not all fit at 256px and were being pushed into a
+          horizontal scroll. Width is spent so every tab is visible at once,
+          which is the point of a tab row.
+
+          Media is visual-only and Audio owns every audio asset and action -
+          the same AssetPanel in two scopes, so nothing is listed in both. */}
       {!collapsed && (
-        <div className="w-64 overflow-y-auto flex flex-col">
+        <div className="w-80 overflow-y-auto flex flex-col">
           {active === "media" && (
             <AssetPanel
+              scope="media"
               sections={sections}
-              audioAssets={audioAssets}
-              onDeleteAudio={onDeleteAudio}
-              onNarrationEdit={onNarrationEdit}
               onRegenerateClip={onRegenerateClip}
-              onRegenerateMusic={onRegenerateMusic}
               regenerateLabel={regenerateLabel}
             />
           )}
 
           {active === "audio" && (
-            <div className="p-4 space-y-2.5">
-              <button
-                onClick={onOpenAudioUpload}
-                className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
-              >
-                <Upload className="w-4 h-4 text-primary shrink-0" />
-                Upload audio
-              </button>
-              <button
-                onClick={onOpenVoice}
-                className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
-              >
-                <Mic className="w-4 h-4 text-primary shrink-0" />
-                Generate AI voice
-              </button>
-              <p className="text-xs text-muted-foreground leading-relaxed pt-1.5">
-                Already-generated narration and music live under Media.
-              </p>
-            </div>
+            <AssetPanel
+              scope="audio"
+              sections={sections}
+              audioAssets={audioAssets}
+              onDeleteAudio={onDeleteAudio}
+              onNarrationEdit={onNarrationEdit}
+              onRegenerateMusic={onRegenerateMusic}
+              onOpenAudioUpload={onOpenAudioUpload}
+              onOpenVoice={onOpenVoice}
+            />
           )}
 
           {active === "text" && <ComingSoon label="Text overlays" />}

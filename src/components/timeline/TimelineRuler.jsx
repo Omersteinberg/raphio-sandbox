@@ -37,16 +37,31 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
 
   return (
     <div
+      // No border-b any more - that separator moved up to sit between the
+      // toolbar and this ruler instead (TimelineEditor.jsx's transport
+      // strip), per feedback that the separators were on the wrong seams:
+      // there was a hairline here (ruler/tracks) and none between the
+      // toolbar and the ruler. Ruler and track body now read as one
+      // uninterrupted surface.
       className="relative h-8 select-none cursor-pointer"
       style={{ width }}
     >
-      {/* Track label area */}
-      <div className="absolute left-0 top-0 w-20 h-full bg-card border-r border-border flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">Time</span>
-      </div>
+      {/* Track label area - width mirrors TimelineTrack's label column
+          (TRACK_LABEL_WIDTH in TimelineCanvas, w-32/128px) so it lines up
+          exactly. No fill of its own (the ruler row is already bg-card) -
+          just the same hairline border-r the track labels use below it, so
+          the whole left edge reads as one continuous seam rather than a
+          stack of separately-boxed corners. */}
+      <div className="absolute left-0 top-0 w-32 h-full border-r border-border/60" />
 
-      {/* Ticks area */}
-      <div className="absolute left-20 top-0 h-full">
+      {/* Ticks area - major timestamps read clearly (full-contrast, bolder,
+          taller); minor ticks are visible but clearly secondary. Was
+          bg-border/40 - the --border token itself is a very light
+          warm-terracotta hairline, so at 40% against the cream ruler it read
+          as not visible at all rather than "subtle." Switched to
+          bg-foreground/25, a color with actual presence against this
+          background even at low opacity. */}
+      <div className="absolute left-32 top-0 h-full">
         {ticks.map((tick, i) => (
           <div
             key={i}
@@ -56,13 +71,13 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
             {/* Tick line */}
             <div
               className={`absolute bottom-0 w-px ${
-                tick.isMajor ? "bg-muted-foreground h-4" : "bg-border h-2"
+                tick.isMajor ? "bg-foreground/70 h-4" : "bg-foreground/25 h-2"
               }`}
             />
             {/* Label */}
             {tick.label && (
               <span
-                className="absolute bottom-4 text-xs text-muted-foreground -translate-x-1/2"
+                className="absolute bottom-4 text-xs font-semibold text-foreground -translate-x-1/2"
                 style={{ left: 0 }}
               >
                 {tick.label}

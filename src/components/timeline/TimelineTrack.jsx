@@ -1,4 +1,4 @@
-import { Film, Music, Eye, EyeOff, Blend } from "lucide-react";
+import { Film, Music, Mic, Blend } from "lucide-react";
 import TimelineItem from "./TimelineItem";
 
 export default function TimelineTrack({
@@ -20,64 +20,65 @@ export default function TimelineTrack({
   isDropTarget = false,
   overlappingItems = new Set(),
   dragPreview = null,
-  isHidden = false,
-  onToggleVisibility,
   sessionId,
   boundaries = null, // VIDEO row only - see TimelineCanvas's videoBoundaries
   onBoundaryClick,
 }) {
-  // Which ROW this is, not what any item stores: the canvas renders Narration,
-  // Audio and Music as trackIndex 0, 1 and 2. This read 1, the uploads row, so
-  // the green music styling sat on Audio and Music got the blue meant for it.
-  // (Items themselves are grouped by source kind, which is why only the colours
-  // were ever wrong and the clips still landed on the right rows.)
-  const isMusic = trackType === "AUDIO" && trackIndex === 2;
-  const Icon = trackType === "VIDEO" ? Film : Music;
-  const trackColor = trackType === "VIDEO" ? "bg-primary/5" : isMusic ? "bg-green-500/10" : "bg-blue-500/10";
-  const borderColor = trackType === "VIDEO" ? "border-primary/20" : isMusic ? "border-green-500/25" : "border-blue-500/25";
+  // Which ROW this is, not what any item stores: the canvas renders Narration
+  // at trackIndex 0 and the merged Audio/Music row at trackIndex 1. Icon and
+  // colour both key off that same trackIndex, not off anything an individual
+  // item carries (items keep their own per-clip kind via TimelineItem's own
+  // audioKind() - this is only the row's ambient treatment).
+  const isNarration = trackType === "AUDIO" && trackIndex === 0;
+  const Icon = trackType === "VIDEO" ? Film : isNarration ? Mic : Music;
+  // One shared neutral surface for every row (no per-track hue wash) - a soft
+  // warm-paper tint just barely lifted off the canvas's own cream background,
+  // with a hairline (not a hard border) between rows. Row identity now comes
+  // entirely from the icon/label and the clips themselves, matching the
+  // reference's "Elevated Surface" treatment rather than color-coding the
+  // row backgrounds.
+  const trackColor = "bg-card/50";
+  const borderColor = "border-border/25";
 
   return (
     <div
       className={`relative flex ${trackColor} border-b ${borderColor} ${
         isDropTarget ? "ring-2 ring-inset ring-accent" : ""
       }`}
-      style={{ height }}
+      // A hairline inner highlight along the row's top edge - the "lifted
+      // surface" cue (a soft light catching the top edge, per Elevated
+      // Surface) without an actual drop-shadow, which would read as too
+      // heavy stacked three times in a row this short. Warm Paper
+      // (--surface, #FFFAF7) rather than plain white, so the highlight stays
+      // on the documented warm palette instead of a raw neutral color.
+      style={{ height, boxShadow: "inset 0 1px 0 rgba(255, 250, 247, 0.6)" }}
       onDrop={onDrop}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
       {/* Track Label. Its width is TRACK_LABEL_WIDTH in TimelineCanvas, which
-          converts pointer positions to times against it - keep the two in step
-          (this stays w-20 / 80px for exactly that reason; only its internal
-          treatment is restyled). Left-aligned with a small inset rather than
-          centred, so the four row labels form a clean vertical edge. */}
-      <div className="w-20 flex-shrink-0 bg-card border-r border-border flex items-center gap-1.5 pl-2.5 pr-1 relative group">
-        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <span className="text-[11px] font-medium text-muted-foreground truncate">{label}</span>
-        {/* Show/hide is local + visual only - it never touches item data or
-            the export, purely what's rendered in this row right now. */}
-        <button
-          onClick={onToggleVisibility}
-          title={isHidden ? `Show ${label}` : `Hide ${label}`}
-          aria-label={isHidden ? `Show ${label}` : `Hide ${label}`}
-          className="absolute right-1 p-1 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-        >
-          {isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-        </button>
+          converts pointer positions to times against it - keep the two in
+          step (w-32 / 128px; TimelineRuler's corner box + left-32 tick offset
+          mirror this). No fill of its own (was a separate bg-card panel with
+          an inset shadow) - it now sits directly on the row's own wash with
+          only a hairline border-r as a separator, so the label reads as part
+          of the row rather than a boxed-off header competing with it. */}
+      <div className="relative z-10 w-32 flex-shrink-0 flex items-center gap-2.5 pl-4 pr-2 border-r border-border/60">
+        {/* Reverted to neutral (a terracotta pass here didn't hold up), but
+            bolder/more prominent than the original muted treatment: full
+            foreground (not muted-foreground/90), a slightly larger icon,
+            and font-bold instead of font-semibold. */}
+        <Icon className="w-4 h-4 text-foreground shrink-0" />
+        <span className="text-xs font-bold text-foreground tracking-tight leading-tight">{label}</span>
       </div>
 
       {/* Track Content */}
-      <div className={`flex-1 relative ${isHidden ? "opacity-25 pointer-events-none" : ""}`}>
-        {/* Grid lines */}
-        <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: Math.ceil(1000 / pixelsPerSecond) }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute top-0 h-full w-px bg-border/50"
-              style={{ left: i * pixelsPerSecond }}
-            />
-          ))}
-        </div>
+      <div className="flex-1 relative">
+        {/* No vertical guide lines through the track body any more (an
+            earlier pass drew a hairline down from each major ruler
+            timestamp) - explicitly reverted per feedback. Major/minor tick
+            marks now live on the ruler strip only (TimelineRuler.jsx); the
+            track body stays clear behind the clips. */}
 
         {/* Items */}
         {items.map((item) => {
@@ -88,7 +89,7 @@ export default function TimelineTrack({
               key={item.id}
               item={item}
               trackType={trackType}
-              height={height - 12}
+              height={height - 16}
               pixelsPerSecond={pixelsPerSecond}
               isSelected={selectedItem === item.id}
               onSelect={() => onSelectItem(item.id)}
@@ -113,25 +114,49 @@ export default function TimelineTrack({
         )}
 
         {/* Transition boundaries - VIDEO row only, one per pair of adjacent
-            (touching, no gap) clips. Sits above idle clips (z-40, below a
-            clip actively being dragged at z-50) so it stays clickable right
-            at the seam. Always at least dimly visible rather than
-            hover-revealed: hover has no equivalent on touch, and an active
-            transition needs to read as present without clicking in to check. */}
+            (touching, no gap) clips. Position math (left = b.time *
+            pixelsPerSecond, centred on the seam via -translate-x/y-1/2)
+            unchanged. Reverted to the smaller diamond/plus design (a later
+            "premium redesign" pass shrank these further and made the resting
+            no-transition marker nearly invisible at rest - explicitly rolled
+            back per feedback, not carried forward).
+
+            No transition yet: a small diamond at rest (scale-[0.55] of the
+            24px hit box, ~13px), opaque (bg-card + border + shadow-sm) so it
+            reads clearly against every track colour at a glance, showing the
+            same Blend icon as an active transition (counter-rotated so it
+            stays upright inside the rotated diamond) rather than sitting
+            empty until hovered - a blank circle read as decoration, not an
+            actionable control. Hover grows it to full size, un-rotates the
+            diamond into a circle, and shifts the icon to the primary accent
+            for emphasis.
+
+            Active transition: stays visibly present at rest (no hover
+            needed) at a smaller resting scale (0.85 of 24px) so it doesn't
+            visually overlap either clip's own label.
+
+            The 24px box itself never changes size (only `transform: scale`
+            does), so the tap target stays consistent on touch, where hover
+            never fires. Only `transform`/`background-color`/`border-color`/
+            `color` animate - GPU-only, cheap regardless of boundary count. */}
         {boundaries && boundaries.map((b) => (
           <button
             key={b.id}
             onClick={(e) => { e.stopPropagation(); onBoundaryClick?.(b); }}
             title={b.transition ? `Crossfade, ${b.transition.duration.toFixed(1)}s` : "Add transition"}
             aria-label={b.transition ? `Edit transition, currently crossfade ${b.transition.duration.toFixed(1)} seconds` : "Add transition between these clips"}
-            className={`absolute z-40 w-8 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border transition-colors ${
+            className={`group/boundary absolute z-40 w-6 h-6 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-90 ${
               b.transition
-                ? "bg-primary border-primary-foreground/40 text-primary-foreground shadow-sm"
-                : "bg-card/80 border-border text-muted-foreground/70 opacity-70 hover:opacity-100 hover:text-foreground hover:border-foreground/30"
+                ? "scale-[0.85] bg-primary text-primary-foreground shadow-sm hover:scale-100"
+                : "scale-[0.55] rotate-45 border border-border bg-card text-muted-foreground shadow-sm hover:scale-100 hover:rotate-0 hover:border-primary/50 hover:text-primary"
             }`}
             style={{ left: b.time * pixelsPerSecond, top: "50%" }}
           >
-            <Blend className="w-3.5 h-3.5" />
+            <Blend
+              className={`w-3 h-3 ${
+                b.transition ? "" : "-rotate-45 transition-transform duration-150 ease-out group-hover/boundary:rotate-0"
+              }`}
+            />
           </button>
         ))}
       </div>

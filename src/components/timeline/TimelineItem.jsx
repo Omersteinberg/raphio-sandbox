@@ -79,20 +79,23 @@ export default function TimelineItem({
       : audioAsset?.sourceType === "AI_MUSIC"
       ? "music"
       : "audio";
-  // Colors match the Assets colour coding: Narration = blue, Audio = green,
-  // Music = purple (video = brand terracotta; overlaps = red/orange warning).
+  // Video is a neutral dark placeholder, not a terracotta fill - the
+  // filmstrip (below) covers it almost immediately, and orange is reserved
+  // for the selection ring instead of competing with the thumbnails as a
+  // block color. Narration stays blue; the merged Audio/Music row reads as
+  // one softened purple family for both uploads and AI music (per-clip icon
+  // still tells them apart) rather than the old green/purple split, which
+  // fought the visual point of merging them into a single track. Overlap
+  // warning colors are unchanged.
   const getBackgroundColor = () => {
     if (isOverlapping) {
       return trackType === "VIDEO"
         ? isSelected ? "bg-red-400" : "bg-red-500"
         : isSelected ? "bg-orange-400" : "bg-orange-500";
     }
-    if (trackType === "VIDEO") {
-      return isSelected ? "bg-primary" : "bg-primary/80";
-    }
-    if (audioKind === "music") return isSelected ? "bg-purple-600" : "bg-purple-500";
-    if (audioKind === "audio") return isSelected ? "bg-green-600" : "bg-green-500";
-    return isSelected ? "bg-blue-500" : "bg-blue-400"; // narration
+    if (trackType === "VIDEO") return "bg-[rgb(var(--ink-warm-rgb))]";
+    if (audioKind === "narration") return isSelected ? "bg-blue-500" : "bg-blue-400/90";
+    return isSelected ? "bg-purple-500/95" : "bg-purple-400/75"; // audio or music
   };
 
   // Track-level waveform. Seeded from the shared cache (a hit means the trim
@@ -201,18 +204,32 @@ export default function TimelineItem({
 
   // Resting elevation, per DESIGN.md's "flat by default, lifted on emphasis":
   // a clip is not floating, but with no shadow at all it read as a bare
-  // coloured rectangle rather than a designed element. Warm-tinted toward
-  // Ink Plum (the Warm Shadow Rule - never a neutral or pure-black shadow);
-  // the drag shadow below is deepened from the same warm triple for the same
-  // reason, replacing the plain rgba(0,0,0,…) it used to use.
-  const restingShadow = "0 1px 2px rgb(var(--ink-rgb) / 0.16), 0 1px 4px rgb(var(--ink-rgb) / 0.10)";
+  // coloured rectangle rather than a designed element. Video thumbnails and
+  // narration waveform clips specifically read as flat even with the
+  // ink-tinted shadow every clip already carries - both are the two clip
+  // types with real visual texture (imagery / a waveform) sitting on their
+  // fill, so a plain dark shadow reads as generic rather than a lift. These
+  // two get the terracotta-tinted shadow already used elsewhere in the
+  // design system (rgba(193,68,14,0.06), see AppHeader.jsx) instead - still
+  // subtle, but ties the lift to the brand accent rather than a neutral ink
+  // tone. Audio/Music keeps the original ink shadow, unchanged.
+  const restingShadow =
+    trackType === "VIDEO" || audioKind === "narration"
+      ? "0 2px 6px rgba(193, 68, 14, 0.06), 0 1px 3px rgba(193, 68, 14, 0.04)"
+      : "0 1px 2px rgb(var(--ink-rgb) / 0.16), 0 1px 4px rgb(var(--ink-rgb) / 0.10)";
   const dragShadow = "0 8px 24px rgb(var(--ink-warm-rgb) / 0.34)";
 
   return (
     <motion.div
       ref={itemRef}
       data-item-id={item.id}
-      className={`absolute top-1.5 rounded-md ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
+      // top-2 (8px), matching TimelineTrack's `height - 16` (was top-1.5 / -12,
+      // 6px) - the Clean & Modern pass's "less dense, more breathable" ask.
+      // rounded-lg (8px) rather than rounded-md (6px): both sit inside the
+      // 6-8px "functional" tier a prior pass already landed correctly, this
+      // just moves to the softer end of that same documented range rather
+      // than introducing a new one.
+      className={`absolute top-2 rounded-lg ${bgColor} border-2 ${borderColor} cursor-pointer overflow-hidden group ${isDragging ? "z-50" : ""}`}
       animate={{
         left,
         width: Math.max(width, 20),
@@ -236,9 +253,17 @@ export default function TimelineItem({
           clip's width once fetched (see the effect above); falls back to the
           single static section cover while frames are still loading, and
           stays on that fallback if the clip isn't rendered yet (empty
-          thumbnails array) so the clip is never blank. */}
+          thumbnails array) so the clip is never blank. Every frame, filmstrip
+          and single-frame fallback alike, uses object-cover explicitly, so a
+          frame's own aspect ratio never stretches to fill the clip's
+          (usually different) box - cropping, not distortion. */}
       {trackType === "VIDEO" && (clipThumbnails?.length > 0 || thumbnail) && (
-        <div className="absolute inset-0 opacity-50 flex">
+        // gap-px over a dark backing draws a hairline between frames, so a
+        // filmstrip reads as a row of separate previews instead of one smeared
+        // image. Frames sit at near-full opacity (not full) so the label
+        // scrim below stays legible over bright frames without needing to
+        // darken the whole strip separately.
+        <div className="absolute inset-0 flex gap-px bg-black/30">
           {clipThumbnails?.length > 0
             ? clipThumbnails.map((url, i) => (
                 <img
@@ -246,51 +271,102 @@ export default function TimelineItem({
                   src={url}
                   alt=""
                   loading="lazy"
-                  className="flex-1 min-w-0 h-full object-cover"
+                  className="flex-1 min-w-0 h-full object-cover opacity-90"
                 />
               ))
             : (
                 <img
                   src={thumbnail}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover opacity-90"
                 />
               )}
         </div>
       )}
 
       {/* Track-level waveform, cache-hit only (see waveformCache.js) - not
-          fetched here, just opportunistically reused if already fetched. */}
-      {trackWaveform && (
-        <div className="absolute inset-0 flex items-center gap-px px-1 opacity-40 pointer-events-none">
+          fetched here, just opportunistically reused if already fetched.
+          Narration keeps a bar-chart reading (compact, higher floor so quiet
+          passages don't read as silence) since it sits on a small clip where
+          discrete syllable-like bars are legible. Audio/Music renders the
+          same data as one continuous filled silhouette (a mirrored area,
+          scaled to the clip via SVG's non-uniform viewBox) instead of a row
+          of separate rounded bars - closer to how a DAW or CapCut actually
+          draws a waveform, and it no longer reads as a bar chart sitting on
+          top of the clip. */}
+      {trackWaveform && audioKind !== "narration" && (
+        // Corrected back down from a prior "make it fuller/richer" pass
+        // (sqrt-boosted amplitude, opacity-45) - that read as more prominent
+        // than Narration's own waveform, when the two are meant to match in
+        // subtlety (same opacity-20, same restrained amplitude), just blue
+        // vs purple. Linear v*44 (no sqrt boost) with a low floor/cap mirrors
+        // Narration's own clamp(14,88, v*88)% bars: a two-sided SVG spread
+        // reads the same visual weight as a one-sided bar at roughly half
+        // the numeric range.
+        <svg
+          className="absolute inset-0 w-full h-full opacity-20 pointer-events-none"
+          viewBox={`0 0 ${Math.max(trackWaveform.length - 1, 1)} 100`}
+          preserveAspectRatio="none"
+        >
+          <polygon
+            fill="white"
+            points={[
+              ...trackWaveform.map((v, i) => `${i},${50 - Math.max(7, Math.min(44, Number(v) * 44))}`),
+              ...trackWaveform
+                .map((v, i) => [i, v])
+                .reverse()
+                .map(([i, v]) => `${i},${50 + Math.max(7, Math.min(44, Number(v) * 44))}`),
+            ].join(" ")}
+          />
+        </svg>
+      )}
+      {trackWaveform && audioKind === "narration" && (
+        // Dropped from opacity-35 - the bright white bars were reading as
+        // the most prominent thing on the clip, ahead of the label and the
+        // blue fill itself. Now a quieter texture, not the focal point.
+        <div className="absolute inset-0 flex items-center gap-px px-1 opacity-20 pointer-events-none">
           {trackWaveform.map((v, i) => (
             <div
               key={i}
-              className="flex-1 bg-white rounded-sm"
-              style={{ height: `${Math.max(8, Math.min(100, Number(v) * 100))}%` }}
+              className="flex-1 bg-white rounded-full"
+              style={{ height: `${Math.max(14, Math.min(88, Number(v) * 88))}%` }}
             />
           ))}
         </div>
       )}
 
-      {/* Content overlay */}
-      <div className="absolute inset-0 p-1 flex flex-col justify-between">
-        {/* Label */}
-        <div className="flex items-center gap-1 min-w-0">
+      {/* Content overlay. The label row carries its own top-down scrim so it
+          stays readable over whatever the filmstrip frame underneath happens
+          to be - a bright frame used to swallow the white text entirely. The
+          scrim fades to transparent well before the clip's midline, so it
+          darkens the text band without dimming the preview itself. */}
+      <div className="absolute inset-0 flex flex-col justify-between">
+        {/* Label. Video's scrim was tuned too light in an earlier pass
+            (from-black/45) and read as the title floating on the bare
+            thumbnail rather than sitting on a visible overlay - strengthened
+            back up so the dark-to-transparent gradient is clearly present
+            without covering the image below the text band. The audio rows
+            keep their fuller scrim (they're the entire visible surface, not
+            an overlay on imagery) at the same compact padding. */}
+        <div
+          className={`flex items-center gap-1.5 min-w-0 px-1.5 bg-gradient-to-b to-transparent ${
+            trackType === "VIDEO" ? "pt-1.5 pb-3 from-black/65 via-black/30" : "pt-1 pb-2 from-black/55 via-black/20"
+          }`}
+        >
           {trackType === "VIDEO" ? (
-            <Film className="w-3 h-3 flex-shrink-0 text-white/70" />
+            <Film className="w-3 h-3 flex-shrink-0 text-white/80 drop-shadow" />
           ) : audioKind === "narration" ? (
-            <Mic className="w-3 h-3 flex-shrink-0 text-white/70" />
+            <Mic className="w-3 h-3 flex-shrink-0 text-white/80 drop-shadow" />
           ) : audioKind === "music" ? (
-            <Music className="w-3 h-3 flex-shrink-0 text-white/70" />
+            <Music className="w-3 h-3 flex-shrink-0 text-white/80 drop-shadow" />
           ) : (
-            <Upload className="w-3 h-3 flex-shrink-0 text-white/70" />
+            <Upload className="w-3 h-3 flex-shrink-0 text-white/80 drop-shadow" />
           )}
-          <span className="text-xs text-white truncate">{label}</span>
+          <span className="text-xs font-medium text-white truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">{label}</span>
         </div>
 
         {/* Indicators */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 px-1.5 pb-1">
           {hasVolume && trackType === "AUDIO" && (
             <div className="flex items-center gap-0.5 text-xs text-white/70 bg-black/30 px-1 rounded">
               <Volume2 className="w-3 h-3" />

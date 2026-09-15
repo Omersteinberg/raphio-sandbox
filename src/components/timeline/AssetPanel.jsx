@@ -4,24 +4,29 @@ import {
   Play,
   Pencil,
   RefreshCw,
+  Upload,
+  Mic,
 } from "lucide-react";
 
-// Content types in this panel, presented as a tab row rather than the two
-// stacked collapsible accordions this used to be - one group visible at a
-// time reads far cleaner in a 256px column, and it matches how the rest of
-// the editor's panels are laid out. Same four groups the accordions held
-// (video clips, then narration / uploads / music inside the audio section),
-// just promoted to peers.
-const TABS = [
-  { key: "video", label: "Video" },
-  { key: "narration", label: "Narration" },
-  { key: "audio", label: "Audio" },
-  { key: "music", label: "Music" },
-];
+// One panel, two scopes, so the rail's Media and Audio categories don't list
+// the same assets twice. "media" is visual-only (video clips - a single group,
+// so no tab row); "audio" carries the narration / uploads / music groups as a
+// tab row, plus the upload and AI-voice actions at the top. The row markup
+// and drag payloads are shared, so a clip behaves identically wherever it's
+// listed.
+const SCOPES = {
+  media: [{ key: "video", label: "Video" }],
+  audio: [
+    { key: "narration", label: "Narration" },
+    { key: "audio", label: "Audio" },
+    { key: "music", label: "Music" },
+  ],
+};
 
 export default function AssetPanel({
+  scope = "media",
   sections,
-  audioAssets,
+  audioAssets = [], // media scope lists no audio, so the host doesn't pass any
   onDeleteAudio,
   onNarrationEdit,
   onRegenerateClip,
@@ -31,8 +36,12 @@ export default function AssetPanel({
   // "Regenerate" everywhere except the intro pipeline, where a clip is a designed
   // brand scene and the action reworks it rather than re-rolling AI footage.
   regenerateLabel = "Regenerate",
+  // Audio scope only: the two quick actions above the groups.
+  onOpenAudioUpload,
+  onOpenVoice,
 }) {
-  const [activeTab, setActiveTab] = useState("video");
+  const TABS = SCOPES[scope];
+  const [activeTab, setActiveTab] = useState(TABS[0].key);
   const [playingAudio, setPlayingAudio] = useState(null);
 
   // Every payload carries the asset's real length. The canvas fits the drop into
@@ -139,13 +148,37 @@ export default function AssetPanel({
   return (
     <div className="h-full flex flex-col">
       <div className="px-4 pt-4 pb-3">
-        <h3 className="text-sm font-semibold text-foreground">Assets</h3>
+        <h3 className="text-sm font-semibold text-foreground">{scope === "audio" ? "Audio" : "Media"}</h3>
       </div>
+
+      {scope === "audio" && (
+        <div className="px-3 pb-3 space-y-2">
+          <button
+            onClick={onOpenAudioUpload}
+            className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
+          >
+            <Upload className="w-4 h-4 text-primary shrink-0" />
+            Upload audio
+          </button>
+          <button
+            onClick={onOpenVoice}
+            className="w-full flex items-center gap-2.5 py-3 px-3.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted hover:border-primary/40 transition-colors"
+          >
+            <Mic className="w-4 h-4 text-primary shrink-0" />
+            Generate AI voice
+          </button>
+        </div>
+      )}
 
       {/* Tab row - underline-marked rather than filled, so it stays quiet
           against the panel and the terracotta underline is the only accent.
-          Horizontally scrollable so four tabs never wrap in a 256px column. */}
-      <div className="flex items-stretch gap-1 px-3 border-b border-border overflow-x-auto scrollbar-hidden shrink-0">
+          Each tab is flex-1, so all are the same width and the row is evenly
+          divided regardless of label length; the panel is sized (w-80 in
+          EditorSidePanel) so none of them truncate. No horizontal scroll - a
+          tab row you have to scroll to see defeats the point. Skipped when
+          the scope has one group: a single tab is just a heading. */}
+      {TABS.length > 1 && (
+      <div className="flex items-stretch px-3 border-b border-border shrink-0">
         {TABS.map(({ key, label }) => {
           const isActive = activeTab === key;
           return (
@@ -153,21 +186,22 @@ export default function AssetPanel({
               key={key}
               onClick={() => setActiveTab(key)}
               aria-current={isActive}
-              className={`relative shrink-0 px-2 pb-2.5 pt-1 text-xs font-semibold transition-colors ${
+              className={`relative flex-1 min-w-0 flex items-center justify-center gap-1 px-1 pb-2.5 pt-1 transition-colors ${
                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {label}
+              <span className="text-xs font-semibold truncate">{label}</span>
               {tabCounts[key] > 0 && (
-                <span className="ml-1 text-xs font-medium opacity-60 tabular-nums">{tabCounts[key]}</span>
+                <span className="text-xs font-medium opacity-60 tabular-nums shrink-0">{tabCounts[key]}</span>
               )}
               {isActive && (
-                <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-primary" />
+                <span className="absolute left-1 right-1 -bottom-px h-0.5 rounded-full bg-primary" />
               )}
             </button>
           );
         })}
       </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {/* Video clips */}

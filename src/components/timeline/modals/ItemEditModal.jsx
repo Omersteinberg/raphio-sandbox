@@ -290,7 +290,8 @@ export default function ItemEditModal({ item, section, audioAsset, sessionId, on
                 step={0.1}
                 value={trimStart}
                 onChange={(e) => updateIn(parseFloat(e.target.value))}
-                className="w-full accent-primary"
+                className="w-full range-terra"
+                style={{ "--range-progress": `${sourceDuration > 0 ? (trimStart / sourceDuration) * 100 : 0}%` }}
               />
               <input
                 type="number"
@@ -311,7 +312,8 @@ export default function ItemEditModal({ item, section, audioAsset, sessionId, on
                 step={0.1}
                 value={trimEnd}
                 onChange={(e) => updateOut(parseFloat(e.target.value))}
-                className="w-full accent-primary"
+                className="w-full range-terra"
+                style={{ "--range-progress": `${sourceDuration > 0 ? (trimEnd / sourceDuration) * 100 : 0}%` }}
               />
               <input
                 type="number"

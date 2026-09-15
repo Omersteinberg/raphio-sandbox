@@ -50,6 +50,11 @@
     --cream:        #F5F0EB;
     --cream-alt:    #FDF6F0;
     --surface:      #FFFAF7;
+    /* Timeline editor's own continuous surface - toolbar, ruler and track
+       body all share this single tone (lighter than --background) so they
+       read as one lifted surface rather than stacked panels of different
+       shades. Not reused outside the timeline editor. */
+    --timeline-surface: #FCF7F4;
     --surface-alt:  #F0EAE5;
     --ink:          #2D2235;
     --ink-rgb:      45 34 53;
@@ -234,6 +239,19 @@
   box-shadow: 0 12px 32px rgb(var(--ink-warm-rgb) / 0.18), 0 2px 8px rgb(var(--ink-warm-rgb) / 0.10);
 }
 
+/* Modal chrome. `.editor-modal` is DESIGN.md's "Emphasis, ink" tier verbatim
+   (0 24px 60px at 0.28, Warm Char tinted) - the one shadow reserved for
+   surfaces that genuinely float, which a modal is. `.editor-scrim` replaces
+   the plain bg-black/50 the modals used: DESIGN.md flags that neutral scrim
+   as a known gap "if the overlay is touched again", and it is being touched
+   again, so the scrim is now Warm Char tinted like every other shadow. */
+.editor-modal {
+  box-shadow: 0 24px 60px rgb(var(--ink-warm-rgb) / 0.28);
+}
+.editor-scrim {
+  background-color: rgb(var(--ink-warm-rgb) / 0.55);
+}
+
 /* ── Range sliders (zoom, speed, volume, fade, seek) ──────────────
    The native control reads as generic browser chrome in an otherwise
    designed tool, so track + thumb are drawn explicitly. Track fill uses
@@ -260,8 +278,8 @@
     to right,
     var(--terra) 0%,
     var(--terra) var(--range-progress, 0%),
-    hsl(var(--border)) var(--range-progress, 0%),
-    hsl(var(--border)) 100%
+    rgb(var(--ink-rgb) / 0.16) var(--range-progress, 0%),
+    rgb(var(--ink-rgb) / 0.16) 100%
   );
 }
 .range-terra::-moz-range-track {
@@ -271,8 +289,8 @@
     to right,
     var(--terra) 0%,
     var(--terra) var(--range-progress, 0%),
-    hsl(var(--border)) var(--range-progress, 0%),
-    hsl(var(--border)) 100%
+    rgb(var(--ink-rgb) / 0.16) var(--range-progress, 0%),
+    rgb(var(--ink-rgb) / 0.16) 100%
   );
 }
 .range-terra::-webkit-slider-thumb {
@@ -304,6 +322,35 @@
 }
 .range-terra:active::-webkit-slider-thumb { transform: scale(0.94); }
 .range-terra:active::-moz-range-thumb { transform: scale(0.94); }
+/* Variant for a slider sitting ON media (the preview's overlaid seek bar):
+   the default unfilled track is a dark warm ink wash, which disappears
+   against dark footage - on media it becomes a translucent white instead,
+   and the thumb picks up a shadow strong enough to read over a bright frame. */
+.range-terra-on-media::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--terra) 0%,
+    var(--terra) var(--range-progress, 0%),
+    rgba(255, 255, 255, 0.45) var(--range-progress, 0%),
+    rgba(255, 255, 255, 0.45) 100%
+  );
+}
+.range-terra-on-media::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    var(--terra) 0%,
+    var(--terra) var(--range-progress, 0%),
+    rgba(255, 255, 255, 0.45) var(--range-progress, 0%),
+    rgba(255, 255, 255, 0.45) 100%
+  );
+}
+.range-terra-on-media::-webkit-slider-thumb {
+  box-shadow: 0 1px 4px rgb(var(--ink-warm-rgb) / 0.55);
+}
+.range-terra-on-media::-moz-range-thumb {
+  box-shadow: 0 1px 4px rgb(var(--ink-warm-rgb) / 0.55);
+}
+
 .range-terra:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 3px;
@@ -349,3 +396,27 @@
 }
 
 
+
+/* The timeline canvas's own scrollbars. Deterministic and thin so the
+   horizontal bar's layout footprint (classic/non-overlay scrollbars take real
+   space inside an overflow-auto box) stays within the height reserve
+   TimelineEditor gives the canvas (TIMELINE_SCROLLBAR_RESERVE in
+   lib/timelineLayout.js). Warm tokens, not the browser's grey default. */
+.timeline-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+.timeline-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.timeline-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.timeline-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+.timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}

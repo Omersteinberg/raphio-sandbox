@@ -4,17 +4,10 @@ import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
 import { toast } from "@/lib/toast";
+import { TRACK_HEIGHT, TOTAL_TRACKS, TRACK_LABEL_WIDTH } from "@/lib/timelineLayout";
 
 const SNAP_THRESHOLD_PX = 10; // Snap within 10 pixels
 const MIN_DURATION = 0.5; // Shortest a clip can be trimmed to (seconds)
-
-// Width of the label column at the head of every track row (TimelineTrack's
-// `w-20`). It sits INSIDE the scrolling content, so a pointer x measured against
-// the scroll container is this much further right than the track's own time
-// axis. Every conversion between pixels and seconds has to account for it: the
-// drop handler used to skip it and dropped every asset 80px late (1.6s at zoom
-// 1), while the snap indicator added it back by hand.
-const TRACK_LABEL_WIDTH = 80;
 
 // How far a dropped asset may be nudged to avoid an overlap, in pixels, so the
 // nudge scales with zoom the way the user's sense of "about here" does. Past
@@ -53,19 +46,25 @@ export default function TimelineCanvas({
   onBoundaryClick,
 }) {
   const containerRef = useRef(null);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  // Per-track show/hide - local, visual only, never touches item data or the
-  // export. Keyed "TRACKTYPE-trackIndex" so Video/Narration/Audio/Music each
-  // toggle independently.
-  const [hiddenTracks, setHiddenTracks] = useState(() => new Set());
-  const toggleTrackVisibility = useCallback((key) => {
-    setHiddenTracks((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+  // Visible width of the scroll container itself, so timelineWidth (below)
+  // can use it as the floor instead of a hardcoded guess. Without this, a
+  // fixed floor is either too wide for a narrow panel (forcing a horizontal
+  // scrollbar - which then eats vertical space inside this overflow-auto box
+  // and can trigger an unwanted vertical scrollbar too) or too narrow for a
+  // wide one (leaving dead space that should've been filled, no scroll
+  // needed either way). ResizeObserver rather than a one-time read because
+  // the panel is user-resizable (drag handle) and the window can resize.
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0].contentRect.width);
     });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragType, setDragType] = useState(null); // 'move', 'trim-start', 'trim-end'
   const [dragItem, setDragItem] = useState(null);
@@ -75,13 +74,31 @@ export default function TimelineCanvas({
   const [snapIndicator, setSnapIndicator] = useState(null); // { time: number } for visual snap line
   const [dropRow, setDropRow] = useState(null); // { trackType, trackIndex } row under an asset being dragged in
 
-  const timelineWidth = Math.max(duration * pixelsPerSecond + 200, 800);
-  const trackHeight = 60;
-  const totalTracks = 4;
+  // The actual content this row of tracks needs: the label column plus every
+  // second of the project, plus a little breathing room past the last clip so
+  // a drop there doesn't land flush against the edge. Floored at the
+  // container's own measured width (not a fixed guess) so a short/empty
+  // project fills the panel exactly - no horizontal scrollbar - and only a
+  // genuinely wide project (content wider than the panel) grows past it.
+  // Floored: contentRect.width is fractional under flex layouts / browser
+  // zoom, and a 1103.5px content box inside a 1103px client box rounds
+  // scrollWidth up to 1104 - a phantom 1px horizontal scrollbar.
+  const timelineWidth = Math.max(
+    TRACK_LABEL_WIDTH + duration * pixelsPerSecond + 40,
+    Math.floor(containerWidth)
+  );
+  // Both imported from lib/timelineLayout.js rather than declared locally -
+  // TimelineEditor's default-canvas-height math reads the same module, so
+  // the two can no longer drift the way they did twice before (see that
+  // file's header comment).
+  const trackHeight = TRACK_HEIGHT;
+  const totalTracks = TOTAL_TRACKS;
 
-  // Group audio into three rows by source KIND (not stored trackIndex, so older
-  // timelines map correctly): Narration (section narration + TTS voice), Audio
-  // (uploaded files), Music (background music).
+  // Group audio into two rows by source KIND (not stored trackIndex, so older
+  // timelines map correctly): Narration (section narration + TTS voice), and
+  // Audio/Music (uploads + background music, merged into one row - they were
+  // two rows before; per-item styling still tells them apart, see
+  // TimelineItem's own audioKind()).
   const audioKind = (item) => {
     if (item.sectionId) return "narration";
     const a = item.audioAssetId ? getAudioAsset(item.audioAssetId) : null;
@@ -90,19 +107,17 @@ export default function TimelineCanvas({
     return "audio"; // UPLOAD or anything else
   };
   const narrationItems = audioItems.filter((i) => audioKind(i) === "narration");
-  const audioRowItems = audioItems.filter((i) => audioKind(i) === "audio");
-  const musicItems = audioItems.filter((i) => audioKind(i) === "music");
+  const audioMusicItems = audioItems.filter((i) => audioKind(i) !== "narration");
 
   // The items on one ROW, addressed the way the rows are rendered below. Used
   // for drops, where there is no existing item to infer the row from.
   const rowItems = useCallback(
     (trackType, trackIndex) => {
       if (trackType === "VIDEO") return videoItems;
-      if (trackIndex === 2) return musicItems;
-      if (trackIndex === 1) return audioRowItems;
+      if (trackIndex === 1) return audioMusicItems;
       return narrationItems;
     },
-    [videoItems, narrationItems, audioRowItems, musicItems]
+    [videoItems, narrationItems, audioMusicItems]
   );
 
   // The row an item lives on. An existing item knows its own by membership
@@ -115,11 +130,10 @@ export default function TimelineCanvas({
     (itemId, trackType, trackIndex = 0) => {
       if (!itemId) return rowItems(trackType, trackIndex);
       if (trackType === "VIDEO") return videoItems;
-      if (musicItems.some((i) => i.id === itemId)) return musicItems;
-      if (audioRowItems.some((i) => i.id === itemId)) return audioRowItems;
+      if (audioMusicItems.some((i) => i.id === itemId)) return audioMusicItems;
       return narrationItems;
     },
-    [rowItems, videoItems, narrationItems, audioRowItems, musicItems]
+    [rowItems, videoItems, narrationItems, audioMusicItems]
   );
 
   // The clip boundary nearest `time` on a row: 0, or the start or end of one of
@@ -169,7 +183,7 @@ export default function TimelineCanvas({
     (draggedItem) => {
       const points = new Set();
 
-      [...videoItems, ...narrationItems, ...audioRowItems, ...musicItems].forEach((item) => {
+      [...videoItems, ...narrationItems, ...audioMusicItems].forEach((item) => {
         if (item.id === draggedItem.id) return;
         points.add(item.startTime);
         points.add(item.startTime + item.duration);
@@ -181,7 +195,7 @@ export default function TimelineCanvas({
 
       return [...points];
     },
-    [videoItems, narrationItems, audioRowItems, musicItems, playheadPosition, duration]
+    [videoItems, narrationItems, audioMusicItems, playheadPosition, duration]
   );
 
   // Find the nearest snap target for a given time value
@@ -692,16 +706,25 @@ export default function TimelineCanvas({
     <div
       ref={containerRef}
       data-timeline-container
-      className="w-full h-full overflow-auto bg-muted"
+      className="w-full h-full overflow-auto bg-background timeline-scroll"
       onScroll={handleScroll}
     >
       <div
         className="relative"
         style={{ width: timelineWidth, minHeight: "100%" }}
       >
-        {/* Ruler */}
+        {/* Ruler. Same bg-background tone as the canvas root below it - ruler
+            and track body read as one continuous surface. The toolbar above
+            (TimelineEditor's transport strip) intentionally uses a slightly
+            different tone (--timeline-surface, #FCF7F4 vs this bg-background
+            #F5F0EB) - a subtle, few-point difference, not a stark one, so
+            the toolbar reads as a related-but-separate panel rather than
+            either fully fused with or jarringly distinct from the timeline
+            body beneath it. The ruler's own border-b (in TimelineRuler.jsx)
+            marks the seam with the track rows - a hairline, not a tonal or
+            shadow break. */}
         <div
-          className="sticky top-0 z-20 bg-card border-b border-border"
+          className="sticky top-0 z-20 bg-background"
           onClick={handleRulerSeek}
           onTouchEnd={handleRulerSeek}
         >
@@ -734,8 +757,6 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "VIDEO"}
             overlappingItems={videoOverlaps}
             dragPreview={dragPreview}
-            isHidden={hiddenTracks.has("VIDEO-0")}
-            onToggleVisibility={() => toggleTrackVisibility("VIDEO-0")}
             sessionId={sessionId}
             boundaries={videoBoundaries}
             onBoundaryClick={onBoundaryClick}
@@ -761,17 +782,20 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 0}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
-            isHidden={hiddenTracks.has("AUDIO-0")}
-            onToggleVisibility={() => toggleTrackVisibility("AUDIO-0")}
             sessionId={sessionId}
           />
 
-          {/* Audio Track (uploaded audio) */}
+          {/* Audio/Music Track - uploads and AI background music merged into
+              one row (was two: "Audio" at index 1, "Music" at index 2).
+              trackIndex stays 1 for the merged row; TimelineCanvas's rowFor/
+              rowItems route both kinds there now. Each clip still shows its
+              own kind (upload vs music) via TimelineItem's own audioKind() -
+              only the ROW grouping changed, not per-clip styling. */}
           <TimelineTrack
-            label="Audio"
+            label="Audio / Music"
             trackType="AUDIO"
             trackIndex={1}
-            items={audioRowItems}
+            items={audioMusicItems}
             height={trackHeight}
             pixelsPerSecond={pixelsPerSecond}
             selectedItem={selectedItem}
@@ -786,33 +810,6 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 1}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
-            isHidden={hiddenTracks.has("AUDIO-1")}
-            onToggleVisibility={() => toggleTrackVisibility("AUDIO-1")}
-            sessionId={sessionId}
-          />
-
-          {/* Music Track (background music) */}
-          <TimelineTrack
-            label="Music"
-            trackType="AUDIO"
-            trackIndex={2}
-            items={musicItems}
-            height={trackHeight}
-            pixelsPerSecond={pixelsPerSecond}
-            selectedItem={selectedItem}
-            onSelectItem={onSelectItem}
-            onItemDragStart={handleItemDragStart}
-            onItemEdit={onItemEdit}
-            getSection={getSection}
-            getAudioAsset={getAudioAsset}
-            onDrop={(e) => handleDrop(e, "AUDIO", 2)}
-            onDragOver={(e) => handleDragOver(e, "AUDIO", 2)}
-            onDragLeave={handleDragLeave}
-            isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 2}
-            overlappingItems={noOverlaps}
-            dragPreview={dragPreview}
-            isHidden={hiddenTracks.has("AUDIO-2")}
-            onToggleVisibility={() => toggleTrackVisibility("AUDIO-2")}
             sessionId={sessionId}
           />
 
@@ -820,20 +817,19 @@ export default function TimelineCanvas({
               `duration` for scroll/drop breathing room, and every track row
               stretches to fill it, so without this the tracks read as
               ambiguous empty rows continuing forever once scrolled/zoomed
-              past the last clip. Painted bg-muted - the SAME token the
-              canvas's own root scroll container uses (below), not
-              bg-background - so this reads as a seamless continuation of
-              that surface rather than a second, differently-shaded fill
-              butted up against it. Spans the full track stack height (every
-              row, not just Video) and sits above the tracks' own colored
-              fill and grid lines (default stacking order, rendered after
-              them) but below the snap line/playhead/boundary markers.
-              Pointer-events-none: nothing should ever exist past `duration`
-              anyway, but this must never be what blocks a drop there if it
-              did. */}
+              past the last clip. Painted bg-background - the SAME token
+              the canvas's own root scroll container uses (below) - so this
+              reads as a seamless continuation of that surface rather than a
+              second, differently-shaded fill butted up against it. Spans the
+              full track stack height (every row, not just Video) and sits
+              above the tracks' own colored fill and grid lines (default
+              stacking order, rendered after them) but below the snap
+              line/playhead/boundary markers. Pointer-events-none: nothing
+              should ever exist past `duration` anyway, but this must never
+              be what blocks a drop there if it did. */}
           {duration * pixelsPerSecond + TRACK_LABEL_WIDTH < timelineWidth && (
             <div
-              className="absolute top-0 bg-muted pointer-events-none"
+              className="absolute top-0 bg-background pointer-events-none"
               style={{
                 left: duration * pixelsPerSecond + TRACK_LABEL_WIDTH,
                 width: timelineWidth - (duration * pixelsPerSecond + TRACK_LABEL_WIDTH),
@@ -854,11 +850,16 @@ export default function TimelineCanvas({
             />
           )}
 
-          {/* Playhead */}
+          {/* Playhead. Height is exactly the track stack - it used to be
+              +40px, and because it's absolutely positioned inside the tracks
+              container that overhang still counted toward scrollHeight, which
+              is what let the canvas scroll ~40px down past the Music track
+              into empty space. Mirrors the horizontal past-the-end fix: the
+              scrollable area should be exactly the content, no further. */}
           <TimelinePlayhead
             position={playheadPosition}
             pixelsPerSecond={pixelsPerSecond}
-            height={trackHeight * totalTracks + 40}
+            height={trackHeight * totalTracks}
             onSeek={onSeek}
           />
         </div>

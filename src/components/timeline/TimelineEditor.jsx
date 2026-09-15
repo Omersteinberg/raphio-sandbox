@@ -22,7 +22,6 @@ import {
   Undo2,
   Play,
   Pause,
-  Square,
   Maximize,
   Eye,
   EyeOff,
@@ -30,8 +29,6 @@ import {
   Type,
   Shapes,
   Settings,
-  TrendingUp,
-  TrendingDown,
   Blend,
   Scissors,
 } from "lucide-react";
@@ -46,6 +43,7 @@ import { estimatedProgress } from "@/lib/progressEstimate";
 import { describeError } from "@/lib/errorDetail";
 import { useTimeline } from "@/hooks/timeline/useTimeline";
 import * as sessionService from "@/services/session";
+import { TIMELINE_CONTENT_HEIGHT, TIMELINE_SCROLLBAR_RESERVE } from "@/lib/timelineLayout";
 import TimelineCanvas from "./TimelineCanvas";
 import TimelineControls from "./TimelineControls";
 import EditorSidePanel from "./EditorSidePanel";
@@ -97,12 +95,16 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [editingNarration, setEditingNarration] = useState(null); // { item, section }
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(null); // { percentage, label } while exporting
-  const [speedSheetOpen, setSpeedSheetOpen] = useState(false);
-  const [volumeSheetOpen, setVolumeSheetOpen] = useState(false);
-  const [volumeDraft, setVolumeDraft] = useState(1); // 0-1.5 while the volume sheet is open
-  const [fadeInDraft, setFadeInDraft] = useState(0); // 0-5s, lives in the same sheet as volume
-  const [fadeOutDraft, setFadeOutDraft] = useState(0); // 0-5s, lives in the same sheet as volume
-  const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed sheet is open
+  // Which control the ClipActionPill has expanded in place: 'speed',
+  // 'volume', or null for the compact action row. Replaces the old pair of
+  // speedSheetOpen/volumeSheetOpen booleans - those drove two separate
+  // full-screen bottom sheets that could render at the same time as the pill
+  // itself. One surface, one piece of state.
+  const [expandedPanel, setExpandedPanel] = useState(null);
+  const [volumeDraft, setVolumeDraft] = useState(1); // 0-1.5 while the volume panel is open
+  const [fadeInDraft, setFadeInDraft] = useState(0); // 0-5s, lives in the same panel as volume
+  const [fadeOutDraft, setFadeOutDraft] = useState(0); // 0-5s, lives in the same panel as volume
+  const [speedDraft, setSpeedDraft] = useState(1); // 0.25-6 while the speed panel is open
   // Transition sheet - opened from a boundary marker between two adjacent
   // VIDEO clips (TimelineCanvas), not from a clip selection, so it tracks its
   // own boundary object rather than reusing timeline.selectedItem.
@@ -120,15 +122,54 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const [showReferences, setShowReferences] = useState(false); // references-pipeline: view refs used
   const [timelineHidden, setTimelineHidden] = useState(false); // "Hide timeline" transport-strip toggle (local, visual only)
 
+  // Any full-screen sheet/modal currently covering the editor. The floating
+  // ClipActionPill is z-[60] and every scrim below is z-50, so the pill has
+  // to be suppressed while one of these is up or it paints over the sheet it
+  // opened. Listed explicitly rather than inferred so a new sheet has to opt
+  // in deliberately.
+  const anyOverlayOpen =
+    assetsSheetOpen ||
+    mobileAudioSheetOpen ||
+    transitionBoundary != null ||
+    regenSection != null ||
+    editingNarration != null ||
+    editingItem != null ||
+    showMusicModal ||
+    showAudioUpload ||
+    showTTSModal ||
+    showReferences ||
+    regenerating ||
+    exporting;
+
   // Resizable timeline height (desktop only - mobile's preview is a fixed
   // vh-based band with the canvas filling whatever's left, a different model
   // that a drag handle doesn't map onto cleanly). Persisted the same way the
   // rail collapse state is (EditorSidePanel.jsx's COLLAPSE_KEY): plain
   // localStorage, read once on mount, written on release rather than on
   // every drag tick.
-  const TIMELINE_HEIGHT_KEY = "merge:editor:timelineHeight";
+  // Key is versioned (now .v4) deliberately, same reasoning each time it's
+  // bumped: the DEFAULT has to actually fit every track at whatever the
+  // current track count/height is, and a value persisted under an older
+  // combination can end up too short for a newer one - v3's 296px default
+  // (for 4 tracks) would now be TALLER than needed for 3 (Music merged into
+  // Audio, see TimelineCanvas's audioMusicItems), leaving dead space below
+  // the last row rather than cutting anything off, but still not the exact
+  // fit the resize feature promises. Bumping the key resets everyone once to
+  // a default that fits exactly; their next drag persists under the new key.
+  //
+  // TIMELINE_CONTENT_HEIGHT now comes from lib/timelineLayout.js rather than
+  // being hand-computed here from a hardcoded track count/height - that
+  // literal drifted out of sync with TimelineCanvas's own totalTracks twice
+  // already (.v2, then .v3). Both files read the same constant now, so a
+  // future track-count change only has to happen in one place.
+  const TIMELINE_HEIGHT_KEY = "merge:editor:timelineHeight.v4";
   const TIMELINE_MIN_HEIGHT = 120;
   const TIMELINE_MAX_HEIGHT = 480;
+  // Content plus room for the canvas's horizontal scrollbar. This used to be
+  // a bare +8 "so the border isn't flush", which a classic Windows scrollbar
+  // (15px) overran - every project wider than the panel then lost row height
+  // to that bar and grew a spurious vertical scrollbar on top of it.
+  const TIMELINE_DEFAULT_HEIGHT = TIMELINE_CONTENT_HEIGHT + TIMELINE_SCROLLBAR_RESERVE;
   const [timelineCanvasHeight, setTimelineCanvasHeight] = useState(() => {
     try {
       const saved = Number(localStorage.getItem(TIMELINE_HEIGHT_KEY));
@@ -138,10 +179,10 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     } catch {
       /* localStorage unavailable - default height still works for this session */
     }
-    return 192; // matches the previous fixed h-48
+    return TIMELINE_DEFAULT_HEIGHT;
   });
   const [resizingTimeline, setResizingTimeline] = useState(false);
-  const resizeStartRef = useRef({ y: 0, height: 192 });
+  const resizeStartRef = useRef({ y: 0, height: TIMELINE_DEFAULT_HEIGHT });
 
   const handleResizeStart = (e) => {
     e.preventDefault();
@@ -224,17 +265,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   const addNarrationAsset = (section) => {
     const dur = Number(section.narrationDuration || section.clipDuration) || 5;
     timeline.addItem({ trackType: "AUDIO", trackIndex: 0, startTime: freeSlot("AUDIO", 0, dur), duration: dur, sectionId: section.id });
-    setAssetsSheetOpen(false);
+    setMobileAudioSheetOpen(false);
   };
-  // Route an audio asset to its row by source: TTS → Narration (0), uploads →
-  // Audio (1), background music → Music (2). Matches TimelineCanvas's audioKind.
-  const audioTrackIndex = (asset) =>
-    asset?.sourceType === "TTS" ? 0 : asset?.sourceType === "AI_MUSIC" ? 2 : 1;
+  // Route an audio asset to its row by source: TTS → Narration (0), uploads
+  // and background music both → the merged Audio/Music row (1). Matches
+  // TimelineCanvas's audioKind() - AI_MUSIC used to route to its own row 2,
+  // now merged with uploads at row 1.
+  const audioTrackIndex = (asset) => (asset?.sourceType === "TTS" ? 0 : 1);
   const addAudioAsset = (asset) => {
     const dur = Number(asset.duration) || 5;
     const idx = audioTrackIndex(asset);
     timeline.addItem({ trackType: "AUDIO", trackIndex: idx, startTime: freeSlot("AUDIO", idx, dur), duration: dur, audioAssetId: asset.id });
-    setAssetsSheetOpen(false);
+    setMobileAudioSheetOpen(false);
   };
 
   // The AI background-music asset, if this video has one. Drives the regenerate
@@ -353,20 +395,26 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     timeline.updateItem(sel.id, { speed: s, duration: keptSource / s });
   };
 
-  // Closing a clip-contextual sheet/modal generally means "I'm done with
-  // this clip for now", so the pill should dismiss along with it. Speed is
-  // the deliberate exception: on an audio clip, Volume sits right next to
-  // it in the same pill, so a likely next step is adjusting Volume - closing
-  // Speed only dismisses when there's no Volume action to chain into (i.e.
-  // the clip isn't audio).
-  const closeSpeedSheet = () => {
-    setSpeedSheetOpen(false);
+  // Expanding/collapsing the pill's in-place panel. Collapsing a panel
+  // generally means "I'm done with this clip for now", so it also drops the
+  // selection - same rule the old bottom sheets followed. Two deliberate
+  // exceptions, both preserved from that behaviour:
+  //
+  //  - Collapsing SPEED on an AUDIO clip keeps the clip selected, because
+  //    Volume sits right next to Speed in the same row and is the likely
+  //    next step. On a video clip there is no Volume to chain into, so it
+  //    dismisses.
+  //  - Switching directly between panels (Speed -> Volume) is not a collapse
+  //    at all: the panel swaps in place, nothing is dismissed, and the
+  //    surface never fully closes between the two.
+  const handleExpandChange = (panel) => {
+    const collapsing = panel === null;
+    setExpandedPanel(panel);
+    if (!collapsing) return;
+
     const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
-    if (!sel || sel.trackType !== "AUDIO") timeline.setSelectedItem(null);
-  };
-  const closeVolumeSheet = () => {
-    setVolumeSheetOpen(false);
-    timeline.setSelectedItem(null);
+    const keepForVolume = expandedPanel === "speed" && sel?.trackType === "AUDIO";
+    if (!keepForVolume) timeline.setSelectedItem(null);
   };
   const closeRegenModal = () => {
     setRegenSection(null);
@@ -435,11 +483,15 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     return { item, section, audioAsset, label, thumbnail };
   };
 
-  // The Clip Details panel is persistent (not opened by a click like the old
-  // bottom sheets were), so its Speed/Volume drafts need to re-seed from
-  // whichever clip is CURRENTLY selected, not just at the moment a button was
-  // clicked. Runs whenever the selection changes.
+  // The pill is persistent (it follows the selection rather than being opened
+  // by a click), so its Speed/Volume drafts have to re-seed from whichever
+  // clip is CURRENTLY selected, not just from whatever was selected when a
+  // button was last pressed. Selecting a different clip also collapses the
+  // pill back to its compact row: an expanded panel left open across a
+  // selection change would be showing one clip's controls under another
+  // clip's anchor.
   useEffect(() => {
+    setExpandedPanel(null);
     const sel = timeline.items.find((i) => i.id === timeline.selectedItem);
     if (!sel) return;
     setSpeedDraft(Number(sel.speed) || 1);
@@ -970,10 +1022,10 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           <div
             ref={previewContainerRef}
             data-tour="preview"
-            className={`${isMobile ? "h-[34vh] shrink-0 p-2" : "flex-1 min-h-[280px] p-4 lg:p-6"} bg-background flex flex-col border-b border-border`}
+            className={`${isMobile ? "h-[34vh] shrink-0 px-3 py-3" : "flex-1 min-h-[280px] px-4 py-4 lg:px-6 lg:py-5"} bg-background flex flex-col border-b border-border`}
           >
-            <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-muted overflow-hidden editor-screen">
-              <div className="flex-1 min-h-0 flex items-center justify-center">
+            <div className="relative flex-1 min-h-0 rounded-xl border border-border bg-muted overflow-hidden editor-screen">
+              <div className="absolute inset-0 flex items-center justify-center">
                 <VideoPreview
                   items={timeline.videoItems}
                   audioItems={timeline.audioItems}
@@ -988,14 +1040,20 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   registerAudioEl={timeline.registerAudioEl}
                 />
               </div>
-              {/* Player controls, part of the screen frame itself (inside the
-                  rounded/overflow-hidden card) - separate from the transport
-                  strip below, which drives the timeline rather than playback. */}
-              <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-black/45 backdrop-blur-sm">
-                <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} aria-label={timeline.isPlaying ? "Pause" : "Play"} className="text-white/90 hover:text-white p-1">
+              {/* Player controls OVERLAID on the frame rather than occupying
+                  their own row beneath it, so the screen is all picture. A
+                  bottom-anchored gradient scrim (transparent at the top edge)
+                  carries them instead of a hard bar - it keeps white controls
+                  legible over any footage without visually cutting the frame
+                  in two. Always visible rather than hover-revealed: touch has
+                  no hover, and scrubbing is the single most frequent action
+                  here, so hiding the seek bar behind a hover would cost more
+                  than it buys. */}
+              <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 px-3 pb-2 pt-8 bg-gradient-to-t from-black/75 via-black/45 to-transparent">
+                <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} aria-label={timeline.isPlaying ? "Pause" : "Play"} className="text-white/90 hover:text-white p-1 shrink-0 transition-transform active:scale-95">
                   {timeline.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </button>
-                <span className="text-[11px] text-white/70 tabular-nums shrink-0">
+                <span className="text-[11px] text-white/80 tabular-nums shrink-0 drop-shadow">
                   {formatPreviewTime(timeline.playheadPosition)} / {formatPreviewTime(timeline.duration)}
                 </span>
                 <input
@@ -1005,14 +1063,21 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   step={0.01}
                   value={Math.min(timeline.playheadPosition, timeline.duration || 0)}
                   onChange={(e) => timeline.seek(Number(e.target.value))}
-                  className="flex-1 range-terra"
+                  className="flex-1 range-terra range-terra-on-media"
                   style={{ "--range-progress": `${timeline.duration > 0 ? (Math.min(timeline.playheadPosition, timeline.duration) / timeline.duration) * 100 : 0}%` }}
                   aria-label="Seek"
                 />
-                <button onClick={() => setPreviewMuted((m) => !m)} aria-label={previewMuted ? "Unmute" : "Mute"} className="text-white/90 hover:text-white p-1">
+                <button onClick={() => setPreviewMuted((m) => !m)} aria-label={previewMuted ? "Unmute" : "Mute"} className="text-white/90 hover:text-white p-1 shrink-0 transition-transform active:scale-95">
                   {previewMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </button>
-                <button onClick={toggleFullscreen} aria-label="Fullscreen" className="text-white/90 hover:text-white p-1">
+                {/* Placeholder only - no settings panel exists yet. Same
+                    "not available yet" toast pattern already used for the
+                    rail's own Text/Elements/Settings entries, rather than a
+                    new empty-state UI just for this one button. */}
+                <button onClick={() => toast.info("Preview settings aren't available yet.")} aria-label="Settings" className="text-white/90 hover:text-white p-1 shrink-0 transition-transform active:scale-95">
+                  <Settings className="w-4 h-4" />
+                </button>
+                <button onClick={toggleFullscreen} aria-label="Fullscreen" className="text-white/90 hover:text-white p-1 shrink-0 transition-transform active:scale-95">
                   <Maximize className="w-4 h-4" />
                 </button>
               </div>
@@ -1036,7 +1101,16 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                 resizingTimeline ? "bg-primary/20" : "hover:bg-muted"
               }`}
             >
-              <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50" />
+              {/* Grip dash is now visible at rest (was bg-border, only
+                  darkening on hover) - a wider, terracotta-tinted pill that
+                  reads as a grabbable handle before the user is already on
+                  top of it, not just after. Hover/active still deepen it
+                  further for feedback mid-drag. */}
+              <div
+                className={`w-10 h-1.5 rounded-full transition-colors ${
+                  resizingTimeline ? "bg-primary" : "bg-primary/35 group-hover:bg-primary/60"
+                }`}
+              />
             </div>
           )}
 
@@ -1050,79 +1124,109 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               Zoom is a real log-scale slider (see zoomToSlider/sliderToZoom)
               between minus/plus buttons, matching a plain "- slider +"
               reference rather than a step-button-plus-percentage readout. */}
-          <div data-tour="controls" className="relative z-10 flex items-center gap-1 bg-card border-y border-border px-3 py-2 shrink-0 overflow-x-auto editor-surface-raised-y">
-            <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} title={timeline.isPlaying ? "Pause" : "Play"} className="p-1.5 rounded-lg text-foreground hover:bg-muted shrink-0">
-              {timeline.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            </button>
-            <button onClick={timeline.stop} title="Stop" className="p-1.5 rounded-lg text-foreground hover:bg-muted shrink-0">
-              <Square className="w-4 h-4" />
-            </button>
-
-            <div className="w-px h-5 bg-border mx-1 shrink-0" />
-
-            <button
-              onClick={async () => {
-                if (!timeline.selectedItem) return;
-                const didSplit = await timeline.splitItem(timeline.selectedItem);
-                if (didSplit) timeline.setSelectedItem(null);
-              }}
-              disabled={!timeline.selectedItem}
-              title="Split (needs a selected clip, playhead inside it)"
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-foreground hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent shrink-0"
-            >
-              <SplitSquareHorizontal className="w-4 h-4" />
-              <span className="text-xs font-medium hidden lg:inline">Split</span>
-            </button>
-
-            {/* Relocated from a standalone full-width bar under the tracks -
-                same deselect action, now contextual to the transport strip
-                instead of floating on its own. */}
-            {timeline.selectedItem && (
-              <button
-                data-tour="done-editing"
-                onClick={() => timeline.setSelectedItem(null)}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-primary hover:bg-primary/10 text-xs font-semibold shrink-0"
-              >
-                Done editing
+          {/* Clusters are grouped into recessed pills (bg-muted on the card
+              surface) rather than separated by hairline dividers: playback |
+              editing on the left, view controls on the right. The grouping
+              is what makes the row read as designed - a divider between every
+              pair of buttons just added noise. Play/pause carries a terracotta
+              icon as the one "act on this" control in the row; everything else
+              stays neutral so it doesn't compete with Export in the header. */}
+          {/* gap-4 (16px) between clusters, vs the 2-4px inside each one: the
+              inter-cluster gap has to be several times the intra-cluster gap
+              or the row reads as one continuous run of buttons. */}
+          {/* --timeline-surface (#FCF7F4) is a close but distinct tone from
+              the ruler/tracks' bg-background (#F5F0EB) below - a subtle
+              surface change, not a hard panel edge (was bg-card with a
+              border-y, reading as its own distinct panel). The border
+              beneath is dropped to /10 opacity, barely-there rather than a
+              clearly defined rule, since the tonal shift alone already
+              marks the seam. */}
+          {/* The toolbar/ruler seam, not ruler/tracks (swapped per feedback -
+              was border-border/10 here, near-invisible, while the ruler had
+              its own border-b separating it from the tracks; that's now
+              reversed: this is the one visible-but-subtle separator, and
+              TimelineRuler.jsx's own border-b is gone). */}
+          <div data-tour="controls" className="relative z-10 flex items-center gap-4 bg-[var(--timeline-surface)] border-b border-border/50 px-3 py-2 shrink-0 overflow-x-auto">
+            {/* Playback + Split cluster - ONLY Play/Pause and Split live here now
+                (Stop and the standalone "Done editing" toggle were dropped:
+                deselecting already works by tapping empty timeline space, so
+                nothing was lost, just decluttered per the redesign spec). */}
+            {/* Controls bumped up a size (w-4→w-5 icons, text-xs→text-sm
+                labels, strokeWidth 2.25 for a touch more line weight) - the
+                previous size read as too small/soft for the row's own
+                buttons, which is otherwise the primary interactive surface
+                in this strip. Padding grows with the icons so the click
+                targets stay comfortable rather than cramming larger glyphs
+                into the old tighter box. No bg-muted/70 pill around the
+                cluster any more (a regression - it read as its own panel on
+                the shared toolbar surface, the exact thing the toolbar's own
+                background was flattened to avoid); buttons sit directly on
+                the toolbar's --timeline-surface tone, individual hover state
+                only. */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button onClick={timeline.isPlaying ? timeline.pause : timeline.play} title={timeline.isPlaying ? "Pause" : "Play"} className="p-2 rounded-md text-primary hover:bg-card transition-colors active:scale-95 shrink-0">
+                {timeline.isPlaying ? <Pause className="w-5 h-5" strokeWidth={2.25} /> : <Play className="w-5 h-5" strokeWidth={2.25} />}
               </button>
-            )}
+              <div className="w-px h-5 bg-border shrink-0" />
+              <button
+                onClick={async () => {
+                  if (!timeline.selectedItem) return;
+                  const didSplit = await timeline.splitItem(timeline.selectedItem);
+                  if (didSplit) timeline.setSelectedItem(null);
+                }}
+                disabled={!timeline.selectedItem}
+                title="Split (needs a selected clip, playhead inside it)"
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:hover:bg-transparent shrink-0"
+              >
+                {/* Scissors, not the generic SplitSquareHorizontal - already
+                    imported and used elsewhere in this file (the trimmed-clip
+                    indicator), so no new dependency, and it reads more
+                    directly as "cut" than a split-rectangle glyph. */}
+                <Scissors className="w-5 h-5" strokeWidth={2.25} />
+                <span className="text-sm font-semibold hidden lg:inline">Split</span>
+              </button>
+            </div>
 
             <div className="flex-1 min-w-2" />
 
-            <button
-              onClick={() => setTimelineHidden((v) => !v)}
-              title={timelineHidden ? "Show timeline" : "Hide timeline"}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-            >
-              {timelineHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              <span className="text-xs font-medium hidden lg:inline">{timelineHidden ? "Show timeline" : "Hide timeline"}</span>
-            </button>
+            {/* View cluster - hide-timeline + zoom, same size bump as the
+                playback cluster above, same no-panel treatment. */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setTimelineHidden((v) => !v)}
+                title={timelineHidden ? "Show timeline" : "Hide timeline"}
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-card transition-colors shrink-0"
+              >
+                {timelineHidden ? <Eye className="w-5 h-5" strokeWidth={2.25} /> : <EyeOff className="w-5 h-5" strokeWidth={2.25} />}
+                <span className="text-sm font-semibold hidden lg:inline">{timelineHidden ? "Show timeline" : "Hide timeline"}</span>
+              </button>
 
-            {!timelineHidden && (
-              <>
-                <div className="w-px h-5 bg-border mx-1 shrink-0" />
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={timeline.zoomOut} title="Zoom out (-)" aria-label="Zoom out" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0">
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={zoomToSlider(timeline.zoomLevel)}
-                    onChange={(e) => timeline.setZoomLevel(sliderToZoom(Number(e.target.value)))}
-                    aria-label="Timeline zoom"
-                    title={`Zoom ${Math.round(timeline.zoomLevel * 100)}%`}
-                    className="w-16 sm:w-24 range-terra"
-                    style={{ "--range-progress": `${zoomToSlider(timeline.zoomLevel)}%` }}
-                  />
-                  <button onClick={timeline.zoomIn} title="Zoom in (+)" aria-label="Zoom in" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0">
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                </div>
-              </>
-            )}
+              {!timelineHidden && (
+                <>
+                  <div className="w-px h-5 bg-border shrink-0" />
+                  <div className="flex items-center gap-1.5 pl-0.5 pr-1 shrink-0">
+                    <button onClick={timeline.zoomOut} title="Zoom out (-)" aria-label="Zoom out" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-card transition-colors shrink-0">
+                      <ZoomOut className="w-5 h-5" strokeWidth={2.25} />
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={zoomToSlider(timeline.zoomLevel)}
+                      onChange={(e) => timeline.setZoomLevel(sliderToZoom(Number(e.target.value)))}
+                      aria-label="Timeline zoom"
+                      title={`Zoom ${Math.round(timeline.zoomLevel * 100)}%`}
+                      className="w-16 sm:w-24 range-terra"
+                      style={{ "--range-progress": `${zoomToSlider(timeline.zoomLevel)}%` }}
+                    />
+                    <button onClick={timeline.zoomIn} title="Zoom in (+)" aria-label="Zoom in" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-card transition-colors shrink-0">
+                      <ZoomIn className="w-5 h-5" strokeWidth={2.25} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {!timelineHidden && (
@@ -1189,13 +1293,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         </div>
       </div>
 
-      {/* Floating clip action pill - replaces the old persistent right-hand
-          Clip Details panel. Anchored above the selected clip via
+      {/* The single clip-editing surface. Anchored to the selected clip via
           pillAnchorRect (position: fixed, rendered here so it isn't clipped
-          by the timeline's overflow-hidden ancestors); Speed/Volume open the
-          existing bottom sheets (already usable on both platforms), the rest
-          reuses clipActions(). */}
-      {timeline.selectedItem && (() => {
+          by the timeline's overflow-hidden ancestors) on desktop, docked to
+          the bottom of the viewport on mobile. Speed and Volume expand this
+          same element in place - there is no separate sheet any more, which
+          is what makes the old "pill painted over its own sheet" bug
+          structurally impossible rather than timing-dependent.
+
+          Still hidden while a genuinely separate modal is open (Regenerate,
+          Narration, the transition picker, export progress): those are their
+          own surfaces at z-50 and the pill is z-[60]. */}
+      {timeline.selectedItem && !anyOverlayOpen && (() => {
         const info = selectedClipInfo();
         if (!info) return null;
         const isAudioClip = info.item.trackType === "AUDIO";
@@ -1204,12 +1313,34 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
             anchorRect={pillAnchorRect}
             actions={clipActions(info.item)}
             isAudioClip={isAudioClip}
-            onSpeed={() => { setSpeedDraft(Number(info.item.speed) || 1); setSpeedSheetOpen(true); }}
-            onVolume={() => {
-              setVolumeDraft(info.item.volume ?? 1);
-              setFadeInDraft(Number(info.item.fadeIn) || 0);
-              setFadeOutDraft(Number(info.item.fadeOut) || 0);
-              setVolumeSheetOpen(true);
+            isMobile={isMobile}
+            clipLabel={info.label}
+            clipThumbnail={info.thumbnail}
+            expanded={expandedPanel}
+            onExpandChange={handleExpandChange}
+            speedControl={{
+              value: speedDraft,
+              min: SPEED_MIN,
+              max: SPEED_MAX,
+              presets: [0.5, 1, 1.5, 2, 3, 4],
+              onDraft: setSpeedDraft,
+              onCommit: commitSpeed,
+            }}
+            volumeControl={{
+              value: volumeDraft,
+              presets: [0, 0.5, 1, 1.5],
+              onDraft: setVolumeDraft,
+              onCommit: (v) => timeline.updateItem(timeline.selectedItem, { volume: v }),
+            }}
+            fadeInControl={{
+              value: fadeInDraft,
+              onDraft: setFadeInDraft,
+              onCommit: (v) => timeline.updateItem(timeline.selectedItem, { fadeIn: v }),
+            }}
+            fadeOutControl={{
+              value: fadeOutDraft,
+              onDraft: setFadeOutDraft,
+              onCommit: (v) => timeline.updateItem(timeline.selectedItem, { fadeOut: v }),
             }}
           />
         );
@@ -1292,192 +1423,6 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           onSave={handleNarrationSave}
           onRegenerateNarration={handleRegenerateNarration}
         />
-      )}
-
-      {/* Playback speed sheet (mobile clip action) */}
-      {speedSheetOpen && timeline.selectedItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={closeSpeedSheet}>
-          <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-foreground">Playback speed</h3>
-              <button onClick={closeSpeedSheet} aria-label="Close" className="text-muted-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Which clip this sheet is editing - without this it reads as a
-                global setting. */}
-            {(() => {
-              const info = selectedClipInfo();
-              return info ? (
-                <div className="flex items-center gap-2 mb-3">
-                  {info.thumbnail && (
-                    <img src={info.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
-                  )}
-                  <span className="text-xs text-muted-foreground truncate">{info.label}</span>
-                </div>
-              ) : null;
-            })()}
-            <div className="space-y-4">
-              {/* Exact current speed - shows the AI narration-fit's fractional
-                  value (e.g. 1.33×), which the presets alone can't represent. */}
-              <div className="text-center">
-                <span className="text-2xl font-bold text-foreground tabular-nums">
-                  {speedDraft.toFixed(2)}×
-                </span>
-              </div>
-
-              {/* Fine-tune slider. Commits on release, then closes the sheet
-                  the same way the ClipActionPill closes on Split/Delete -
-                  closeSpeedSheet itself already knows to stay open for audio
-                  clips (so Volume can follow), so this doesn't need its own
-                  trackType check. */}
-              <input
-                type="range"
-                min={SPEED_MIN}
-                max={SPEED_MAX}
-                step={0.05}
-                value={speedDraft}
-                onChange={(e) => setSpeedDraft(Number(e.target.value))}
-                onPointerUp={() => { commitSpeed(speedDraft); closeSpeedSheet(); }}
-                onTouchEnd={() => { commitSpeed(speedDraft); closeSpeedSheet(); }}
-                className="w-full range-terra"
-                style={{ "--range-progress": `${((speedDraft - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * 100}%` }}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground -mt-2">
-                <span>{SPEED_MIN}×</span>
-                <span>{SPEED_MAX}×</span>
-              </div>
-
-              {/* Quick presets - set the value, commit, and close (same
-                  reasoning as the slider above). */}
-              <div className="grid grid-cols-3 gap-2">
-                {[0.5, 1, 1.5, 2, 3, 4].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setSpeedDraft(s); commitSpeed(s); closeSpeedSheet(); }}
-                    className={`py-3 rounded-lg border text-sm font-medium ${
-                      Math.abs(speedDraft - s) < 0.001
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {s}x
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Volume sheet (audio clip action). Commits on release so the slider
-          doesn't flood the save endpoint while dragging. */}
-      {volumeSheetOpen && timeline.selectedItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={closeVolumeSheet}>
-          <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-foreground">Volume &amp; Fade</h3>
-              <button onClick={closeVolumeSheet} aria-label="Close" className="text-muted-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Which clip this sheet is editing - without this it reads as a
-                global setting. */}
-            {(() => {
-              const info = selectedClipInfo();
-              return info ? (
-                <div className="flex items-center gap-2 mb-3">
-                  {info.thumbnail && (
-                    <img src={info.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
-                  )}
-                  <span className="text-xs text-muted-foreground truncate">{info.label}</span>
-                </div>
-              ) : null;
-            })()}
-            <div className="flex items-center gap-3">
-              <Volume2 className="w-5 h-5 text-muted-foreground shrink-0" />
-              <input
-                type="range"
-                min="0"
-                max="1.5"
-                step="0.05"
-                value={volumeDraft}
-                onChange={(e) => setVolumeDraft(Number(e.target.value))}
-                onPointerUp={() => timeline.updateItem(timeline.selectedItem, { volume: volumeDraft })}
-                onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { volume: volumeDraft })}
-                className="flex-1 range-terra"
-                style={{ "--range-progress": `${(volumeDraft / 1.5) * 100}%` }}
-              />
-              <span className="text-sm font-medium text-foreground w-12 text-right tabular-nums">{Math.round(volumeDraft * 100)}%</span>
-            </div>
-            <div className="grid grid-cols-4 gap-2 mt-4">
-              {[0, 0.5, 1, 1.5].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => { setVolumeDraft(v); timeline.updateItem(timeline.selectedItem, { volume: v }); }}
-                  className={`py-2 rounded-lg border text-sm font-medium ${
-                    Math.abs(volumeDraft - v) < 0.001
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {v === 0 ? "Mute" : `${Math.round(v * 100)}%`}
-                </button>
-              ))}
-            </div>
-
-            {/* Fade in/out - same sheet as Volume (not a separate pill action),
-                same commit-on-release convention as the sliders above so
-                dragging doesn't flood the save endpoint. 0-5s in 0.5s steps,
-                matching the backend's clamp. */}
-            <div className="mt-4 pt-4 border-t border-border space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    Fade in
-                  </span>
-                  <span className="text-sm font-medium text-foreground tabular-nums">{fadeInDraft.toFixed(1)}s</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="5"
-                  step="0.5"
-                  value={fadeInDraft}
-                  onChange={(e) => setFadeInDraft(Number(e.target.value))}
-                  onPointerUp={() => timeline.updateItem(timeline.selectedItem, { fadeIn: fadeInDraft })}
-                  onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { fadeIn: fadeInDraft })}
-                  aria-label="Fade in duration, seconds"
-                  className="w-full range-terra"
-                  style={{ "--range-progress": `${(fadeInDraft / 5) * 100}%` }}
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <TrendingDown className="w-3.5 h-3.5" />
-                    Fade out
-                  </span>
-                  <span className="text-sm font-medium text-foreground tabular-nums">{fadeOutDraft.toFixed(1)}s</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="5"
-                  step="0.5"
-                  value={fadeOutDraft}
-                  onChange={(e) => setFadeOutDraft(Number(e.target.value))}
-                  onPointerUp={() => timeline.updateItem(timeline.selectedItem, { fadeOut: fadeOutDraft })}
-                  onTouchEnd={() => timeline.updateItem(timeline.selectedItem, { fadeOut: fadeOutDraft })}
-                  aria-label="Fade out duration, seconds"
-                  className="w-full range-terra"
-                  style={{ "--range-progress": `${(fadeOutDraft / 5) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Transition sheet - opened from a boundary marker between two
@@ -1583,83 +1528,39 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
         </div>
       )}
 
-      {/* Mobile "Audio" rail category - a small choice sheet, mirroring the
-          desktop Audio panel's two quick-action buttons. */}
+      {/* Mobile "Audio" rail category - the single home for everything
+          audio, mirroring the desktop Audio panel: upload / AI voice on top,
+          then every narration, upload and music asset to tap onto its track.
+          The Media sheet is visual-only (video clips) so nothing is listed
+          twice. */}
       {mobileAudioSheetOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setMobileAudioSheetOpen(false)}>
-          <div
-            className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-foreground">Audio</h3>
-              <button onClick={() => setMobileAudioSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <button
-              onClick={() => { setMobileAudioSheetOpen(false); setShowAudioUpload(true); }}
-              className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
-            >
-              <Upload className="w-4 h-4" />
-              Upload audio
-            </button>
-            <button
-              onClick={() => { setMobileAudioSheetOpen(false); setShowTTSModal(true); }}
-              className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
-            >
-              <Mic className="w-4 h-4" />
-              Generate AI voice
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Add-assets sheet - touch-friendly version of the desktop asset panel.
-          Tap an item to append it to its track (no drag needed). */}
-      {assetsSheetOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setAssetsSheetOpen(false)}>
           <div
             className="w-full bg-card rounded-t-2xl max-h-[75vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-              <h3 className="text-sm font-semibold text-foreground">Add assets</h3>
-              <button onClick={() => setAssetsSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+              <h3 className="text-sm font-semibold text-foreground">Audio</h3>
+              <button onClick={() => setMobileAudioSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {/* Video clips */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <Film className="w-3.5 h-3.5" /> Video clips
-                </p>
-                <div className="space-y-1.5">
-                  {timeline.sections.filter((s) => s.generatedClipUrl).map((section) => (
-                    <div key={section.id} className="flex items-center rounded-xl bg-muted/50">
-                      <button onClick={() => addVideoAsset(section)} className="flex-1 min-w-0 flex items-center gap-2 p-2 text-left">
-                        {section.imageUrl && <img src={section.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-foreground truncate">{section.narrationText?.substring(0, 40) || `Clip ${section.orderIndex + 1}`}</p>
-                          <p className="text-[11px] text-muted-foreground">{Number(section.clipDuration || 5).toFixed(1)}s</p>
-                        </div>
-                        <Plus className="w-4 h-4 text-primary shrink-0" />
-                      </button>
-                      <button
-                        onClick={() => { setAssetsSheetOpen(false); setRegenSection(section); }}
-                        className="p-2 mr-1 text-muted-foreground hover:text-primary shrink-0"
-                        title={`${regenLabel} clip`}
-                        aria-label={`${regenLabel} clip`}
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  {timeline.sections.filter((s) => s.generatedClipUrl).length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">No clips</p>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => { setMobileAudioSheetOpen(false); setShowAudioUpload(true); }}
+                  className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+                >
+                  <Upload className="w-4 h-4 text-primary" />
+                  Upload audio
+                </button>
+                <button
+                  onClick={() => { setMobileAudioSheetOpen(false); setShowTTSModal(true); }}
+                  className="w-full flex items-center gap-2 py-3 px-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted"
+                >
+                  <Mic className="w-4 h-4 text-primary" />
+                  Generate AI voice
+                </button>
               </div>
               {/* Narration (section narration + TTS voice) */}
               <div>
@@ -1720,7 +1621,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                     <Music className="w-3.5 h-3.5" /> Music
                   </p>
                   <button
-                    onClick={() => { setAssetsSheetOpen(false); setShowMusicModal(true); }}
+                    onClick={() => { setMobileAudioSheetOpen(false); setShowMusicModal(true); }}
                     className="text-xs font-medium text-primary flex items-center gap-1 hover:opacity-80"
                   >
                     <RefreshCw className="w-3 h-3" />
@@ -1740,6 +1641,58 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   ))}
                   {timeline.audioAssets.filter((a) => a.sourceType === "AI_MUSIC").length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-2">No music</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media sheet - touch-friendly version of the desktop Media panel:
+          video clips only (audio lives in the Audio sheet above). Tap an item
+          to append it to its track (no drag needed). */}
+      {assetsSheetOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setAssetsSheetOpen(false)}>
+          <div
+            className="w-full bg-card rounded-t-2xl max-h-[75vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+              <h3 className="text-sm font-semibold text-foreground">Media</h3>
+              <button onClick={() => setAssetsSheetOpen(false)} aria-label="Close" className="text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+              {/* Video clips */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5" /> Video clips
+                </p>
+                <div className="space-y-1.5">
+                  {timeline.sections.filter((s) => s.generatedClipUrl).map((section) => (
+                    <div key={section.id} className="flex items-center rounded-xl bg-muted/50">
+                      <button onClick={() => addVideoAsset(section)} className="flex-1 min-w-0 flex items-center gap-2 p-2 text-left">
+                        {section.imageUrl && <img src={section.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground truncate">{section.narrationText?.substring(0, 40) || `Clip ${section.orderIndex + 1}`}</p>
+                          <p className="text-[11px] text-muted-foreground">{Number(section.clipDuration || 5).toFixed(1)}s</p>
+                        </div>
+                        <Plus className="w-4 h-4 text-primary shrink-0" />
+                      </button>
+                      <button
+                        onClick={() => { setAssetsSheetOpen(false); setRegenSection(section); }}
+                        className="p-2 mr-1 text-muted-foreground hover:text-primary shrink-0"
+                        title={`${regenLabel} clip`}
+                        aria-label={`${regenLabel} clip`}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {timeline.sections.filter((s) => s.generatedClipUrl).length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No clips</p>
                   )}
                 </div>
               </div>
