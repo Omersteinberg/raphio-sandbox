@@ -29,7 +29,10 @@ import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 
 const GRADIENT = "var(--gradient-brand)";
-const MAX_SHOWCASE = 4;
+// Eight, not more: the intro planner only ever attaches the first
+// MAX_ATTACHED_PHOTOS (8) to the vision call in merge-api's introPrompt.js.
+// Anything past that is planned around blind, so keep the two in sync.
+const MAX_SHOWCASE = 8;
 
 // Same warm-tinted card shadow PromptStep.jsx uses (its own local
 // CARD_SHADOW, not exported - replicated here rather than imported). The

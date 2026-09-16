@@ -32,13 +32,11 @@ const ORDER = ["logo", "colors", "fonts", "copy", "tone"];
 export default function BrandUrlField({ onApply, targetDuration }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
 
   const run = async () => {
     if (!url.trim() || busy) return;
     setBusy(true);
-    setError(null);
     setSummary(null);
     try {
       const { found, missing } = await extractBrandFromUrl(url.trim(), { targetDuration });
@@ -49,13 +47,15 @@ export default function BrandUrlField({ onApply, targetDuration }) {
         missing: ORDER.filter((k) => missed.includes(k)).map((k) => LABELS[k]),
       });
     } catch (e) {
-      // The backend sends a written, user-facing message for anything the user
-      // caused (unreachable site, not a web page, private address). Anything
-      // else gets the generic line rather than a stack trace.
-      setError(
-        e?.response?.data?.error ||
-          "We could not read that website. Add your logo below instead."
+      // Plenty of sites simply refuse the fetch, and flagging that as an error
+      // reads as our bug rather than their policy. The reason goes to the
+      // console; the user gets the same neutral line as a site we found
+      // nothing on, with the form working exactly as before.
+      console.warn(
+        "[BrandUrlField] brand extraction failed:",
+        e?.response?.data?.error || e?.message || e
       );
+      setSummary({ got: [], missing: [] });
     } finally {
       setBusy(false);
     }
@@ -112,8 +112,6 @@ export default function BrandUrlField({ onApply, targetDuration }) {
           We could not find much on that site. Add your logo below and we will take it from there.
         </p>
       )}
-
-      {error && <p className="text-xs text-[#6B5E7B] mt-2">{error}</p>}
     </div>
   );
 }

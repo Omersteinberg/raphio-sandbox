@@ -27,10 +27,10 @@ const ENABLED_MODES = RESUMABLE_MODES;
 // source of truth there too) so the iconography is identical whether someone lands
 // via this toggle or the marketing/legacy chooser.
 const MODE_TABS = [
+  { id: "intro", label: "Promo", icon: Clapperboard },
   { id: "prompt", label: "Idea", icon: Sparkles },
   { id: "image", label: "Photos", icon: ImageIcon },
   { id: "references", label: "References", icon: Wand2 },
-  { id: "intro", label: "Intro", icon: Clapperboard },
 ];
 
 export default function Creator() {
