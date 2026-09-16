@@ -86,7 +86,7 @@ export default function SitePhotoModal({ photos, remaining, onAdd, onClose }) {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.96, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface-alt rounded-2xl border border-border/40 p-5 w-full max-w-2xl"
+        className="bg-surface-alt rounded-2xl border border-border/40 p-5 w-full max-w-3xl"
         style={{ boxShadow: "0 8px 24px rgba(193,68,14,0.16), 0 2px 8px rgba(193,68,14,0.10)" }}
       >
         <div className="flex items-start justify-between gap-3 mb-1">
@@ -107,7 +107,7 @@ export default function SitePhotoModal({ photos, remaining, onAdd, onClose }) {
             : `We found ${photos.length}. Tap the ones worth using, room for ${remaining}.`}
         </p>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-[52vh] overflow-y-auto">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-[56vh] overflow-y-auto pr-1">
           {photos.map((photo) => {
             const on = picked.includes(photo.sourceUrl);
             return (
