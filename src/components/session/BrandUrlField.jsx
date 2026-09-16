@@ -45,6 +45,9 @@ export default function BrandUrlField({ onApply, targetDuration }) {
       setSummary({
         got: ORDER.filter((k) => !missed.includes(k)).map((k) => LABELS[k]),
         missing: ORDER.filter((k) => missed.includes(k)).map((k) => LABELS[k]),
+        // Photos are not applied like the rest of the kit, they open as a popup
+        // to pick from, so the line says they exist rather than where they went.
+        photos: Array.isArray(found?.photos) ? found.photos.length : 0,
       });
     } catch (e) {
       // Plenty of sites simply refuse the fetch, and flagging that as an error
@@ -101,6 +104,9 @@ export default function BrandUrlField({ onApply, targetDuration }) {
             {summary.missing.length
               ? ` We could not find a ${summary.missing.join(" or ")}, so set those below.`
               : " Everything below is editable."}
+            {summary.photos > 0
+              ? ` We also found ${summary.photos} ${summary.photos === 1 ? "picture" : "pictures"} on your site to pick from.`
+              : ""}
           </span>
         </motion.p>
       )}
@@ -110,6 +116,9 @@ export default function BrandUrlField({ onApply, targetDuration }) {
       {summary && summary.got.length === 0 && (
         <p className="text-xs text-[#6B5E7B] mt-2">
           We could not find much on that site. Add your logo below and we will take it from there.
+          {summary.photos > 0
+            ? ` We did find ${summary.photos} ${summary.photos === 1 ? "picture" : "pictures"} on your site to pick from.`
+            : ""}
         </p>
       )}
     </div>

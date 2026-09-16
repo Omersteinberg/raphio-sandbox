@@ -108,6 +108,9 @@ export function useIntroSession() {
   // logo image, so they stay null until one happens or the user picks.
   const [brandFonts, setBrandFonts] = useState(null);
   const [brandTone, setBrandTone] = useState(null);
+  // Pictures found on the imported site, offered for the user to pick from.
+  // Thumbnails only, and never applied on their own: a photo is theirs to choose.
+  const [sitePhotos, setSitePhotos] = useState([]);
   // Claimed: something better than the logo's own pixels has set the kit, so the
   // logo-derived effect below must not overwrite it. A website import claims it
   // too, which is why it cannot also be the test for "the user chose this".
@@ -167,6 +170,10 @@ export function useIntroSession() {
     // Tone has no manual control and no other source, so there is nothing for it
     // to clobber.
     if (found.tone) setBrandTone(found.tone);
+
+    // A fresh import replaces the offer outright, including with nothing, so a
+    // second site's picker never shows the first site's pictures.
+    setSitePhotos(Array.isArray(found.photos) ? found.photos : []);
   }, []);
 
   // Persist the brief to IndexedDB on every change, so leaving the page cannot
@@ -615,6 +622,7 @@ export function useIntroSession() {
     brandFonts, setBrandFont,
     brandTone,
     applyExtractedBrand,
+    sitePhotos,
     showcaseFiles, setShowcaseFiles,
     showcaseLabels, setShowcaseLabels,
     restoreBrief,
