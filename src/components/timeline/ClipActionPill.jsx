@@ -137,6 +137,7 @@ export default function ClipActionPill({
       {anchorRect && (
         <motion.div
           ref={pillRef}
+          data-tour="clip-actions"
           className={`fixed z-[60] bg-card border border-border rounded-xl overflow-hidden ${
             isMobile
               ? "inset-x-2 bottom-2 pb-[env(safe-area-inset-bottom)]"

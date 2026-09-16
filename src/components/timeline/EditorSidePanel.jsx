@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Image, Music, Type, Shapes, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import AssetPanel from "./AssetPanel";
 
+// Elements and Settings are hidden (not deleted) - nothing lives behind
+// either tab yet. Definitions stay here so re-enabling later is just
+// removing `hidden: true`, not rebuilding the entry.
 const SECTIONS = [
   { key: "media", label: "Media", Icon: Image },
   { key: "audio", label: "Audio", Icon: Music },
   { key: "text", label: "Text", Icon: Type },
-  { key: "elements", label: "Elements", Icon: Shapes },
-  { key: "settings", label: "Settings", Icon: Settings },
+  { key: "elements", label: "Elements", Icon: Shapes, hidden: true },
+  { key: "settings", label: "Settings", Icon: Settings, hidden: true },
 ];
 
 const COLLAPSE_KEY = "merge:editor:sidePanelCollapsed";
@@ -83,7 +86,7 @@ export default function EditorSidePanel({
           is marked by a terracotta left bar as well as fill + colour, so the
           current section is legible without relying on colour alone. */}
       <div className="w-32 flex flex-col py-3 px-2 gap-1 border-r border-border shrink-0">
-        {SECTIONS.map(({ key, label, Icon }) => {
+        {SECTIONS.filter((s) => !s.hidden).map(({ key, label, Icon }) => {
           const isActive = !collapsed && active === key;
           return (
             <button

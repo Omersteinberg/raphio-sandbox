@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, Mic, RefreshCw, ChevronDown } from "lucide-react";
+import { Loader2, Mic, RefreshCw, ChevronDown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { getVoiceOptionLabel } from "@/lib/voiceMetadata";
 import { getVoices } from "@/services/voices";
 import { NARRATION_TONES, DEFAULT_TONE } from "@/constants/narrationTones";
 import MediaPlayer from "../MediaPlayer";
+import EditorModalShell from "./EditorModalShell";
 
 /**
  * Edit a clip's narration text, voice and tone, and save or regenerate the
@@ -89,36 +89,57 @@ export default function NarrationEditModal({
   const busy = saving || regenerating;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 editor-scrim flex items-center justify-center z-50 p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          className="bg-card border border-border rounded-xl editor-modal w-full max-w-lg p-5 md:p-6 max-h-[90vh] overflow-y-auto"
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-              <Mic className="w-4 h-4 text-primary" /> Edit Narration
-            </h3>
+    <EditorModalShell
+      icon={Mic}
+      title="Edit Narration"
+      onClose={onClose}
+      footer={
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button
+            onClick={handleRegenerate}
+            disabled={!hasChanges || busy}
+            className="px-4 py-2 rounded-lg border border-primary text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {regenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Regenerating…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Regenerate Audio
+              </>
+            )}
+          </button>
+
+          <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              aria-label="Close"
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              disabled={busy}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <X className="w-4 h-4" />
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={busy}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              style={{ background: "var(--gradient-brand)" }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </button>
           </div>
-
+        </div>
+      }
+    >
           {/* Current narration - the editor's compact audio player. Replaces a
               one-off play button that had no scrubber and no time readout. */}
           {section?.narrationUrl && (
@@ -210,56 +231,6 @@ export default function NarrationEditModal({
               </p>
             </div>
           </div>
-
-          {/* Actions. Regenerate Audio is the secondary outline-in-terracotta
-              register (DESIGN.md's "outline/ghost" button); Cancel / Save are
-              the same pair as the transition picker. */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
-            <button
-              onClick={handleRegenerate}
-              disabled={!hasChanges || busy}
-              className="px-4 py-2 rounded-lg border border-primary text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              {regenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Regenerating…
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  Regenerate Audio
-                </>
-              )}
-            </button>
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={onClose}
-                disabled={busy}
-                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={busy}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </EditorModalShell>
   );
 }

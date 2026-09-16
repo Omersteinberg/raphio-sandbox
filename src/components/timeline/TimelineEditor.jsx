@@ -31,6 +31,9 @@ import {
   Settings,
   Blend,
   Scissors,
+  Moon,
+  MoveRight,
+  ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -109,7 +112,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
   // VIDEO clips (TimelineCanvas), not from a clip selection, so it tracks its
   // own boundary object rather than reusing timeline.selectedItem.
   const [transitionBoundary, setTransitionBoundary] = useState(null); // { id, beforeId, afterId, transition } | null
-  const [transitionTypeDraft, setTransitionTypeDraft] = useState("none"); // 'none' | 'crossfade'
+  const [transitionTypeDraft, setTransitionTypeDraft] = useState("none"); // 'none' | 'crossfade' | 'fadeToBlack' | 'wipe' | 'slide' - matches backend's VALID_ITEM_TRANSITIONS
   const [transitionDurationDraft, setTransitionDurationDraft] = useState(0.5); // 0.2-2.0s
   const [transitionSaving, setTransitionSaving] = useState(false);
   const [assetsSheetOpen, setAssetsSheetOpen] = useState(false);
@@ -456,7 +459,9 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     try {
       await timeline.updateItem(transitionBoundary.afterId, {
         transitionIn: transitionTypeDraft,
-        transitionInDuration: transitionTypeDraft === "crossfade" ? transitionDurationDraft : 0,
+        // Every style except Cut ("none") uses a duration - was crossfade-only
+        // before Fade to Black/Wipe/Slide existed.
+        transitionInDuration: transitionTypeDraft !== "none" ? transitionDurationDraft : 0,
       });
       await timeline.loadTimeline();
     } finally {
@@ -974,7 +979,6 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               <Download className="w-4 h-4 md:mr-2" />
             )}
             <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
-            <span className="hidden md:inline">&nbsp;Video</span>
           </Button>
           {user && (
             <div
@@ -1275,9 +1279,12 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   { Icon: Image, label: "Media", onClick: () => setAssetsSheetOpen(true) },
                   { Icon: Music, label: "Audio", onClick: () => setMobileAudioSheetOpen(true) },
                   { Icon: Type, label: "Text", onClick: () => toast.info("Text overlays aren't available yet.") },
-                  { Icon: Shapes, label: "Elements", onClick: () => toast.info("Elements aren't available yet.") },
-                  { Icon: Settings, label: "Settings", onClick: () => toast.info("Editor settings aren't available yet.") },
-                ].map(({ Icon, label, onClick }) => (
+                  // Elements and Settings hidden (not deleted) - nothing
+                  // lives behind either yet. Mirrors EditorSidePanel's
+                  // SECTIONS list on desktop.
+                  { Icon: Shapes, label: "Elements", onClick: () => toast.info("Elements aren't available yet."), hidden: true },
+                  { Icon: Settings, label: "Settings", onClick: () => toast.info("Editor settings aren't available yet."), hidden: true },
+                ].filter((item) => !item.hidden).map(({ Icon, label, onClick }) => (
                   <button
                     key={label}
                     onClick={onClick}
@@ -1430,12 +1437,32 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
           Applies on an explicit button press rather than live like
           Volume/Speed - see applyTransition. */}
       {transitionBoundary && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={closeTransitionSheet}>
-          <div className="w-full bg-card rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+        // .editor-scrim (warm ink-tinted overlay, matching EditorModalShell)
+        // rather than the plain bg-black/50 this used to render - see
+        // DESIGN.md's Warm Shadow Rule, the same reasoning that already
+        // moved every other modal off a neutral scrim.
+        <div className="fixed inset-0 editor-scrim z-50 flex items-end" onClick={closeTransitionSheet}>
+          {/* Still a bottom-anchored sheet, not EditorModalShell's centered
+              dialog - that shell hardcodes items-center, which would change
+              where this actually docks on screen, not just how it's styled.
+              Matches the shell's visual language directly instead: a real
+              border-border + editor-modal's shadow tier (was borderless),
+              and capped at max-w-lg/centered so a 3-column grid of 5 options
+              doesn't stretch thin across the full viewport width on desktop. */}
+          <div
+            className="w-full max-w-lg mx-auto bg-card border border-border editor-modal rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-foreground">Transition</h3>
-              <button onClick={closeTransitionSheet} aria-label="Close" className="text-muted-foreground">
-                <X className="w-5 h-5" />
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Blend className="w-4 h-4 text-primary" /> Transition
+              </h3>
+              <button
+                onClick={closeTransitionSheet}
+                aria-label="Close"
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
             {/* Which boundary this sheet is editing - without this it reads
@@ -1455,70 +1482,84 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               );
             })()}
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setTransitionTypeDraft("none")}
-                className={`flex flex-col items-center gap-1 py-3 rounded-lg border text-sm font-medium ${
-                  transitionTypeDraft === "none"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-foreground hover:bg-muted"
-                }`}
-              >
-                <Scissors className="w-4 h-4" />
-                Cut
-              </button>
-              <button
-                onClick={() => setTransitionTypeDraft("crossfade")}
-                className={`flex flex-col items-center gap-1 py-3 rounded-lg border text-sm font-medium ${
-                  transitionTypeDraft === "crossfade"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-foreground hover:bg-muted"
-                }`}
-              >
-                <Blend className="w-4 h-4" />
-                Crossfade
-              </button>
+            {/* 3-column grid rather than the old 2-large-button row: at 5
+                options a single row got too narrow per button on mobile, and
+                a plain flex-wrap chip row (the Tone-chip pattern elsewhere in
+                the editor) reads too light for something that carries an
+                icon, not just text - this keeps a real touch target per
+                option. 5 items wrap to 3+2, left-aligned. */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { key: "none", label: "Cut", Icon: Scissors },
+                { key: "crossfade", label: "Crossfade", Icon: Blend },
+                { key: "fadeToBlack", label: "Fade to Black", Icon: Moon },
+                { key: "wipe", label: "Wipe", Icon: MoveRight },
+                { key: "slide", label: "Slide", Icon: ArrowRightLeft },
+              ].map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setTransitionTypeDraft(key)}
+                  aria-pressed={transitionTypeDraft === key}
+                  className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium text-center leading-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                    transitionTypeDraft === key
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {transitionTypeDraft === "crossfade" && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">Duration</span>
-                  <span className="text-sm font-medium text-foreground tabular-nums">{transitionDurationDraft.toFixed(1)}s</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="2"
-                  step="0.1"
-                  value={transitionDurationDraft}
-                  onChange={(e) => setTransitionDurationDraft(Number(e.target.value))}
-                  aria-label="Crossfade duration, seconds"
-                  className="w-full range-terra"
-                  style={{ "--range-progress": `${((transitionDurationDraft - 0.2) / 1.8) * 100}%` }}
-                />
+            {/* Duration applies to every style except Cut, which has none -
+                shown disabled/dimmed rather than simply vanishing, so its
+                absence for Cut reads as "not applicable here" rather than a
+                layout jump every time the selection changes. */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-xs ${transitionTypeDraft === "none" ? "text-muted-foreground/50" : "text-muted-foreground"}`}>
+                  Duration
+                </span>
+                <span className={`text-sm font-medium tabular-nums ${transitionTypeDraft === "none" ? "text-muted-foreground/50" : "text-foreground"}`}>
+                  {transitionTypeDraft === "none" ? "—" : `${transitionDurationDraft.toFixed(1)}s`}
+                </span>
               </div>
-            )}
+              <input
+                type="range"
+                min="0.2"
+                max="2"
+                step="0.1"
+                value={transitionDurationDraft}
+                onChange={(e) => setTransitionDurationDraft(Number(e.target.value))}
+                disabled={transitionTypeDraft === "none"}
+                aria-label="Transition duration, seconds"
+                className="w-full range-terra disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ "--range-progress": `${((transitionDurationDraft - 0.2) / 1.8) * 100}%` }}
+              />
+            </div>
 
-            <div className="flex gap-2 justify-end mt-4">
+            {/* Same Cancel/primary footer pair (incl. focus rings) as every
+                EditorModalShell-based modal. */}
+            <div className="flex gap-2 justify-end mt-6">
               <button
                 onClick={closeTransitionSheet}
                 disabled={transitionSaving}
-                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={applyTransition}
                 disabled={transitionSaving}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 style={{ background: "var(--gradient-brand)" }}
               >
                 {transitionSaving ? (
-                  <span className="flex items-center gap-2">
+                  <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Saving…
-                  </span>
+                  </>
                 ) : (
                   "Apply"
                 )}

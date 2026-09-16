@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { X, RefreshCw, Music, Loader2 } from "lucide-react";
+import { RefreshCw, Music, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import MediaPlayer from "../MediaPlayer";
+import EditorModalShell from "./EditorModalShell";
 
 /**
  * Edit the background-music style prompt and kick off a regeneration.
@@ -26,31 +26,40 @@ export default function RegenerateMusicModal({ musicPrompt, currentUrl, onClose,
   };
 
   return (
-    <div
-      className="fixed inset-0 editor-scrim flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-        className="bg-card border border-border rounded-xl editor-modal p-5 md:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-            <Music className="w-4 h-4 text-primary" /> {hasMusic ? "Regenerate Music" : "Add Background Music"}
-          </h3>
+    <EditorModalShell
+      icon={Music}
+      title={hasMusic ? "Regenerate Music" : "Add Background Music"}
+      onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            aria-label="Close"
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            disabled={busy}
+            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            <X className="w-4 h-4" />
+            Cancel
+          </button>
+          <button
+            onClick={handleRegenerate}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            style={{ background: "var(--gradient-brand)" }}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Starting…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                {hasMusic ? "Regenerate" : "Generate"}
+              </>
+            )}
           </button>
         </div>
-
+      }
+    >
         {/* Current track - the editor's compact audio player, not a native
             <audio controls> element. */}
         {hasMusic ? (
@@ -82,36 +91,6 @@ export default function RegenerateMusicModal({ musicPrompt, currentUrl, onClose,
             ? "The new track replaces the current one on the music track, keeping its position and volume. Free, and you can regenerate as often as you like."
             : "The new track is added to the music track under your narration. Free, and you can regenerate as often as you like."}
         </p>
-
-        {/* Actions - same Cancel / primary pair as the transition picker. */}
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={busy}
-            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleRegenerate}
-            disabled={busy}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            style={{ background: "var(--gradient-brand)" }}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Starting…
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                {hasMusic ? "Regenerate" : "Generate"}
-              </>
-            )}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    </EditorModalShell>
   );
 }

@@ -384,9 +384,12 @@ export default function TimelineCanvas({
         time: before.startTime + before.duration,
         beforeId: before.id,
         afterId: after.id,
+        // Any real transition type, not just crossfade - was hardcoded to
+        // "crossfade" only, so Fade to Black/Wipe/Slide silently rendered as
+        // "no transition" here even though they saved correctly.
         transition:
-          after.transitionIn === "crossfade"
-            ? { type: "crossfade", duration: Number(after.transitionInDuration) || 0.5 }
+          after.transitionIn && after.transitionIn !== "none"
+            ? { type: after.transitionIn, duration: Number(after.transitionInDuration) || 0.5 }
             : null,
       });
     }
@@ -529,8 +532,11 @@ export default function TimelineCanvas({
       const others = videoItems.filter((o) => o.id !== item.id);
 
       // This item's own incoming transition (from whichever clip currently
-      // touches its left edge) breaks if that left edge moves away.
-      if (item.transitionIn === "crossfade") {
+      // touches its left edge) breaks if that left edge moves away. Any real
+      // transition type, not just crossfade - was hardcoded, so dragging a
+      // clip with a Fade to Black/Wipe/Slide transition didn't protect it
+      // from being pulled away from its neighbour.
+      if (item.transitionIn && item.transitionIn !== "none") {
         const leftNeighbor = others.find(
           (o) => Math.abs(o.startTime + o.duration - item.startTime) <= OVERLAP_EPSILON
         );
@@ -546,7 +552,7 @@ export default function TimelineCanvas({
       // this item's right edge moves away from that neighbour's start.
       const currentEnd = item.startTime + item.duration;
       const rightNeighbor = others.find((o) => Math.abs(o.startTime - currentEnd) <= OVERLAP_EPSILON);
-      if (rightNeighbor?.transitionIn === "crossfade") {
+      if (rightNeighbor?.transitionIn && rightNeighbor.transitionIn !== "none") {
         const newEnd = newStartTime + newDuration;
         if (Math.abs(rightNeighbor.startTime - newEnd) > OVERLAP_EPSILON) return true;
       }
