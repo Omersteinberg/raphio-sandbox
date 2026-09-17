@@ -2,16 +2,50 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "@/lib/toast";
 import * as sessionService from "@/services/session";
 import { describeError } from "@/lib/errorDetail";
+import { useActiveAtTime } from "./useActiveAtTime";
 
 const PIXELS_PER_SECOND_BASE = 50;
 
 // How many editing actions Undo can step back through.
 const HISTORY_LIMIT = 25;
 
+// ─── TEMPORARY: Phase 1 text overlays, mock-data step ──────────────────────
+// No backend/migration exists yet for overlays (see merge-api's
+// textOverlayFilter.js header comment - it works from a mock object today by
+// design, pending a schema migration that is a separate, not-yet-landed
+// piece of work). This flag gates a couple of mock TextOverlay entries onto
+// the first loaded VIDEO item so the useActiveAtTime wiring below is
+// exercisable in the browser without building the real overlay track/editing
+// UI yet. Strip this whole flag + its two effects (search
+// "ENABLE_MOCK_OVERLAYS") once real overlay data/UI lands.
+const ENABLE_MOCK_OVERLAYS = true;
+
+// Stable empty array so callers with no overlays yet (or before the mock
+// seed effect has run) get the same reference every render - keeps
+// useActiveAtTime's own referential-stability guarantee meaningful even in
+// that transient state, rather than feeding it a fresh `[]` every time.
+const EMPTY_OVERLAYS = [];
+
 export function useTimeline(sessionId) {
   // Timeline data
   const [timeline, setTimeline] = useState(null);
-  const [items, setItems] = useState([]);
+  const [items, setRawItems] = useState([]);
+  // Every item in `items` always carries `overlays` (defaulting to []), so
+  // downstream consumers (useActiveAtTime, the eventual overlay track/UI)
+  // never need an existence check. Centralized in this one wrapper rather
+  // than patched at each of this hook's many setItems call sites
+  // (loadTimeline, addItem, rippleInsert, updateItem's merge, etc.) - several
+  // of those assign server-response items directly, and the backend doesn't
+  // send `overlays` yet (no migration - see textOverlayFilter.js), so
+  // without this every one of those entry points would need its own fix and
+  // it'd be easy to miss one. Every existing call to `setItems` elsewhere in
+  // this file goes through this wrapper transparently - no other call site
+  // needed to change.
+  const setItems = useCallback((updaterOrValue) => {
+    const normalize = (list) =>
+      Array.isArray(list) ? list.map((it) => (it.overlays ? it : { ...it, overlays: [] })) : list;
+    setRawItems((prev) => normalize(typeof updaterOrValue === "function" ? updaterOrValue(prev) : updaterOrValue));
+  }, []);
   const [sections, setSections] = useState([]);
   const [audioAssets, setAudioAssets] = useState([]);
   const [references, setReferences] = useState([]); // references-pipeline only; empty otherwise
@@ -28,6 +62,11 @@ export function useTimeline(sessionId) {
 
   // Selection
   const [selectedItem, setSelectedItem] = useState(null);
+  // Separate from selectedItem - an overlay and its parent clip are distinct
+  // selectable things (a clip's ClipActionPill reads selectedItem; overlay
+  // selection has no such consumer yet, just a visual selection state on the
+  // TEXT track block), so they must not collapse into one slot.
+  const [selectedOverlay, setSelectedOverlay] = useState(null);
 
   // Loading/saving
   const [loading, setLoading] = useState(false);
@@ -78,7 +117,7 @@ export function useTimeline(sessionId) {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, setItems]);
 
   // Load on mount
   useEffect(() => {
@@ -168,7 +207,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, loadTimeline, pushHistory]
+    [sessionId, loadTimeline, pushHistory, setItems]
   );
 
   // Add item to timeline
@@ -190,7 +229,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, timeline, loadTimeline, pushHistory]
+    [sessionId, timeline, loadTimeline, pushHistory, setItems]
   );
 
   /**
@@ -244,7 +283,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, timeline, addItem, loadTimeline, pushHistory]
+    [sessionId, timeline, addItem, loadTimeline, pushHistory, setItems]
   );
 
   // Remove item from timeline
@@ -269,8 +308,136 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, selectedItem, loadTimeline]
+    [sessionId, selectedItem, loadTimeline, pushHistory, setItems]
   );
+
+  // ─── Text overlay CRUD (Phase 1, LOCAL STATE ONLY) ────────────────────
+  // Mirrors updateItem's optimistic setItems-map pattern, but with no
+  // sessionService call, no pushHistory→toast→loadTimeline error path, and
+  // no `saving` flag - there is nothing to save to yet (see
+  // ENABLE_MOCK_OVERLAYS above). Undo (pushHistory) is still wired in,
+  // since that's a cross-cutting feature these edits should already
+  // participate in, not something specific to being backend-backed.
+  //
+  // TextOverlay shape matches merge-api's textOverlayFilter.js exactly -
+  // { text, fontId, fontSize, color, opacity, backgroundColor?, anchor,
+  //   xPercent, yPercent, widthPercent, inSeconds, outSeconds,
+  //   fadeInDuration, fadeOutDuration } - plus a client-generated `id` (no
+  //   backend id exists yet) so updateOverlay/removeOverlay have something
+  //   to target within the array. `inSeconds`/`outSeconds` are CLIP-RELATIVE
+  //   (0 = this item's own start), matching the ffmpeg filter's `t`, not the
+  //   timeline-absolute playhead.
+  const addOverlay = useCallback(
+    (itemId, overlay) => {
+      pushHistory();
+      const withId = { id: `overlay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, ...overlay };
+      setItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, overlays: [...item.overlays, withId] } : item))
+      );
+      setHasUnexportedChanges(true);
+      return withId.id;
+    },
+    [pushHistory, setItems]
+  );
+
+  const updateOverlay = useCallback(
+    (itemId, overlayId, updates) => {
+      pushHistory();
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, overlays: item.overlays.map((ov) => (ov.id === overlayId ? { ...ov, ...updates } : ov)) }
+            : item
+        )
+      );
+      setHasUnexportedChanges(true);
+    },
+    [pushHistory, setItems]
+  );
+
+  const removeOverlay = useCallback(
+    (itemId, overlayId) => {
+      pushHistory();
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, overlays: item.overlays.filter((ov) => ov.id !== overlayId) } : item
+        )
+      );
+      setHasUnexportedChanges(true);
+    },
+    [pushHistory, setItems]
+  );
+
+  // TEMPORARY (ENABLE_MOCK_OVERLAYS) - seeds 2 mock TextOverlays onto the
+  // first loaded VIDEO item, once, the first time one is available. Runs via
+  // addOverlay itself (not a raw setItems call) so the mock path exercises
+  // the exact same CRUD helper real overlay UI will eventually call.
+  const mockOverlaysSeededRef = useRef(false);
+  useEffect(() => {
+    if (!ENABLE_MOCK_OVERLAYS || mockOverlaysSeededRef.current) return;
+    const firstVideo = items.find((it) => it.trackType === "VIDEO");
+    if (!firstVideo) return;
+    mockOverlaysSeededRef.current = true;
+    addOverlay(firstVideo.id, {
+      text: "Mock overlay one",
+      fontId: "bricolage-grotesque",
+      fontSize: 48,
+      color: "#ffffff",
+      opacity: 1,
+      anchor: "bottom-center",
+      xPercent: 50,
+      yPercent: 85,
+      widthPercent: 80,
+      inSeconds: 0.5,
+      outSeconds: Math.max(1, firstVideo.duration - 1),
+      fadeInDuration: 0.3,
+      fadeOutDuration: 0.3,
+    });
+    addOverlay(firstVideo.id, {
+      text: "Mock overlay two",
+      fontId: "bricolage-grotesque",
+      fontSize: 32,
+      color: "#F5F0EB",
+      opacity: 0.9,
+      anchor: "top-left",
+      xPercent: 5,
+      yPercent: 8,
+      widthPercent: 40,
+      inSeconds: Math.min(2, firstVideo.duration / 2),
+      outSeconds: firstVideo.duration,
+      fadeInDuration: 0.4,
+      fadeOutDuration: 0.5,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  // The intended first real consumer of useActiveAtTime
+  // (src/hooks/timeline/useActiveAtTime.js) - wired here against the mock
+  // item's own overlays, using inSeconds/outSeconds as the bounds via the
+  // getBounds adapter. VideoPreview.jsx's activeVideo is untouched; this is
+  // a standalone wiring, not a refactor of it.
+  const mockOverlayItem = items.find((it) => it.trackType === "VIDEO" && it.overlays.length > 0);
+  // Overlay in/out are clip-relative (see the CRUD comment above) - convert
+  // the timeline-absolute playhead to clip-relative before comparing.
+  const mockOverlayClipRelativeTime = mockOverlayItem ? playheadPosition - mockOverlayItem.startTime : 0;
+  const activeMockOverlaysDebug = useActiveAtTime(
+    mockOverlayItem ? mockOverlayItem.overlays : EMPTY_OVERLAYS,
+    mockOverlayClipRelativeTime,
+    { getBounds: (ov) => ({ startTime: ov.inSeconds, duration: ov.outSeconds - ov.inSeconds }) }
+  );
+
+  // TEMPORARY (ENABLE_MOCK_OVERLAYS) - the "visually verifiable in the
+  // browser" step: open devtools console and scrub the playhead across the
+  // mock item to see the active set change at each overlay's in/out bounds.
+  // No new UI component - the 4th track and the editing panel are later,
+  // separate steps.
+  useEffect(() => {
+    if (!ENABLE_MOCK_OVERLAYS || !mockOverlayItem) return;
+    console.log(
+      `[useTimeline mock overlays] clip-relative t=${mockOverlayClipRelativeTime.toFixed(2)}s active:`,
+      activeMockOverlaysDebug.map((ov) => ov.text)
+    );
+  }, [activeMockOverlaysDebug, mockOverlayClipRelativeTime, mockOverlayItem]);
 
   // Split item at playhead
   // Returns true/false so callers (the clip action pill) know whether to
@@ -313,7 +480,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId, items, playheadPosition, pushHistory]
+    [sessionId, items, playheadPosition, pushHistory, setItems]
   );
 
   // Undo the last editing action by restoring the previous item snapshot. The
@@ -342,7 +509,7 @@ export function useTimeline(sessionId) {
     } finally {
       setSaving(false);
     }
-  }, [sessionId, loadTimeline]);
+  }, [sessionId, loadTimeline, setItems]);
 
   // Upload audio
   const uploadAudio = useCallback(
@@ -410,7 +577,7 @@ export function useTimeline(sessionId) {
         setSaving(false);
       }
     },
-    [sessionId]
+    [sessionId, setItems]
   );
 
   // Flag work that changed the video but did not go through the item mutators
@@ -646,6 +813,8 @@ export function useTimeline(sessionId) {
     // Selection
     selectedItem,
     setSelectedItem,
+    selectedOverlay,
+    setSelectedOverlay,
 
     // Item operations
     updateItem,
@@ -653,6 +822,12 @@ export function useTimeline(sessionId) {
     rippleInsert,
     removeItem,
     splitItem,
+
+    // Text overlays (Phase 1, local state only - see ENABLE_MOCK_OVERLAYS)
+    addOverlay,
+    updateOverlay,
+    removeOverlay,
+    activeMockOverlaysDebug, // TEMPORARY - strip alongside the mock seed effect
 
     // Undo
     undo,

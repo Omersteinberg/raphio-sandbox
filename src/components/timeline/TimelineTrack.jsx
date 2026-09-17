@@ -1,5 +1,6 @@
-import { Film, Music, Mic, Blend } from "lucide-react";
+import { Film, Music, Mic, Blend, Type } from "lucide-react";
 import TimelineItem from "./TimelineItem";
+import TimelineOverlayItem from "./TimelineOverlayItem";
 
 export default function TimelineTrack({
   label,
@@ -30,7 +31,7 @@ export default function TimelineTrack({
   // item carries (items keep their own per-clip kind via TimelineItem's own
   // audioKind() - this is only the row's ambient treatment).
   const isNarration = trackType === "AUDIO" && trackIndex === 0;
-  const Icon = trackType === "VIDEO" ? Film : isNarration ? Mic : Music;
+  const Icon = trackType === "VIDEO" ? Film : trackType === "TEXT" ? Type : isNarration ? Mic : Music;
   // One shared neutral surface for every row (no per-track hue wash) - a soft
   // warm-paper tint just barely lifted off the canvas's own cream background,
   // with a hairline (not a hard border) between rows. Row identity now comes
@@ -82,6 +83,19 @@ export default function TimelineTrack({
 
         {/* Items */}
         {items.map((item) => {
+          if (trackType === "TEXT") {
+            return (
+              <TimelineOverlayItem
+                key={item.id}
+                item={item}
+                height={height - 16}
+                pixelsPerSecond={pixelsPerSecond}
+                isSelected={selectedItem === item.id}
+                onSelect={() => onSelectItem(item.id)}
+              />
+            );
+          }
+
           const section = item.sectionId ? getSection(item.sectionId) : null;
 
           return (
@@ -109,7 +123,7 @@ export default function TimelineTrack({
         {/* Empty state */}
         {items.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm pointer-events-none">
-            Drag {trackType.toLowerCase()} assets here
+            {trackType === "TEXT" ? "No text overlays on this clip yet" : `Drag ${trackType.toLowerCase()} assets here`}
           </div>
         )}
 

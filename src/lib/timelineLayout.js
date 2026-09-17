@@ -10,7 +10,7 @@
 // here now instead, so there is exactly one place a track-count or
 // row-height change has to be made.
 export const TRACK_HEIGHT = 64; // px, one track row (TimelineTrack's own height)
-export const TOTAL_TRACKS = 3; // Video, Narration, Audio/Music
+export const TOTAL_TRACKS = 4; // Video, Narration, Audio/Music, Text
 export const RULER_HEIGHT = 32; // px, TimelineRuler's h-8
 
 // Width of the label column at the head of every track row (TimelineTrack's

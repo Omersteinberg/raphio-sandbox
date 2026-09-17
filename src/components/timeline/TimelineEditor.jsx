@@ -1251,6 +1251,8 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   pixelsPerSecond={timeline.pixelsPerSecond}
                   selectedItem={timeline.selectedItem}
                   onSelectItem={timeline.setSelectedItem}
+                  selectedOverlay={timeline.selectedOverlay}
+                  onSelectOverlay={timeline.setSelectedOverlay}
                   onSeek={timeline.seek}
                   onUpdateItem={timeline.updateItem}
                   onItemEdit={handleItemEdit}

@@ -36,6 +36,8 @@ export default function TimelineCanvas({
   pixelsPerSecond,
   selectedItem,
   onSelectItem,
+  selectedOverlay = null,
+  onSelectOverlay,
   onSeek,
   onUpdateItem,
   onItemEdit,
@@ -108,6 +110,28 @@ export default function TimelineCanvas({
   };
   const narrationItems = audioItems.filter((i) => audioKind(i) === "narration");
   const audioMusicItems = audioItems.filter((i) => audioKind(i) !== "narration");
+
+  // Text overlays live on each VIDEO item's own `overlays` array (clip-
+  // relative in/out - see useTimeline.js), not as their own top-level item
+  // type. Flat-mapped here into timeline-absolute pseudo-items so the TEXT
+  // row can position/select them exactly like any other TimelineTrack row.
+  // Each block spans only its own inSeconds-outSeconds window, not the full
+  // parent clip duration.
+  const textOverlayItems = useMemo(
+    () =>
+      videoItems.flatMap((video) => {
+        const clipStart = video.effectiveStartTime ?? video.startTime;
+        return (video.overlays || []).map((overlay) => ({
+          id: overlay.id,
+          parentItemId: video.id,
+          trackType: "TEXT",
+          startTime: clipStart + overlay.inSeconds,
+          duration: overlay.outSeconds - overlay.inSeconds,
+          overlay,
+        }));
+      }),
+    [videoItems]
+  );
 
   // The items on one ROW, addressed the way the rows are rendered below. Used
   // for drops, where there is no existing item to infer the row from.
@@ -742,7 +766,13 @@ export default function TimelineCanvas({
         </div>
 
         {/* Tracks Container - tapping empty space deselects (clips stopPropagation) */}
-        <div className="relative" onClick={() => onSelectItem(null)}>
+        <div
+          className="relative"
+          onClick={() => {
+            onSelectItem(null);
+            onSelectOverlay?.(null);
+          }}
+        >
           {/* Video Track */}
           <TimelineTrack
             label="Video"
@@ -816,6 +846,27 @@ export default function TimelineCanvas({
             isDropTarget={dropRow?.trackType === "AUDIO" && dropRow?.trackIndex === 1}
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
+            sessionId={sessionId}
+          />
+
+          {/* Text Track (Phase 1) - each block is a text overlay sourced from
+              its parent video item's own `overlays` array (see
+              textOverlayItems above), not a stored top-level item. Selection
+              uses its own selectedOverlay/onSelectOverlay slot, separate from
+              selectedItem, so an overlay and its parent clip can be selected
+              independently - see useTimeline.js. */}
+          <TimelineTrack
+            label="Text"
+            trackType="TEXT"
+            trackIndex={0}
+            items={textOverlayItems}
+            height={trackHeight}
+            pixelsPerSecond={pixelsPerSecond}
+            selectedItem={selectedOverlay}
+            onSelectItem={(id) => onSelectOverlay?.(id)}
+            getSection={getSection}
+            getAudioAsset={getAudioAsset}
+            overlappingItems={noOverlaps}
             sessionId={sessionId}
           />
 
