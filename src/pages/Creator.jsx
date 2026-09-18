@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Sparkles, Image as ImageIcon, Wand2 } from "lucide-react";
+import { Sparkles, Image as ImageIcon, Wand2, Clapperboard } from "lucide-react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import IntroPipelineCreator from "./IntroPipelineCreator";
@@ -23,17 +23,11 @@ import { toast } from "@/lib/toast";
 // Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
 const ENABLED_MODES = RESUMABLE_MODES;
 
-// What someone may START a new video in. Deliberately narrower than ENABLED_MODES:
-// Brand Intro ("intro") is hidden, so it has no tab and can never be the mode a bare
-// /create lands in, but an existing intro session still resumes because that arrives
-// as an explicit ?mode=intro and is checked against ENABLED_MODES. Undo by putting
-// "intro" back here and restoring its MODE_TABS entry.
-const SELECTABLE_MODES = ENABLED_MODES.filter((m) => m !== "intro");
-
 // The always-visible mode toggle. Icons match ModeChooser.jsx's cards (kept as the
 // source of truth there too) so the iconography is identical whether someone lands
 // via this toggle or the marketing/legacy chooser.
 const MODE_TABS = [
+  { id: "intro", label: "Promo", icon: Clapperboard },
   { id: "prompt", label: "Idea", icon: Sparkles },
   { id: "image", label: "Photos", icon: ImageIcon },
   { id: "references", label: "References", icon: Wand2 },
@@ -54,10 +48,7 @@ export default function Creator() {
   const [pipelineMode, setPipelineMode] = useState(() => {
     if (ENABLED_MODES.includes(resumeMode)) return resumeMode;
     const stored = localStorage.getItem("raphio_pipeline_mode");
-    // SELECTABLE_MODES, not ENABLED_MODES: someone whose last-used mode was the
-    // now-hidden Brand Intro would otherwise open straight into that pipeline with
-    // no tab to leave it by.
-    return SELECTABLE_MODES.includes(stored) ? stored : "prompt";
+    return ENABLED_MODES.includes(stored) ? stored : "prompt";
   });
 
   // Reported by the active pipeline. showChrome = parked on the composer, the only
@@ -148,7 +139,7 @@ export default function Creator() {
   };
 
   const handleModeChange = (mode) => {
-    const next = SELECTABLE_MODES.includes(mode) ? mode : "prompt";
+    const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
     if (next === pipelineMode) return;
     if (isMergedRunActive) {
       toast.info("Hold on - your video is still generating. Switching modes now would lose track of it.");
@@ -244,12 +235,7 @@ export default function Creator() {
           handleModeChange's guard, not a substitute for it: the guard is what
           actually stops the switch, this just stops offering a control that
           would be blocked anyway. */}
-      {/* A resumed Brand Intro session has no tab of its own any more, and
-          PipelineModeTabs falls back to index 0 for a value it cannot find, which
-          would underline "Idea" while the intro pipeline is on screen. It keeps its
-          own way out through onModeChange, so drop the row rather than lie about
-          where the user is. */}
-      {showChrome && pipelineMode !== "intro" && (
+      {showChrome && (
         <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
           <div className="max-w-4xl mx-auto">
             <CreatorHeader />

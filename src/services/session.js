@@ -233,6 +233,19 @@ export async function extractBrandFromUrl(url, { targetDuration } = {}) {
 }
 
 /**
+ * Fetch one picture the user ticked out of an import, at full size. The import
+ * itself only carries thumbnails, so this is what turns a pick into something
+ * worth uploading.
+ *
+ * @param {string} url - the photo's sourceUrl from extractBrandFromUrl
+ * @returns {{ dataUrl: string, width: number, height: number }}
+ */
+export async function fetchSitePhoto(url) {
+  const response = await axios.post(`${API_BASE}/brand-photo`, { url });
+  return response.data;
+}
+
+/**
  * Plan the intro and render a playable segment for every scene.
  *
  * The long one: a model call, then a voiceover and a Remotion render per scene.

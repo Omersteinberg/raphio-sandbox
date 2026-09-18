@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import PromptMentionField from "./PromptMentionField";
 import BrandUrlField from "./BrandUrlField";
 import BrandKitPanel from "./BrandKitPanel";
+import SitePhotoModal from "./SitePhotoModal";
 import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./ComposerChip";
 import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
@@ -29,7 +30,10 @@ import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
 
 const GRADIENT = "var(--gradient-brand)";
-const MAX_SHOWCASE = 4;
+// Eight, not more: the intro planner only ever attaches the first
+// MAX_ATTACHED_PHOTOS (8) to the vision call in merge-api's introPrompt.js.
+// Anything past that is planned around blind, so keep the two in sync.
+const MAX_SHOWCASE = 8;
 
 // Same warm-tinted card shadow PromptStep.jsx uses (its own local
 // CARD_SHADOW, not exported - replicated here rather than imported). The
@@ -164,6 +168,7 @@ export default function IntroBriefStep({
   setBrandFont,
   brandTone,
   applyExtractedBrand,
+  sitePhotos,
   showcaseFiles,
   setShowcaseFiles,
   showcaseLabels,
@@ -273,6 +278,21 @@ export default function IntroBriefStep({
   // surfaced here rather than silently picking one.
   const names = photos.map((_, i) => nameFor(i));
   const clashes = new Set(names.filter((n, i) => names.indexOf(n) !== i));
+
+  // Pictures a website import found. They arrive as an offer, not as uploads, so
+  // the modal opens itself on a fresh import and `takenSitePhotos` is what stops
+  // one already sitting in the brief being offered a second time.
+  const [sitePhotosOpen, setSitePhotosOpen] = useState(false);
+  const [takenSitePhotos, setTakenSitePhotos] = useState([]);
+  useEffect(() => {
+    setTakenSitePhotos([]);
+    if (sitePhotos?.length) setSitePhotosOpen(true);
+  }, [sitePhotos]);
+  // Offered only while there is somewhere to put them: eight uploads is the cap,
+  // and a grid nothing can be ticked in is worse than no grid.
+  const offeredSitePhotos = (sitePhotos || []).filter((p) => !takenSitePhotos.includes(p.sourceUrl));
+  const sitePhotoRoom = MAX_SHOWCASE - (showcaseFiles || []).length;
+  const canPickSitePhotos = offeredSitePhotos.length > 0 && sitePhotoRoom > 0;
 
   const addShowcase = (files) => {
     const imgs = filterValidImages(files);
@@ -461,6 +481,17 @@ export default function IntroBriefStep({
               as if the wrapper weren't there. */}
           <div data-tour="intro-fetch">
             <BrandUrlField onApply={applyExtractedBrand} targetDuration={targetDuration} />
+            {/* The way back in. Closing the popup is not the same as saying no to
+                every picture on the site, so the offer stays reachable. */}
+            {canPickSitePhotos && !sitePhotosOpen && (
+              <button
+                type="button"
+                onClick={() => setSitePhotosOpen(true)}
+                className="-mt-2 mb-4 text-xs font-bold text-[var(--terra)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 rounded"
+              >
+                Pick from the {offeredSitePhotos.length} {offeredSitePhotos.length === 1 ? "picture" : "pictures"} on your site
+              </button>
+            )}
           </div>
 
           {/* Identity: logo avatar + business name, grouped as one field since
@@ -1025,6 +1056,21 @@ export default function IntroBriefStep({
               : `${INTRO_CREDITS} credits · ${targetDuration} second intro with music`}
         </p>
       </div>
+
+      {/* Plain conditional, no AnimatePresence: it is how every other modal in
+          the app mounts, and wrapping this one left it stuck in the DOM at
+          opacity 0 after a close, swallowing every click on the page. */}
+      {sitePhotosOpen && canPickSitePhotos && (
+        <SitePhotoModal
+          photos={offeredSitePhotos}
+          remaining={sitePhotoRoom}
+          onAdd={(files, urls) => {
+            addShowcase(files);
+            setTakenSitePhotos((cur) => [...cur, ...urls]);
+          }}
+          onClose={() => setSitePhotosOpen(false)}
+        />
+      )}
       </ComposerFrame>
     </div>
   );

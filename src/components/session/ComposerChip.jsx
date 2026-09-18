@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, Children } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, Children } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X } from "lucide-react";
@@ -58,8 +58,16 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
  */
 export function ComposerChipRow({ children, className = "", scroll = false, gapClassName = "gap-3" }) {
   const [openId, setOpenId] = useState(null);
+  // An open popover is `absolute`, so it adds nothing to page height and the
+  // part of it below the fold cannot be scrolled to. The open chip measures
+  // how far past the scrollable bottom it reaches and reports that here, and
+  // the row carries a spacer of exactly that size for as long as it is open.
+  const [panelSpace, setPanelSpace] = useState(0);
   const rowRef = useRef(null);
   const reduced = useMediaQuery(REDUCED_MOTION_QUERY);
+
+  const reportPanelSpace = useCallback((px) => setPanelSpace(px > 0 ? px : 0), []);
+  useEffect(() => { if (!openId) setPanelSpace(0); }, [openId]);
 
   useEffect(() => {
     if (!openId) return undefined;
@@ -91,7 +99,7 @@ export function ComposerChipRow({ children, className = "", scroll = false, gapC
     : `flex flex-wrap items-center ${gapClassName} ${className}`;
 
   return (
-    <ChipRowContext.Provider value={{ openId, setOpenId }}>
+    <ChipRowContext.Provider value={{ openId, setOpenId, reportPanelSpace }}>
       <div
         ref={rowRef}
         className={rowClassName}
@@ -139,9 +147,36 @@ export function ComposerChipRow({ children, className = "", scroll = false, gapC
             </motion.div>
           );
         })}
+
+        {/* `w-full` makes it a wrapped flex item on its own line, so it only
+            ever adds height. Left out of a `scroll` row, which is nowrap: there
+            it would sit beside the chips and add width instead. */}
+        {!scroll && panelSpace > 0 && (
+          <div aria-hidden className="w-full shrink-0" style={{ height: panelSpace }} />
+        )}
       </div>
     </ChipRowContext.Provider>
   );
+}
+
+/** Nearest ancestor that actually scrolls vertically, else the page itself. */
+function scrollParentOf(node) {
+  let el = node.parentElement;
+  while (el) {
+    const { overflowY } = getComputedStyle(el);
+    if (/(auto|scroll|overlay)/.test(overflowY) && el.scrollHeight > el.clientHeight) return el;
+    el = el.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+/** How far past the reachable bottom of its scroll container an element sits. */
+function overflowBelow(el, pad = 16) {
+  const scroller = scrollParentOf(el);
+  const isPage = scroller === document.scrollingElement || scroller === document.documentElement;
+  const top = isPage ? 0 : scroller.getBoundingClientRect().top;
+  const bottom = el.getBoundingClientRect().bottom - top + scroller.scrollTop;
+  return Math.max(0, Math.round(bottom + pad - scroller.scrollHeight));
 }
 
 // Four states, deliberately pulled apart rather than sharing one tint:
@@ -298,6 +333,43 @@ export function ComposerChip({
 
   const state = disabled ? "disabled" : open ? "open" : modified ? "modified" : "default";
   const tone = variant === "outlined" ? TONE_OUTLINED : TONE;
+
+  // Keep the page scrollable far enough to reach the bottom of an open popover.
+  // `applied` is what the row is already holding, and each measurement adds only
+  // what is still missing: measuring against a page that already carries the
+  // spacer would otherwise read a deficit of zero and drop it again on the next
+  // pass, which is a loop, not a fix.
+  const panelRef = useRef(null);
+  const applied = useRef(0);
+  const reportPanelSpace = ctx?.reportPanelSpace;
+  useEffect(() => {
+    if (!open || isMobileSheet || !reportPanelSpace) return undefined;
+    const el = panelRef.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      const next = applied.current + overflowBelow(el);
+      if (next === applied.current) return;
+      applied.current = next;
+      reportPanelSpace(next);
+    };
+    measure();
+
+    // One frame later the spacer is in the page, so there is somewhere to scroll
+    // to. `nearest` moves only when the panel is actually cut off.
+    const frame = requestAnimationFrame(() => {
+      el.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    });
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      applied.current = 0;
+      reportPanelSpace(0);
+    };
+  }, [open, isMobileSheet, reportPanelSpace, reduced]);
 
   const handleClick = () => {
     if (disabled) return;
@@ -466,6 +538,7 @@ export function ComposerChip({
         <AnimatePresence>
           {open && (
             <motion.div
+              ref={panelRef}
               id={`${id}-popover`}
               role="dialog"
               aria-label={label}
