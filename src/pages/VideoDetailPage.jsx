@@ -18,6 +18,14 @@ export default function VideoDetailPage() {
   const title = video?.title || session?.scriptData?.title || session?.userPrompt || "Untitled Video";
   const finalVideoUrl = video?.finalVideoUrl;
 
+  // Real length = sum of the generated section clip durations (ffmpeg-probed
+  // during generation), same as VideoCard - the Video row has no duration column.
+  const totalSecs = Math.round(
+    (video?.sections || []).reduce((sum, s) => sum + (Number(s.clipDuration) || 0), 0)
+  );
+  const durationLabel =
+    totalSecs > 0 ? `${Math.floor(totalSecs / 60)}:${String(totalSecs % 60).padStart(2, "0")}` : null;
+
   useEffect(() => {
     const fetchSession = async () => {
       try {
@@ -141,6 +149,7 @@ export default function VideoDetailPage() {
             title={title}
             style={session?.style}
             sectionsCount={video?.sections?.length}
+            duration={durationLabel}
             model={video?.videoModel || session?.videoModel}
             posterUrl={video?.posterUrl || video?.sections?.find((s) => s.imageUrl)?.imageUrl}
             onEdit={handleEditVideo}

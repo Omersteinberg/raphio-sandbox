@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Film, Music, Play, Pause, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { computeTrim } from "@/lib/timelineTrim";
+import { getAudioWaveform, getSectionWaveform } from "@/services/session";
+import { getCachedWaveform, setCachedWaveform } from "@/lib/waveformCache";
 
 const MIN_DURATION = 0.5;
 
@@ -22,7 +24,7 @@ function getSourceDuration(item, section, audioAsset) {
   return (item.trimStart || 0) + (item.duration || MIN_DURATION);
 }
 
-export default function ItemEditModal({ item, section, audioAsset, onClose, onSave }) {
+export default function ItemEditModal({ item, section, audioAsset, sessionId, onClose, onSave }) {
   const isVideo = item.trackType === "VIDEO";
 
   const sourceDuration = useMemo(
@@ -50,7 +52,64 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
     ? section?.narrationText?.substring(0, 50) || "Video clip"
     : audioAsset?.name || section?.narrationText?.substring(0, 50) || "Audio";
 
-  const waveform = Array.isArray(audioAsset?.waveformData) ? audioAsset.waveformData : null;
+  // Waveform is a nice-to-have visualization, not required for trimming: the
+  // asset may already carry it (future-proofing), otherwise fetch it lazily -
+  // only when this modal is actually open for an audio clip, since generating
+  // one is real ffmpeg work the backend shouldn't do for every asset up front.
+  // Trimming itself works from trimStart/trimEnd alone, so a missing or failed
+  // fetch just means no bars render; it never blocks Apply cut.
+  //
+  // Two fetch paths, matching the two ways narration ends up on the timeline:
+  // an AudioAsset row (TTS-added audio, GET /audio/:audioId/waveform) or
+  // section-baked narration (no AudioAsset at all, GET /clips/:sectionId/waveform).
+  // They're mutually exclusive - an item never carries both audioAssetId and
+  // sectionId - so at most one of these ever fires.
+  // Cache key for this item's source, shared with the timeline track view
+  // (waveformCache.js) - "audio"/audioAsset.id or "section"/section.id,
+  // matching whichever fetch path applies below.
+  const cacheKind = audioAsset?.id ? "audio" : section?.id ? "section" : null;
+  const cacheId = audioAsset?.id || section?.id || null;
+
+  const [waveform, setWaveform] = useState(() =>
+    getCachedWaveform(cacheKind, cacheId) ||
+    (Array.isArray(audioAsset?.waveformData) ? audioAsset.waveformData : null)
+  );
+  const [waveformLoading, setWaveformLoading] = useState(false);
+
+  useEffect(() => {
+    if (isVideo || waveform || !sessionId) return;
+    const fetchWaveform = audioAsset?.id
+      ? () => getAudioWaveform(sessionId, audioAsset.id)
+      : section?.id
+      ? () => getSectionWaveform(sessionId, section.id)
+      : null;
+    if (!fetchWaveform) return;
+
+    let cancelled = false;
+    setWaveformLoading(true);
+    fetchWaveform()
+      .then((data) => {
+        if (cancelled) return;
+        // { waveform: [] } means the section's narration hasn't generated
+        // yet - a normal empty state, not an error, so it's left as null
+        // and falls through to the same "no waveform" look as any other
+        // clip without one.
+        if (Array.isArray(data?.waveform) && data.waveform.length > 0) {
+          setWaveform(data.waveform);
+          setCachedWaveform(cacheKind, cacheId, data.waveform);
+        }
+      })
+      .catch(() => {
+        /* no waveform to show - the shaded trim track still works without it */
+      })
+      .finally(() => {
+        if (!cancelled) setWaveformLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideo, audioAsset?.id, section?.id, sessionId]);
 
   const keptDuration = Math.max(0, trimEnd - trimStart);
   const pct = (t) => `${(t / sourceDuration) * 100}%`;
@@ -145,16 +204,16 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
               ) : (
                 <Music className="w-5 h-5 text-blue-400" />
               )}
-              <h3 className="text-lg font-semibold text-white">Trim clip</h3>
+              <h3 className="text-lg font-semibold text-foreground">Trim clip</h3>
             </div>
-            <button onClick={onClose} className="text-muted-foreground hover:text-white">
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Info */}
           <div className="bg-muted/50 rounded-lg p-3 mb-4">
-            <p className="text-sm text-white truncate">{label}</p>
+            <p className="text-sm text-foreground truncate">{label}</p>
             <p className="text-xs text-muted-foreground mt-1">
               Source length: {sourceDuration.toFixed(1)}s
             </p>
@@ -177,17 +236,22 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
           {/* Trim track: shaded = removed, highlighted = kept */}
           <div className="mb-2">
             <div className="relative h-14 rounded-md bg-muted/40 overflow-hidden border border-border">
-              {/* Waveform (audio) */}
+              {/* Waveform (audio). Muted rather than terracotta - the kept-region
+                  outline below is the one accent, and the bars are just texture. */}
               {waveform && (
-                <div className="absolute inset-0 flex items-center gap-px px-1 opacity-60">
+                <div className="absolute inset-0 flex items-center gap-px px-1 opacity-70">
                   {waveform.map((v, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-blue-400/70 rounded-sm"
+                      className="flex-1 bg-muted-foreground/50 rounded-sm"
                       style={{ height: `${Math.max(4, Math.min(100, Number(v) * 100))}%` }}
                     />
                   ))}
                 </div>
+              )}
+              {/* Loading shimmer while the waveform is being generated/fetched */}
+              {!waveform && waveformLoading && (
+                <div className="absolute inset-2 rounded bg-muted-foreground/15 animate-pulse" />
               )}
               {/* Removed head */}
               <div
@@ -226,7 +290,8 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
                 step={0.1}
                 value={trimStart}
                 onChange={(e) => updateIn(parseFloat(e.target.value))}
-                className="w-full"
+                className="w-full range-terra"
+                style={{ "--range-progress": `${sourceDuration > 0 ? (trimStart / sourceDuration) * 100 : 0}%` }}
               />
               <input
                 type="number"
@@ -235,7 +300,7 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
                 step={0.1}
                 value={Number(trimStart.toFixed(2))}
                 onChange={(e) => updateIn(parseFloat(e.target.value) || 0)}
-                className="w-full mt-1 bg-muted text-white text-sm rounded px-2 py-1 border border-border"
+                className="w-full mt-1 bg-muted text-foreground text-sm rounded px-2 py-1 border border-border"
               />
             </div>
             <div>
@@ -247,7 +312,8 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
                 step={0.1}
                 value={trimEnd}
                 onChange={(e) => updateOut(parseFloat(e.target.value))}
-                className="w-full"
+                className="w-full range-terra"
+                style={{ "--range-progress": `${sourceDuration > 0 ? (trimEnd / sourceDuration) * 100 : 0}%` }}
               />
               <input
                 type="number"
@@ -256,7 +322,7 @@ export default function ItemEditModal({ item, section, audioAsset, onClose, onSa
                 step={0.1}
                 value={Number(trimEnd.toFixed(2))}
                 onChange={(e) => updateOut(parseFloat(e.target.value) || 0)}
-                className="w-full mt-1 bg-muted text-white text-sm rounded px-2 py-1 border border-border"
+                className="w-full mt-1 bg-muted text-foreground text-sm rounded px-2 py-1 border border-border"
               />
             </div>
           </div>

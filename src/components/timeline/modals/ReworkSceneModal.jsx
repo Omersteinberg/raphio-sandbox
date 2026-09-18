@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { X, Wand2, Loader2, AlertTriangle } from "lucide-react";
+import { Wand2, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import MediaPlayer from "../MediaPlayer";
+import EditorModalShell from "./EditorModalShell";
 
 /**
  * Rework one scene of a brand intro from a note.
@@ -33,39 +34,50 @@ export default function ReworkSceneModal({ section, onClose, onRework, loading }
   const sceneNumber = Number.isFinite(section?.orderIndex) ? section.orderIndex + 1 : null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
+    <EditorModalShell
+      icon={Wand2}
+      title={sceneNumber ? `Rework scene ${sceneNumber}` : "Rework scene"}
+      onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={submitting || loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRework}
+            disabled={submitting || loading || !note.trim()}
+            className="text-white border-0"
+            style={{ background: "var(--gradient-brand)" }}
+          >
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Starting…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4" />
+                Rework scene
+              </span>
+            )}
+          </Button>
+        </div>
+      }
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-card rounded-xl p-4 md:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Wand2 className="w-5 h-5" />
-            {sceneNumber ? `Rework scene ${sceneNumber}` : "Rework scene"}
-          </h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Current scene preview */}
-        <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4">
-          {section?.generatedClipUrl ? (
-            <video src={section.generatedClipUrl} controls className="w-full h-full object-contain" />
-          ) : section?.imageUrl ? (
-            <img src={section.imageUrl} alt="" className="w-full h-full object-contain" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              <Wand2 className="w-8 h-8" />
-            </div>
-          )}
-        </div>
+        {/* Current scene preview - MediaPlayer (same custom controls as the
+            other modals), not the native <video controls> this used to
+            show. */}
+        {section?.generatedClipUrl ? (
+          <MediaPlayer kind="video" src={section.generatedClipUrl} poster={section.imageUrl} className="mb-5" />
+        ) : section?.imageUrl ? (
+          <div className="aspect-video rounded-xl border border-border overflow-hidden editor-screen mb-5">
+            <img src={section.imageUrl} alt="" className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="aspect-video rounded-xl border border-border bg-muted flex items-center justify-center text-muted-foreground mb-5">
+            <Wand2 className="w-8 h-8" />
+          </div>
+        )}
 
         {/* Note */}
         <label className="text-sm font-medium text-foreground/80 mb-1 block">
@@ -91,32 +103,6 @@ export default function ReworkSceneModal({ section, onClose, onRework, loading }
             any trims, splits or added audio will be reset.
           </p>
         </div>
-
-        {/* Actions */}
-        <div className="mt-5 flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={submitting || loading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRework}
-            disabled={submitting || loading || !note.trim()}
-            className="text-white border-0"
-            style={{ background: "var(--gradient-brand)" }}
-          >
-            {submitting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Starting…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Wand2 className="w-4 h-4" />
-                Rework scene
-              </span>
-            )}
-          </Button>
-        </div>
-      </motion.div>
-    </div>
+    </EditorModalShell>
   );
 }

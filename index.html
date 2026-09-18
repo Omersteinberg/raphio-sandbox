@@ -26,6 +26,11 @@
     <!-- Fonts: DESIGN.md pairing - Bricolage Grotesque (display) + Figtree (body/UI) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Crisp chat widget is injected by CrispChat.jsx on /support only; this just
+         warms the DNS/TLS handshake so the script resolves faster once it's added. -->
+    <link rel="preconnect" href="https://client.crisp.chat">
+    <link rel="dns-prefetch" href="https://client.crisp.chat">
     <link
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&family=Figtree:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"

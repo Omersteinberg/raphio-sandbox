@@ -1,6 +1,18 @@
 import { useRef, useEffect, useState } from "react";
 import { Film } from "lucide-react";
 
+// Internal resolution of the blurred backdrop canvas. Small and square on
+// purpose: it's drawn through a heavy CSS blur, so detail beyond this is
+// invisible - the tiny buffer keeps drawImage() (and the blur itself, which
+// scales with pixel count) cheap regardless of the source video's actual
+// resolution.
+const BACKDROP_SIZE = 64;
+// The backdrop only needs to track the AMBIENT color of the current frame,
+// not motion - redrawing every animation frame would be pure waste (and the
+// actual perf risk the "doesn't cause jank" constraint is about). A few
+// draws a second reads as smoothly alive without any measurable cost.
+const BACKDROP_DRAW_INTERVAL_MS = 200;
+
 export default function VideoPreview({
   items,
   audioItems,
@@ -8,6 +20,7 @@ export default function VideoPreview({
   audioAssets,
   playheadPosition,
   isPlaying,
+  muted = false,
   getSection,
   getAudioAsset,
   registerVideoEl,
@@ -148,6 +161,9 @@ export default function VideoPreview({
           }
           // HTML media volume must be 0-1; clamp (the export can still boost >1).
           el.volume = Math.max(0, Math.min(1, item.volume ?? 1));
+          // Preview-only monitoring mute (the player bar's speaker icon) - a
+          // separate concern from each item's own persisted volume above.
+          el.muted = muted;
           if (isPlaying && el.paused) {
             el.play().catch(() => {});
           } else if (!isPlaying && !el.paused) {
@@ -158,7 +174,7 @@ export default function VideoPreview({
         el.pause();
       }
     });
-  }, [audioItems, playheadPosition, isPlaying, getSection, getAudioAsset]);
+  }, [audioItems, playheadPosition, isPlaying, muted, getSection, getAudioAsset]);
 
   // Pause everything when playback stops.
   useEffect(() => {
@@ -184,8 +200,52 @@ export default function VideoPreview({
 
   const hasShown = shownId != null;
 
+  // Blurred-backdrop letterboxing (the Instagram-Stories/YouTube pattern):
+  // a small offscreen canvas periodically grabs a center-cropped frame from
+  // whichever clip is currently shown and is displayed full-bleed behind the
+  // object-contain video, heavily blurred and scaled up. This is purely
+  // additive - it never touches playback state, only reads pixels from the
+  // element the existing effects above already drive. rAF-scheduled but
+  // throttled to BACKDROP_DRAW_INTERVAL_MS so it costs a handful of tiny
+  // drawImage() calls per second, not one per frame.
+  const backdropCanvasRef = useRef(null);
+  useEffect(() => {
+    let rafId;
+    let lastDraw = 0;
+    const tick = (t) => {
+      rafId = requestAnimationFrame(tick);
+      if (t - lastDraw < BACKDROP_DRAW_INTERVAL_MS) return;
+      const canvas = backdropCanvasRef.current;
+      const video = shownId ? videoElsRef.current[shownId] : null;
+      if (!canvas || !video || video.readyState < 2 || !video.videoWidth) return;
+      lastDraw = t;
+      const ctx = canvas.getContext("2d");
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      const sx = (video.videoWidth - size) / 2;
+      const sy = (video.videoHeight - size) / 2;
+      ctx.drawImage(video, sx, sy, size, size, 0, 0, BACKDROP_SIZE, BACKDROP_SIZE);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [shownId]);
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
+    <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden">
+      {/* Blurred backdrop - sits behind everything else, filling the whole
+          box regardless of the foreground video's aspect ratio. scale-110
+          pushes the blur's own soft edge falloff outside the visible area;
+          brightness/saturate keep it from competing with (or washing out)
+          the sharp video and the white control-bar text on top of it. Holds
+          its last drawn frame during a brief gap between clips rather than
+          flashing to nothing, which reads as smoother than clearing it. */}
+      <canvas
+        ref={backdropCanvasRef}
+        width={BACKDROP_SIZE}
+        height={BACKDROP_SIZE}
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-3xl brightness-[0.55] saturate-[1.15] pointer-events-none"
+      />
+
       {/* One <video> per clip, preloaded and stacked. Only the revealed one is
           visible; switching between them is instant (no src reload, no black). */}
       {items.map((item) => {
@@ -246,16 +306,10 @@ export default function VideoPreview({
         );
       })}
 
-      {/* Time indicator */}
-      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-        {formatTime(playheadPosition)}
-      </div>
+      {/* The standalone time badge that used to sit bottom-right was removed:
+          the host now overlays a full control bar (play / time / seek / mute /
+          fullscreen) along the bottom of the frame, so this both duplicated
+          the time readout and collided with it. */}
     </div>
   );
-}
-
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }

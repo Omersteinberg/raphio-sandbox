@@ -19,6 +19,7 @@ import AdminAgentRunsPage from "./pages/AdminAgentRunsPage";
 import AdminRoute from "./components/AdminRoute";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
+import SupportPage from "./pages/SupportPage";
 import AppLayout from "./components/AppLayout";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
@@ -63,6 +64,7 @@ function App() {
             <Route path="/buy-credits" element={<BuyCreditsPage />} />
             <Route path="/videos" element={<MyVideosPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/support" element={<SupportPage />} />
             <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
             <Route path="/admin/overview" element={<AdminRoute><Suspense fallback={adminFallback}><AdminOverviewPage /></Suspense></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><Suspense fallback={adminFallback}><AdminUsersPage /></Suspense></AdminRoute>} />
