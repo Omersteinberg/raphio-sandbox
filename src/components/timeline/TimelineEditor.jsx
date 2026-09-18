@@ -51,6 +51,7 @@ import TimelineCanvas from "./TimelineCanvas";
 import TimelineControls from "./TimelineControls";
 import EditorSidePanel from "./EditorSidePanel";
 import ClipActionPill from "./ClipActionPill";
+import TimelineOverlayPanel from "./TimelineOverlayPanel";
 import VideoPreview from "./VideoPreview";
 import AudioUploadModal from "./modals/AudioUploadModal";
 import TTSModal from "./modals/TTSModal";
@@ -488,6 +489,18 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     return { item, section, audioAsset, label, thumbnail };
   };
 
+  // The selected text overlay lives inside its parent VIDEO item's own
+  // `overlays` array (see useTimeline.js), not as a top-level item - so
+  // finding it means searching every item's overlays for a matching id,
+  // rather than a flat items.find like selectedClipInfo above.
+  const selectedOverlayInfo = () => {
+    for (const item of timeline.items) {
+      const overlay = item.overlays?.find((ov) => ov.id === timeline.selectedOverlay);
+      if (overlay) return { itemId: item.id, overlay };
+    }
+    return null;
+  };
+
   // The pill is persistent (it follows the selection rather than being opened
   // by a click), so its Speed/Volume drafts have to re-seed from whichever
   // clip is CURRENTLY selected, not just from whatever was selected when a
@@ -571,6 +584,31 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline.selectedItem, timeline.zoomLevel, timeline.items]);
+
+  // Same mechanism as pillAnchorRect above, reused (not shared state) for the
+  // text-overlay editing panel - anchored to the selected OVERLAY BLOCK's own
+  // DOM node (data-overlay-id, stamped by TimelineOverlayItem), not the
+  // parent clip's, so the panel tracks the block itself.
+  const [overlayAnchorRect, setOverlayAnchorRect] = useState(null);
+  useEffect(() => {
+    if (!timeline.selectedOverlay) {
+      setOverlayAnchorRect(null);
+      return;
+    }
+    const update = () => {
+      const el = document.querySelector(`[data-overlay-id="${timeline.selectedOverlay}"]`);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setOverlayAnchorRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [timeline.selectedOverlay, timeline.zoomLevel, timeline.items]);
 
   // Handle export - download video and save as completed
   const handleExport = async () => {
@@ -1253,6 +1291,7 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
                   onSelectItem={timeline.setSelectedItem}
                   selectedOverlay={timeline.selectedOverlay}
                   onSelectOverlay={timeline.setSelectedOverlay}
+                  onUpdateOverlay={timeline.updateOverlay}
                   onSeek={timeline.seek}
                   onUpdateItem={timeline.updateItem}
                   onItemEdit={handleItemEdit}
@@ -1351,6 +1390,24 @@ export default function TimelineEditor({ sessionId, onBack, onExportComplete, on
               onDraft: setFadeOutDraft,
               onCommit: (v) => timeline.updateItem(timeline.selectedItem, { fadeOut: v }),
             }}
+          />
+        );
+      })()}
+
+      {/* The text-overlay editing panel. Sibling to ClipActionPill above (own
+          component, own anchor - see TimelineOverlayPanel.jsx's header
+          comment for why it isn't built as an extension of the pill), shown
+          whenever a text overlay is selected and no other surface is
+          covering the editor. */}
+      {timeline.selectedOverlay && !anyOverlayOpen && (() => {
+        const info = selectedOverlayInfo();
+        if (!info) return null;
+        return (
+          <TimelineOverlayPanel
+            anchorRect={overlayAnchorRect}
+            overlay={info.overlay}
+            onUpdate={(updates) => timeline.updateOverlay(info.itemId, info.overlay.id, updates)}
+            onClose={() => timeline.setSelectedOverlay(null)}
           />
         );
       })()}
