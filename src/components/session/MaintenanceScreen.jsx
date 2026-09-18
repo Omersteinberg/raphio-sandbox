@@ -86,7 +86,7 @@ export default function MaintenanceScreen() {
 
           <h1
             className="display"
-            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: '#1C1917', letterSpacing: '-0.01em', lineHeight: 1.05 }}
+            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em', lineHeight: 1.05 }}
           >
             Taking a quick break
           </h1>

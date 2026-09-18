@@ -15,6 +15,7 @@ import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPromosPage from "./pages/AdminPromosPage";
+import AdminAgentRunsPage from "./pages/AdminAgentRunsPage";
 import AdminRoute from "./components/AdminRoute";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
@@ -28,6 +29,7 @@ import { useIsMobile } from "./hooks/useMediaQuery";
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/AdminUserDetailPage"));
+const AdminVideosPage = lazy(() => import("./pages/AdminVideosPage"));
 
 const adminFallback = (
   <div className="min-h-full flex items-center justify-center" style={{ background: "#FDF6F0" }}>
@@ -65,7 +67,9 @@ function App() {
             <Route path="/admin/overview" element={<AdminRoute><Suspense fallback={adminFallback}><AdminOverviewPage /></Suspense></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><Suspense fallback={adminFallback}><AdminUsersPage /></Suspense></AdminRoute>} />
             <Route path="/admin/users/:userId" element={<AdminRoute><Suspense fallback={adminFallback}><AdminUserDetailPage /></Suspense></AdminRoute>} />
+            <Route path="/admin/videos" element={<AdminRoute><Suspense fallback={adminFallback}><AdminVideosPage /></Suspense></AdminRoute>} />
             <Route path="/admin/promos" element={<AdminRoute><AdminPromosPage /></AdminRoute>} />
+            <Route path="/admin/agent-runs" element={<AdminRoute><AdminAgentRunsPage /></AdminRoute>} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
             <Route path="/video/:id/edit" element={<EditorPage />} />
             <Route path="/timeline-test" element={<TimelineTest />} />

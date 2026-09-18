@@ -52,7 +52,7 @@ export default function ProgressBar({
     <div className={className}>
       <div
         className="h-2 w-full overflow-hidden rounded-full"
-        style={{ background: "rgba(var(--terra-rgb), 0.12)" }}
+        style={{ background: "rgb(var(--terra-rgb) / 0.12)" }}
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}

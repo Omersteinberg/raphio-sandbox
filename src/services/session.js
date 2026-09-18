@@ -114,6 +114,18 @@ export async function getShareUrl(sessionId) {
 }
 
 /**
+ * Tell the backend a native share (navigator.share()) actually completed, so it
+ * can award the one-time share credit bonus. Only call this after
+ * navigator.share() resolves successfully — never on click, never on cancel.
+ * The backend re-checks ownership and once-per-video state; this call never
+ * grants credit itself. Returns { awarded, creditsAdded?, credits? }.
+ */
+export async function notifyShareComplete(sessionId) {
+  const response = await axios.post(`${API_BASE}/${sessionId}/share/complete`);
+  return response.data;
+}
+
+/**
  * List sessions
  * @returns {{ data: Array, total: number }}
  */
@@ -185,34 +197,98 @@ export async function uploadLogo(sessionId, file) {
  * Save the intro business brief.
  * @returns {{ introData: object }}
  */
-export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style }) {
+export async function saveIntroBrief(sessionId, { businessName, description, targetAudience, style, brandColors, templateId, font, fonts, tone }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-brief`, {
     businessName,
     description,
     targetAudience,
     style,
+    brandColors,
+    templateId,
+    font,
+    // `fonts` is the per project { heading, body } pair from the curated list,
+    // distinct from the older single `font` field which is left alone.
+    fonts,
+    tone,
   });
   return response.data;
 }
 
 /**
- * Generate (or revise) the intro montage+narration script.
- * @param {string} sessionId
- * @param {object} [opts] - { editRequest } natural-language revision request
- * @returns updated session (stage INTRO_SCRIPT_GENERATED)
+ * Read a brand kit and a first brief off the user's own website. Stateless: this
+ * runs on the brief step, before a session exists, so it takes a bare URL rather
+ * than a session id.
+ *
+ * `targetDuration` is what bounds the running order the brief comes back with: a
+ * 10 second intro has room for far fewer beats than a 30 second one, and a brief
+ * naming more than fit would have its extras dropped at generation.
+ *
+ * @param {string} url
+ * @param {object} [opts] - { targetDuration } in seconds
+ * @returns {{ found: object, missing: string[] }}
  */
-export async function generateIntroScript(sessionId, { editRequest } = {}) {
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, { editRequest }); // 202: starts the job
-  return await pollJobUntilDone(sessionId);
+export async function extractBrandFromUrl(url, { targetDuration } = {}) {
+  const response = await axios.post(`${API_BASE}/brand-from-url`, { url, targetDuration });
+  return response.data;
 }
 
 /**
- * Save edits to the intro script (montage plan + narration + voice).
+ * Fetch one picture the user ticked out of an import, at full size. The import
+ * itself only carries thumbnails, so this is what turns a pick into something
+ * worth uploading.
+ *
+ * @param {string} url - the photo's sourceUrl from extractBrandFromUrl
+ * @returns {{ dataUrl: string, width: number, height: number }}
+ */
+export async function fetchSitePhoto(url) {
+  const response = await axios.post(`${API_BASE}/brand-photo`, { url });
+  return response.data;
+}
+
+/**
+ * Plan the intro and render a playable segment for every scene.
+ *
+ * The long one: a model call, then a voiceover and a Remotion render per scene.
+ * Reports per-scene progress through onProgress so the UI can say which scene it
+ * is on rather than spinning.
+ *
+ * @param {string} sessionId
+ * @param {object} [opts] - { onProgress }
+ * @returns updated session (stage INTRO_SCRIPT_GENERATED)
+ */
+export async function generateIntroScenes(sessionId, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/generate-intro-scenes`); // 202: starts the job
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "GENERATE_INTRO_SCENES" });
+}
+
+/**
+ * Rework any number of scenes from the notes written against them, and re-render
+ * what that changes.
+ *
+ * One request, one job. The backend rewrites every noted scene in parallel and
+ * re-renders the affected segments in a single pass, which is cheaper than one
+ * rework at a time: neighbouring segments are re-cut once instead of once per note.
+ *
+ * @param {string} sessionId
+ * @param {Array<{index:number, note:string}>} edits - zero-based scene positions
+ * @param {object} [opts] - { onProgress }
+ * @returns the updated session, carrying `reviseFailures` if any scene failed
+ */
+export async function reviseIntroScenes(sessionId, edits, { onProgress } = {}) {
+  await axios.post(`${API_BASE}/${sessionId}/scenes/revise`, { edits }); // 202
+  return await pollJobUntilDone(sessionId, { onProgress, expectedJobType: "REVISE_INTRO_SCENES" });
+}
+
+/**
+ * Save the review step's own fields: brand name, music prompt, voice.
+ *
+ * Scene content is NOT saved here. A scene is changed with reviseIntroScenes,
+ * which is the only path that also re-renders it.
  * @returns updated session
  */
-export async function updateIntroScript(sessionId, { businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId }) {
+export async function updateIntroScript(sessionId, { businessName, musicPrompt, voiceId }) {
   const response = await axios.put(`${API_BASE}/${sessionId}/intro-script`, {
-    businessName, vignettes, motionPrompt, musicPrompt, narration, voiceId,
+    businessName, musicPrompt, voiceId,
   });
   return response.data;
 }
@@ -314,10 +390,19 @@ export async function getJobStatus(sessionId) {
  * message if the job failed. Each poll is sub-second, so no proxy/cPanel
  * timeout can kill it.
  *
+ * There is deliberately NO wall-clock cap here by default. The backend is the
+ * single authority on when a job is dead: reading /job-status converts a RUNNING
+ * job older than JOB_STALE_MS to FAILED, which this loop already handles, so the
+ * loop always terminates on its own. A client cap on top of that only ever fired
+ * on jobs that were still alive and about to succeed - intro scene creation runs
+ * past ten minutes on an ordinary brief - and the caller's catch then threw away
+ * a session the backend went on to finish normally.
+ *
  * @param {string} sessionId
  * @param {object} [options]
  * @param {number} [options.intervalMs=3000]
- * @param {number} [options.timeoutMs=600000] - 10 min client cap
+ * @param {number|null} [options.timeoutMs=null] - opt-in wall-clock cap in ms.
+ *   Leave unset to defer to the backend's stale guard.
  * @param {(status: object) => void} [options.onProgress]
  * @param {string} [options.expectedJobType] - if set, ignore states belonging to
  *   a different job. A session has ONE job slot shared by export/reassemble, so
@@ -325,7 +410,7 @@ export async function getJobStatus(sessionId) {
  *   (and vice-versa) - e.g. a stray "Reassemble failed" during an export.
  */
 export async function pollJobUntilDone(sessionId, options = {}) {
-  const { intervalMs = 3000, timeoutMs = 600000, onProgress, expectedJobType } = options;
+  const { intervalMs = 3000, timeoutMs = null, onProgress, expectedJobType } = options;
   const startedAt = Date.now();
   let consecutiveFailures = 0;
 
@@ -370,7 +455,7 @@ export async function pollJobUntilDone(sessionId, options = {}) {
       });
       throw jobErr;
     }
-    if (Date.now() - startedAt > timeoutMs) {
+    if (timeoutMs != null && Date.now() - startedAt > timeoutMs) {
       throw new Error(`Job polling timed out after ${Math.round(timeoutMs / 1000)}s`);
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -421,8 +506,17 @@ export async function generateFrameImage(sessionId, frameType, prompt, descripti
  */
 export async function generateScript(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload); // 202: starts the job
+  // 202. The body names the job that actually holds the session's single slot, which
+  // is NOT always the one we asked for: startSessionJob's atomic claim no-ops when the
+  // backend pipeline runner already has GENERATE_OUTLINE in flight, and reports THAT
+  // job back. Waiting on the reported type stops this resolving on a third job the
+  // runner chained on afterwards and returning its result as our session - the runner
+  // re-enters advanceSession from each onDone, so the DONE window between two chained
+  // jobs is ~200ms against a 3s poll, making the wrong job the likely one to catch.
+  // Returns null once the slot moves on; callers refetch the session instead.
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/generate-script`, payload);
   return await pollJobUntilDone(sessionId, {
+    expectedJobType: data?.jobType,
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
 }
@@ -435,8 +529,11 @@ export async function generateScript(sessionId, frameOptions = null, options = {
  */
 export async function generateOutline(sessionId, frameOptions = null, options = {}) {
   const payload = frameOptions ? { frameOptions } : {};
-  await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload); // 202: starts the job
+  // 202, and the same single-slot caveat as generateScript above: wait on the job
+  // the backend reports, not on whatever happens to be in the slot when we look.
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/generate-outline`, payload);
   return await pollJobUntilDone(sessionId, {
+    expectedJobType: data?.jobType,
     onProgress: (status) => options.onProgress?.(status.jobProgress),
   });
 }
@@ -687,6 +784,15 @@ export async function fetchStyles() {
 }
 
 /**
+ * The beats an intro brief can name with an @, e.g. "@rating".
+ * Returns [{ mention, type, summary, requires }].
+ */
+export async function fetchIntroScenes() {
+  const response = await axios.get(`${API_BASE}/intro-scenes`);
+  return response.data;
+}
+
+/**
  * Delete session
  */
 export async function deleteSession(sessionId) {
@@ -808,6 +914,22 @@ export async function generateTTS(sessionId, { text, voiceId, name }) {
     name,
   });
   return response.data;
+}
+
+/**
+ * Regenerate the background music (or add it, for a video that has none).
+ * Runs as a background job like clip regeneration, so it is polled to completion.
+ * `musicPrompt` is the style description; omit it to reuse the video's own.
+ */
+export async function regenerateBackgroundMusic(sessionId, { musicPrompt } = {}) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/audio/music/regenerate`, {
+    musicPrompt,
+  });
+  // Another job already owns this video's single slot - don't poll its result.
+  if (data && data.jobType && data.jobType !== 'REGENERATE_MUSIC') {
+    throw new Error('Another operation is still running on this video. Please wait for it to finish, then try again.');
+  }
+  return await pollJobUntilDone(sessionId, { expectedJobType: 'REGENERATE_MUSIC' });
 }
 
 /**

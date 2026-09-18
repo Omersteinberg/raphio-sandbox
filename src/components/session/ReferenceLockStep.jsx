@@ -144,9 +144,9 @@ export default function ReferenceLockStep({
         className="max-w-5xl mx-auto space-y-6"
       >
         <div>
-          <h2 className="text-2xl font-bold text-ink mb-2">Approve Your References</h2>
+          <h2 className="text-2xl font-bold text-ink mb-2">Approve Your World</h2>
           <p className="text-ink-muted">
-            Review how your references look in the chosen style. Logos are preserved exactly. Approve to continue or regenerate with feedback.
+            Review how everything in your world looks in the chosen style. Logos are preserved exactly. Approve to continue, or regenerate with feedback.
           </p>
         </div>
 

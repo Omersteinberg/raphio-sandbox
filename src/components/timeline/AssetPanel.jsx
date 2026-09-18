@@ -18,10 +18,22 @@ export default function AssetPanel({
   onDeleteAudio,
   onNarrationEdit,
   onRegenerateClip,
+  // Opens the background-music prompt modal. Optional: the Music group hides the
+  // action when the host does not provide one.
+  onRegenerateMusic,
+  // "Regenerate" everywhere except the intro pipeline, where a clip is a designed
+  // brand scene and the action reworks it rather than re-rolling AI footage.
+  regenerateLabel = "Regenerate",
 }) {
   const [videoExpanded, setVideoExpanded] = useState(true);
   const [audioExpanded, setAudioExpanded] = useState(true);
   const [playingAudio, setPlayingAudio] = useState(null);
+
+  // Every payload carries the asset's real length. The canvas fits the drop into
+  // a gap that size, so it has to be the length the item will actually get (see
+  // handleAssetDrop in TimelineEditor, which reads the same fields). It used to
+  // send ids only, leaving the canvas to assume 3 seconds for everything and
+  // place a 5 second clip in a gap it does not fit.
 
   // Handle drag start for video clips
   const handleVideoDragStart = (e, section) => {
@@ -30,6 +42,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "video",
         sectionId: section.id,
+        duration: Number(section.clipDuration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";
@@ -42,6 +55,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "audio",
         audioAssetId: asset.id,
+        duration: Number(asset.duration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";
@@ -54,6 +68,7 @@ export default function AssetPanel({
       JSON.stringify({
         type: "audio",
         sectionId: section.id,
+        duration: Number(section.narrationDuration || section.clipDuration) || 5,
       })
     );
     e.dataTransfer.effectAllowed = "copy";
@@ -159,8 +174,8 @@ export default function AssetPanel({
                       {onRegenerateClip && (
                         <button
                           className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-opacity flex-shrink-0"
-                          title="Regenerate clip"
-                          aria-label="Regenerate clip"
+                          title={`${regenerateLabel} clip`}
+                          aria-label={`${regenerateLabel} clip`}
                           onClick={(e) => { e.stopPropagation(); onRegenerateClip(section); }}
                         >
                           <RefreshCw className="w-3.5 h-3.5" />
@@ -243,7 +258,19 @@ export default function AssetPanel({
               )}
 
               {/* Music (background music) */}
-              {groupLabel("Music")}
+              <div className="flex items-center justify-between pr-1">
+                {groupLabel("Music")}
+                {onRegenerateMusic && (
+                  <button
+                    onClick={onRegenerateMusic}
+                    className="text-[11px] font-medium text-primary flex items-center gap-1 pt-1 hover:opacity-80"
+                    title={musicAssets.length ? "Generate a different background track" : "Generate background music for this video"}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {musicAssets.length ? "Regenerate" : "Generate"}
+                  </button>
+                )}
+              </div>
               {musicAssets.map((asset) => assetRow(asset, "bg-purple-500 hover:bg-purple-400"))}
               {musicAssets.length === 0 && (
                 <p className="text-[11px] text-muted-foreground px-1 py-1">None</p>

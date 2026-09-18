@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listCodes, createCode, updateCode, listRedemptions } from '../services/promo';
+import { listCodes, createCode, updateCode, deleteCode, listRedemptions } from '../services/promo';
 import { describeError } from '../lib/errorDetail';
-import { ArrowLeft, Ticket, Plus, Users, X } from 'lucide-react';
+import { ArrowLeft, Ticket, Plus, Users, X, Trash2, Shuffle } from 'lucide-react';
+
+// 8-char random uppercase alphanumeric - matches the shape of hand-written
+// codes like "WELCOME10" closely enough to drop straight into the Code field.
+function randomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let out = '';
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
 
 const C = {
   bg:         'linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)',
@@ -70,14 +79,16 @@ export default function AdminPromosPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const [form, setForm] = useState({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
+  const [form, setForm] = useState({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '', maxUsesPerUser: '1' });
   const [creating, setCreating] = useState(false);
   const [createMsg, setCreateMsg] = useState(null); // { type, text }
 
   const [editing, setEditing] = useState(null); // the code being edited
-  const [editForm, setEditForm] = useState({ credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
+  const [editForm, setEditForm] = useState({ credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '', maxUsesPerUser: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editMsg, setEditMsg] = useState('');
+
+  const [deletingId, setDeletingId] = useState(null);
 
   const [expandedId, setExpandedId] = useState(null);
   const [redemptions, setRedemptions] = useState({}); // codeId -> rows
@@ -106,6 +117,7 @@ export default function AdminPromosPage() {
         code: form.code.trim(),
         kind: form.kind,
         expiresAt: form.expiresAt || null,
+        maxUsesPerUser: form.maxUsesPerUser.trim() === '' ? null : Number(form.maxUsesPerUser),
       };
       if (form.kind === 'CREDITS') {
         payload.credits = Number(form.credits);
@@ -116,7 +128,7 @@ export default function AdminPromosPage() {
           : Number(form.discountValue);
       }
       await createCode(payload);
-      setForm({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '' });
+      setForm({ code: '', kind: 'CREDITS', credits: '', discountType: 'PERCENT', discountValue: '', expiresAt: '', maxUsesPerUser: '1' });
       setCreateMsg({ type: 'success', text: 'Code created.' });
       await loadCodes();
     } catch (err) {
@@ -144,6 +156,9 @@ export default function AdminPromosPage() {
         ? (code.discount_type === 'AMOUNT' ? formatCents(code.discount_value) : String(code.discount_value))
         : '',
       expiresAt: toDateInput(code.expires_at),
+      // null (unlimited) -> empty input, not "null"/0 - the field's own
+      // "Unlimited" placeholder is what communicates that state to the admin.
+      maxUsesPerUser: code.max_uses_per_user != null ? String(code.max_uses_per_user) : '',
     });
     setEditMsg('');
   };
@@ -154,7 +169,10 @@ export default function AdminPromosPage() {
     setSavingEdit(true);
     setEditMsg('');
     try {
-      const payload = { expiresAt: editForm.expiresAt || null };
+      const payload = {
+        expiresAt: editForm.expiresAt || null,
+        maxUsesPerUser: editForm.maxUsesPerUser.trim() === '' ? null : Number(editForm.maxUsesPerUser),
+      };
       if (editing.kind === 'CREDITS') {
         payload.credits = Number(editForm.credits);
       } else {
@@ -170,6 +188,22 @@ export default function AdminPromosPage() {
       setEditMsg(describeError(err, 'Could not save changes.').userMessage);
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (code) => {
+    if (!window.confirm(`Delete code "${code.code}"? This can't be undone.`)) return;
+    setDeletingId(code.id);
+    setLoadError('');
+    try {
+      await deleteCode(code.id);
+      // Soft-delete on the backend - GET /admin/codes already stops returning
+      // it, so drop it from local state directly instead of a full reload.
+      setCodes((prev) => prev.filter((c) => c.id !== code.id));
+    } catch (err) {
+      setLoadError(describeError(err, 'Could not delete code.').userMessage);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -219,14 +253,26 @@ export default function AdminPromosPage() {
           <form onSubmit={handleCreate} className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
             <div className="flex-1 min-w-[8rem]">
               <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Code</label>
-              <input
-                value={form.code}
-                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                placeholder="WELCOME10"
-                required
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold uppercase tracking-wide outline-none"
-                style={inputStyle}
-              />
+              <div className="flex gap-1.5">
+                <input
+                  value={form.code}
+                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                  placeholder="WELCOME10"
+                  required
+                  className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold uppercase tracking-wide outline-none"
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, code: randomCode() }))}
+                  aria-label="Generate random code"
+                  title="Generate random code"
+                  className="rounded-xl px-3 flex items-center justify-center shrink-0"
+                  style={inputStyle}
+                >
+                  <Shuffle className="w-4 h-4" style={{ color: C.terra }} />
+                </button>
+              </div>
             </div>
             <div className="w-full sm:w-40">
               <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Kind</label>
@@ -292,6 +338,17 @@ export default function AdminPromosPage() {
                 type="date"
                 value={form.expiresAt}
                 onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                style={inputStyle}
+              />
+            </div>
+            <div className="w-full sm:w-36">
+              <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Max uses/user</label>
+              <input
+                type="number" min="1" step="1"
+                value={form.maxUsesPerUser}
+                onChange={(e) => setForm((f) => ({ ...f, maxUsesPerUser: e.target.value }))}
+                placeholder="Unlimited"
                 className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
                 style={inputStyle}
               />
@@ -388,6 +445,16 @@ export default function AdminPromosPage() {
                                   : { color: C.green, border: `1px solid rgba(21,128,61,0.25)` }}
                               >
                                 {code.active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(code)}
+                                disabled={deletingId === code.id}
+                                aria-label={`Delete ${code.code}`}
+                                title="Delete code"
+                                className="p-1.5 rounded-lg"
+                                style={{ color: C.red, border: `1px solid rgba(185,28,28,0.25)`, opacity: deletingId === code.id ? 0.5 : 1 }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -502,6 +569,21 @@ export default function AdminPromosPage() {
                   <button type="button" onClick={() => setEditForm((f) => ({ ...f, expiresAt: '' }))}
                     className="text-xs font-semibold mt-1" style={{ color: C.muted }}>
                     Clear expiry (never expires)
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: C.charcoal }}>Max uses per user</label>
+                  <input
+                    type="number" min="1" step="1"
+                    value={editForm.maxUsesPerUser}
+                    onChange={(e) => setEditForm((f) => ({ ...f, maxUsesPerUser: e.target.value }))}
+                    placeholder="Unlimited"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none"
+                    style={inputStyle}
+                  />
+                  <button type="button" onClick={() => setEditForm((f) => ({ ...f, maxUsesPerUser: '' }))}
+                    className="text-xs font-semibold mt-1" style={{ color: C.muted }}>
+                    Clear (unlimited)
                   </button>
                 </div>
                 {editMsg && <p className="text-xs font-semibold" style={{ color: C.red }}>{editMsg}</p>}

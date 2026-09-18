@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Sparkles, Image as ImageIcon, Wand2, Check, ArrowRight } from "lucide-react";
+import { Sparkles, Image as ImageIcon, Wand2, Clapperboard, Check, ArrowRight } from "lucide-react";
 
 // ── Design tokens (mirrors MyVideosPage) ──────────────────────────
 const C = {
@@ -14,7 +14,7 @@ const C = {
 
 const GRADIENT = `linear-gradient(135deg, ${C.terra}, ${C.terraLt})`;
 
-// The three ways to start a video. `id` matches the pipeline mode keys.
+// The four ways to start a video. `id` matches the pipeline mode keys.
 const MODES = [
   {
     id: "prompt",
@@ -35,15 +35,23 @@ const MODES = [
   {
     id: "references",
     Icon: Wand2,
-    title: "Generate with references",
+    title: "Build your world",
     useCase: "Lock in characters and settings, then build a consistent story across scenes.",
     pros: ["Consistent characters across scenes", "Best for videos that tell a story"],
     con: "Takes longer to set up (about 7 min)",
   },
+  {
+    id: "intro",
+    Icon: Clapperboard,
+    title: "Brand intro",
+    useCase: "A punchy ~12 second branded stinger with fast cuts, kinetic captions and your logo.",
+    pros: ["Fast cuts + animated captions", "Uses your logo and brand colours"],
+    con: "Short-form only, one quick scene per beat",
+  },
 ];
 
 /**
- * The video-creation entry point: three selectable cards. Picking a card calls
+ * The video-creation entry point: four selectable cards. Picking a card calls
  * onPick(modeId) - the parent (Creator) persists the mode and enters the pipeline.
  * `initialMode` (the user's last-used mode) gets a subtle highlight; it does NOT
  * auto-advance.
@@ -56,10 +64,11 @@ export default function ModeChooser({ onPick, initialMode = null }) {
     >
       <style>{`
         .mc-grid { display:grid; grid-template-columns:1fr; gap:16px; }
-        @media (min-width:768px) { .mc-grid { grid-template-columns:repeat(3,1fr); } }
+        @media (min-width:640px) { .mc-grid { grid-template-columns:repeat(2,1fr); } }
+        @media (min-width:1024px) { .mc-grid { grid-template-columns:repeat(4,1fr); } }
       `}</style>
 
-      <div className="mx-auto w-full max-w-5xl px-4 py-10 md:py-14">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 md:py-14">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -92,7 +101,7 @@ export default function ModeChooser({ onPick, initialMode = null }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: "easeOut", delay: 0.06 + i * 0.07 }}
                 whileHover={{ y: -3 }}
-                className="group relative flex flex-col text-left rounded-3xl p-6 focus:outline-none"
+                className="group relative flex flex-col text-left rounded-3xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra)]/40 focus-visible:ring-offset-2"
                 style={{
                   background: "#fff",
                   border: `1px solid ${isLast ? "rgba(193,68,14,0.45)" : C.border}`,

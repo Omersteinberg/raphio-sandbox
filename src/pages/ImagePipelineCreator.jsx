@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, Sparkles, Images } from "lucide-react";
 import MergeLoadingOverlay from "@/components/merge/MergeLoadingOverlay";
@@ -12,6 +12,7 @@ import { buildScriptTasks, buildVideoTasks, progressFromTasks, BRIDGE_PHASE_WEIG
 import { useResolvedAutoApprove } from "@/hooks/useResolvedAutoApprove";
 import { logObserve } from "@/lib/genLog";
 import { loadSavedFrames, hydrateFrameConfig } from "@/lib/savedFrames";
+import { MOCK_VIDEO_URL, MOCK_SCRIPT_DATA, mockSession } from "@/lib/mockGeneration";
 
 // Step components
 import PromptStep from "@/components/session/PromptStep";
@@ -47,10 +48,58 @@ const IMAGE_SCRIPT_SUB_STEPS = [
   { id: "script",  label: "Generating script",        range: [70, 100] },
 ];
 
-export default function ImagePipelineCreator({ mode = "image", onModeChange, onBackToChooser }) {
+export default function ImagePipelineCreator({
+  mode = "image", onModeChange, onBackToChooser, onChromeChange,
+  // Reports showMergedRun's live/dead state up to Creator.jsx, which owns the
+  // mode tabs - same reasoning and pattern as ReferencesPipelineCreator's
+  // onMergedRunActiveChange: a tab switch mid-run unmounts this component
+  // (this one doubly so, via key={pipelineMode} on a Prompt<->Photos switch)
+  // and its useSession() instance with no resume path, so Creator.jsx uses
+  // this to block the switch instead.
+  onMergedRunActiveChange,
+  // User-intent state lifted to Creator.jsx (see Creator.jsx's sharedIntentProps).
+  // style/setStyle are renamed at this boundary (rawStyle/setRawStyle) so
+  // useSession.js's own wrapped `setStyle` - which clamps every write via
+  // imageSafeStyle() - can be destructured from `session` below without a
+  // naming collision. Using the raw param directly in the JSX further down
+  // would silently bypass that clamp (this happened once already - see the
+  // bug report this comment replaced).
+  userPrompt, setUserPrompt,
+  style: rawStyle, setStyle: setRawStyle,
+  targetDuration, setTargetDuration,
+  aspectRatio, setAspectRatio,
+  voiceId, setVoiceId,
+  videoModel, setVideoModel,
+  backgroundMusic, setBackgroundMusic,
+}) {
   const isPromptOnly = mode === "prompt";
   const navigate = useNavigate();
-  const session = useSession({ promptOnly: isPromptOnly });
+
+  // Dev-only preview of the merged-run loading state and the completion state,
+  // without a real session or any billed backend/VEO/ElevenLabs call. Same
+  // design as ReferencesPipelineCreator.jsx's mock - see the comment there for
+  // the full rationale. This pipeline has no refDone-shaped phase object
+  // though; its merged checklist is built from a numeric scriptProgress (fed
+  // to buildScriptTasks) plus a videoStarted boolean (fed to buildVideoTasks),
+  // so those are the two fake inputs here instead. Usage:
+  //   /create?mode=prompt&mockLoading=script|video|done
+  //   /create?mode=image&mockLoading=script|video|done
+  const [searchParams] = useSearchParams();
+  const mockLoadingParam = import.meta.env.DEV ? searchParams.get("mockLoading") : null;
+  const isMockDone = mockLoadingParam === "done";
+  const isMockLoading = !!mockLoadingParam && !isMockDone;
+  const mockPhase = mockLoadingParam === "video" ? "video" : "script";
+
+  const session = useSession({
+    promptOnly: isPromptOnly,
+    userPrompt, setUserPrompt,
+    style: rawStyle, setStyle: setRawStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
+  });
 
   const {
     step,
@@ -59,15 +108,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     handlePrev,
     sessionRestoring,
 
-    // Prompt step
-    userPrompt,
-    setUserPrompt,
+    // Prompt step (userPrompt/targetDuration/aspectRatio/voiceId/videoModel/
+    // backgroundMusic are lifted to Creator.jsx - already in scope as function
+    // params above; session.<field> is the identical pass-through value, so
+    // destructuring them again here would redeclare the same identifiers.
+    // style/setStyle are the exception: useSession.js wraps setStyle with an
+    // imageSafeStyle() clamp, so they ARE destructured from session below,
+    // under the renamed params above.)
     style,
     setStyle,
-    targetDuration,
-    setTargetDuration,
-    aspectRatio,
-    setAspectRatio,
     startSession,
     styleOptions,
     enableBridges,
@@ -101,10 +150,6 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     closingFrame,
     setClosingFrame,
     generatedFrameImages,
-    voiceId,
-    setVoiceId,
-    backgroundMusic,
-    setBackgroundMusic,
     configureFrames,
     startGeneration,
     generationError,
@@ -142,10 +187,16 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     let cancelled = false;
     (async () => {
       try {
+        // userPrompt/style are no longer restored here - they're lifted to
+        // Creator.jsx now, which survives a mode-switch remount on its own.
+        // This effect re-fires on every mode switch (key={pipelineMode}), so
+        // restoring them here as well used to clobber the correctly-lifted
+        // value with whatever was last saved under this specific mode's key.
+        // Creator.jsx does its own one-time pending-draft read for userPrompt
+        // on a genuine page-level remount (e.g. the /buy-credits round trip);
+        // style already survives that via getCreationDefaults()/localStorage.
         const saved = await loadPending(isPromptOnly ? "prompt" : "image");
         if (cancelled || !saved) return;
-        if (saved.userPrompt) setUserPrompt(saved.userPrompt);
-        if (saved.style) setStyle(saved.style);
         if (Array.isArray(saved.images) && saved.images.length > 0) {
           // Support both raw File entries and base64 entries.
           const files = await Promise.all(
@@ -166,7 +217,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
         // Restore saved frame defaults. Skipped when resuming an existing
         // session (?session=): the session's own frames load from the
         // backend. The pending draft above doesn't carry frames, so there is
-        // no overlap; draft prompt/style still win over saved defaults.
+        // no overlap.
         if (!new URLSearchParams(window.location.search).has("session")) {
           const savedFrames = await loadSavedFrames();
           if (!cancelled && savedFrames.opening) {
@@ -342,8 +393,14 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // every automatic stretch and only steps aside when parked on a review the user
   // must act on - so consecutive auto phases read as one page, and in full-auto
   // it's one page the whole way through.
-  const videoStarted = step >= generatingStep;
+  // Overriding videoStarted itself (rather than a separate mock flag) means
+  // every real downstream consumer of it - bridgeCardStatus, the checklist
+  // title/icon, logPhase, onLeave below - falls in line automatically.
+  const videoStarted = isMockLoading ? mockPhase === "video" : step >= generatingStep;
   const scriptSubSteps = isPromptOnly ? PROMPT_ONLY_SUB_STEPS : IMAGE_SCRIPT_SUB_STEPS;
+  // buildScriptTasks reads a 0-100 progress number, not a phase object like
+  // References' refDone - these are the mock's equivalent fake input.
+  const effectiveScriptProgress = isMockLoading ? (mockPhase === "video" ? 100 : 40) : scriptProgress;
   const { tasks: mergedVideoTasks, failure: videoFailure } = buildVideoTasks(
     session.session,
     scriptData,
@@ -385,7 +442,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
       }]
     : [];
   const mergedTasks = [
-    ...buildScriptTasks(scriptSubSteps, scriptProgress),
+    ...buildScriptTasks(scriptSubSteps, effectiveScriptProgress),
     ...bridgeTask,
     ...mergedVideoTasks,
   ];
@@ -422,13 +479,42 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
     (enableBridges && step === 2 && manualGate("bridges")) ||
     (step === framesStep && manualGate("generate"));
   const showMergedRun =
-    step < completedStep &&
-    (session.sessionId != null || loading) &&
-    (step > 0 || loading) &&
-    !atManualReview &&
-    !generationError &&
-    !videoFatal &&
-    !insufficientCredits;
+    isMockLoading ||
+    (step < completedStep &&
+      (session.sessionId != null || loading) &&
+      (step > 0 || loading) &&
+      !atManualReview &&
+      !generationError &&
+      !videoFatal &&
+      !insufficientCredits);
+
+  // Mirror showMergedRun (plus the completion screen) up to Creator.jsx so it
+  // can block a mode-tab switch while true, AND keep tabs hidden on "Your
+  // Video is Ready!" too - they previously came back the instant
+  // showMergedRun went false at step===completedStep, even though nothing
+  // about the page's chrome should change between "still generating" and
+  // "just finished". showMergedRun itself is left alone - it still means
+  // exactly "the merged checklist overlay is showing", used untouched
+  // everywhere else in this file.
+  //
+  // isCompletionScreen stays broken out as its own name because it is the
+  // half of hideCreatorChrome that is NOT "a run is in flight" - it is only
+  // folded in below, not reported separately. It used to be its own upward
+  // report (onCompletionActiveChange) driving a third header state; Creator's
+  // showChrome covers that case already, so the report is gone and this is
+  // now purely local.
+  //
+  // The unmount cleanup covers every exit path that isn't "the run finished"
+  // (an error state unmounting this component, navigating away entirely,
+  // etc.) so the parent's flag can never get stuck true once this instance
+  // is gone.
+  const isCompletionScreen = step === completedStep || isMockDone;
+  const hideCreatorChrome = showMergedRun || isCompletionScreen;
+  useEffect(() => {
+    onMergedRunActiveChange?.(hideCreatorChrome);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hideCreatorChrome]);
+  useEffect(() => () => onMergedRunActiveChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The bar is a weighted function of the rows above, all of which are derived
   // from durable backend state - so a reload or a resume lands on the real
@@ -597,20 +683,65 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
   // prompt screen and the final result/editing screens).
   const showProgressBar = (step > 0 && step <= generatingStep) || showMergedRun;
 
+  // Composer step with nothing running: Creator.jsx keeps the hero + tabs up and
+  // the step flows in the page instead of sitting in a fixed, self-scrolling
+  // frame, so the hero scrolls away with the composer. Anything else (a run in
+  // flight, a later step, a full-screen error) reverts to the fixed layout the
+  // overlays and the two-pane steps need, and drops the chrome.
+  const composerChrome =
+    step === 0 && !loading && !showMergedRun && !providerUnavailable && !sessionRestoring;
+  // The finished-video screen flows too, so the hero scrolls away with the
+  // player. The editing step is excluded - the timeline needs a fixed frame.
+  const flowLayout = composerChrome || step === completedStep;
+  useLayoutEffect(() => { onChromeChange?.(composerChrome, flowLayout); },
+    [composerChrome, flowLayout, onChromeChange]);
+
+  // Short-circuits straight to the completion screen with fake data - see
+  // ReferencesPipelineCreator.jsx's identical branch for the full rationale.
+  // Deliberately below the useLayoutEffect above, never above it: this is an
+  // early return, so a hook placed after it would be skipped whenever
+  // ?mockLoading=done is set and React would throw on the hook-count change.
+  if (isMockDone) {
+    return (
+      <div className="h-full flex flex-col font-figtree">
+        <ResultStep
+          finalVideoUrl={MOCK_VIDEO_URL}
+          scriptData={MOCK_SCRIPT_DATA}
+          session={mockSession(style, videoModel)}
+          enterEditingMode={enterEditingMode}
+          reset={reset}
+          showSurvey={false}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="h-full flex flex-col font-figtree"
-      style={{ background: "linear-gradient(160deg, #FDF6F0 0%, #FDFAF8 50%, #F7F4FB 100%)" }}
-    >
+    <div className={`flex flex-col font-figtree ${showMergedRun ? "" : "h-full"}`}>
+      {/* Shown on every manual review step AND during the merged-run overlay,
+          but only interactive in the former - same reasoning/pattern as
+          ReferencesPipelineCreator: a completed step's approve action is a
+          forward-only, side-effecting call, and re-approving a stage the
+          backend has already moved past mid-run can silently kick off a
+          second real video generation with no warning. `bare` drops the
+          white chrome band too, since the tabs/full header that used to
+          justify grouping the stepper into its own band are already hidden
+          in this state (Creator.jsx's isMergedRunActive). */}
       {showProgressBar && (
         <JourneyTimeline
           tasks={journeyTasks}
-          onStepClick={(t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          onStepClick={showMergedRun ? undefined : (t) => { if (t.navStep != null) goToStep(t.navStep); }}
+          bare={showMergedRun}
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Main Content. flowLayout drops the height cap and the self-scrolling
+          frame wherever the step is meant to flow in the page, which covers
+          the merged run too (composerChrome, and so flowLayout, is false
+          during it - the run gets the fixed frame deliberately, and there is
+          no header sibling left up in Creator.jsx to strand: showChrome
+          hides the whole row for the duration). */}
+      <div className={flowLayout ? "relative" : "flex-1 relative overflow-hidden"}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={step}
@@ -620,7 +751,7 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
             animate="center"
             exit="exit"
             transition={transition}
-            className="absolute inset-0 flex"
+            className={flowLayout ? "w-full flex" : "absolute inset-0 flex"}
           >
             <div className="w-full h-full">{renderStep()}</div>
           </motion.div>
@@ -628,7 +759,14 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
 
         {/* Progress overlay, outside the slide animation. A fully-automatic run
             shows ONE continuous checklist across script + video; otherwise the
-            per-phase script loading screen. */}
+            per-phase script loading screen.
+            In-flow (not absolute) on purpose - see ReferencesPipelineCreator.jsx's
+            identical panel for the full rationale: an absolutely-positioned box
+            is sized against its containing block's *definite* height, which
+            forces ProgressChecklist's own h-full to a hard pixel value and
+            re-creates the internal-scroll/pinned-header bug this is fixing.
+            min-h-[100dvh] keeps the short-content case filling the screen the
+            way the old absolute-inset-0 version did. */}
         <AnimatePresence>
           {showMergedRun ? (
             <motion.div
@@ -637,15 +775,15 @@ export default function ImagePipelineCreator({ mode = "image", onModeChange, onB
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="absolute inset-0 z-40"
-              style={{ background: "#F5F0EB" }}
+              className="relative z-40 min-h-[100dvh]"
+              style={{ background: "var(--gradient-app)" }}
             >
               <ProgressChecklist
                 title={videoStarted ? "Creating your video" : "Writing your script"}
                 headerIcon={videoStarted ? Film : Sparkles}
                 progress={sessionRestoring ? null : mergedProgress}
                 tasks={mergedTasks}
-                sessionId={session.sessionId}
+                sessionId={isMockLoading ? "mock-preview" : session.sessionId}
                 logPhase={videoStarted ? "video" : "script"}
                 onLeave={videoStarted ? () => navigate("/videos") : undefined}
               />

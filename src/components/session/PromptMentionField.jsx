@@ -20,6 +20,11 @@ const TYPE_LABEL = {
   logo: 'Logo',
   product: 'Product',
   image: 'Scene',
+  // Intro uploads are whatever the business happens to have: a product shot, a
+  // screenshot, a photo of a van. "Scene" and "Product" both misname most of them.
+  upload: 'Upload',
+  // An intro beat: a scene type the user is asking for by name.
+  beat: 'Beat',
 };
 
 const TYPE_DOT = {
@@ -28,9 +33,11 @@ const TYPE_DOT = {
   logo: '#2563EB',
   product: '#059669',
   image: '#C1440E',
+  upload: '#C1440E',
+  beat: '#7C3AED',
 };
 
-export default function PromptMentionField({ value = "", onChange, references = [], title = "Your references", ...props }) {
+export default function PromptMentionField({ value = "", onChange, references = [], title = "Your world", ...props }) {
   const taRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -164,7 +171,7 @@ export default function PromptMentionField({ value = "", onChange, references = 
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActiveIndex(i)}
                 onClick={() => insert(ref)}
-                className="w-full text-left px-3 py-2 flex items-start gap-2.5"
+                className="w-full min-h-11 text-left px-3 py-2 flex items-start gap-2.5"
                 style={{ background: active ? 'rgba(193,68,14,0.08)' : 'transparent', transition: 'background 0.12s ease' }}
               >
                 {ref.preview ? (
@@ -174,11 +181,11 @@ export default function PromptMentionField({ value = "", onChange, references = 
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="font-bold text-[13px] truncate" style={{ color: '#1C1917' }}>{ref.name}</span>
-                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: '#9C8F85' }}>{TYPE_LABEL[type] || 'Reference'}</span>
+                    <span className="font-bold text-[13px] truncate" style={{ color: 'var(--ink-warm)' }}>{ref.name}</span>
+                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: '#75695F' }}>{TYPE_LABEL[type] || 'Reference'}</span>
                   </span>
                   {ref.description?.trim() && (
-                    <span className="block text-[11px] truncate" style={{ color: '#9C8F85' }}>{ref.description.trim()}</span>
+                    <span className="block text-[11px] truncate" style={{ color: '#75695F' }}>{ref.description.trim()}</span>
                   )}
                 </span>
               </button>

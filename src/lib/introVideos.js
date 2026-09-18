@@ -16,9 +16,14 @@ export const INTRO_VIDEO_KEYS = {
 const FILES = {
   myVideos: "Raphio1.mp4",
   modeChooser: "Raphio3.mp4",
-  prompt: "Raphio4.mp4",
-  image: "Raphio5.mp4",
-  references: "Raphio6.mp4",
+};
+
+// Idea/Photos/References share one tutorial video, hosted outside the BASE
+// bucket - a full URL per key, checked before the BASE+filename fallback.
+const FULL_URLS = {
+  prompt: "https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/202608271711.mp4",
+  image: "https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/202608271711.mp4",
+  references: "https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/202608271711.mp4",
 };
 
 const TITLES = {
@@ -31,6 +36,7 @@ const TITLES = {
 
 // Object.hasOwn, not truthiness: introVideoSrc("constructor") must be null.
 export function introVideoSrc(key) {
+  if (Object.hasOwn(FULL_URLS, key)) return FULL_URLS[key];
   return Object.hasOwn(FILES, key) ? `${BASE}/${FILES[key]}` : null;
 }
 

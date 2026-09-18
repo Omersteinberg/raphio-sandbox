@@ -9,7 +9,21 @@ export const SCRIPT_JOB_TYPES = new Set([
   "GENERATE_OUTLINE",
   "GENERATE_SCRIPT",
   "GENERATE_INTRO_SCRIPT",
+  // The intro pipeline's long pole, and the one most likely to still be running
+  // when someone refreshes: without it here a refresh mid-generation dropped the
+  // user on an empty brief while the job carried on finishing in the backend.
+  "GENERATE_INTRO_SCENES",
 ]);
+
+// The durable output a finished script job leaves on the session. Intro scene
+// creation writes introData, everything else writes scriptData, and resume has
+// to read the right one or a job that succeeded looks like one that failed.
+function producedOutput(sessionData) {
+  if (!sessionData) return null;
+  return sessionData.jobType === "GENERATE_INTRO_SCENES"
+    ? sessionData.introData
+    : sessionData.scriptData;
+}
 
 /**
  * Classify the freshly loaded session's job slot for resume purposes.
@@ -26,7 +40,7 @@ export const SCRIPT_JOB_TYPES = new Set([
 export function detectScriptJobOnResume(sessionData) {
   if (!sessionData || !SCRIPT_JOB_TYPES.has(sessionData.jobType)) return null;
   if (sessionData.jobStatus === "RUNNING") return "running";
-  if (sessionData.jobStatus === "FAILED" && !sessionData.scriptData) return "failed";
+  if (sessionData.jobStatus === "FAILED" && !producedOutput(sessionData)) return "failed";
   return null;
 }
 
@@ -43,6 +57,9 @@ export function detectScriptJobOnResume(sessionData) {
  */
 export function scriptProgressForResumedSession(sessionData) {
   if (!sessionData) return 0;
+  // Intro sessions have no scriptData at all: the scenes ARE the script, so
+  // introData is what "the script phase finished" looks like for them.
+  if (sessionData.introData?.scenes?.length) return 100;
   if (sessionData.scriptData) return 100;
   if (sessionData.imageAnalysis) return 70;
   if (sessionData.images?.length > 0) return 40;
@@ -71,6 +88,7 @@ export async function attachToRunningScriptJob({
   setScriptProgress,
   progressBand = [75, 98],
 }) {
+  const isIntroScenes = jobType === "GENERATE_INTRO_SCENES";
   const [lo, hi] = progressBand;
   let creep = lo;
   const applyCreep = (value) => {
@@ -95,12 +113,14 @@ export async function attachToRunningScriptJob({
     // source of truth and the stage-sync effects drive the step from it.
     const refreshed = await sessionService.getSession(sessionId);
     setSession(refreshed);
+    // Intro sessions carry introData instead, which the intro hook's stage-sync
+    // effect reads straight off the session we just set.
     if (refreshed?.scriptData) setScriptData(refreshed.scriptData);
     setScriptProgress(100);
-    toast.success("Your script is ready!");
+    toast.success(isIntroScenes ? "Your scenes are ready. Watch them, then approve." : "Your script is ready!");
     return true;
   } catch (err) {
-    toast.error("Script generation failed. Please try again.");
+    toast.error(isIntroScenes ? "Scene generation failed. Please try again." : "Script generation failed. Please try again.");
     reportClientError({
       kind: "script-job-failed-resume",
       message: `Script job ${jobType} failed after user resumed session ${sessionId}: ${err.message}`,
@@ -118,7 +138,11 @@ export async function attachToRunningScriptJob({
  * at failure time, this adds the "a user saw it" signal.
  */
 export function notifyScriptJobFailedOnResume(sessionData) {
-  toast.error("Your script didn't finish generating. Please retry.");
+  toast.error(
+    sessionData.jobType === "GENERATE_INTRO_SCENES"
+      ? "Your scenes didn't finish generating. Please retry."
+      : "Your script didn't finish generating. Please retry."
+  );
   reportClientError({
     kind: "script-job-failed-resume",
     message: `User resumed session ${sessionData.id} after ${sessionData.jobType} failed: ${sessionData.jobError || "unknown error"}`,

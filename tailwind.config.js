@@ -58,7 +58,7 @@ export default {
   			},
   			ink: {
   				DEFAULT: 'rgb(var(--ink-rgb) / <alpha-value>)',
-  				warm: 'var(--ink-warm)',
+  				warm: 'rgb(var(--ink-warm-rgb) / <alpha-value>)',
   				muted: 'var(--muted-warm)'
   			},
   			chart: {
@@ -74,10 +74,6 @@ export default {
   			'brand-gradient': 'var(--gradient-brand)'
   		},
   		fontFamily: {
-  			montserrat: [
-  				'Montserrat',
-  				'sans-serif'
-  			],
   			figtree: [
   				'Figtree',
   				'sans-serif'

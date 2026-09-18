@@ -99,10 +99,18 @@ describe("resumeModeFor", () => {
   });
 
   it("returns null for a non-resumable mode, so the caller loads it as-is", () => {
-    // intro is deliberately absent from RESUMABLE_MODES: Creator does not mount its
-    // pipeline, so bouncing the URL to ?mode=intro would land on nothing.
-    expect(resumeModeFor("intro", "image")).toBeNull();
-    expect(RESUMABLE_MODES).not.toContain("intro");
+    // A mode Creator does not mount must not bounce the URL, or the resume lands
+    // on nothing. Every mode in RESUMABLE_MODES has a creator behind it.
+    expect(resumeModeFor("nonsense", "image")).toBeNull();
+  });
+
+  it("resumes Brand Intro sessions into their own pipeline", () => {
+    // intro has its own creator (IntroPipelineCreator). Dropping it from
+    // RESUMABLE_MODES silently strands every in-flight intro session in the
+    // image wizard, which is what happened while the pipeline was hidden.
+    expect(RESUMABLE_MODES).toContain("intro");
+    expect(resumeModeFor("intro", "image")).toBe("intro");
+    expect(resumeModeFor("intro", "intro")).toBeNull();
   });
 
   it("corrects a missing mode param (the WelcomeHero entry point)", () => {

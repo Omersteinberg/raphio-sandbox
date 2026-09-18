@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 const C = {
   bg:       '#F5F0EB',
-  dark:     '#1C1917',
+  dark:     'var(--ink-warm)',
   terra:    '#C1440E',
   terraLt:  '#E8603C',
   muted:    '#7A6A62',

@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
-  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package,
-  Loader2, RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle,
+  Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package, Tag,
+  RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle, Clock,
+  RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import PromptMentionField from "./PromptMentionField";
+import ImproveButton from "./ImproveButton";
 import VoiceSelector from "./VoiceSelector";
 import AutoApproveIntroModal from "./AutoApproveIntroModal";
+import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./ComposerChip";
 import { scorePrompt } from "@/lib/promptStrength";
+import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
 import { improvePrompt as improvePromptApi } from "@/services/reference";
 import { getRegionDefault } from "@/services/voices";
@@ -26,6 +30,7 @@ import { ASPECT_RATIO_OPTIONS } from '../../constants/aspectRatios';
 import { MAX_IMAGES, creditsForDuration } from "@/lib/limits";
 import { ACCEPTED_IMAGE_ACCEPT, validateImageFile, filterValidImages } from "@/lib/imageValidation";
 import DurationEstimate from "./DurationEstimate";
+import CreditAffordabilityCard from "./CreditAffordabilityCard";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { saveReturnTo } from "@/lib/returnTo";
@@ -37,7 +42,8 @@ import { useStepTour } from "@/lib/useStepTour";
 import HelpFab from "@/components/ui/HelpFab";
 import IntroVideoModal from "@/components/IntroVideoModal";
 import { useIntroVideo } from "@/hooks/useIntroVideo";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
+import { ComposerFrame } from "./PipelineShell";
 
 const SLOT_LABELS = {
   general: ['Opening shot', 'Main moment', 'Scene 3', 'Scene 4', 'Scene 5', 'Scene 6', 'Scene 7', 'Scene 8', 'Scene 9', 'Ending'],
@@ -53,6 +59,31 @@ const DURATION_OPTIONS = [
   { value: 45, label: '45s', desc: 'Extended' },
   { value: 60, label: '60s', desc: 'Full story' },
 ];
+
+// Kill switch for the Advanced accordion (Bridge Scene toggle, opening/closing
+// frame cards - image mode only). Off for now; the accordion's trigger button,
+// state, and handlers are all still here, just unreachable while this is
+// false. Flip back to true to restore it - nothing else needs to change.
+const ENABLE_ADVANCED_OPTIONS = false;
+
+// Short display labels for the prompt-strength segmented row (design review
+// Variation 5) - the full descriptive strings from scorePrompt() still drive
+// the expanded hint text below, these just need to fit a compact segment.
+const SEGMENT_FACTOR_LABEL = {
+  coverage: 'Mentions',
+  detail: 'Detailed',
+  setting: 'Clear setting',
+  toneAction: 'Tone & action',
+};
+
+// Once a criterion is met, its expanded-view line swaps the "what to add"
+// instructional hint for a short confirmation instead - `coverage` isn't
+// listed here on purpose, so it keeps showing its regular hint either way.
+const FACTOR_CONFIRMATION = {
+  detail: 'Your prompt has enough detail to build the scene.',
+  setting: 'You have defined where and when the story takes place.',
+  toneAction: 'The mood and a clear story beat are defined.',
+};
 
 const STYLE_ICON_MAP = {
   realistic: Camera,
@@ -92,6 +123,19 @@ const RATIO_BOX = {
   '16:9': { w: 52, h: 29 },
   '9:16': { w: 29, h: 52 },
 };
+
+// Whether a photo's own shape doesn't match the video's frame. Mirrors the
+// backend's 8% tolerance (video.service uploadImages), which is the
+// authoritative check; this one only drives the frontend warning + badges.
+// Shared by the per-photo "Needs framing" badge and the offRatioCount
+// aggregate so the two never drift apart.
+function isOffRatio(img, aspectRatio) {
+  if (!img?.width || !img?.height) return false;
+  const [w, h] = String(aspectRatio || '16:9').split(':').map(Number);
+  if (!w || !h) return false;
+  const target = w / h;
+  return Math.abs(img.width / img.height - target) / target > 0.08;
+}
 
 const PROMPT_DICTIONARY = [
   {
@@ -170,6 +214,24 @@ const INSPIRATION_ITEMS = [
   },
 ];
 
+// Cycled through the empty textarea as animated placeholder text (Prompt +
+// Photos modes). Reuses the same prompts as the Inspiration gallery above -
+// already curated, already on-brand - rather than inventing a second set of
+// example copy that could drift from it.
+const PROMPT_EXAMPLE_TEXTS = INSPIRATION_ITEMS.map((item) => item.prompt);
+
+// Same idea, but demonstrating the thing Reference mode actually needs: a
+// prompt that @mentions the references you added by name. Long enough to
+// hit scorePrompt's detail threshold, each pairs a mention with a setting
+// and a tone/action beat, so cycling through them doubles as a model of
+// what "good" looks like here, not just motion for its own sake.
+const REFERENCE_EXAMPLE_TEXTS = [
+  "@Sarah discovers @Acme tucked inside her grandfather's old workshop, dust catching the light. She opens the box slowly, hopeful, then steps out into warm golden hour sun.",
+  "@Marcus unboxes the @RunningShoe on his kitchen counter early one morning, laughs at how light it feels, laces up, and heads out the door as the street wakes up.",
+  "A quiet rooftop at dusk: @Maya leans on the railing beside the glowing @CityLogo sign, city lights coming on below her, calm and reflective after a long day.",
+  "@Barista steams milk behind the counter at @CafeInterior as regulars trickle in, upbeat morning energy, sunlight cutting through the window onto the espresso machine.",
+];
+
 const REF_TYPE_OPTIONS = [
   { value: 'character', label: 'Character / Subject', color: 'orange' },
   { value: 'setting', label: 'Background / Setting', color: 'purple' },
@@ -177,11 +239,20 @@ const REF_TYPE_OPTIONS = [
   { value: 'product', label: 'Product', color: 'emerald' },
 ];
 
-const REF_TYPE_COLORS = {
-  character: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' },
-  setting: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
-  logo: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
-  product: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+// Per-type icon, shared by ReferenceInput's header/fields (single active
+// type) and its type-selector tab row (all options rendered at once). Color
+// is deliberately NOT per-type any more - every type shares the same
+// terracotta `accent`/`accentRgb`/`gradientEnd` (this card's whole color
+// scheme, not just the tab bar/icon tile, reads from these three), so
+// nothing in the card - border-left, header label, remove button, name
+// field focus ring, Upload/AI Generate toggle, dropzone, reference image
+// border - can render purple/blue/emerald regardless of which type is
+// selected. Only `Icon` and `label` still vary.
+const REF_TYPE_STYLES = {
+  character: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Users, label: 'Character' },
+  setting: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Camera, label: 'Setting' },
+  logo: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Tag, label: 'Logo' },
+  product: { accent: '#C1440E', accentRgb: '193,68,14', gradientEnd: '#D34019', Icon: Package, label: 'Product' },
 };
 
 // ── Shared step badge: used by every section header in the new flow ──
@@ -191,7 +262,7 @@ function StepBadge({ n }) {
       className="inline-flex items-center justify-center rounded-full flex-shrink-0 font-black"
       style={{
         width: 30, height: 30, fontSize: 14,
-        background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+        background: 'var(--gradient-brand)',
         color: '#fff',
         boxShadow: '0 3px 10px rgba(193,68,14,0.28)',
       }}
@@ -206,7 +277,37 @@ const CARD_SHADOW = {
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
-function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
+// Ephemeral label bubble for an icon-only pill: `sm:hidden` makes it a no-op
+// at >=640px, where the pill's own inline text label is already visible, so
+// this only ever renders below that breakpoint. Purely visual (aria-hidden) -
+// the button carries its own aria-label for screen readers regardless of tap
+// state.
+function PillTapLabel({ show, children }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.span
+          aria-hidden="true"
+          initial={{ opacity: 0, y: 4, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.92 }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="sm:hidden absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-bold text-white pointer-events-none z-20"
+          style={{ background: '#2C2420', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
+        >
+          {children}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// Memoized: without this, every keystroke in ANY one reference's fields
+// rebuilds the whole `references` array (see handleReferenceChange below),
+// which would re-render every ReferenceInput in the list on every edit.
+// onChange/onRemove must be stable (see the useCallback-wrapped handlers
+// passed from the .map() below) for this memoization to actually take effect.
+const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
   const handleFileChange = (e) => {
     const file = validateImageFile(e.target.files?.[0]);
     if (file) {
@@ -222,12 +323,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
   const isCharacter = type === 'character';
   const isSetting = type === 'setting';
   const isLogo = type === 'logo';
-  const isProduct = type === 'product';
-  const accent = isCharacter ? '#C1440E' : isSetting ? '#7C3AED' : isLogo ? '#2563EB' : '#059669';
-  const accentRgb = isCharacter ? '193,68,14' : isSetting ? '124,58,237' : isLogo ? '37,99,235' : '5,150,105';
-  const gradientEnd = isCharacter ? '#E8603C' : isSetting ? '#A855F7' : isLogo ? '#3B82F6' : '#10B981';
-
-  const typeInfo = REF_TYPE_OPTIONS.find(t => t.value === item.type) || REF_TYPE_OPTIONS[0];
+  const { accent, accentRgb, gradientEnd, Icon: TypeIcon } = REF_TYPE_STYLES[type] || REF_TYPE_STYLES.character;
 
   // What this card still needs before it counts as a usable reference. Shown as
   // a gentle amber footer so it's obvious why the "Create" button stays disabled
@@ -252,71 +348,108 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
       initial={{ opacity: 0, y: 12, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-      className="relative rounded-2xl border overflow-hidden bg-white"
-      style={{ borderColor: `rgba(${accentRgb},0.18)`, borderLeftWidth: 3, borderLeftColor: accent, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+      className="relative rounded-2xl border overflow-hidden bg-white shadow-sm hover:shadow-md transition-all duration-150"
+      style={{ borderColor: `rgba(${accentRgb},0.18)`, borderLeftWidth: 3, borderLeftColor: accent }}
     >
-      {/* Card header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: `rgba(${accentRgb},0.08)`, background: `rgba(${accentRgb},0.025)` }}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${accent}, ${gradientEnd})` }}
-          >
-            {isCharacter
-              ? <Users className="w-2.5 h-2.5 text-white" />
-              : isSetting
-                ? <Camera className="w-2.5 h-2.5 text-white" />
-                : isLogo
-                  ? <Camera className="w-2.5 h-2.5 text-white" />
-                  : <Package className="w-2.5 h-2.5 text-white" />
-            }
-          </div>
-          <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: accent }}>
-            {isCharacter
-              ? `Subject ${index + 1}`
-              : isSetting
-                ? `Background ${index + 1}`
-                : isLogo
-                  ? `Logo ${index + 1}`
-                  : `Product ${index + 1}`
-            }
-          </span>
-        </div>
-        <motion.button
-          whileTap={{ scale: 0.88 }}
-          onClick={() => onRemove(index)}
-          aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
-          className="w-11 h-11 rounded-full flex items-center justify-center transition-colors shrink-0"
-          style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
-        >
-          <X className="w-3 h-3" strokeWidth={2.5} />
-        </motion.button>
-      </div>
-
       <div className="p-4 space-y-3">
 
-        {/* Type selector */}
-        <div>
-          <select
-            value={item.type}
-            onChange={(e) => {
-              const newType = e.target.value;
-              const updates = { ...item, type: newType };
-              if (newType === 'logo') updates.useUpload = true;
-              onChange(index, updates);
-            }}
-            className="w-full rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
-            style={{ background: '#FBFAF8', border: `1.5px solid rgba(${accentRgb},0.12)`, color: '#1C1917' }}
+        {/* Header row: icon tile, type label, remove button - one continuous
+            card surface, no separate header band/border. */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${gradientEnd})` }}
+            >
+              <TypeIcon className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: accent }}>
+              {isCharacter
+                ? `Subject ${index + 1}`
+                : isSetting
+                  ? `Background ${index + 1}`
+                  : isLogo
+                    ? `Logo ${index + 1}`
+                    : `Product ${index + 1}`
+              }
+            </span>
+          </div>
+          {/* 44px invisible tap zone; -m-3 cancels its extra size in the flex row
+              so the header's rendered height doesn't grow, while the actual
+              hit box does. The visible tinted circle stays the original 20px. */}
+          <motion.button
+            whileTap={{ scale: 0.88 }}
+            onClick={() => onRemove(index)}
+            aria-label={`Remove ${isCharacter ? 'subject' : isSetting ? 'background' : isLogo ? 'logo' : 'product'} ${index + 1}`}
+            className="w-11 h-11 -m-3 flex items-center justify-center shrink-0"
           >
-            {REF_TYPE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            <span
+              className="w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: `rgba(${accentRgb},0.07)`, color: accent }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; e.currentTarget.style.color = '#dc2626'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentRgb},0.07)`; e.currentTarget.style.color = accent; }}
+            >
+              <X className="w-3 h-3" strokeWidth={2.5} />
+            </span>
+          </motion.button>
+        </div>
+
+        {/* Type selector - tab bar, equal-width tabs with an underline
+            indicator on the active tab (not filled pills). Each tab's padding
+            is grown past its visible size and pulled back with matching
+            negative margin, so the row still reads as thin/compact while the
+            actual tap box is ~44px tall.
+            The indicator is NOT each tab's own border-bottom any more - a
+            tab's -mt-1.5/-mb-1.5 shrinks its margin box without moving its
+            border box, so a border-bottom drawn on the button itself renders
+            ~6px (the mb amount) below this container's own border-bottom -
+            visibly off the shared divider line instead of flush on it.
+            Pulling the indicator out into one absolutely-positioned bar on
+            the (now `relative`) container instead pins it to the container's
+            own bottom edge - the divider itself - regardless of what the
+            tabs' margins are doing. Hardcoded terracotta rather than
+            `optStyle.accent` here only because every type's accent is
+            terracotta now anyway (see REF_TYPE_STYLES) - this whole card,
+            not just the tab bar, no longer varies color by type. */}
+        <div role="tablist" aria-label="Reference type" className="relative flex" style={{ borderBottom: '1.5px solid #E5DFD8' }}>
+          {REF_TYPE_OPTIONS.map((opt) => {
+            const optStyle = REF_TYPE_STYLES[opt.value] || REF_TYPE_STYLES.character;
+            const isActive = item.type === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => {
+                  const newType = opt.value;
+                  const updates = { ...item, type: newType };
+                  if (newType === 'logo') updates.useUpload = true;
+                  onChange(index, updates);
+                }}
+                className="flex-1 py-3.5 -mt-1.5 -mb-1.5 text-[11px] font-bold text-center transition-colors"
+                style={{
+                  // Neutral unless active - #726481 (not #9B8FA8) to clear
+                  // WCAG AA contrast, matches the muted text already used
+                  // elsewhere in this section. Always terracotta when active,
+                  // never the per-type accent.
+                  color: isActive ? '#C1440E' : '#726481',
+                }}
+              >
+                {optStyle.label}
+              </button>
+            );
+          })}
+          <motion.div
+            aria-hidden="true"
+            className="absolute bottom-0 h-[2px] pointer-events-none"
+            style={{ background: '#C1440E' }}
+            animate={{
+              left: `${(REF_TYPE_OPTIONS.findIndex((o) => o.value === item.type) / REF_TYPE_OPTIONS.length) * 100}%`,
+              width: `${100 / REF_TYPE_OPTIONS.length}%`,
+            }}
+            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+          />
         </div>
 
         {/* Name field */}
@@ -375,9 +508,9 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
         {isLogo ? (
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-xl"
-            style={{ background: 'rgba(59,130,246,0.06)', border: '1.5px solid rgba(59,130,246,0.12)' }}
+            style={{ background: `rgba(${accentRgb},0.06)`, border: `1.5px solid rgba(${accentRgb},0.12)` }}
           >
-            <span className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>
+            <span className="text-[11px] font-bold" style={{ color: accent }}>
               Upload only: logos are preserved exactly
             </span>
           </div>
@@ -393,10 +526,10 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
               style={item.useUpload
                 ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-                : { color: '#9B8FA8' }
+                : { color: '#726481' }
               }
             >
-              <Upload className="w-3 h-3" /> Upload Reference
+              <Upload className="w-3 h-3" /> Upload
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -405,7 +538,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
               style={!item.useUpload
                 ? { background: '#fff', color: accent, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }
-                : { color: '#9B8FA8' }
+                : { color: '#726481' }
               }
             >
               <Wand2 className="w-3 h-3" /> AI Generate
@@ -443,7 +576,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
                   onMouseLeave={e => { e.currentTarget.style.borderColor = `rgba(${accentRgb},0.18)`; e.currentTarget.style.background = '#FBFAF8'; }}
                 >
                   <Upload className="w-4 h-4 mb-1.5" style={{ color: accent, opacity: 0.5 }} />
-                  <span className="text-xs font-semibold text-stone-500">Click to upload reference image</span>
+                  <span className="text-xs font-semibold text-stone-500">Click to upload</span>
                   <span className="text-[10px] text-stone-400 mt-0.5">JPEG or PNG</span>
                   <input type="file" accept={ACCEPTED_IMAGE_ACCEPT} onChange={handleFileChange} className="hidden" />
                 </label>
@@ -487,7 +620,7 @@ function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName
       </div>
     </motion.div>
   );
-}
+});
 
 // Sortable photo tile - dnd-kit so reordering works with mouse AND touch
 // (long-press to start dragging on touch, so page scrolling still works).
@@ -546,10 +679,28 @@ export default function PromptStep({
   // Prompt-only (text-to-video) mode: reuses the image pipeline but hides the
   // photo upload, advanced settings, and image-count duration advisory.
   const isPromptOnly = pipelineMode === 'prompt';
+
+  // Stable across renders (functional onReferencesChange update, no `references`
+  // dependency) so ReferenceInput's React.memo actually prevents re-rendering
+  // every other reference card when one card's field changes.
+  const handleReferenceChange = useCallback((i, updated) => {
+    onReferencesChange((prev) => {
+      const next = [...prev];
+      next[i] = updated;
+      return next;
+    });
+  }, [onReferencesChange]);
+  const handleReferenceRemove = useCallback((i) => {
+    onReferencesChange((prev) => prev.filter((_, j) => j !== i));
+  }, [onReferencesChange]);
   // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
   // (so page scrolling still works), so the hint must tell users to hold first.
   const isMobile = useIsMobile();
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [showInspiration, setShowInspiration] = useState(false);
+  // Animated example-prompt placeholder: only runs on an untouched, unfocused
+  // box, same rule Brand Intro's brief textarea uses.
+  const [promptFocused, setPromptFocused] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [editingLabel, setEditingLabel] = useState(null);
   const [customLabels, setCustomLabels] = useState({});
@@ -562,6 +713,21 @@ export default function PromptStep({
   const [showPromptGuide, setShowPromptGuide] = useState(false);
   const [showImageOrderGuide, setShowImageOrderGuide] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
+  // Below `sm` the Inspiration/Dictionary/Tips pills lose their inline text
+  // label (space reasons - see the row's flex-nowrap comment below) and go
+  // icon-only. `tappedPill` briefly shows that label above the icon on tap,
+  // as feedback for the same click that fires the action - not a separate
+  // confirm step. `sm:hidden` on the label itself (not this state) is what
+  // keeps it a no-op at >=640px, where the permanent inline text is already
+  // visible.
+  const [tappedPill, setTappedPill] = useState(null);
+  const tappedPillTimeoutRef = useRef(null);
+  const revealPillLabel = useCallback((id) => {
+    clearTimeout(tappedPillTimeoutRef.current);
+    setTappedPill(id);
+    tappedPillTimeoutRef.current = setTimeout(() => setTappedPill(null), 1100);
+  }, []);
+  useEffect(() => () => clearTimeout(tappedPillTimeoutRef.current), []);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('shot');
   const [template, setTemplate] = useState('general');
@@ -591,21 +757,14 @@ export default function PromptStep({
   const atCap = (images?.length ?? 0) >= MAX_IMAGES;
   const slotLabels = SLOT_LABELS[template] ?? SLOT_LABELS.general;
 
-  // Photos whose shape doesn't match the video's frame. Mirrors the backend's
-  // 8% tolerance (video.service uploadImages), which is the authoritative check;
-  // this one only drives the warning and the toggle below the grid. Dimensions
-  // are measured as each photo is added, so a photo is "on ratio" until it lands.
-  const offRatioCount = useMemo(() => {
-    const [w, h] = String(aspectRatio || '16:9').split(':').map(Number);
-    if (!w || !h) return 0;
-    const target = w / h;
-    return (images ?? []).filter((img) => {
-      if (!img.width || !img.height) return false;
-      return Math.abs(img.width / img.height - target) / target > 0.08;
-    }).length;
-  }, [images, aspectRatio]);
+  // Photos whose shape doesn't match the video's frame. Dimensions are measured
+  // as each photo is added, so a photo is "on ratio" until it lands. Drives the
+  // per-photo "Needs framing" badges and the toggle below the grid.
+  const offRatioCount = useMemo(
+    () => (images ?? []).filter((img) => isOffRatio(img, aspectRatio)).length,
+    [images, aspectRatio]
+  );
   const ctaRef = useRef(null);
-  const prevImagesLengthRef = useRef(images?.length ?? 0);
 
   // dnd-kit: photo reordering that works with mouse AND touch.
   const imageId = (img, i) => img?.preview || img?.name || `img-${i}`;
@@ -621,25 +780,8 @@ export default function PromptStep({
   };
 
   const chipStyle = (active) => active
-    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
+    ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 6px rgba(193,68,14,0.25)' }
     : { background: '#fff', color: '#6B5E7B', border: '1.5px solid rgba(193,68,14,0.12)' };
-
-  // Infer a sensible aspect-ratio default once, based on viewport, image mode only.
-  useEffect(() => {
-    if (!isReferencesMode && !aspectRatio && setAspectRatio) {
-      setAspectRatio(window.innerWidth < 768 ? '9:16' : '16:9');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Scroll the CTA into view the moment the user finishes the 0 → 1 image upload transition.
-  useEffect(() => {
-    const currentLength = images?.length ?? 0;
-    if (prevImagesLengthRef.current === 0 && currentLength > 0) {
-      ctaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    prevImagesLengthRef.current = currentLength;
-  }, [images?.length]);
 
   // First-run onboarding for this creation screen. Both the intro video and the
   // tour auto-run once per mode (persisted) and only for a fresh creation: the
@@ -842,7 +984,26 @@ export default function PromptStep({
     () => scorePrompt({ userPrompt, references: mentionTargets, mode: isReferencesMode ? 'references' : 'image' }),
     [userPrompt, mentionTargets, isReferencesMode]
   );
-  const [showStrengthDetail, setShowStrengthDetail] = useState(true);
+  const promptIsEmpty = !userPrompt?.trim();
+  const allFactorsMet = strength.factors.length > 0 && strength.factors.every((f) => f.met);
+  // Starts collapsed - just the bar + summary line - on both mobile and
+  // desktop now. (Previously auto-opened while the prompt was incomplete;
+  // that made sense as a first-run nudge but read as noisy clutter once the
+  // composer had other things competing for attention, so "Show details" is
+  // now an opt-in on every screen size, not just mobile.) The effect below
+  // still auto-collapses it once every factor passes, in case the user
+  // opened it by hand and then finished the prompt while it was open.
+  const [showStrengthDetail, setShowStrengthDetail] = useState(false);
+  useEffect(() => {
+    if (allFactorsMet) setShowStrengthDetail(false);
+  }, [allFactorsMet]);
+
+  // Animated example prompts: cycle through curated briefs while the box is
+  // empty and unfocused, so the placeholder teaches prompt structure instead
+  // of just sitting blank. References gets its own set (the examples need to
+  // demonstrate @mentioning a reference, which the Inspiration prompts don't).
+  const promptExamples = isReferencesMode ? REFERENCE_EXAMPLE_TEXTS : PROMPT_EXAMPLE_TEXTS;
+  const typedPlaceholder = useTypedPlaceholder(promptExamples, promptIsEmpty && !promptFocused);
 
   // Voice recommendation. Two sources, weakest first: the caller's region (from
   // their IP, available as soon as the voice list loads) and then the video's
@@ -935,24 +1096,32 @@ export default function PromptStep({
     }
   };
 
-  // Red → yellow → green as the prompt gets stronger.
-  const strengthBarColor =
-    strength.band === "strong"
-      ? "#22A06B" // green
+  // Red -> yellow -> green as the prompt gets stronger - but an empty box
+  // isn't "weak," it's just unwritten. Scoring it red before a single
+  // character lands reads as a failing grade for doing nothing yet, so the
+  // meter stays neutral until there's something to actually evaluate.
+  // "strong" darkened #22A06B -> #1C8357 (impeccable audit): this value also
+  // colors the "Prompt strength: X"/"Strong prompt" TEXT label, which failed
+  // AA at 3.19-3.33:1 as plain text. Same value feeds the progress-bar FILL
+  // too (line ~1905) - that's a harmless side effect, since a fill only needs
+  // 3:1 and clears it even more comfortably at the darker shade.
+  const strengthBarColor = promptIsEmpty
+    ? "#D8CFC5" // neutral clay - not yet evaluative
+    : strength.band === "strong"
+      ? "#1C8357" // green, AA-safe as text (4.54:1 on #FBFAF8, 4.74:1 on white)
       : strength.band === "ok"
       ? "#F0B429" // yellow
       : "#E5484D"; // red
 
   return (
-    <div
-      className="w-full h-full overflow-y-auto relative"
-      style={{ background: '#F5F0EB' }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,750&display=swap');
-        .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 750; }
-      `}</style>
-
+    // reducedMotion="user" defers to the OS/browser prefers-reduced-motion
+    // setting for every motion.* element in this tree - the two manual
+    // reducedMotion ? ... : ... branches elsewhere (strength-meter fade-in,
+    // one AnimatePresence height animation) stay as they were; this provider
+    // covers everything else (card enter/exit, style-tile selection, the
+    // infinite drag-over bounce) without touching each one individually.
+    <MotionConfig reducedMotion="user">
+    <div className="w-full h-full overflow-y-auto relative">
       {/* Help FAB: offers the current mode's video and tour on demand. */}
       <HelpFab onStartTour={promptTour.replay} onPlayVideo={intro.replay} />
 
@@ -978,7 +1147,7 @@ export default function PromptStep({
           type="button"
           onClick={onBackToChooser}
           aria-label="Back to mode selection"
-          className="absolute top-4 left-4 z-40 w-10 h-10 rounded-full inline-flex items-center justify-center"
+          className="absolute top-4 left-4 z-40 w-11 h-11 rounded-full inline-flex items-center justify-center"
           style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(45,34,53,0.10)', color: '#7A6A62', boxShadow: '0 2px 10px rgba(45,34,53,0.08)', transition: 'color 0.18s ease, background 0.18s ease' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#7A6A62'; e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; }}
@@ -987,143 +1156,866 @@ export default function PromptStep({
         </button>
       )}
 
-      <div className="min-h-full flex flex-col items-center justify-start px-2 sm:px-4 py-6 sm:py-12 md:py-16 pb-12">
+      {/* Outer max-width/padding/centering now lives in the shared
+          ComposerFrame (PipelineShell.jsx) - both this and
+          IntroBriefStep.jsx's composer render through it, so the two can't
+          independently drift in width or top spacing again (they had:
+          IntroBriefStep applied its horizontal padding INSIDE the max-w-4xl
+          box, shrinking its card, while this applied it OUTSIDE, on an
+          ancestor - same numbers, different box model, different rendered
+          width). */}
+      <ComposerFrame isMobile={isMobile}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-4xl space-y-3 sm:space-y-5"
+          className="space-y-3 sm:space-y-5"
         >
-        {/* Hero headline */}
-        <div className="text-center mb-1">
-          <div className="relative inline-flex items-center justify-center mb-3 sm:mb-5">
-            <div
-              className="w-[60px] h-[60px] sm:w-[75px] sm:h-[75px] rounded-[20px] sm:rounded-[24px] flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(225deg, #F9B31B, #FF7A1A, #F3283C)',
-                boxShadow: '0 2px 8px rgba(193,68,14,0.25), 0 10px 24px rgba(193,68,14,0.20)',
-                outline: '1.5px solid rgba(255,255,255,0.55)',
-                outlineOffset: '-1.5px',
-              }}
-            >
-              <img
-                src="/Raphio.png"
-                alt="Raphio"
-                className="w-[50%] h-[50%] object-contain"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-            </div>
-          </div>
+          {/* Composer card: assets (if any) -> textarea -> strength meter -> chip row,
+              identical shape across all four modes. Assets sit above the textarea so
+              the prompt you write below already has something to @mention.
+              marginTop below is an inline override, not a Tailwind class: the parent's
+              `space-y-3 sm:space-y-5` compiles to `.space-y-3 > :not([hidden]) ~
+              :not([hidden])`, whose specificity (0,3,0) beats a plain margin utility
+              (0,1,0) regardless of source order, so a `mt-*` class here would be dead
+              on arrival. Inline style always wins over an external class rule, which is
+              the only way to widen just this one boundary without touching the other
+              siblings under that same space-y container. Mobile-only per the design
+              pass; sm+ is left to the parent's space-y-5 (20px) unchanged. */}
+          <div
+            className="rounded-3xl p-3 sm:p-5 space-y-4"
+            style={{ ...CARD_SHADOW, marginTop: isMobile ? 24 : undefined }}
+          >
 
-          <h1 className="display" style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', color: '#1C1917', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-            {isReferencesMode ? (
-              <>Studio Blueprint <span style={{ color: '#C1440E' }}>Builder.</span></>
-            ) : (
-              <>Your story. Your <span style={{ color: '#C1440E' }}>video.</span></>
+            {/* "Source" section label: covers both the References list and the
+                Photos upload zone below (only one ever renders per mode), so
+                one header above both is correct rather than duplicated per
+                branch. Absent in prompt-only mode - there's no source asset
+                block there to label. */}
+            {!isPromptOnly && <p className="sr-only">Source</p>}
+
+            {/* References: unified References Section (untouched; redesigned in a separate task) */}
+            {isReferencesMode && (
+              <div data-tour="references" className="space-y-4 pb-4 border-b border-border/40">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
+                      Your world
+                    </label>
+                    {/* 44px invisible tap zone; -m-3.5 cancels its extra size in the flex
+                        row so the header's rendered height doesn't grow, while the actual
+                        hit box does. The visible icon stays the original 16px. */}
+                    <button
+                      type="button"
+                      aria-label="Help"
+                      className="group relative w-11 h-11 -m-3.5 flex items-center justify-center"
+                    >
+                      <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-50 pointer-events-none shadow-xl">
+                        Add the characters, settings, logos, or products that belong in your world. Each one gets a type tag that controls how it's used in generation. Logos are preserved exactly, no AI restyling.
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
+                      </div>
+                    </button>
+                  </div>
+                  {references.length < 8 && (
+                    <button
+                      onClick={() => {
+                        onReferencesChange([
+                          ...references,
+                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                        ]);
+                      }}
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex-shrink-0"
+                      style={{ background: 'rgba(193,68,14,0.08)', color: '#C1440E' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.16)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(193,68,14,0.08)'; }}
+                    >
+                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add to your world ({references.length}/8)
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {references.map((ref, idx) => (
+                    <ReferenceInput
+                      key={idx}
+                      item={ref}
+                      index={idx}
+                      type={ref.type}
+                      isDuplicateName={
+                        !!ref.name?.trim() &&
+                        references.some((other, j) => j !== idx && other.name?.trim().toLowerCase() === ref.name.trim().toLowerCase())
+                      }
+                      onChange={handleReferenceChange}
+                      onRemove={handleReferenceRemove}
+                    />
+                  ))}
+                </div>
+                {references.length === 0 && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      onReferencesChange([
+                        ...references,
+                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                      ]);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onReferencesChange([
+                          ...references,
+                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                        ]);
+                      }
+                    }}
+                    className="cursor-pointer flex flex-col items-center justify-center py-5 rounded-2xl border-2 border-dashed text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    style={{
+                      borderColor: 'rgba(193,68,14,0.15)',
+                      background: 'rgba(193,68,14,0.015)',
+                      transition: 'background 0.2s ease, border-color 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)';
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                      e.currentTarget.style.background = 'rgba(193,68,14,0.015)';
+                    }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-2"
+                      style={{ background: 'rgba(193,68,14,0.06)' }}
+                    >
+                      <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
+                    </div>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>Your world is empty</p>
+                    <p className="text-[11px]" style={{ color: '#726481' }}>Add the people, places, or products that belong in it</p>
+                  </div>
+                )}
+              </div>
             )}
-          </h1>
-          <p className="hidden sm:block mt-2 text-sm font-medium" style={{ color: '#9C8F85' }}>
-            {isReferencesMode
-              ? 'Define your visual props and settings, then reveal the full storyline.'
-              : 'Tell Raphio what you want. It handles everything else.'}
-          </p>
-        </div>
 
-          {/* Zone 1 - Prompt (the hero) */}
-          <div data-tour="prompt" className="rounded-3xl p-4 sm:p-7 space-y-4" style={CARD_SHADOW}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
+            {/* Upload your photos (image mode only, hidden in prompt-only) - above the
+                textarea, same reasoning as References: upload first, then write a
+                prompt that can @mention what you just added. */}
+            {!isReferencesMode && !isPromptOnly && (
+              <div
+                data-tour="upload"
+                className="space-y-4 relative pb-4 border-b border-border/40"
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (e.dataTransfer?.types?.includes('Files')) setIsDraggingFile(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget)) return;
+                  setIsDraggingFile(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(false);
+                  const files = filterValidImages(e.dataTransfer.files);
+                  if (files.length > 0) addImages(files);
+                }}
+              >
+                {/* Header with inline count + reorder hint */}
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2
+                    className="font-black"
+                    style={{
+                      fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)',
+                      color: 'var(--ink-warm)',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    Upload your photos
+                  </h2>
+                  {(images?.length ?? 0) > 0 && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Mini thumbnail cluster: a quick "yes, these are the right
+                          photos" check without scrolling to the grid below (design
+                          review Variation C - the empty-state icon+copy redesign
+                          below is the other half of that same review). */}
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {images.slice(0, 4).map((img, i) => (
+                          <img
+                            key={imageId(img, i)}
+                            src={img.preview}
+                            alt=""
+                            className="w-5 h-5 rounded-md object-cover border-2 flex-shrink-0"
+                            style={{ borderColor: '#FBFAF8' }}
+                          />
+                        ))}
+                        {images.length > 4 && (
+                          <span
+                            className="w-5 h-5 rounded-md flex items-center justify-center text-[8px] font-bold border-2 flex-shrink-0"
+                            style={{ background: 'var(--surface-alt)', color: '#75695F', borderColor: '#FBFAF8' }}
+                          >
+                            +{images.length - 4}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: '#75695F' }}>
+                        {images.length} of {MAX_IMAGES}
+                        {/* Desktop: subtle inline hint (mouse drag starts instantly).
+                            Mobile needs the press-and-hold hint, shown on its own line below. */}
+                        {images.length >= 2 && !isMobile && (
+                          <span className="ml-2" style={{ color: '#C8BFB5' }}>
+                            · drag to reorder
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile reorder hint - the TouchSensor requires a press-and-hold
+                    before dragging, which isn't discoverable, so spell it out. */}
+                {isMobile && (images?.length ?? 0) >= 2 && (
+                  <div
+                    className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5"
+                    style={{ color: '#C1440E', background: 'rgba(193,68,14,0.07)' }}
+                  >
+                    <Grid className="w-3.5 h-3.5 shrink-0" />
+                    Press &amp; hold a photo, then drag to reorder
+                  </div>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/jpeg,image/png"
+                  multiple
+                  className="hidden"
+                  disabled={atCap}
+                />
+
+                <AnimatePresence mode="wait">
+                  {/* Empty state dropzone: compact - this is a prompt before it's a
+                      workspace, so it earns full height only once it has photos to
+                      show (see the populated grid below). */}
+                  {(images?.length ?? 0) === 0 && (
+                    <motion.div
+                      key="dropzone"
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="cursor-pointer rounded-2xl border-2 border-dashed flex items-center gap-4 py-5 px-5"
+                      style={{
+                        borderColor: 'rgba(193,68,14,0.12)',
+                        background: '#FBFAF8',
+                        transition: 'background 0.2s ease, border-color 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#FFF9F5';
+                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#FBFAF8';
+                        e.currentTarget.style.borderColor = 'rgba(193,68,14,0.12)';
+                      }}
+                    >
+                      <div
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'var(--gradient-brand)',
+                          boxShadow: '0 4px 10px rgba(193,68,14,0.28)',
+                        }}
+                      >
+                        <Upload className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold" style={{ color: 'var(--ink-warm)' }}>
+                          Upload your photos
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: '#75695F' }}>
+                          Drag &amp; drop or click to browse
+                        </p>
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold mt-2"
+                          style={{ background: 'rgba(193,68,14,0.08)', color: '#C1440E' }}
+                        >
+                          Up to {MAX_IMAGES} photos
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Populated grid */}
+                  {(images?.length ?? 0) > 0 && (
+                    <motion.div
+                      key="grid"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
+                      <SortableContext items={images.map(imageId)} strategy={rectSortingStrategy}>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                        {images.map((img, index) => (
+                          <SortableTile
+                            key={imageId(img, index)}
+                            id={imageId(img, index)}
+                            className="cursor-grab active:cursor-grabbing"
+                          >
+                          <div
+                            className="rounded-2xl border border-[rgba(193,68,14,0.10)] hover:border-[rgba(193,68,14,0.35)] shadow-sm hover:shadow-md transition-all duration-150 overflow-hidden"
+                            style={{ background: '#fff' }}
+                          >
+                            {/* Photo, with label and remove button overlaid on top of it */}
+                            <div
+                              className="relative aspect-square"
+                              style={{ background: '#FBFAF8' }}
+                            >
+                              <img
+                                src={img.preview}
+                                alt={customLabels[index] || slotLabels[index]}
+                                className="w-full h-full object-cover pointer-events-none"
+                              />
+
+                              {/* Needs-framing badge, overlaid top-left (the one free corner -
+                                  top-right is the remove button, bottom-left is the label) */}
+                              {isOffRatio(img, aspectRatio) && (
+                                <span
+                                  className="absolute top-1.5 left-1.5 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold"
+                                  style={{ background: '#FFF1EA', color: '#C2410C' }}
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                  Needs framing
+                                </span>
+                              )}
+
+                              {/* Remove button: a 44px invisible tap zone anchored at the
+                                  photo's top-right corner, padded so the small 20px visible
+                                  circle sits exactly where it did before (6px inset) - the
+                                  circle stays small on purpose, the tap area doesn't. */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeImage(index);
+                                }}
+                                aria-label="Remove image"
+                                className="absolute top-0 right-0 w-11 h-11 p-1.5 flex items-start justify-end z-10"
+                              >
+                                <span
+                                  className="w-5 h-5 rounded-full transition-all duration-150 flex items-center justify-center shadow-sm hover:scale-110"
+                                  style={{ background: '#fff', color: '#C1440E' }}
+                                >
+                                  <X className="w-3 h-3" strokeWidth={2.5} />
+                                </span>
+                              </button>
+
+                              {/* Label, bottom-left, overlaid on the photo */}
+                              {editingLabel === index ? (
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={customLabels[index] ?? slotLabels[index]}
+                                  onChange={(e) =>
+                                    setCustomLabels((c) => ({ ...c, [index]: e.target.value }))
+                                  }
+                                  onBlur={() => setEditingLabel(null)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === 'Escape')
+                                      setEditingLabel(null);
+                                  }}
+                                  className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-white rounded-full px-2 py-0.5 focus:outline-none z-10"
+                                  style={{ color: '#1C1917' }}
+                                />
+                              ) : (
+                                /* 44px invisible tap zone anchored bottom-left of the photo,
+                                   padded so the small visible white pill sits exactly where
+                                   it did before (6px inset) - same technique as the remove
+                                   button above. */
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingLabel(index);
+                                  }}
+                                  className="absolute bottom-0 left-0 z-10 p-1.5 flex items-end justify-start max-w-[calc(100%-4px)]"
+                                  style={{ minHeight: 44, minWidth: 44 }}
+                                  title="Click to rename"
+                                >
+                                  <span
+                                    className="text-[10px] font-bold bg-white rounded-full px-2 py-0.5 truncate cursor-text transition-colors max-w-full"
+                                    style={{ color: '#1C1917' }}
+                                  >
+                                    {customLabels[index] || slotLabels[index]}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          </SortableTile>
+                        ))}
+
+                        {/* Add more tile */}
+                        {!atCap && (
+                          <div
+                            className="rounded-2xl border border-dashed transition-all"
+                            style={{
+                              background: '#FBFAF8',
+                              borderColor: 'rgba(193,68,14,0.15)',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)';
+                              e.currentTarget.style.background = '#FFF9F5';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
+                              e.currentTarget.style.background = '#FBFAF8';
+                            }}
+                          >
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="w-full h-full p-0"
+                            >
+                              {/* Inner square, mirroring the photo tile's aspect-square photo div.
+                                  px-2 + text-center keep the icon/label off the rounded corners
+                                  and evenly balanced if the label wraps on narrower columns. */}
+                              <div className="aspect-square flex flex-col items-center justify-center px-2 text-center">
+                                <Plus
+                                  className="w-5 h-5 mb-0.5 flex-shrink-0"
+                                  style={{ color: '#C1440E', opacity: 0.5 }}
+                                />
+                                <span className="text-[10px] font-bold text-stone-500 leading-tight">
+                                  + Add photo
+                                </span>
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      </SortableContext>
+                      </DndContext>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Off-ratio photos: per-photo badges above already flag which ones,
+                    so this is a single inline row - summary + toggle, not stacked. */}
+                <AnimatePresence>
+                  {offRatioCount > 0 && setExtendPhotos && (
+                    <motion.div
+                      key="off-ratio"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="rounded-2xl border overflow-hidden"
+                      style={
+                        extendPhotos
+                          ? { background: 'rgba(193,68,14,0.05)', borderColor: 'rgba(193,68,14,0.20)' }
+                          : { background: '#FFF7ED', borderColor: '#FED7AA' }
+                      }
+                    >
+                      <button
+                        onClick={() => setExtendPhotos(!extendPhotos)}
+                        aria-pressed={extendPhotos}
+                        className="w-full flex items-center justify-between gap-4 p-3.5 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: '#FFF1EA' }}
+                          >
+                            <AlertTriangle className="w-4 h-4" strokeWidth={2.5} style={{ color: '#C2410C' }} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-extrabold text-sm block text-stone-800 truncate">
+                              {offRatioCount} photo{offRatioCount > 1 ? 's' : ''} need{offRatioCount > 1 ? '' : 's'} framing adjustment
+                            </span>
+                            <span className="text-xs text-stone-500 block leading-relaxed truncate">
+                              We'll extend {offRatioCount > 1 ? 'them' : 'it'} to fill the {aspectRatio} frame
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
+                          style={{ background: extendPhotos ? 'var(--gradient-brand)' : '#E5DFD8' }}
+                        >
+                          <motion.span
+                            className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                            animate={{ left: extendPhotos ? 26 : 4 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          />
+                        </div>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Drag-over overlay */}
+                <AnimatePresence>
+                  {isDraggingFile && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center pointer-events-none"
+                      style={{
+                        background: 'rgba(193,68,14,0.08)',
+                        border: '2px dashed rgba(193,68,14,0.55)',
+                        backdropFilter: 'blur(2px)',
+                        WebkitBackdropFilter: 'blur(2px)',
+                      }}
+                    >
+                      <motion.div
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{
+                          duration: 1.2,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
+                        style={{
+                          background: 'var(--gradient-brand)',
+                          boxShadow: '0 8px 24px rgba(193,68,14,0.40)',
+                        }}
+                      >
+                        <Upload className="w-7 h-7 text-white" />
+                      </motion.div>
+                      <p className="font-black text-base" style={{ color: '#C1440E' }}>
+                        Drop to add
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* "Story" section label - the textarea block, present in all three modes.
+                data-tour="prompt" wraps this label through the textarea box below (not
+                the outer composer card, and not just the textarea box alone) so
+                promptTour.js's "Describe your video" step spotlights the "What's your
+                video about?" heading, the Inspiration/Dictionary/Tips row, and the
+                textarea as the single visual section they read as - while still
+                excluding the references/upload block above, which has its own
+                dedicated step. */}
+            <div data-tour="prompt">
+              <p className="sr-only">Story</p>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: 'var(--ink-warm)', letterSpacing: '-0.01em' }}>
                   {isReferencesMode ? "What's your video about?" : "What's your video about?"}
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => { setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"
-                  style={showInspiration
-                    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
-                    : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
-                  }
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span className="hidden sm:inline">Inspiration</span>
-                </button>
-                <button
-                  onClick={() => { setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"
-                  style={showDictionary
-                    ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
-                    : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
-                  }
-                >
-                  <BookOpen className="w-3 h-3" />
-                  <span className="hidden sm:inline">Dictionary</span>
-                </button>
-                <button
-                  onClick={() => setShowPromptGuide(true)}
-                  className="flex items-center gap-1 text-[11px] font-bold transition-colors"
-                  style={{ color: '#9C8F85' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tips</span>
-                </button>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'inspiration'}>Inspiration</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('inspiration'); setShowInspiration(s => !s); if (showDictionary) setShowDictionary(false); }}
+                    aria-label="Inspiration"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 min-h-12 rounded-full text-[11px] font-bold transition-all"
+                    style={showInspiration
+                      ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                      : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
+                    }
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span className="hidden sm:inline">Inspiration</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'dictionary'}>Dictionary</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('dictionary'); setShowDictionary(s => !s); if (showInspiration) setShowInspiration(false); }}
+                    aria-label="Dictionary"
+                    className="inline-flex items-center gap-1.5 py-1.5 px-4 min-h-12 rounded-full text-[11px] font-bold transition-all"
+                    style={showDictionary
+                      ? { background: 'var(--gradient-brand)', color: '#fff', border: '1.5px solid transparent', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }
+                      : { background: 'transparent', color: '#C1440E', border: '1.5px solid rgba(193,68,14,0.20)' }
+                    }
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    <span className="hidden sm:inline">Dictionary</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <PillTapLabel show={tappedPill === 'tips'}>Tips</PillTapLabel>
+                  <button
+                    onClick={() => { revealPillLabel('tips'); setShowPromptGuide(true); }}
+                    aria-label="Tips"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-11 text-[11px] font-bold transition-colors"
+                    style={{ color: '#75695F' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
+                  >
+                    <Lightbulb className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Tips</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Textarea: the hero of this card */}
+            {/* Textarea: the hero of this card - deliberately the dominant
+                element on this screen now (bigger min-height, larger type,
+                roomier padding than the chips/labels/hints around it), with
+                a stronger focus "activation" so it visibly becomes the
+                primary surface the moment the user engages with it: focus
+                border opacity raised (0.35 -> 0.5) and the shadow deepened
+                across all three layers versus the previous, subtler glow. */}
             <div
               className="relative rounded-2xl"
               style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
-              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.15), 0 4px 20px rgba(193,68,14,0.08), 0 0 0 4px rgba(193,68,14,0.06)'; }}
-              onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 1px rgba(193,68,14,0.2), 0 8px 28px rgba(193,68,14,0.14), 0 0 0 4px rgba(193,68,14,0.08)'; setPromptFocused(true); }}
+              onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.boxShadow = 'none'; setPromptFocused(false); }}
             >
-              {isReferencesMode ? (
-                <PromptMentionField
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  references={references}
-                  placeholder="e.g. @Sarah discovers @Acme in her workshop, warm and hopeful. Type @ to add a reference."
-                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
+              {/* BUG FIX: the word count used to be absolutely positioned against
+                  this whole card, which also contains the chip row below the
+                  textarea - "bottom" meant the bottom of the card, not the bottom
+                  of the text box, so the count visually collided with the last
+                  chip. Scoping it to its own `relative` wrapper around just the
+                  textarea fixes that: "bottom" now means the bottom of the
+                  textarea, full stop, regardless of what renders after it.
+                  Improve is docked here too (bottom-right, absolutely positioned
+                  against this same wrapper) so it reads as part of the composer
+                  surface rather than floating on top of the text. `paddingBottom`
+                  on the textarea itself (64px, up from 40px) is what keeps it
+                  safe: it reserves blank space at the bottom of the text box that
+                  typed content can never reach into, so even a max-length prompt's
+                  wrapped last line ends above the button, not under it. The word
+                  count moved to bottom-left so the two never share a corner. */}
+              <div className="relative">
+                {isReferencesMode ? (
+                  <PromptMentionField
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    references={references}
+                    placeholder={typedPlaceholder === null ? REFERENCE_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
+                    className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '64px', outline: 'none' }}
+                  />
+                ) : (
+                  <PromptMentionField
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    references={imageMentionItems}
+                    title="Your scenes"
+                    placeholder={typedPlaceholder === null ? PROMPT_EXAMPLE_TEXTS[0] : `${typedPlaceholder}${TYPED_PLACEHOLDER_CARET}`}
+                    className="w-full min-h-[220px] rounded-2xl resize-none text-base p-5 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#856C5A]"
+                    style={{ color: 'var(--ink-warm)', paddingBottom: '64px', outline: 'none' }}
+                  />
+                )}
+                {/* Bottom-left on mobile (clear of the docked Improve copy, which owns
+                    bottom-right there); bottom-right on desktop, where Improve has
+                    moved back into the chip row and left that corner empty. */}
+                <span
+                  className="absolute bottom-2 left-3 sm:left-auto sm:right-3"
+                  style={{ fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}
+                >
+                  {wordCount} words
+                </span>
+                {/* Mobile-only copy, docked bottom-right in the textarea's own box.
+                    `sm:hidden` - at `sm:` and up Improve lives back in the chip row
+                    below (the other copy, `hidden sm:flex`) instead. Two CSS-toggled
+                    copies, not a JS-conditional mount, so there's no layout shift or
+                    hydration mismatch right at the breakpoint. */}
+                <ImproveButton
+                  className="absolute bottom-2.5 right-3 z-10 sm:hidden"
+                  onClick={handleImprove}
+                  busy={improving}
+                  disabled={!userPrompt?.trim()}
                 />
-              ) : (
-                <PromptMentionField
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  references={imageMentionItems}
-                  title="Your scenes"
-                  placeholder={isPromptOnly
-                    ? "e.g. A cinematic reveal of a handcrafted watch in a sunlit workshop, warm and hopeful."
-                    : "e.g. A warm birthday montage from our photos. Type @ to add a scene."}
-                  className="w-full min-h-[140px] rounded-2xl resize-none text-sm p-4 leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-[#B09A8A]"
-                  style={{ color: '#1C1917', paddingBottom: '48px', outline: 'none' }}
-                />
-              )}
-              {/* Improve button - anchored bottom-left INSIDE the box so it's
-                  clearly tied to the prompt. Always shows its label (mobile too)
-                  so it's never a mystery icon. */}
-              <button
-                onClick={handleImprove}
-                disabled={!userPrompt?.trim() || improving}
-                className="absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
-                style={{
-                  bottom: 7, left: 10, zIndex: 5,
-                  ...((!userPrompt?.trim() || improving)
-                    ? { background: 'rgba(193,68,14,0.10)', color: '#B09A8A', cursor: 'not-allowed' }
-                    : { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.28)' }),
-                }}
+              </div>
+
+              {/* Chip row: lives inside the same bordered box as the text, below it -
+                  the ChatGPT/Claude composer pattern. A hairline (not a tinted tray)
+                  separates it from the typed text, since the box itself already gives
+                  the chips a floor to sit on. Improve is the leading item again at
+                  `sm:` and up (`hidden sm:flex`) - its mobile-only twin lives docked
+                  inside the textarea above. It stays on ImproveButton's filled-gradient
+                  default (terra fill, white text/icon) so it reads as the one action
+                  among the outlined value chips. Chips stay size="lg" - a composer's
+                  controls, not badges.
+                  "Direction" labels this row's existing hairline seam, inside the
+                  same box as the textarea above - the row isn't being pulled out
+                  into its own card, just captioned in place. */}
+              <div
+                className="flex items-center px-4 pt-2.5 pb-1 sm:px-8"
+                style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }}
               >
-                {improving
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <Wand2 className="w-3 h-3" />}
-                <span>{improving ? 'Improving…' : 'Improve'}</span>
-              </button>
-              <span style={{ position:'absolute', bottom:8, right:12, fontSize:11, fontWeight:600, color:'rgba(193,68,14,0.5)', pointerEvents:'none', userSelect:'none' }}>
-                {wordCount} words
-              </span>
+                <p className="sr-only">Direction</p>
+              </div>
+              <div
+                className="flex items-center px-4 pb-2.5 sm:px-8"
+              >
+                {/* Below `sm` these four chips drop their text label entirely (icon +
+                    value only, same pattern as the Inspiration/Dictionary/Tips pills -
+                    see SIZE.lg and the outlined+value render in ComposerChip.jsx), all
+                    four `grow` to fill the row's width EQUALLY at every breakpoint
+                    (unconditional `flex-1`/`w-full`, not `sm:`-gated - see
+                    ComposerChipRow's and ComposerChip's own comments), and each still
+                    carries an explicit `min-w-[Npx]` floor sized to its own longest
+                    possible VALUE (not label), so no chip's text truncates if equal
+                    division would otherwise squeeze it below its content. Two things
+                    that are easy to re-break here if this gets touched again:
+                    (1) the trailing chevron `variant="outlined"` renders - it's part
+                    of every chip's real footprint and has to be in every min-width
+                    calculation, but only Length/Ratio actually have a popover to
+                    indicate, so Voice/Music drop theirs below `sm` (see each chip's
+                    own comment and ComposerChip.jsx's `hasPopover` check) - both to
+                    reclaim the width and because a chevron on a chip with nothing to
+                    expand was never meaningful; (2) `justify-between` only reads
+                    correctly once there's a two-line label/value block to balance
+                    against the chevron - below `sm` (icon + one short value) it's
+                    `justify-center` instead, or the packed content and the isolated
+                    chevron end up looking like two unrelated things in one box. Fits
+                    one line at 360px (Android's narrow baseline) with real slack to
+                    spare, measured in headless Chrome against the real compiled CSS by
+                    tracing the actual nested padding chain (composer card -> textarea
+                    box -> chip-row section) rather than an approximation. No horizontal
+                    scroll needed, so this row no longer opts into ComposerChipRow's
+                    `scroll` mode (dead weight otherwise: nothing left to scroll).
+                    `gapClassName="gap-1 sm:gap-3"` tightens just the inter-chip gap
+                    below `sm` (kept slightly looser than the tightest fit that still
+                    works, for a bit of breathing room between pills), without touching
+                    ComposerChipRow's default `gap-3` that every other caller relies on.
+                    At `sm:` and up this is byte-for-byte the original wrapping+growing
+                    row, pixel-verified against the pre-session original. */}
+                <ComposerChipRow className="w-full" gapClassName="gap-2 sm:gap-3">
+                  <ImproveButton
+                    className="hidden sm:flex mr-7"
+                    onClick={handleImprove}
+                    busy={improving}
+                    disabled={!userPrompt?.trim()}
+                  />
+
+                  {setTargetDuration && (
+                    <ComposerChip
+                      id="length"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      // Measured (headless Chrome, real compiled CSS, actual nested
+                      // padding chain) natural width of the widest duration value
+                      // ("15s"/"30s"/"45s"/"60s" - all equal length) is 53px including
+                      // the trailing chevron - Length has a popover (`panel` below), so
+                      // it keeps its chevron at every width (see ComposerChip.jsx's
+                      // `hasPopover` check); rounded up with a small margin. sm:min-w-0
+                      // confines this to below `sm` - at `sm:` the chip already grows
+                      // past this via `grow` above, and the label reappears.
+                      className="min-w-[58px] sm:min-w-0"
+                      icon={Clock}
+                      label="Length"
+                      value={`${targetDuration}s`}
+                      panel={() => (
+                        <>
+                          <ChipPanelLabel>Length</ChipPanelLabel>
+                          <ChipSegments
+                            layoutId="promptLengthSegment"
+                            options={DURATION_OPTIONS.map((o) => ({ ...o, key: o.value }))}
+                            value={targetDuration}
+                            onChange={setTargetDuration}
+                            render={(o) => (
+                              <span className="flex flex-col items-center gap-0">
+                                <span>{o.label}</span>
+                                <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.desc}</span>
+                              </span>
+                            )}
+                          />
+                        </>
+                      )}
+                    />
+                  )}
+
+                  {setAspectRatio && (
+                    <ComposerChip
+                      id="ratio"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      // Measured natural width of "9:16"/"16:9" (equal length),
+                      // including the trailing chevron (Ratio also has a popover, so
+                      // it keeps its chevron too), is 57px; rounded up with a small
+                      // margin. See the Length chip's comment.
+                      className="min-w-[59px] sm:min-w-0"
+                      icon={(aspectRatio || '16:9') === '9:16' ? RectangleVertical : RectangleHorizontal}
+                      label="Ratio"
+                      value={aspectRatio || '16:9'}
+                      panel={() => (
+                        <>
+                          <ChipPanelLabel>Aspect ratio</ChipPanelLabel>
+                          <ChipSegments
+                            layoutId="promptRatioSegment"
+                            options={[
+                              { id: '9:16', key: '9:16', name: 'Portrait', sub: 'Phone · Social' },
+                              { id: '16:9', key: '16:9', name: 'Landscape', sub: 'TV · Laptop' },
+                            ]}
+                            value={aspectRatio || '16:9'}
+                            onChange={setAspectRatio}
+                            render={(o) => (
+                              <span className="flex flex-col items-center gap-0">
+                                <span>{o.id}</span>
+                                <span className="font-medium opacity-70" style={{ fontSize: 9 }}>{o.sub}</span>
+                              </span>
+                            )}
+                          />
+                        </>
+                      )}
+                    />
+                  )}
+
+                  {setVoiceId && (
+                    <ComposerChip
+                      id="voice"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      // Voice has no popover (it opens a modal via onClick, not
+                      // `panel`), so below `sm` it drops the chevron entirely - see
+                      // ComposerChip.jsx's `hasPopover` check on the chevron. That's
+                      // not just cosmetic: with the chevron counted, the four chips'
+                      // combined floor didn't fit 360px at all (confirmed - Music
+                      // wrapped to its own row); dropping the two meaningless chevrons
+                      // (Voice, Music - neither has anything to expand) recovered the
+                      // width both actually needed. Measured natural width (icon+value,
+                      // no chevron) across every fallback voice name
+                      // (src/services/voices.js) tops out at 83px ("Louisamay" -
+                      // checked all 64 names, not just the current selection or
+                      // "Default"). Rounded up with a larger margin than the other
+                      // three chips - the widest value gets the least slack of the
+                      // four, so this one leans a bit harder on the fact that it's a
+                      // controlled web font (Figtree), not a system font, for
+                      // cross-device consistency. See the Length chip's comment for
+                      // the mechanism.
+                      className="min-w-[84px] sm:min-w-0"
+                      icon={Mic}
+                      label="Voice"
+                      value={voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default'}
+                      modified={voiceUserSetRef.current}
+                      onClick={() => setVoiceModalOpen(true)}
+                    />
+                  )}
+
+                  {setBackgroundMusic && (
+                    <ComposerChip
+                      id="music"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      // Music also has no popover (it's an inline toggle), so it
+                      // drops the chevron below `sm` too - see the Voice chip's
+                      // comment. Measured natural width of "On"/"Off" (no chevron) is
+                      // 39px; rounded up with a small margin.
+                      className="min-w-[44px] sm:min-w-0"
+                      icon={Music}
+                      label="Music"
+                      value={backgroundMusic ? 'On' : 'Off'}
+                      modified={!backgroundMusic}
+                      pressed={!!backgroundMusic}
+                      onClick={() => setBackgroundMusic(!backgroundMusic)}
+                    />
+                  )}
+                </ComposerChipRow>
+              </div>
+            </div>
             </div>
 
             {/* Inspiration Panel */}
@@ -1142,7 +2034,7 @@ export default function PromptStep({
                     style={{ background: '#F5EFE6', border: '1px solid rgba(193,68,14,0.10)' }}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9C8F85' }}>
+                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#75695F' }}>
                         Tap an idea: see the result, use the prompt
                       </p>
                     </div>
@@ -1205,7 +2097,7 @@ export default function PromptStep({
                           onClick={() => setActiveCategory(id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer"
                           style={activeCategory === id
-                            ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.30)', border: '1px solid transparent' }
+                            ? { background: 'var(--gradient-brand)', color: '#fff', boxShadow: '0 2px 8px rgba(193,68,14,0.30)', border: '1px solid transparent' }
                             : { background: 'rgba(255,255,255,0.7)', color: '#6B5E7B', border: '1px solid rgba(193,68,14,0.14)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
                           }
                         >
@@ -1238,7 +2130,7 @@ export default function PromptStep({
                         ))}
                       </motion.div>
                     </AnimatePresence>
-                    <p style={{ fontSize: 10, color: '#9B8FA8', fontWeight: 500 }}>
+                    <p style={{ fontSize: 10, color: '#726481', fontWeight: 500 }}>
                       Click any term to append it to your prompt
                     </p>
                   </div>
@@ -1264,9 +2156,9 @@ export default function PromptStep({
                       <button
                         onClick={handleUndoImprove}
                         className="flex items-center gap-1 text-[11px] font-bold"
-                        style={{ color: '#9C8F85' }}
+                        style={{ color: '#75695F' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#9C8F85'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
                       >
                         <RotateCcw style={{ width: 12, height: 12 }} /> Undo
                       </button>
@@ -1274,485 +2166,178 @@ export default function PromptStep({
                   )}
                 </AnimatePresence>
 
-                {/* Strength bar + expandable checklist */}
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[11px] font-bold" style={{ color: strengthBarColor }}>
-                    Prompt strength: {strength.label}
-                  </span>
-                  <button
-                    onClick={() => setShowStrengthDetail(s => !s)}
-                    className="flex items-center gap-1 text-[11px] font-bold"
-                    style={{ color: '#C1440E' }}
-                  >
-                    {showStrengthDetail ? 'Hide' : "What's missing?"}
-                    {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-                </div>
-                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${strength.score}%`, background: strengthBarColor, transition: 'width 0.3s ease' }} />
-                </div>
-                <AnimatePresence>
-                  {showStrengthDetail && (
-                    <motion.ul
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden space-y-1.5 pt-1"
-                    >
+                {/* Strength meter (design review): a single always-visible row -
+                    progress bar, then a flat line of checkmark+label items with
+                    no bordered container and no dividers between them, just
+                    generous gaps - replacing the previous bordered "segmented
+                    group" AND the separate collapsed-banner/expanded-checklist
+                    split. The leading item is the overall summary ("Strong
+                    prompt" once everything passes, else "Prompt strength: X"),
+                    followed by one item per criterion, followed by a single
+                    "Show details"/"Hide" control on the right - matching the
+                    reference image exactly. Detail hints show automatically
+                    while incomplete and collapse on the literal all-met
+                    condition (see showStrengthDetail above), not per-row
+                    anymore - one master toggle, matching the reference's single
+                    control instead of a click-per-item interaction. */}
+                <div className={reducedMotion ? undefined : 'strength-fade-in'}>
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
+                    {/* transform: scaleX() instead of animating width - compositor-only,
+                        no layout thrash. transformOrigin: left keeps the fill growing
+                        left-to-right exactly like the old width-based version. */}
+                    <div
+                      className="h-full w-full rounded-full"
+                      style={{
+                        background: strengthBarColor,
+                        transform: `scaleX(${strength.score / 100})`,
+                        transformOrigin: 'left',
+                        transition: 'transform 0.3s ease',
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center flex-wrap gap-x-5 gap-y-2 pt-2.5">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold flex-shrink-0" style={{ color: promptIsEmpty ? '#75695F' : strengthBarColor }}>
+                      {allFactorsMet && (
+                        <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 15, height: 15, background: '#22A06B' }}>
+                          <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />
+                        </span>
+                      )}
+                      {promptIsEmpty ? 'Start typing to see your prompt strength' : allFactorsMet ? 'Strong prompt' : `Prompt strength: ${strength.label}`}
+                    </span>
+
+                    {/* Below `sm` these three indicators are dropped from the collapsed
+                        header entirely (not just visually hidden) - on a phone they
+                        crowded/wrapped awkwardly against the status text and the Show
+                        details toggle, and the same three concepts already exist as the
+                        full criteria list one tap away. `hidden sm:contents`: `hidden`
+                        removes the whole group below `sm`; `contents` at `sm:` makes this
+                        wrapper generate no box of its own, so the spans still act as
+                        direct children of the flex row exactly as before - the desktop
+                        layout is untouched by construction, not just visually similar. */}
+                    <div className="hidden sm:contents">
                       {strength.factors.map((f) => (
-                        <li key={f.id} className="flex items-start gap-2">
+                        <span key={f.id} className="flex items-center gap-1.5 flex-shrink-0">
                           <span
-                            className="mt-0.5 flex items-center justify-center rounded-full flex-shrink-0"
+                            className="flex items-center justify-center rounded-full flex-shrink-0"
                             style={{
                               width: 15, height: 15,
-                              background: f.met ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'transparent',
+                              background: f.met ? '#22A06B' : 'transparent',
                               border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
                             }}
                           >
                             {f.met && <Check className="w-2.5 h-2.5" style={{ color: '#fff' }} strokeWidth={3.5} />}
                           </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="text-[11px] font-bold" style={{ color: f.met ? '#1C1917' : '#6B5E7B' }}>
-                              {f.label}
-                              {f.detail && <span className="font-medium" style={{ color: '#9C8F85' }}> · {f.detail}</span>}
-                            </span>
-                            {!f.met && (
-                              <span className="block text-[10.5px] leading-snug" style={{ color: '#9C8F85' }}>{f.hint}</span>
-                            )}
+                          <span className="text-[11px] font-medium" style={{ color: f.met ? 'var(--ink-warm)' : '#6B5E7B' }}>
+                            {SEGMENT_FACTOR_LABEL[f.id] || f.label}
                           </span>
-                        </li>
+                        </span>
                       ))}
-                    </motion.ul>
-                  )}
-                </AnimatePresence>
+                    </div>
+
+                    {strength.factors.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowStrengthDetail((s) => !s)}
+                        aria-expanded={showStrengthDetail}
+                        aria-controls="strength-hints"
+                        className="flex items-center gap-1 text-[11px] font-bold ml-auto flex-shrink-0"
+                        style={{ color: allFactorsMet ? '#1C8357' : '#C1440E' }}
+                      >
+                        {showStrengthDetail ? 'Hide' : 'Show details'}
+                        {showStrengthDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {showStrengthDetail && strength.factors.length > 0 && (
+                      <motion.div
+                        initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        transition={{ duration: 0.16 }}
+                        className="overflow-hidden"
+                      >
+                      {/* Separates the collapsed header row (status text + the
+                          Detailed/Clear setting/Tone & action indicators, plus
+                          Show details/Hide) from the expanded criteria list below -
+                          previously just `pt-2` whitespace with no visible break
+                          between the two groups. */}
+                      <div className="mt-2 mb-2" style={{ borderTop: '1px solid rgba(193,68,14,0.10)' }} />
+                      <ul
+                        id="strength-hints"
+                        className="space-y-1.5"
+                      >
+                        {strength.factors.map((f) => (
+                          <li key={f.id} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
+                            {/* Same circle+check as the summary row above, so a
+                                met criterion reads unmistakably "done" here too -
+                                empty/outlined circle when incomplete, matching the
+                                summary row's own state exactly. */}
+                            <span
+                              className="flex items-center justify-center rounded-full flex-shrink-0 mt-0.5"
+                              style={{
+                                width: 13, height: 13,
+                                background: f.met ? '#22A06B' : 'transparent',
+                                border: f.met ? 'none' : '1.5px solid rgba(193,68,14,0.30)',
+                              }}
+                            >
+                              {f.met && <Check className="w-2 h-2" style={{ color: '#fff' }} strokeWidth={3.5} />}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              {/* Met -> green, unmet -> muted gray: a much bigger
+                                  jump than the old ink-vs-gray pairing, so "done"
+                                  vs "not done" reads at a glance, not just on
+                                  close inspection. */}
+                              <span className="block font-bold" style={{ color: f.met ? '#1C8357' : '#6B5E7B' }}>
+                                {f.label}
+                                {f.detail && <span className="font-medium" style={{ color: '#75695F' }}> · {f.detail}</span>}
+                              </span>
+                              {/* Met criteria swap the "what to add" hint for a
+                                  short confirmation (FACTOR_CONFIRMATION); unmet
+                                  criteria keep showing the existing instructional
+                                  hint unchanged. `coverage` has no confirmation
+                                  entry on purpose, so it always shows its hint. */}
+                              <span className="block" style={{ color: '#75695F' }}>
+                                {f.met && FACTOR_CONFIRMATION[f.id] ? FACTOR_CONFIRMATION[f.id] : f.hint}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             )}
+
           </div>
 
-          {/* References Mode: unified References Section (untouched; redesigned in a separate task) */}
-          {isReferencesMode && (
-            <div data-tour="references" className="bg-white rounded-3xl p-6 border border-stone-200/60 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-stone-500">
-                    References
-                  </label>
-                  <div className="group relative">
-                    <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
-                      Add characters, settings, logos, or products. Each reference gets a type tag that controls how it's used in video generation. Logos are preserved exactly, so no AI restyling.
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
-                    </div>
-                  </div>
-                </div>
-                {references.length < 8 && (
-                  <button
-                    onClick={() => {
-                      onReferencesChange([
-                        ...references,
-                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                      ]);
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full text-white transition-all"
-                    style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 2px 8px rgba(193,68,14,0.30)' }}
-                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(193,68,14,0.42)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(193,68,14,0.30)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Reference ({references.length}/8)
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {references.map((ref, idx) => (
-                  <ReferenceInput
-                    key={idx}
-                    item={ref}
-                    index={idx}
-                    type={ref.type}
-                    isDuplicateName={
-                      !!ref.name?.trim() &&
-                      references.some((other, j) => j !== idx && other.name?.trim().toLowerCase() === ref.name.trim().toLowerCase())
-                    }
-                    onChange={(i, updated) => {
-                      const updated_refs = [...references];
-                      updated_refs[i] = updated;
-                      onReferencesChange(updated_refs);
-                    }}
-                    onRemove={(i) => {
-                      onReferencesChange(references.filter((_, j) => j !== i));
-                    }}
-                  />
-                ))}
-              </div>
-              {references.length === 0 && (
-                <div
-                  className="flex flex-col items-center justify-center py-8 rounded-2xl border-2 border-dashed text-center"
-                  style={{ borderColor: 'rgba(193,68,14,0.15)', background: 'rgba(193,68,14,0.015)' }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                    style={{ background: 'rgba(193,68,14,0.06)' }}
-                  >
-                    <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
-                  </div>
-                  <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>No references added yet</p>
-                  <p className="text-[11px]" style={{ color: '#9B8FA8' }}>Add a character, setting, logo, or product to get started</p>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Style + Advanced: its own section below the composer card, with extra
+              breathing room above it so it clearly reads as a step AFTER the
+              composer, not a competing focal point. (The composer itself is now
+              just assets/strength - the chip row lives inside the textarea box
+              above.) Advanced is image mode only.
+              The old `mt-4 sm:mt-6` here was dead: both cards sit in the parent's
+              `space-y-3 sm:space-y-5`, and that utility's compiled selector
+              (`.space-y-3 > :not([hidden]) ~ :not([hidden])`, specificity 0,3,0)
+              always beats a plain `mt-*` class (0,1,0) - the margin never actually
+              applied. Replaced with an inline override, which beats any class-based
+              rule outright. Mobile-only, matching the composer-card boundary above;
+              sm+ still gets the parent's space-y-5 (20px), unchanged. */}
+          <div
+            data-tour="settings"
+            className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6"
+            style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)', marginTop: isMobile ? 24 : undefined }}
+          >
 
-          {/* Zone 2: Upload your photos (image mode only, hidden in prompt-only) */}
-          {!isReferencesMode && !isPromptOnly && (
-            <div
-              data-tour="upload"
-              className="rounded-3xl p-4 sm:p-7 space-y-4 relative"
-              style={CARD_SHADOW}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                if (e.dataTransfer?.types?.includes('Files')) setIsDraggingFile(true);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragLeave={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget)) return;
-                setIsDraggingFile(false);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDraggingFile(false);
-                const files = filterValidImages(e.dataTransfer.files);
-                if (files.length > 0) addImages(files);
-              }}
-            >
-              {/* Header with inline count + reorder hint */}
-              <div className="flex items-baseline justify-between gap-3">
-                <h2
-                  className="font-black"
-                  style={{
-                    fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)',
-                    color: '#1C1917',
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  Upload your photos
-                </h2>
-                {(images?.length ?? 0) > 0 && (
-                  <span className="text-xs font-medium" style={{ color: '#9C8F85' }}>
-                    {images.length} of {MAX_IMAGES}
-                    {/* Desktop: subtle inline hint (mouse drag starts instantly).
-                        Mobile needs the press-and-hold hint, shown on its own line below. */}
-                    {images.length >= 2 && !isMobile && (
-                      <span className="ml-2" style={{ color: '#C8BFB5' }}>
-                        · drag to reorder
-                      </span>
-                    )}
-                  </span>
-                )}
-              </div>
-
-              {/* Mobile reorder hint - the TouchSensor requires a press-and-hold
-                  before dragging, which isn't discoverable, so spell it out. */}
-              {isMobile && (images?.length ?? 0) >= 2 && (
-                <div
-                  className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5"
-                  style={{ color: '#C1440E', background: 'rgba(193,68,14,0.07)' }}
-                >
-                  <Grid className="w-3.5 h-3.5 shrink-0" />
-                  Press &amp; hold a photo, then drag to reorder
-                </div>
-              )}
-
-              {/* Hidden file input */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/jpeg,image/png"
-                multiple
-                className="hidden"
-                disabled={atCap}
-              />
-
-              <AnimatePresence mode="wait">
-                {/* Empty state dropzone */}
-                {(images?.length ?? 0) === 0 && (
-                  <motion.div
-                    key="dropzone"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="cursor-pointer rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-14 px-6"
-                    style={{
-                      borderColor: 'rgba(193,68,14,0.12)',
-                      background: '#FBFAF8',
-                      transition: 'background 0.2s ease, border-color 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#FFF9F5';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#FBFAF8';
-                      e.currentTarget.style.borderColor = 'rgba(193,68,14,0.12)';
-                    }}
-                  >
-                    <motion.div
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{
-                        background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                        boxShadow: '0 6px 18px rgba(193,68,14,0.30)',
-                      }}
-                      whileHover={{
-                        y: -4,
-                        scale: 1.08,
-                        boxShadow: '0 10px 26px rgba(193,68,14,0.40)',
-                      }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    >
-                      <Upload className="w-7 h-7 text-white" />
-                    </motion.div>
-                    <div className="text-center space-y-1">
-                      <p className="font-bold text-sm" style={{ color: '#1C1917' }}>
-                        Drag your photos here
-                      </p>
-                      <p className="text-xs" style={{ color: '#9C8F85' }}>
-                        or click to browse · JPEG or PNG · up to {MAX_IMAGES} photos
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Populated grid */}
-                {(images?.length ?? 0) > 0 && (
-                  <motion.div
-                    key="grid"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
-                    <SortableContext items={images.map(imageId)} strategy={rectSortingStrategy}>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                      {images.map((img, index) => (
-                        <SortableTile
-                          key={imageId(img, index)}
-                          id={imageId(img, index)}
-                          className="cursor-grab active:cursor-grabbing"
-                        >
-                          <div
-                            className="relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-300 transition-all duration-150"
-                            style={{ background: '#FBFAF8' }}
-                          >
-                            <img
-                              src={img.preview}
-                              alt={customLabels[index] || slotLabels[index]}
-                              className="w-full h-full object-cover pointer-events-none"
-                            />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeImage(index);
-                              }}
-                              aria-label="Remove image"
-                              className="absolute top-1 right-1 w-11 h-11 text-white rounded-full transition-all flex items-center justify-center shadow-md z-10"
-                              style={{ background: '#C1440E' }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.background = '#A8380C')
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.background = '#C1440E')
-                              }
-                            >
-                              <X className="w-3 h-3" strokeWidth={2.5} />
-                            </button>
-                          </div>
-
-                          {/* Editable label */}
-                          {editingLabel === index ? (
-                            <input
-                              type="text"
-                              autoFocus
-                              value={customLabels[index] ?? slotLabels[index]}
-                              onChange={(e) =>
-                                setCustomLabels((c) => ({ ...c, [index]: e.target.value }))
-                              }
-                              onBlur={() => setEditingLabel(null)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === 'Escape')
-                                  setEditingLabel(null);
-                              }}
-                              className="w-full text-[10px] font-bold text-center mt-1.5 bg-transparent border-b focus:outline-none"
-                              style={{
-                                color: '#C1440E',
-                                borderColor: 'rgba(193,68,14,0.4)',
-                              }}
-                            />
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingLabel(index);
-                              }}
-                              className="w-full text-[10px] font-bold text-center mt-1.5 truncate cursor-text transition-colors"
-                              style={{
-                                color: customLabels[index] ? '#C1440E' : '#6B5A52',
-                              }}
-                              title="Click to rename"
-                            >
-                              {customLabels[index] || slotLabels[index]}
-                            </button>
-                          )}
-                        </SortableTile>
-                      ))}
-
-                      {/* Add more tile */}
-                      {!atCap && (
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all"
-                          style={{
-                            background: '#FBFAF8',
-                            borderColor: 'rgba(193,68,14,0.15)',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(193,68,14,0.35)';
-                            e.currentTarget.style.background = '#FFF9F5';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(193,68,14,0.15)';
-                            e.currentTarget.style.background = '#FBFAF8';
-                          }}
-                        >
-                          <Plus
-                            className="w-5 h-5 mb-0.5"
-                            style={{ color: '#C1440E', opacity: 0.5 }}
-                          />
-                          <span className="text-[10px] font-bold text-stone-500">
-                            Add more
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                    </SortableContext>
-                    </DndContext>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Off-ratio photos: warn, and let the user choose how they're handled */}
-              <AnimatePresence>
-                {offRatioCount > 0 && setExtendPhotos && (
-                  <motion.div
-                    key="off-ratio"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="rounded-2xl border p-4 space-y-3"
-                    style={
-                      extendPhotos
-                        ? { background: 'rgba(193,68,14,0.05)', borderColor: 'rgba(193,68,14,0.20)' }
-                        : { background: '#FFF7ED', borderColor: '#FED7AA' }
-                    }
-                  >
-                    <p
-                      className="font-semibold flex items-center gap-1.5"
-                      style={{ color: extendPhotos ? '#C1440E' : '#C2410C', fontSize: 14.5 }}
-                    >
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      {offRatioCount} of your photos {offRatioCount > 1 ? "aren't" : "isn't"} {aspectRatio}
-                    </p>
-                    <p className="text-xs text-stone-500 leading-relaxed">
-                      {extendPhotos
-                        ? "We'll extend them outward with AI so they fill the frame. Photos with text in them stay untouched, so their words don't get garbled."
-                        : "They'll play with bars down the sides. Turn this on to have AI fill the frame instead."}
-                    </p>
-
-                    <button
-                      onClick={() => setExtendPhotos(!extendPhotos)}
-                      aria-pressed={extendPhotos}
-                      className="w-full flex items-center justify-between gap-4 p-3 rounded-xl transition-colors text-left"
-                      style={{ background: '#FBFAF8', border: '1px solid rgba(193,68,14,0.10)' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                          style={
-                            extendPhotos
-                              ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.30)' }
-                              : { background: 'rgba(193,68,14,0.06)' }
-                          }
-                        >
-                          <Sparkles style={{ width: 16, height: 16, color: extendPhotos ? '#fff' : '#C1440E' }} />
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-sm block text-stone-800">Extend photos with AI</span>
-                          <span className="text-xs text-stone-400 block leading-relaxed">
-                            Fill the frame instead of showing bars
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                        style={{ background: extendPhotos ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
-                      >
-                        <motion.span
-                          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
-                          animate={{ left: extendPhotos ? 26 : 4 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        />
-                      </div>
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Drag-over overlay */}
-              <AnimatePresence>
-                {isDraggingFile && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="absolute inset-0 z-20 rounded-3xl flex flex-col items-center justify-center pointer-events-none"
-                    style={{
-                      background: 'rgba(193,68,14,0.08)',
-                      border: '2px dashed rgba(193,68,14,0.55)',
-                      backdropFilter: 'blur(2px)',
-                      WebkitBackdropFilter: 'blur(2px)',
-                    }}
-                  >
-                    <motion.div
-                      animate={{ y: [0, -8, 0] }}
-                      transition={{
-                        duration: 1.2,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
-                      style={{
-                        background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                        boxShadow: '0 8px 24px rgba(193,68,14,0.40)',
-                      }}
-                    >
-                      <Upload className="w-7 h-7 text-white" />
-                    </motion.div>
-                    <p className="font-black text-base" style={{ color: '#C1440E' }}>
-                      Drop to add
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Zone 3 - Defaults strip: unified Style / Video Length / Aspect Ratio card for both modes; Advanced is image mode only */}
-          <div data-tour="settings" className="rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-6" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(193,68,14,0.08)' }}>
-
-            {/* Style Selection (renders in both image and references modes) */}
+            {/* Style Selection - renders in all three modes (Photos, Reference, and
+                Prompt-only alike); the outer "settings" section has no mode gate.
+                Label kept as a sr-only text landmark matching Source/Story/Direction. */}
             <div className="space-y-2">
-              <span className="text-sm font-bold block text-stone-500">Style</span>
+              <p className="sr-only">Style</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {styleOptions.map((opt) => {
                   const isSelected = style === opt.id;
@@ -1800,7 +2385,7 @@ export default function PromptStep({
                           style={{
                             width: 18,
                             height: 18,
-                            background: 'linear-gradient(135deg, #C1440E, #E8603C)',
+                            background: 'var(--gradient-brand)',
                             boxShadow: '0 2px 6px rgba(193,68,14,0.45)',
                           }}
                         >
@@ -1831,124 +2416,26 @@ export default function PromptStep({
               </div>
             </div>
 
-            {/* Video Length: Continuous Track Slider Strip (renders in both image and references modes) */}
-            {setTargetDuration && (
-              <div className="space-y-2">
-                <label className="text-sm font-bold block text-stone-500">
-                  Video Length
-                </label>
-                <div
-                  className="w-full flex p-1 rounded-xl border relative"
-                  style={{ background: '#F0EAE1', borderColor: 'rgba(193,68,14,0.15)' }}
-                >
-                  {DURATION_OPTIONS.map((opt) => {
-                    const isSelected = targetDuration === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => setTargetDuration(opt.value)}
-                        className="flex-1 py-2 text-xs font-black transition-all relative z-10 cursor-pointer text-center"
-                        style={{ color: isSelected ? '#FFFAF7' : '#7A6A62' }}
-                      >
-                        {isSelected && (
-                          <motion.span
-                            layoutId="activeLengthSegment"
-                            className="absolute inset-0 rounded-lg -z-10"
-                            style={{
-                              background: 'linear-gradient(135deg, #C1440E, #E8603C)',
-                              boxShadow: '0 2px 8px rgba(193,68,14,0.25)'
-                            }}
-                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                          />
-                        )}
-                        <span className="flex flex-col items-center gap-0">
-                          <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
-                          <span style={{
-                            fontSize: 9,
-                            fontWeight: 500,
-                            color: isSelected ? 'rgba(255,255,255,0.70)' : '#9C8F85',
-                            marginTop: 1,
-                          }}>
-                            {opt.desc}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Aspect Ratio: Twin Box Visual Selectors (renders in both image and references modes) */}
-            {setAspectRatio && (
-              <div className="space-y-2">
-                <label className="text-sm font-bold block text-stone-500">
-                  Aspect Ratio
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { id: '9:16', iconStyle: { width: 14, height: 24 } },
-                    { id: '16:9', iconStyle: { width: 24, height: 14 } },
-                  ].map((opt) => {
-                    const isSelected = (aspectRatio || '16:9') === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => setAspectRatio(opt.id)}
-                        className="flex flex-col items-center justify-center py-5 rounded-2xl border transition-all duration-200 bg-white group"
-                        style={isSelected
-                          ? {
-                              borderColor: '#C1440E',
-                              background: 'rgba(193,68,14,0.03)',
-                              boxShadow: '0 4px 14px rgba(193,68,14,0.08)'
-                            }
-                          : { borderColor: 'rgba(193,68,14,0.12)' }
-                        }
-                      >
-                        {/* Screen Wireframe Box Graphic */}
-                        <div className="h-8 flex items-center justify-center mb-2.5">
-                          <div
-                            className="border-2 rounded-[3px] transition-all duration-200"
-                            style={{
-                              ...opt.iconStyle,
-                              borderColor: isSelected ? '#C1440E' : '#A89E95',
-                              background: isSelected ? 'rgba(193,68,14,0.12)' : 'transparent'
-                            }}
-                          />
-                        </div>
-
-                        <span className="flex flex-col items-center gap-0.5">
-                          <span className="text-xs font-black text-stone-800 tracking-wider">
-                            {opt.id}
-                          </span>
-                          <span style={{ fontSize: 9, fontWeight: 500, color: '#9C8F85' }}>
-                            {opt.id === '9:16' ? 'Phone · Social' : 'TV · Laptop'}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Advanced Controls Accordion Section (image mode only, hidden in prompt-only) */}
-            {!isReferencesMode && !isPromptOnly && (
+            {/* Advanced Controls Accordion Section (image mode only, hidden in prompt-only) -
+                gated on ENABLE_ADVANCED_OPTIONS (see top of file). The whole block, trigger
+                button included, is unreachable while that's false; nothing renders and
+                nothing is focusable/tabbable here. */}
+            {ENABLE_ADVANCED_OPTIONS && !isReferencesMode && !isPromptOnly && (
               <div className="pt-3 border-t" style={{ borderColor: 'rgba(193,68,14,0.08)' }}>
                 <button
                   onClick={() => setFrameConfigExpanded(!frameConfigExpanded)}
                   className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
                 >
-                  <span className="text-xs font-bold" style={{ color: (enableBridges || openingEnabled || closingEnabled) ? '#C1440E' : '#9C8F85' }}>
+                  <span className="text-xs font-bold" style={{ color: (enableBridges || openingEnabled || closingEnabled) ? '#C1440E' : '#75695F' }}>
                     Advanced
                     {(enableBridges || openingEnabled || closingEnabled)
                       ? ` · ${[enableBridges && 'Smooth transitions', openingEnabled && 'Intro', closingEnabled && 'Outro'].filter(Boolean).join(' + ')} on`
                       : ' · Intro, Outro, Bridge Scenes'}
                   </span>
                   {frameConfigExpanded ? (
-                    <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#9C8F85' }} />
+                    <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#75695F' }} />
                   ) : (
-                    <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#9C8F85' }} />
+                    <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#75695F' }} />
                   )}
                 </button>
 
@@ -1977,7 +2464,7 @@ export default function PromptStep({
                               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
                               style={
                                 enableBridges
-                                  ? { background: "linear-gradient(135deg, #C1440E, #E8603C)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
+                                  ? { background: "var(--gradient-brand)", boxShadow: "0 4px 10px rgba(193,68,14,0.30)" }
                                   : { background: "rgba(193,68,14,0.06)" }
                               }
                             >
@@ -1994,7 +2481,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: enableBridges ? "linear-gradient(135deg, #C1440E, #E8603C)" : "#E5DFD8" }}
+                            style={{ background: enableBridges ? "var(--gradient-brand)" : "#E5DFD8" }}
                           >
                             <motion.span
                               className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2024,7 +2511,7 @@ export default function PromptStep({
                           <div className="flex items-center gap-2.5">
                             <div
                               className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                              style={{ background: openingEnabled ? 'var(--gradient-brand)' : 'rgba(193,68,14,0.08)' }}
                             >
                               <Play className="w-3 h-3" style={{ color: openingEnabled ? '#fff' : '#C1440E' }} />
                             </div>
@@ -2035,7 +2522,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: openingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                            style={{ background: openingEnabled ? 'var(--gradient-brand)' : '#E5DFD8' }}
                           >
                             <motion.span
                               className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2082,7 +2569,7 @@ export default function PromptStep({
                                       onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: false }))}
                                       aria-pressed={!openingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={!openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Wand2 className="w-3.5 h-3.5" /> Generate with AI
                                     </motion.button>
@@ -2091,7 +2578,7 @@ export default function PromptStep({
                                       onClick={() => setOpeningFrame((prev) => ({ ...prev, useUpload: true }))}
                                       aria-pressed={openingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={openingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Upload className="w-3.5 h-3.5" /> Upload image
                                     </motion.button>
@@ -2176,7 +2663,7 @@ export default function PromptStep({
                           <div className="flex items-center gap-2.5">
                             <div
                               className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                              style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : 'rgba(193,68,14,0.08)' }}
+                              style={{ background: closingEnabled ? 'var(--gradient-brand)' : 'rgba(193,68,14,0.08)' }}
                             >
                               <Square className="w-3 h-3" style={{ color: closingEnabled ? '#fff' : '#C1440E' }} />
                             </div>
@@ -2187,7 +2674,7 @@ export default function PromptStep({
                           </div>
                           <div
                             className="relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
-                            style={{ background: closingEnabled ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
+                            style={{ background: closingEnabled ? 'var(--gradient-brand)' : '#E5DFD8' }}
                           >
                             <motion.span
                               className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
@@ -2234,7 +2721,7 @@ export default function PromptStep({
                                       onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: false }))}
                                       aria-pressed={!closingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={!closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Wand2 className="w-3.5 h-3.5" /> Generate with AI
                                     </motion.button>
@@ -2243,7 +2730,7 @@ export default function PromptStep({
                                       onClick={() => setClosingFrame((prev) => ({ ...prev, useUpload: true }))}
                                       aria-pressed={closingFrame.useUpload}
                                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs transition-all cursor-pointer"
-                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#9B8FA8" }}
+                                      style={closingFrame.useUpload ? { background: "#fff", color: "#C1440E", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" } : { color: "#726481" }}
                                     >
                                       <Upload className="w-3.5 h-3.5" /> Upload image
                                     </motion.button>
@@ -2321,81 +2808,6 @@ export default function PromptStep({
 
           </div>
 
-          {/* Zone 4 - Voice & Music (both modes). Configured up front here so the
-              later steps go straight to review + generate. State lives in the
-              session hook, so setting it here flows through to generation. */}
-          {setVoiceId && setBackgroundMusic && (
-            <div data-tour="sound" className="rounded-3xl p-4 sm:p-6 space-y-3" style={CARD_SHADOW}>
-              <div>
-                <h2 className="font-black" style={{ fontSize: 'clamp(1.15rem, 2.4vw, 1.4rem)', color: '#1C1917', letterSpacing: '-0.01em' }}>
-                  Voice &amp; Music
-                </h2>
-                <p className="text-xs font-medium mt-1" style={{ color: '#9C8F85' }}>
-                  Pick the narration voice and choose whether to add background music.
-                </p>
-              </div>
-
-              {/* Narration voice - opens the picker modal (works on mobile too) */}
-              <button
-                onClick={() => setVoiceModalOpen(true)}
-                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left"
-                style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)', transition: 'border-color 0.2s ease, background 0.2s ease' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.28)'; e.currentTarget.style.background = '#FFF9F5'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(193,68,14,0.10)'; e.currentTarget.style.background = '#FBFAF8'; }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.25)' }}>
-                    <Mic className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Narration voice</span>
-                    <span className="text-xs block truncate" style={{ color: '#9C8F85' }}>
-                      {voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : 'Default voice'}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-[11px] font-bold flex items-center gap-1 flex-shrink-0" style={{ color: '#C1440E' }}>
-                  Change <ChevronDown className="w-3 h-3" />
-                </span>
-              </button>
-
-              {/* Background music toggle */}
-              <button
-                onClick={() => setBackgroundMusic(!backgroundMusic)}
-                aria-pressed={!!backgroundMusic}
-                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left"
-                style={{ background: '#FBFAF8', border: '1.5px solid rgba(193,68,14,0.10)' }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                    style={backgroundMusic
-                      ? { background: 'linear-gradient(135deg, #C1440E, #E8603C)', boxShadow: '0 4px 10px rgba(193,68,14,0.25)' }
-                      : { background: 'rgba(193,68,14,0.06)' }}
-                  >
-                    <Music className="w-4 h-4" style={{ color: backgroundMusic ? '#fff' : '#C1440E' }} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="font-extrabold text-sm block" style={{ color: '#1C1917' }}>Background music</span>
-                    <span className="text-xs block" style={{ color: '#9C8F85' }}>
-                      {backgroundMusic ? 'AI music matched to your video' : 'No background music'}
-                    </span>
-                  </div>
-                </div>
-                <div
-                  className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors duration-200"
-                  style={{ background: backgroundMusic ? 'linear-gradient(135deg, #C1440E, #E8603C)' : '#E5DFD8' }}
-                >
-                  <motion.span
-                    className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
-                    animate={{ left: backgroundMusic ? 26 : 4 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                </div>
-              </button>
-            </div>
-          )}
-
           {/* Duration vs. image-count advisory + CTA gate (image mode only, hidden in prompt-only) */}
           {!isReferencesMode && !isPromptOnly && (
             <DurationEstimate
@@ -2415,33 +2827,11 @@ export default function PromptStep({
 
           {/* Credit cost / affordability (references + prompt-only modes, which
               have no DurationEstimate). Tells the user in place instead of
-              redirecting to the pricing page. */}
-          {(isReferencesMode || isPromptOnly) && refRequiredCredits > 0 && (
-            <div
-              className="rounded-2xl border p-4 flex items-center justify-between gap-2"
-              style={{
-                background: refAffordable ? "#F0FDF4" : "#FFF7ED",
-                borderColor: refAffordable ? "#BBF7D0" : "#FED7AA",
-              }}
-            >
-              <span
-                className="text-[11px] font-bold"
-                style={{ color: refAffordable ? "#15803D" : "#C2410C" }}
-              >
-                {refAffordable
-                  ? `Costs ${refRequiredCredits} credit${refRequiredCredits !== 1 ? "s" : ""}, you have ${credits ?? 0}`
-                  : `Needs ${refRequiredCredits} credits, you have ${credits ?? 0}`}
-              </span>
-              {!refAffordable && (
-                <button
-                  onClick={handleTopUp}
-                  className="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
-                  style={{ background: "#C1440E" }}
-                >
-                  Top up
-                </button>
-              )}
-            </div>
+              redirecting to the pricing page. refRequiredCredits/refAffordable
+              (above) stay - canStart and the CTA subtext below still depend on
+              them - only this card's own JSX is now the shared component. */}
+          {(isReferencesMode || isPromptOnly) && (
+            <CreditAffordabilityCard targetDuration={targetDuration} onTopUp={handleTopUp} />
           )}
 
           {/* Error message */}
@@ -2488,7 +2878,7 @@ export default function PromptStep({
               onClick={handleStart}
               disabled={!canStart || loading}
               className="w-full text-white py-6 text-sm font-bold rounded-2xl border-0 shadow-xl shadow-orange-200/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-              style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
+              style={{ background: "var(--gradient-brand)" }}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2 tracking-wide font-black">
@@ -2506,7 +2896,7 @@ export default function PromptStep({
                 </span>
               )}
             </Button>
-            <p className="text-center text-xs font-bold mt-2" style={{ color: '#9C8F85' }}>
+            <p className="text-center text-xs font-bold mt-2" style={{ color: '#75695F' }}>
               {canStart
                 ? "Looks good, create your video"
                 : blockers.length > 0
@@ -2520,7 +2910,7 @@ export default function PromptStep({
           </div>
 
         </motion.div>
-      </div>
+      </ComposerFrame>
 
       {/* Voice picker modal - a bottom sheet on phones, centered card on desktop */}
       <AnimatePresence>
@@ -2540,11 +2930,11 @@ export default function PromptStep({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4 shrink-0">
-                <h3 className="text-base font-black" style={{ color: '#1C1917' }}>Choose a voice</h3>
+                <h3 className="text-base font-black" style={{ color: 'var(--ink-warm)' }}>Choose a voice</h3>
                 <button
                   onClick={() => setVoiceModalOpen(false)}
                   aria-label="Close"
-                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
+                  className="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2559,7 +2949,7 @@ export default function PromptStep({
               <Button
                 onClick={() => setVoiceModalOpen(false)}
                 className="w-full mt-4 text-white border-0 shrink-0"
-                style={{ background: 'linear-gradient(135deg, #C1440E, #E8603C)' }}
+                style={{ background: 'var(--gradient-brand)' }}
               >
                 Done
               </Button>
@@ -2594,7 +2984,7 @@ export default function PromptStep({
                 </h2>
                 <button
                   onClick={() => setShowPromptGuide(false)}
-                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 text-stone-500 font-bold transition-colors"
+                  className="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 text-stone-500 font-bold transition-colors"
                 >
                   ×
                 </button>
@@ -2681,7 +3071,7 @@ export default function PromptStep({
                 <Button
                   onClick={() => setShowImageOrderGuide(false)}
                   className="w-full text-white font-bold py-2.5 rounded-xl"
-                  style={{ background: "linear-gradient(135deg, #C1440E, #E8603C)" }}
+                  style={{ background: "var(--gradient-brand)" }}
                 >
                   Confirm Configuration Order
                 </Button>
@@ -2691,5 +3081,6 @@ export default function PromptStep({
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

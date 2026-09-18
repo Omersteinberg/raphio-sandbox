@@ -13,6 +13,7 @@ export const TOUR_KEYS = {
   scriptReview: "scriptReview:v1",
   referenceLock: "referenceLock:v1",
   sceneFrames: "sceneFrames:v1",
+  introBrief: "introBrief:v1",
 };
 
 export function tourSeen(key) {

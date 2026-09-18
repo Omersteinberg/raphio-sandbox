@@ -15,7 +15,7 @@ import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/services/api";
-import { getShareUrl } from "@/services/session";
+import { getShareUrl, notifyShareComplete } from "@/services/session";
 import { API_BASE } from "@/config";
 
 /**
@@ -172,6 +172,20 @@ export default function VideoResult({
           text: "Check out this video I created!",
           url: shareUrl,
         });
+        // Share sheet resolved (not cancelled) — tell the backend so it can award
+        // the one-time credit bonus. Best-effort: never blocks or alters the share
+        // UX, and the backend is the sole source of truth for whether it's awarded.
+        if (sessionId) {
+          notifyShareComplete(sessionId)
+            .then((res) => {
+              if (res && res.awarded) {
+                toast.success(`+${res.creditsAdded} credits for sharing!`);
+              }
+            })
+            .catch(() => {
+              /* best-effort */
+            });
+        }
         return;
       } catch {
         /* cancelled or unsupported → fall back to the desktop popover */

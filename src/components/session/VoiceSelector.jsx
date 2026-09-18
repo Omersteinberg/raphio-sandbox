@@ -70,7 +70,7 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
   // Load voices on mount. The same response carries the region default (derived
   // from the caller's IP by the backend), so reading it here is free - and reading
   // it *here* rather than from a prop is what makes every host of this picker
-  // region-aware, including IntroScriptStep, which passes no recommendation.
+  // region-aware, including IntroSceneReviewStep, which passes no recommendation.
   useEffect(() => {
     async function loadVoices() {
       setLoading(true);

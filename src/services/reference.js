@@ -71,8 +71,11 @@ export async function regenerateReference(sessionId, refId, { feedback } = {}) {
  * Generate scene frames for all script sections
  */
 export async function generateSceneFrames(sessionId) {
-  await axios.post(`${API}/${sessionId}/references/scene-frames`);
-  return await pollJobUntilDone(sessionId);
+  // 202 names the job holding the session's single slot, which is the runner's own
+  // REF_SCENE_FRAMES when it got there first. Wait on that one specifically, so this
+  // can't resolve on a later job and return its result as our frames.
+  const { data } = await axios.post(`${API}/${sessionId}/references/scene-frames`);
+  return await pollJobUntilDone(sessionId, { expectedJobType: data?.jobType });
 }
 
 /**
@@ -84,14 +87,35 @@ export async function approveSceneFrames(sessionId) {
 }
 
 /**
- * Improve the story prompt with AI (references pipeline, before a session
- * exists). Stateless: sends the current prompt + references, gets improved text.
+ * Improve the story prompt with AI, before a session exists. Stateless: sends the
+ * current text plus whatever context the mode has, gets improved text back.
+ *
+ * Shared by every pipeline, so `mode` decides both what comes back and which
+ * fields matter. `references`, `image` and `prompt` return { improvedPrompt,
+ * recommendedVoiceKey, recommendedAccent, recommendedUseCase, recommendedReason }.
+ * `intro` returns { improvedPrompt, businessName } and reads businessName,
+ * targetDuration and logoDataUrl on the way in.
  */
-export async function improvePrompt({ userPrompt, references, style, mode, imageDataUrls }) {
-  const response = await axios.post(`${API}/improve-prompt`, { userPrompt, references, style, mode, imageDataUrls });
-  // Full contract: { improvedPrompt, recommendedVoiceKey, recommendedAccent,
-  // recommendedUseCase, recommendedReason }. Callers read .improvedPrompt plus
-  // the recommendation fields.
+export async function improvePrompt({
+  userPrompt,
+  references,
+  style,
+  mode,
+  imageDataUrls,
+  businessName,
+  targetDuration,
+  logoDataUrl,
+}) {
+  const response = await axios.post(`${API}/improve-prompt`, {
+    userPrompt,
+    references,
+    style,
+    mode,
+    imageDataUrls,
+    businessName,
+    targetDuration,
+    logoDataUrl,
+  });
   return response.data;
 }
 

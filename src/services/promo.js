@@ -57,3 +57,10 @@ export async function listRedemptions(id) {
   const response = await axios.get(`${PROMO_URL}/admin/codes/${id}/redemptions`);
   return response.data.data.redemptions;
 }
+
+/**
+ * Admin: soft-delete a code. Deleted codes no longer appear in listCodes().
+ */
+export async function deleteCode(id) {
+  await axios.delete(`${PROMO_URL}/admin/codes/${id}`);
+}
