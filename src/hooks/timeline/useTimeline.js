@@ -4,7 +4,10 @@ import * as sessionService from "@/services/session";
 import { describeError } from "@/lib/errorDetail";
 import { useActiveAtTime } from "./useActiveAtTime";
 
-const PIXELS_PER_SECOND_BASE = 50;
+// Exported so other components can normalize their own drag sensitivity
+// against zoom the same way this hook's pixelsPerSecond does (e.g.
+// TimelineOverlayItem's resize handles) instead of hardcoding a duplicate.
+export const PIXELS_PER_SECOND_BASE = 50;
 
 // How many editing actions Undo can step back through.
 const HISTORY_LIMIT = 25;

@@ -38,6 +38,7 @@ export default function TimelineCanvas({
   onSelectItem,
   selectedOverlay = null,
   onSelectOverlay,
+  onUpdateOverlay,
   onSeek,
   onUpdateItem,
   onItemEdit,
@@ -868,6 +869,7 @@ export default function TimelineCanvas({
             getAudioAsset={getAudioAsset}
             overlappingItems={noOverlaps}
             sessionId={sessionId}
+            onUpdateOverlay={onUpdateOverlay}
           />
 
           {/* Past-the-end fill - timelineWidth pads a couple hundred px past

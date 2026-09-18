@@ -24,6 +24,7 @@ export default function TimelineTrack({
   sessionId,
   boundaries = null, // VIDEO row only - see TimelineCanvas's videoBoundaries
   onBoundaryClick,
+  onUpdateOverlay, // TEXT row only - (itemId, overlayId, updates) => void, mirrors useTimeline's updateOverlay
 }) {
   // Which ROW this is, not what any item stores: the canvas renders Narration
   // at trackIndex 0 and the merged Audio/Music row at trackIndex 1. Icon and
@@ -92,6 +93,7 @@ export default function TimelineTrack({
                 pixelsPerSecond={pixelsPerSecond}
                 isSelected={selectedItem === item.id}
                 onSelect={() => onSelectItem(item.id)}
+                onResize={(widthPercent) => onUpdateOverlay?.(item.parentItemId, item.id, { widthPercent })}
               />
             );
           }
