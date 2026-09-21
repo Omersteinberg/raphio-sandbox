@@ -20,7 +20,9 @@ import AdminRoute from "./components/AdminRoute";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import SupportPage from "./pages/SupportPage";
+import OnboardingUseCasePage from "./pages/OnboardingUseCasePage";
 import AppLayout from "./components/AppLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
 import { useIsMobile } from "./hooks/useMediaQuery";
@@ -57,6 +59,9 @@ function App() {
           {/* <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} /> */}
 
+
+          {/* One-time onboarding question: protected, but no AppHeader (outside AppLayout) */}
+          <Route path="/welcome" element={<ProtectedRoute><OnboardingUseCasePage /></ProtectedRoute>} />
 
           {/* Protected routes with persistent header */}
           <Route element={<AppLayout />}>

@@ -46,6 +46,16 @@ export async function markIntroVideoSeen(key) {
 }
 
 /**
+ * Save the answer to the one-time "What will you use Raphio for?" question.
+ * @param {"real_estate"|"hospitality"|"ecommerce"|"trades"|"personal"|"other"|"skipped"} useCase
+ * @returns {Promise<string>} the stored useCase as echoed by the backend
+ */
+export async function saveUseCase(useCase) {
+  const { data } = await axios.put(`${SETTINGS_BASE}/onboarding/use-case`, { useCase });
+  return data?.useCase ?? useCase;
+}
+
+/**
  * Persist one or more auto-approve toggles. Pass only the changed flags, e.g.
  * `saveAutoApprove({ script: true })`. Returns the full updated map.
  */

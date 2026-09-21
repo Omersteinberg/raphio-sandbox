@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { describeError } from "../lib/errorDetail";
@@ -121,6 +121,27 @@ function GoogleButton({ disabled, onCredential, onError }) {
   );
 }
 
+// One muted line linking the legal pages. `lead` differs by where it sits: under
+// the Register button it is about creating an account, under the Google button
+// (which serves both login and register) it is "continuing".
+function ConsentNotice({ lead }) {
+  const link =
+    "underline-offset-2 transition-colors hover:text-terra hover:underline focus-visible:text-terra focus-visible:underline";
+  return (
+    <p className="mt-3 text-center font-figtree text-xs leading-relaxed text-ink-muted [text-wrap:balance]">
+      {lead}, you agree to our{" "}
+      <Link to="/terms" className={link}>
+        Terms of Service
+      </Link>{" "}
+      and{" "}
+      <Link to="/privacy" className={link}>
+        Privacy Policy
+      </Link>
+      .
+    </p>
+  );
+}
+
 // ── Forms ─────────────────────────────────────────────────────────
 function LoginForm() {
   const [username, setUsername] = useState("");
@@ -220,6 +241,7 @@ function LoginForm() {
         onCredential={handleGoogleCredential}
         onError={handleGoogleError}
       />
+      <ConsentNotice lead="By continuing" />
     </motion.form>
   );
 }
@@ -324,12 +346,14 @@ function RegisterForm() {
       <PrimaryButton loading={loading}>
         {loading ? "Creating account…" : "Create account"}
       </PrimaryButton>
+      <ConsentNotice lead="By creating an account" />
       <Divider />
       <GoogleButton
         disabled={loading}
         onCredential={handleGoogleCredential}
         onError={handleGoogleError}
       />
+      <ConsentNotice lead="By continuing" />
     </motion.form>
   );
 }

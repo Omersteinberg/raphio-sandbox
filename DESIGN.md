@@ -86,7 +86,7 @@ Confirmed anti-references - the system should never read as any of these:
 - Flat by default; a lifted, warm-tinted shadow is reserved for genuine emphasis.
 - A generous, expanding radius scale: tighter for dense functional UI, rounder as a surface becomes more marketing-facing, full-pill for the single highest-emphasis action.
 - Two deliberate button registers - a plain functional button for in-flow actions, and a pill-shaped gradient CTA reserved for the one primary ask per screen.
-- Figtree carries the entire in-product experience; Bricolage Grotesque is reserved for landing-page headlines only.
+- Figtree carries the entire in-product experience; Bricolage Grotesque is reserved for landing-page headlines and the `/welcome` onboarding heading.
 
 ## Colors
 
@@ -124,14 +124,14 @@ The palette reads as sun-warmed clay and paper: a single fired-terracotta accent
 *Note: Montserrat is loaded and registered in `tailwind.config.js` (`font-montserrat`) but has zero live usages anywhere in `src/`. Treat it as unused legacy configuration, not an active part of the type system - don't reach for it in new work.*
 
 ### Hierarchy
-- **Display** (weight 750, `clamp(34px,4.4vw,72px)` depending on level, line-height 1.08-1.15): Bricolage Grotesque. Landing-page section headlines and the hero headline only.
+- **Display** (weight 750, `clamp(34px,4.4vw,72px)` depending on level, line-height 1.08-1.15): Bricolage Grotesque. Landing-page section headlines, the hero headline, and the `/welcome` onboarding heading only.
 - **Headline** (weight 700-800, 24-32px): Figtree. In-product section/page titles, dialog titles.
 - **Title** (weight 700, 16-18px): Figtree. Card titles, component headers.
 - **Body** (weight 400-500, 14-16px, line-height 1.5): Figtree. Paragraph copy, descriptions.
 - **Label** (weight 700, 11-13px, letter-spacing ~0.1em, uppercase): Figtree. Eyebrows, badges, pricing-tier tags, status text.
 
 ### Named Rules
-**The Desk vs. Pitch Rule.** Figtree carries every in-product surface - the creation wizard, the timeline editor, settings, admin. Bricolage Grotesque is reserved for landing-page headlines only. If a screen lives inside the authenticated product, it does not get the display face.
+**The Desk vs. Pitch Rule.** Figtree carries every in-product surface - the creation wizard, the timeline editor, settings, admin. Bricolage Grotesque is reserved for landing-page headlines and the one-time `/welcome` onboarding heading (the threshold moment right after signup). If any other screen lives inside the authenticated product, it does not get the display face.
 
 ## Layout
 
@@ -192,7 +192,7 @@ The timeline editor opts a container into a fully dark, warm-toned theme via a s
 
 ### Do:
 - **Do** keep Kiln Terracotta as the only saturated, decorative color anywhere in the system; every other hue is functional-only (see The One Warm Voice Rule).
-- **Do** reserve Bricolage Grotesque strictly for landing-page headlines; everything inside the authenticated product stays in Figtree (The Desk vs. Pitch Rule).
+- **Do** reserve Bricolage Grotesque strictly for landing-page headlines and the `/welcome` onboarding heading; everything else inside the authenticated product stays in Figtree (The Desk vs. Pitch Rule).
 - **Do** tint every intentional shadow toward terracotta or Warm Char; a neutral or pure-black shadow does not belong in this system (The Warm Shadow Rule).
 - **Do** let a surface's corner radius signal its role - tighter for tools, rounder for features, full-pill for the one primary action (The Rounder-With-Emphasis Rule).
 - **Do** keep the two button registers distinct: flat functional buttons for in-flow actions, pill-gradient CTA for the one highest-emphasis action per screen. Don't use a pill button for a secondary action, and don't use the flat register for a page's primary ask.
