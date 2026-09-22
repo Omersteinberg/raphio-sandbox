@@ -28,8 +28,15 @@ import { API_BASE } from "@/config";
  *
  * Download strategy (most reliable first): server /video/:id/download proxy
  * (attachment header, no CORS) → fetch the URL as a blob → plain new-tab link.
- * Share always points at the canonical /video/:id link so it's valid from both
- * hosts (the wizard isn't itself at a shareable URL).
+ *
+ * Share strategy: the only link ever shown or copied is the public /watch link
+ * from getShareUrl (works for logged-out viewers). There is deliberately no
+ * fallback to `/video/:id` — that route requires login, so it would be a dead
+ * end for exactly the logged-out visitor a shared link is supposed to reach.
+ * While that fetch is pending or has failed, the Share button shows a loading
+ * state (not HTML-disabled, so a click still gets a toast and triggers a
+ * retry); native share and the popover always resolve to the same URL, so
+ * neither path can hand out a broken link the other one avoided.
  */
 export default function VideoResult({
   sessionId,
@@ -51,10 +58,13 @@ export default function VideoResult({
 }) {
   const [downloading, setDownloading] = useState(false);
   const [publicShareUrl, setPublicShareUrl] = useState(null);
+  // 'idle' (nothing to fetch yet) | 'loading' | 'ready' | 'error'.
+  const [shareStatus, setShareStatus] = useState("idle");
   const [shareOpen, setShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const shareRef = useRef(null);
   const copyTimeoutRef = useRef(null);
+  const autoRetriedRef = useRef(false);
   const displayTitle = title || "Untitled";
 
   const closeSharePopover = useCallback(() => {
@@ -93,21 +103,38 @@ export default function VideoResult({
   // Pre-fetch the public /watch link as soon as the video is ready, so the Share
   // click handler stays synchronous. iOS Safari requires navigator.share to run
   // inside the user gesture, an await before it silently breaks the native sheet.
+  // This is also why a failed fetch can't be retried inline from the click handler
+  // (an await there would break that gesture chain) — instead the Share button is
+  // disabled until this resolves, and a failure gets one automatic background retry.
+  const fetchShareUrl = useCallback(() => {
+    if (!sessionId) return;
+    setShareStatus((prev) => (prev === "ready" ? prev : "loading"));
+    getShareUrl(sessionId)
+      .then((res) => {
+        if (res && res.shareUrl) {
+          setPublicShareUrl(res.shareUrl);
+          setShareStatus("ready");
+        } else {
+          setShareStatus("error");
+        }
+      })
+      .catch(() => setShareStatus("error"));
+  }, [sessionId]);
+
   useEffect(() => {
-    let cancelled = false;
-    if (sessionId && finalVideoUrl) {
-      getShareUrl(sessionId)
-        .then((res) => {
-          if (!cancelled && res && res.shareUrl) setPublicShareUrl(res.shareUrl);
-        })
-        .catch(() => {
-          /* leave publicShareUrl null; shareUrl falls back to the /video link */
-        });
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, finalVideoUrl]);
+    autoRetriedRef.current = false;
+    if (sessionId && finalVideoUrl) fetchShareUrl();
+  }, [sessionId, finalVideoUrl, fetchShareUrl]);
+
+  // One automatic background retry after a failure, so a transient blip self-heals
+  // without the user needing to click twice. Guarded by a ref (not state) so it
+  // fires exactly once per session and never loops on a repeated failure.
+  useEffect(() => {
+    if (shareStatus !== "error" || autoRetriedRef.current) return;
+    autoRetriedRef.current = true;
+    const t = setTimeout(fetchShareUrl, 4000);
+    return () => clearTimeout(t);
+  }, [shareStatus, fetchShareUrl]);
 
   const handleDownload = async () => {
     if (!finalVideoUrl) {
@@ -157,15 +184,23 @@ export default function VideoResult({
     }
   };
 
-  // Prefer the public /watch link (works for logged-out viewers). Fall back to
-  // the canonical in-app /video link only if the pre-fetch hasn't landed / failed,
-  // so Share is never dead.
-  const shareUrl =
-    publicShareUrl ||
-    (sessionId ? `${window.location.origin}/video/${sessionId}` : finalVideoUrl);
+  // The public /watch link, once it has actually loaded — never the authed
+  // /video/:id route. When there's no sessionId at all (defensive; both real
+  // hosts always pass one), fall back to the raw video file, which needs no
+  // login either.
+  const shareUrl = sessionId ? publicShareUrl : finalVideoUrl;
+  const shareReady = sessionId ? shareStatus === "ready" && !!publicShareUrl : !!finalVideoUrl;
+  const canOfferShare = showShare && (sessionId || finalVideoUrl);
 
   const handleShare = async () => {
-    if (!shareUrl) return;
+    if (!shareReady || !shareUrl) {
+      toast.info("Link isn't ready yet — try again in a moment.");
+      // Fire-and-forget retry, skipped while one's already in flight. The button
+      // stays clickable (not HTML-disabled) specifically so this branch can run —
+      // a disabled button would swallow the click and never offer this retry.
+      if (shareStatus !== "loading") fetchShareUrl();
+      return;
+    }
     if (navigator.share) {
       try {
         await navigator.share({
@@ -284,14 +319,21 @@ export default function VideoResult({
           </Button>
         )}
 
-        {showShare && shareUrl && (
+        {canOfferShare && (
           <div className="relative" ref={shareRef}>
             <Button
               onClick={handleShare}
               variant="outline"
-              className="w-full sm:w-auto border-border text-foreground hover:bg-muted flex items-center justify-center gap-2"
+              aria-label={shareReady ? "Share" : "Share (link loading, tap to retry)"}
+              className={`w-full sm:w-auto border-border text-foreground hover:bg-muted flex items-center justify-center gap-2 ${
+                shareReady ? "" : "opacity-60"
+              }`}
             >
-              <Share2 className="w-4 h-4" />
+              {shareReady ? (
+                <Share2 className="w-4 h-4" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
               Share
             </Button>
 
