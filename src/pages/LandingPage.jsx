@@ -5,6 +5,7 @@ import { ArrowRight, Play, ChevronLeft, ChevronRight, Sparkles, Plus, Mail, X, M
 import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap, Layers, Crown, Clock3} from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { trackAcquisition } from "@/services/acquisition.js";
 import scene5Img from "@/assets/scene-5.png";
 import scene1Img from "@/assets/scene-1.png";
 import scene2Img from "@/assets/scene-2.png";
@@ -2240,6 +2241,14 @@ export default function LandingPage() {
   const goToAppOrLogin = () => navigate(user ? '/videos' : '/login');
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Fires once per mount, not per scroll/interaction - a page view, not an
+  // engagement metric. Best-effort/anonymous, see acquisition.js.
+  useEffect(() => {
+    trackAcquisition('landing_viewed');
+  }, []);
+
+  const fireCta = (cta) => trackAcquisition('landing_cta_clicked', { cta });
   // The open mobile menu should read as a real state change, not a
   // transparent dropdown floating over untouched chrome - so the header
   // adopts its solid "scrolled" look whenever the menu is open, even at
@@ -2620,7 +2629,7 @@ export default function LandingPage() {
             className="mt-9 flex flex-col items-center gap-3"
           >
             <button
-              onClick={() => navigate(user ? '/create' : '/login')}
+              onClick={() => { fireCta('hero'); navigate(user ? '/create' : '/login'); }}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background: `linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow: '0 4px 24px rgba(193,68,14,0.35)' }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 40px rgba(193,68,14,0.55)'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; }}
@@ -2807,7 +2816,10 @@ export default function LandingPage() {
 
                     <PricingButton
                       tier={tier}
-                      onClick={() => tier.price === 0 ? navigate(user ? '/create' : '/login') : navigate('/login?redirect=/pricing')}
+                      onClick={() => {
+                        fireCta(`pricing_${tier.price === 0 ? 'free' : tier.cta}`.toLowerCase());
+                        tier.price === 0 ? navigate(user ? '/create' : '/login') : navigate('/login?redirect=/pricing');
+                      }}
                     />
                   </div>
                 </motion.div>
@@ -2831,7 +2843,7 @@ export default function LandingPage() {
             style={{ background: '#F0EAE5', border: '1px solid rgba(193,68,14,0.12)' }}>
             <p className="text-sm font-semibold mb-1" style={{ color: '#2C2420' }}>Not sure yet?</p>
             <p className="text-xs mb-3" style={{ color: C.muted }}>Start with your 3 free credits, no card needed.</p>
-            <button onClick={() => navigate('/create')}
+            <button onClick={() => { fireCta('pricing_nudge'); navigate('/create'); }}
               className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
               style={{ color: C.terra }}>
               Try it free →
@@ -2852,7 +2864,7 @@ export default function LandingPage() {
               Ready to make<br/>your first video?
             </h2>
             <p className="text-base mb-10" style={{ color:'rgba(245,240,235,0.68)' }}>Free to start. No credit card required.</p>
-            <button onClick={() => navigate(user ? '/create' : '/login')}
+            <button onClick={() => { fireCta('final'); navigate(user ? '/create' : '/login'); }}
               className="inline-flex items-center gap-2 px-10 py-4 rounded-full text-base font-bold text-white transition-all duration-300"
               style={{ background:`linear-gradient(135deg,${C.terra},${C.terraLt})`, boxShadow:`0 4px 24px rgba(193,68,14,0.35)` }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 8px 40px rgba(193,68,14,0.55)`; e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; }}

@@ -1,6 +1,7 @@
 import api from '../services/api.js';
 import { API_BASE } from '../config.js';
 import { setToken, getToken, removeToken } from '../lib/token.js';
+import { getAttribution } from '../services/acquisition.js';
 
 const API_URL = API_BASE;
 
@@ -16,7 +17,7 @@ export const authHeader = () => ({
 
 // Register user
 export async function register(username, email, password) {
-  const { data } = await api.post(`${API_URL}/auth/register`, { username, email, password });
+  const { data } = await api.post(`${API_URL}/auth/register`, { username, email, password, attribution: getAttribution() });
   setToken(data.token);
   return data.user;
 }
@@ -30,7 +31,7 @@ export async function login(username, password) {
 
 // Login or register with Google Identity Services credential
 export async function loginWithGoogle(credential) {
-  const { data } = await api.post(`${API_URL}/auth/google`, { credential });
+  const { data } = await api.post(`${API_URL}/auth/google`, { credential, attribution: getAttribution() });
   setToken(data.token);
   return data.user;
 }

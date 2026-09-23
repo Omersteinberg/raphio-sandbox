@@ -1,5 +1,5 @@
 // App.jsx
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Creator from "./pages/Creator";
 import LandingPage from "./pages/LandingPage";
@@ -26,6 +26,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./hooks/useAuth.jsx";
 import { useIsMobile } from "./hooks/useMediaQuery";
+import { captureAttribution } from "./services/acquisition.js";
 
 // Admin dashboard pages are lazy-loaded so their bundle (incl. recharts) never
 // ships to normal users.
@@ -44,6 +45,15 @@ function App() {
   // Desktop: toasts bottom-right. Mobile: keep them up top so they don't sit on
   // top of the bottom action bar / help FAB.
   const isMobile = useIsMobile();
+
+  // Runs once per full page load (App mounts once for the SPA's lifetime),
+  // which is exactly when UTM/referral params can arrive on the URL. Session-
+  // scoped storage carries it through to whichever page the visitor signs up
+  // from, since client-side navigation doesn't remount App.
+  useEffect(() => {
+    captureAttribution();
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
