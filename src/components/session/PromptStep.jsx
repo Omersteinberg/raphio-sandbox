@@ -4,7 +4,7 @@ import {
   Sparkles, Palette, Upload, X, Film, Wand2,
   ChevronDown, ChevronUp, HelpCircle, Plus, Grid, Users,
   Lightbulb, Camera, Drama, Droplet, Box, Zap, Check, Square, BookOpen, Play, Package, Tag,
-  RotateCcw, Mic, Music, ArrowLeft, AlertCircle, AlertTriangle, Clock,
+  RotateCcw, Mic, Music, Captions, ArrowLeft, AlertCircle, AlertTriangle, Clock,
   RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,15 @@ import { ComposerChip, ComposerChipRow, ChipPanelLabel, ChipSegments } from "./C
 import { scorePrompt } from "@/lib/promptStrength";
 import { useTypedPlaceholder, TYPED_PLACEHOLDER_CARET } from "@/hooks/useTypedPlaceholder";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
-import { improvePrompt as improvePromptApi } from "@/services/reference";
+import { improvePrompt as improvePromptApi, describeReferences as describeReferencesApi } from "@/services/reference";
 import { getRegionDefault } from "@/services/voices";
 import { getJsonPref, PREF_KEYS } from "@/lib/preferences";
+import { toast } from "@/lib/toast";
 
 // How many uploaded photos the "Improve" button sends to the vision model.
 // Capped so the call stays fast and cheap on a button click.
+// The references composer holds this many, the same limit the backend enforces.
+const MAX_REFERENCES = 8;
 const IMPROVE_VISION_MAX_IMAGES = 6;
 import { Input } from "@/components/ui/input";
 import { STYLE_OPTIONS } from '../../constants/styles';
@@ -307,7 +310,7 @@ function PillTapLabel({ show, children }) {
 // which would re-render every ReferenceInput in the list on every edit.
 // onChange/onRemove must be stable (see the useCallback-wrapped handlers
 // passed from the .map() below) for this memoization to actually take effect.
-const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName }) {
+const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChange, onRemove, isDuplicateName, naming = false }) {
   const handleFileChange = (e) => {
     const file = validateImageFile(e.target.files?.[0]);
     if (file) {
@@ -331,7 +334,9 @@ const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChang
   // it has a name AND (an uploaded image or a description), the same test the
   // parent uses to gate the CTA.
   const missingParts = [];
-  if (!item.name?.trim()) missingParts.push('a name');
+  // While the AI is looking at a fresh upload to name it, the card is not missing a
+  // name, it is waiting for one.
+  if (!item.name?.trim() && !naming) missingParts.push('a name');
   if (item.useUpload ? !item.referenceFile : !item.description?.trim()) {
     missingParts.push(item.useUpload ? 'an uploaded image' : 'a description');
   }
@@ -606,6 +611,17 @@ const ReferenceInput = memo(function ReferenceInput({ item, index, type, onChang
 
         {/* Incomplete-reference hint: tells the user exactly what's missing on
             this card so the disabled "Create" button never feels mysterious. */}
+        {naming && !item.name?.trim() && (
+          <div
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+            style={{ background: 'rgba(193,68,14,0.05)', border: '1px solid rgba(193,68,14,0.16)' }}
+          >
+            <Sparkles className="w-3 h-3 flex-shrink-0 animate-pulse" strokeWidth={2.5} style={{ color: '#C1440E' }} />
+            <span className="text-[11px] font-semibold" style={{ color: '#C1440E' }}>
+              Taking a look to name this for you…
+            </span>
+          </div>
+        )}
         {incompleteHint && (
           <div
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
@@ -673,6 +689,12 @@ export default function PromptStep({
   setVoiceId,
   backgroundMusic,
   setBackgroundMusic,
+  captions,
+  setCaptions,
+  // From the front door: when set (and each time it changes), the Improve runs on
+  // its own once the inputs it needs are in place, so the client arrives at a brief
+  // written for this video, not at their raw sentence. Undo keeps their words.
+  autoImproveKey = null,
   error,
 }) {
   const isReferencesMode = pipelineMode === 'references';
@@ -693,6 +715,85 @@ export default function PromptStep({
   const handleReferenceRemove = useCallback((i) => {
     onReferencesChange((prev) => prev.filter((_, j) => j !== i));
   }, [onReferencesChange]);
+
+  // "Upload photos": add several references in one go. Each becomes a card with its
+  // picture already in place, and the effect below asks the AI what each one is, so
+  // nobody has to pick a type and think of a name per photo before they can start.
+  const bulkReferenceInputRef = useRef(null);
+  const handleBulkReferenceFiles = (e) => {
+    const files = filterValidImages(e.target.files);
+    e.target.value = "";
+    if (!files.length) return;
+    const room = Math.max(0, MAX_REFERENCES - (references?.length || 0));
+    if (files.length > room) {
+      toast.error(room === 0
+        ? `Your world is full (${MAX_REFERENCES} references).`
+        : `Only added ${room}, your world holds ${MAX_REFERENCES} references.`);
+    }
+    const cards = files.slice(0, room).map((file) => ({
+      type: 'character',
+      name: '',
+      description: '',
+      useUpload: true,
+      referenceFile: file,
+      referenceImage: URL.createObjectURL(file),
+      // The type was not chosen by hand, so the AI's reading of the picture may set it.
+      autoType: true,
+    }));
+    if (cards.length) onReferencesChange((prev) => [...prev, ...cards].slice(0, MAX_REFERENCES));
+  };
+
+  // Name (and, for bulk uploads, classify) any uploaded reference that has no name
+  // yet. Keyed on the File object so each upload is looked at once, however many
+  // times this effect runs, and applied with a functional update so a name the user
+  // typed while the request was in flight is never overwritten.
+  const describedFilesRef = useRef(new WeakSet());
+  const [namingFiles, setNamingFiles] = useState(() => new Set());
+  useEffect(() => {
+    if (!isReferencesMode) return;
+    const pending = (references || []).filter(
+      (r) => r?.useUpload && r.referenceFile && !r.name?.trim() && !describedFilesRef.current.has(r.referenceFile)
+    );
+    if (!pending.length) return;
+    pending.forEach((r) => describedFilesRef.current.add(r.referenceFile));
+    const files = pending.map((r) => r.referenceFile);
+    setNamingFiles((prev) => new Set([...prev, ...files]));
+    (async () => {
+      try {
+        const shots = (await Promise.all(files.map(async (file) => ({
+          file,
+          dataUrl: await downscaleImageToDataUrl(file, 768, 0.75),
+        })))).filter((s) => s.dataUrl);
+        if (!shots.length) return;
+        const result = await describeReferencesApi({
+          images: shots.map((s) => s.dataUrl),
+          existingNames: (references || []).map((r) => r?.name?.trim()).filter(Boolean),
+        });
+        const byFile = new Map(shots.map((s, i) => [s.file, result?.references?.[i] || null]));
+        onReferencesChange((prev) => {
+          const taken = new Set(prev.map((r) => r?.name?.trim().toLowerCase()).filter(Boolean));
+          return prev.map((r) => {
+            const seen = r?.referenceFile ? byFile.get(r.referenceFile) : null;
+            if (!seen?.name || r.name?.trim()) return r;
+            let name = seen.name;
+            for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${seen.name} ${n}`;
+            taken.add(name.toLowerCase());
+            const type = r.autoType && REF_TYPE_STYLES[seen.type] ? seen.type : r.type;
+            return { ...r, name, type };
+          });
+        });
+      } catch (err) {
+        // A convenience, not a step: the card simply keeps asking for a name.
+        console.warn("[PromptStep] could not name the uploaded references", err);
+      } finally {
+        setNamingFiles((prev) => {
+          const next = new Set(prev);
+          files.forEach((f) => next.delete(f));
+          return next;
+        });
+      }
+    })();
+  }, [references, isReferencesMode, onReferencesChange]);
   // On touch, dnd-kit's TouchSensor needs a ~200ms press before a drag starts
   // (so page scrolling still works), so the hint must tell users to hold first.
   const isMobile = useIsMobile();
@@ -1046,8 +1147,17 @@ export default function PromptStep({
   // "Improve prompt" AI action. Stashes the previous value so the change is undoable.
   const [improving, setImproving] = useState(false);
   const [prevPrompt, setPrevPrompt] = useState(null);
+  // References with a name and an uploaded picture. They are enough for the AI to
+  // draft the first brief from, so in References mode the button works on an empty
+  // box too ("Write it for me"), the same way the Promo brief's does.
+  const picturedReferences = useMemo(
+    () => (isReferencesMode ? (references || []).filter((r) => r?.name?.trim() && r.useUpload && r.referenceFile) : []),
+    [isReferencesMode, references]
+  );
+  const canDraftFromReferences = picturedReferences.length > 0;
+  const canImprove = !!userPrompt?.trim() || canDraftFromReferences;
   const handleImprove = async () => {
-    if (!userPrompt?.trim() || improving) return;
+    if (!canImprove || improving) return;
     setImproving(true);
     const prev = userPrompt;
     try {
@@ -1060,17 +1170,41 @@ export default function PromptStep({
         );
         imageDataUrls = shots.filter(Boolean);
       }
+      // References mode: let the AI see each uploaded reference, bound to its name,
+      // so the brief it writes is about the people, products and places actually
+      // supplied. Larger than the photo-mode glance on purpose: it has to tell the
+      // faces in a group photo apart.
+      let referenceImages = [];
+      if (picturedReferences.length) {
+        const shots = await Promise.all(
+          picturedReferences.slice(0, 8).map(async (r) => ({
+            name: r.name.trim(),
+            dataUrl: await downscaleImageToDataUrl(r.referenceFile, 1024, 0.8),
+          }))
+        );
+        referenceImages = shots.filter((s) => s.dataUrl);
+      }
       const result = await improvePromptApi({
         userPrompt,
-        references: mentionTargets.map(({ id, name, type, description }) => ({ id, name, type, description })),
+        // An uploaded reference carries its identity in the picture. Any description
+        // still in state is left over from before the upload and is hidden in the UI.
+        references: mentionTargets.map(({ id, name, type, description, useUpload }) => ({
+          id, name, type, description: useUpload ? '' : description,
+        })),
         style,
         mode: isReferencesMode ? 'references' : isPromptOnly ? 'prompt' : 'image',
         imageDataUrls,
+        // Length decides how many scenes the brief has room for.
+        targetDuration,
+        aspectRatio,
+        voiceId,
+        referenceImages,
       });
       if (result?.improvedPrompt) {
         setPrevPrompt(prev);
         setUserPrompt(result.improvedPrompt);
       }
+      setRoomNote(typeof result?.roomNote === 'string' ? result.roomNote : '');
       // The content-based recommendation beats the region one, but never beats the
       // user. If the model returned no recommendation (it degrades to plain text on
       // a parse failure), leave whatever we already had in place.
@@ -1085,6 +1219,9 @@ export default function PromptStep({
       }
     } catch (err) {
       console.error("[PromptStep] improve prompt failed", err);
+      // Said out loud: the button used to simply stop spinning with the text unchanged,
+      // which reads as "it decided there was nothing to improve".
+      toast.error("Couldn't write that one. Please try again.");
     } finally {
       setImproving(false);
     }
@@ -1095,6 +1232,23 @@ export default function PromptStep({
       setPrevPrompt(null);
     }
   };
+  const [autoImproved, setAutoImproved] = useState(false);
+  // One sentence from the Improve when not every photo fits the chosen length.
+  const [roomNote, setRoomNote] = useState('');
+  const autoImprovedKeyRef = useRef(null);
+  useEffect(() => {
+    if (!autoImproveKey || autoImprovedKeyRef.current === autoImproveKey) return;
+    if (!canImprove || improving) return;
+    // The brief is written from the pictures and their names: wait for any card
+    // still being named by the describe pass.
+    if (isReferencesMode && namingFiles.size > 0) return;
+    autoImprovedKeyRef.current = autoImproveKey;
+    setAutoImproved(true);
+    handleImprove();
+    // handleImprove is recreated every render; the key and the readiness checks are
+    // what should trigger this, and the ref stops it running twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoImproveKey, canImprove, improving, isReferencesMode, namingFiles]);
 
   // Red -> yellow -> green as the prompt gets stronger - but an empty box
   // isn't "weak," it's just unwritten. Scoring it red before a single
@@ -1212,17 +1366,38 @@ export default function PromptStep({
                     >
                       <HelpCircle className="w-4 h-4 text-stone-400 cursor-help" />
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-stone-900 text-white text-[11px] leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-50 pointer-events-none shadow-xl">
-                        Add the characters, settings, logos, or products that belong in your world. Each one gets a type tag that controls how it's used in generation. Logos are preserved exactly, no AI restyling.
+                        Upload the real people, places, products and logo for your video. Raphio names each one and keeps them looking the same in every scene. Your logo is used exactly as uploaded, never redrawn.
                         <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-stone-900 rotate-45" />
                       </div>
                     </button>
                   </div>
-                  {references.length < 8 && (
+                  {references.length < MAX_REFERENCES && (
+                    <>
+                      <input
+                        ref={bulkReferenceInputRef}
+                        type="file"
+                        multiple
+                        accept={ACCEPTED_IMAGE_ACCEPT}
+                        onChange={handleBulkReferenceFiles}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => bulkReferenceInputRef.current?.click()}
+                        title="Pick several photos at once. Raphio names each one and works out whether it is a person, a place, a product or a logo."
+                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex-shrink-0 ml-auto mr-2 text-white"
+                        style={{ background: 'var(--gradient-brand)' }}
+                      >
+                        <Upload className="w-3.5 h-3.5" strokeWidth={2.5} /> Upload photos
+                      </button>
+                    </>
+                  )}
+                  {references.length < MAX_REFERENCES && (
                     <button
                       onClick={() => {
                         onReferencesChange([
                           ...references,
-                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
+                          { type: 'character', name: '', description: '', useUpload: true, referenceFile: null, referenceImage: null },
                         ]);
                       }}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex-shrink-0"
@@ -1247,6 +1422,7 @@ export default function PromptStep({
                       }
                       onChange={handleReferenceChange}
                       onRemove={handleReferenceRemove}
+                      naming={!!ref.referenceFile && namingFiles.has(ref.referenceFile)}
                     />
                   ))}
                 </div>
@@ -1254,19 +1430,15 @@ export default function PromptStep({
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={() => {
-                      onReferencesChange([
-                        ...references,
-                        { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                      ]);
-                    }}
+                    // The empty state opens the photo picker: someone arriving here
+                    // has photos, not a list of typed references in mind. The
+                    // "Add to your world" button above is still there for a reference
+                    // described in words for the AI to draw.
+                    onClick={() => bulkReferenceInputRef.current?.click()}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        onReferencesChange([
-                          ...references,
-                          { type: 'character', name: '', description: '', useUpload: false, referenceFile: null, referenceImage: null },
-                        ]);
+                        bulkReferenceInputRef.current?.click();
                       }
                     }}
                     className="cursor-pointer flex flex-col items-center justify-center py-5 rounded-2xl border-2 border-dashed text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -1290,8 +1462,8 @@ export default function PromptStep({
                     >
                       <Users className="w-5 h-5" style={{ color: '#C1440E', opacity: 0.5 }} />
                     </div>
-                    <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>Your world is empty</p>
-                    <p className="text-[11px]" style={{ color: '#726481' }}>Add the people, places, or products that belong in it</p>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#6B5E7B' }}>Upload your photos</p>
+                    <p className="text-[11px] px-4" style={{ color: '#726481' }}>Your people, your places, your products, your logo. Pick them all at once and Raphio works out what each one is.</p>
                   </div>
                 )}
               </div>
@@ -1821,7 +1993,9 @@ export default function PromptStep({
                   className="absolute bottom-2.5 right-3 z-10 sm:hidden"
                   onClick={handleImprove}
                   busy={improving}
-                  disabled={!userPrompt?.trim()}
+                  disabled={!canImprove}
+                  label={userPrompt?.trim() ? 'Improve' : canDraftFromReferences ? 'Write it for me' : 'Improve'}
+                  busyLabel={isReferencesMode || isPromptOnly ? 'Writing scenes…' : 'Improving…'}
                 />
               </div>
 
@@ -1884,7 +2058,9 @@ export default function PromptStep({
                     className="hidden sm:flex mr-7"
                     onClick={handleImprove}
                     busy={improving}
-                    disabled={!userPrompt?.trim()}
+                    disabled={!canImprove}
+                    label={userPrompt?.trim() ? 'Improve' : canDraftFromReferences ? 'Write it for me' : 'Improve'}
+                    busyLabel={isReferencesMode || isPromptOnly ? 'Writing scenes…' : 'Improving…'}
                   />
 
                   {setTargetDuration && (
@@ -2011,6 +2187,23 @@ export default function PromptStep({
                       modified={!backgroundMusic}
                       pressed={!!backgroundMusic}
                       onClick={() => setBackgroundMusic(!backgroundMusic)}
+                    />
+                  )}
+
+                  {setCaptions && (
+                    <ComposerChip
+                      id="captions"
+                      grow
+                      size="lg"
+                      variant="outlined"
+                      // Same inline toggle as Music: no popover, no chevron.
+                      className="min-w-[44px] sm:min-w-0"
+                      icon={Captions}
+                      label="Captions"
+                      value={captions ? 'On' : 'Off'}
+                      modified={!!captions}
+                      pressed={!!captions}
+                      onClick={() => setCaptions(!captions)}
                     />
                   )}
                 </ComposerChipRow>
@@ -2151,7 +2344,11 @@ export default function PromptStep({
                       style={{ background: 'rgba(193,68,14,0.06)', border: '1px solid rgba(193,68,14,0.14)' }}
                     >
                       <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#C1440E' }}>
-                        <Sparkles style={{ width: 12, height: 12 }} /> Prompt improved with AI
+                        <Sparkles style={{ width: 12, height: 12 }} />
+                        <span>
+                          {autoImproved ? 'Raphio wrote your idea as scenes for this video. Edit anything you like.' : 'Prompt improved with AI'}
+                          {roomNote ? <span className="block font-bold mt-0.5">{roomNote}</span> : null}
+                        </span>
                       </span>
                       <button
                         onClick={handleUndoImprove}
@@ -2160,7 +2357,7 @@ export default function PromptStep({
                         onMouseEnter={e => { e.currentTarget.style.color = '#C1440E'; }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#75695F'; }}
                       >
-                        <RotateCcw style={{ width: 12, height: 12 }} /> Undo
+                        <RotateCcw style={{ width: 12, height: 12 }} /> {autoImproved ? 'Use my own words' : 'Undo'}
                       </button>
                     </motion.div>
                   )}

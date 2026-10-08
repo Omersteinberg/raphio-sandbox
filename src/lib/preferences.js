@@ -16,6 +16,7 @@ export const PREF_KEYS = {
   lastAspectRatio: "lastAspectRatio:v1",
   lastVoiceId: "lastVoiceId:v1",
   lastMusic: "lastMusic:v1",
+  lastCaptions: "lastCaptions:v1",
 };
 
 export function getJsonPref(key, fallback) {
@@ -42,6 +43,8 @@ const CREATION_FALLBACKS = {
   targetDuration: 15,
   voiceId: "adam",
   backgroundMusic: true,
+  // Most social video plays muted; the reference video burned its hook line in.
+  captions: true,
 };
 
 const KNOWN_ASPECT_RATIOS = ["16:9", "9:16"];
@@ -63,6 +66,7 @@ export function getCreationDefaults() {
   const aspect = getJsonPref(PREF_KEYS.lastAspectRatio, null);
   const voice = getJsonPref(PREF_KEYS.lastVoiceId, null);
   const music = getJsonPref(PREF_KEYS.lastMusic, null);
+  const captions = getJsonPref(PREF_KEYS.lastCaptions, null);
   return {
     style: typeof style === "string" && style ? style : CREATION_FALLBACKS.style,
     targetDuration:
@@ -70,15 +74,17 @@ export function getCreationDefaults() {
     aspectRatio: KNOWN_ASPECT_RATIOS.includes(aspect) ? aspect : viewportAspectRatioDefault(),
     voiceId: typeof voice === "string" && voice ? voice : CREATION_FALLBACKS.voiceId,
     backgroundMusic: typeof music === "boolean" ? music : CREATION_FALLBACKS.backgroundMusic,
+    captions: typeof captions === "boolean" ? captions : CREATION_FALLBACKS.captions,
   };
 }
 
 // Write-through of the last-used choices; called from the session hooks'
 // auto-save effects on every change.
-export function saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic }) {
+export function saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic, captions }) {
   setJsonPref(PREF_KEYS.lastStyle, style);
   setJsonPref(PREF_KEYS.lastDuration, targetDuration);
   setJsonPref(PREF_KEYS.lastAspectRatio, aspectRatio);
   setJsonPref(PREF_KEYS.lastVoiceId, voiceId);
   setJsonPref(PREF_KEYS.lastMusic, backgroundMusic);
+  if (typeof captions === "boolean") setJsonPref(PREF_KEYS.lastCaptions, captions);
 }

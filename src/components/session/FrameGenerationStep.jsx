@@ -6,19 +6,28 @@ import { useStepTour } from '@/lib/useStepTour';
 import { TOUR_KEYS } from '@/lib/tourState';
 import { startSceneFramesTour } from '@/lib/referencesTour';
 import { useAuth } from '@/hooks/useAuth';
+import { splitShots, referencesIn, referenceThumb } from '@/lib/shotBreakdown';
 
 export default function FrameGenerationStep({
   sceneFrames,
   scriptData,
   framesLoading,
   onRegenerateScript,
+  // Keep one of the scene's other takes (every scene is drawn several times and the
+  // best is picked; the rest stay on offer).
+  onChooseFrame,
+  // The session's references (name, type, picture): shown under each shot that names them.
+  references = [],
   onApprove,
   onDelete,
   onGenerateFrames,
   error,
+  aspectRatio,
 }) {
   const [feedbackByIndex, setFeedbackByIndex] = useState({});
   const [regeneratingIndex, setRegeneratingIndex] = useState(null);
+  // Which scenes have their other takes unfolded.
+  const [takesOpen, setTakesOpen] = useState({});
 
   // Regenerate a scene from the user's feedback: the AI rewrites this scene's
   // script (narration, visual, scene prompt) and re-renders its still. Feedback
@@ -97,7 +106,11 @@ export default function FrameGenerationStep({
                   className="border border-border rounded-xl overflow-hidden bg-white shadow-sm"
                 >
                   {/* Image */}
-                  <div className="aspect-video bg-surface-alt relative">
+                  {/* The box takes the video's own shape. Fixed at 16:9, a vertical
+                      frame was shown with its top and bottom cropped off, which hid
+                      exactly the parts worth checking on a phone video (and most of
+                      an end card). */}
+                  <div className={`${aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-video'} bg-surface-alt relative`}>
                     {(frame.status === 'completed' || frame.status === 'success') && (frame.imageUrl || frame.url) ? (
                       <img
                         src={frame.imageUrl || frame.url}
@@ -117,18 +130,116 @@ export default function FrameGenerationStep({
                     <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
                       Scene {index + 1}
                     </span>
+                    {Array.isArray(frame.candidates) && frame.candidates.length > 1 && (
+                      <span className="absolute top-2 right-2 bg-white/85 text-[10px] font-bold px-2 py-1 rounded" style={{ color: '#C1440E' }}>
+                        Best of {frame.candidates.length}
+                      </span>
+                    )}
                   </div>
+
+                  {/* The other takes of this scene, a click away. One frame is shown,
+                      the judge's pick; the rest stay folded so reviewing a storyboard
+                      is not a comparison of fifteen pictures. */}
+                  {Array.isArray(frame.candidates) && frame.candidates.length > 1 && onChooseFrame && (
+                    <div className="px-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setTakesOpen((prev) => ({ ...prev, [index]: !prev[index] }))}
+                        className="text-[11px] font-bold flex items-center gap-1"
+                        style={{ color: '#C1440E' }}
+                        aria-expanded={!!takesOpen[index]}
+                      >
+                        {takesOpen[index] ? 'Hide the other takes' : `Not quite? See ${frame.candidates.length - 1} other take${frame.candidates.length - 1 === 1 ? '' : 's'}`}
+                      </button>
+                      {takesOpen[index] && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {frame.candidates.map((url, k) => {
+                            const current = url === (frame.imageUrl || frame.url);
+                            return (
+                              <button
+                                key={`${k}-${url}`}
+                                type="button"
+                                title={current ? 'The one in use' : 'Use this one'}
+                                onClick={() => !current && onChooseFrame(index, url)}
+                                className={`relative rounded-lg overflow-hidden border-2 transition-colors ${current ? 'border-orange-500' : 'border-transparent hover:border-orange-300'}`}
+                                style={{ width: aspectRatio === '9:16' ? 44 : 72, height: aspectRatio === '9:16' ? 78 : 40 }}
+                                aria-label={current ? `Take ${k + 1}, in use` : `Use take ${k + 1}`}
+                              >
+                                <img src={url} alt="" className="w-full h-full object-cover" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Narration & Info */}
                   <div className="p-3 space-y-2">
                     {section && (
                       <>
                         <p className="text-ink text-sm">{section.narrationText}</p>
-                        {section.visualDescription && (
-                          <p className="text-ink-muted text-xs italic">
-                            Visual: {section.visualDescription}
-                          </p>
-                        )}
+                        {(() => {
+                          // A scene of several shots is shown shot by shot, each with the
+                          // photos that feed it; the still above is the first shot's opening
+                          // frame, the rest are made from the photos in the video itself.
+                          // The script's own shot list when it has one; else read off the description.
+                          const shots = section.endCard
+                            ? []
+                            : (Array.isArray(section.shots) && section.shots.length >= 2 ? section.shots : splitShots(section.visualDescription));
+                          if (shots.length < 2) {
+                            return section.visualDescription ? (
+                              <p className="text-ink-muted text-xs italic">Visual: {section.visualDescription}</p>
+                            ) : null;
+                          }
+                          return (
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold" style={{ color: '#6B5E7B' }}>
+                                {shots.length} shots in this scene. The picture above opens shot 1.
+                              </p>
+                              {shots.map((shot) => {
+                                const used = (Array.isArray(shot.references)
+                                  ? references.filter((r) => shot.references.includes(r?.name))
+                                  : referencesIn(shot.text, references)).filter(referenceThumb);
+                                // The still this shot opens on, when one was drawn (every shot after
+                                // the first gets its own; the first is the big picture above).
+                                const still = shot.number > 1 ? (frame.shots || []).find((x) => x && x.shot === shot.number)?.url : null;
+                                return (
+                                  <div key={shot.number} className="rounded-xl px-2.5 py-2" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                                    {still && (
+                                      <img
+                                        src={still}
+                                        alt={`Shot ${shot.number}`}
+                                        className={`${aspectRatio === '9:16' ? 'w-20 aspect-[9/16]' : 'w-full aspect-video'} rounded-lg object-cover float-right ml-2 mb-1`}
+                                      />
+                                    )}
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-[11px] font-bold" style={{ color: '#C1440E' }}>Shot {shot.number}</span>
+                                      {used.length > 0 && (
+                                        <span className="flex -space-x-1">
+                                          {used.map((r) => (
+                                            <img
+                                              key={r.id || r.name}
+                                              src={referenceThumb(r)}
+                                              alt={r.name}
+                                              title={r.name}
+                                              className="w-6 h-6 rounded-md object-cover border-2"
+                                              style={{ borderColor: '#FBFAF8' }}
+                                            />
+                                          ))}
+                                        </span>
+                                      )}
+                                      {used.length > 0 && (
+                                        <span className="text-[11px]" style={{ color: '#6B5E7B' }}>{used.map((r) => r.name).join(', ')}</span>
+                                      )}
+                                    </div>
+                                    <p className="text-ink-muted text-xs italic">{shot.text}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </>
                     )}
 

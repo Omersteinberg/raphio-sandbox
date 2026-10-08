@@ -71,6 +71,9 @@ export default function ImagePipelineCreator({
   voiceId, setVoiceId,
   videoModel, setVideoModel,
   backgroundMusic, setBackgroundMusic,
+  captions, setCaptions,
+  // From the front door (Creator.jsx buildHandoff): the photos to bring to life.
+  handoff = null,
 }) {
   const isPromptOnly = mode === "prompt";
   const navigate = useNavigate();
@@ -99,6 +102,7 @@ export default function ImagePipelineCreator({
     voiceId, setVoiceId,
     videoModel, setVideoModel,
     backgroundMusic, setBackgroundMusic,
+    captions,
   });
 
   const {
@@ -182,9 +186,21 @@ export default function ImagePipelineCreator({
     dismissProviderUnavailable,
   } = session;
 
+  // The front door's photos, applied once per handoff (the key changes when the
+  // client comes back through "Change"). Wins over the pending-draft rehydrate
+  // below: what they just chose beats what they once saved.
+  const appliedHandoffRef = useRef(null);
+  useEffect(() => {
+    if (!handoff || handoff.mode !== "image" || appliedHandoffRef.current === handoff.key) return;
+    appliedHandoffRef.current = handoff.key;
+    const files = (handoff.photos || []).map((p) => p.file).filter(Boolean);
+    if (files.length) addImages(files);
+  }, [handoff, addImages]);
+
   // Rehydrate pending inputs after a credit-driven redirect
   useEffect(() => {
     let cancelled = false;
+    if (handoff) return undefined;
     (async () => {
       try {
         // userPrompt/style are no longer restored here - they're lifted to
@@ -533,6 +549,8 @@ export default function ImagePipelineCreator({
       return (
         <PromptStep
           pipelineMode={mode}
+          // Only once the handed-off photos are in state, so the brief sees them.
+          autoImproveKey={handoff && !(handoff.photos?.length && !images.length) ? handoff.key : null}
           onModeChange={!session.sessionId ? onModeChange : undefined}
           onBackToChooser={!session.sessionId ? onBackToChooser : undefined}
           userPrompt={userPrompt}
@@ -552,6 +570,8 @@ export default function ImagePipelineCreator({
           setVoiceId={setVoiceId}
           backgroundMusic={backgroundMusic}
           setBackgroundMusic={setBackgroundMusic}
+          captions={captions}
+          setCaptions={setCaptions}
           onStart={startSession}
           loading={loading}
           openingFrame={openingFrame}

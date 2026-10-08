@@ -56,6 +56,7 @@ export function useReferencesSession({
   voiceId, setVoiceId,
   videoModel, setVideoModel,
   backgroundMusic, setBackgroundMusic,
+  captions = false,
 } = {}) {
   const [step, setStep] = useState(0);
   const onSessionLoadedRef = useRef(null);
@@ -571,6 +572,22 @@ export function useReferencesSession({
     }
   }, [sessionId]);
 
+  // ── Keep one of a scene's other takes ───────────────────────────────
+  const chooseFrame = useCallback(async (index, url) => {
+    if (!sessionId) return;
+    try {
+      const frame = await referenceApi.chooseSceneFrame(sessionId, index, url);
+      setSceneFrames((prev) => {
+        const updated = [...prev];
+        updated[index] = frame;
+        return updated;
+      });
+    } catch (err) {
+      console.error("[useReferencesSession] Failed to choose frame:", err);
+      toast.error("Couldn't switch to that take");
+    }
+  }, [sessionId]);
+
   // ── Regenerate a single scene's script + frame ─────────────────────
   const regenerateFrameScript = useCallback(async (index, feedback) => {
     if (!sessionId) return;
@@ -649,6 +666,7 @@ export function useReferencesSession({
       videoModel,
       voiceId,
       backgroundMusic,
+      captions,
     });
 
     if (result && !result.success) {
@@ -657,7 +675,7 @@ export function useReferencesSession({
       return false;
     }
     return true;
-  }, [sessionId, videoModel, voiceId, backgroundMusic, baseStartGeneration]);
+  }, [sessionId, videoModel, voiceId, backgroundMusic, captions, baseStartGeneration]);
 
   const approveSceneFrames = useCallback(async () => {
     if (!sessionId) return false;
@@ -747,6 +765,7 @@ export function useReferencesSession({
     regenerateReference,
     generateFrames,
     regenerateFrame,
+    chooseFrame,
     regenerateFrameScript,
     approveSceneFrames,
     approveFrames,
