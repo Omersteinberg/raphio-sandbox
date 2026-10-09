@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Sparkles, Image as ImageIcon, Wand2, Clapperboard } from "lucide-react";
+import { Sparkles, ChevronDown, Check, RotateCcw } from "lucide-react";
 import ImagePipelineCreator from "./ImagePipelineCreator";
 import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
 import IntroPipelineCreator from "./IntroPipelineCreator";
-import PipelineModeTabs from "@/components/session/PipelineModeTabs";
+import StartComposer from "@/components/session/StartComposer";
+import { ROUTE_OPTIONS, optionFor } from "@/lib/routeOptions";
 import CreatorHeader from "@/components/session/CreatorHeader";
 import PipelineShell from "@/components/session/PipelineShell";
 import MaintenanceScreen from "@/components/session/MaintenanceScreen";
@@ -23,15 +24,112 @@ import { toast } from "@/lib/toast";
 // Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
 const ENABLED_MODES = RESUMABLE_MODES;
 
-// The always-visible mode toggle. Icons match ModeChooser.jsx's cards (kept as the
-// source of truth there too) so the iconography is identical whether someone lands
-// via this toggle or the marketing/legacy chooser.
-const MODE_TABS = [
-  { id: "intro", label: "Promo", icon: Clapperboard },
-  { id: "prompt", label: "Idea", icon: Sparkles },
-  { id: "image", label: "Photos", icon: ImageIcon },
-  { id: "references", label: "References", icon: Wand2 },
-];
+// The mode tabs that used to sit here asked the client to know our pipelines. The
+// front door (StartComposer) now collects the words and photos once and Raphio picks
+// the pipeline; RouteBanner below shows the pick above the pipeline, with the other
+// choices a click away, and the pipeline opens with the inputs already in it.
+
+// The router hands a pipeline the inputs the client gave the front door. The
+// photos become that pipeline's own kind of thing: reference cards (named and typed
+// by the router) for a story, plain images for a reel. At most this many become
+// reference cards (the references composer's own ceiling).
+const MAX_HANDOFF_REFERENCES = 8;
+function buildHandoff(mode, { photos, decision }) {
+  const key = Date.now();
+  if (mode === "references") {
+    return {
+      key,
+      mode,
+      businessName: decision?.businessName || "",
+      references: photos.slice(0, MAX_HANDOFF_REFERENCES).map((p, i) => {
+        const read = decision?.references?.[i] || null;
+        return { file: p.file, preview: p.preview, name: read?.name || "", type: read?.type || "character", description: read?.description || "" };
+      }),
+    };
+  }
+  if (mode === "image") return { key, mode, photos: photos.map((p) => ({ file: p.file, preview: p.preview })) };
+  if (mode === "intro") {
+    // The promo brief wants a logo. The one the router labelled as such, else the
+    // only photo there is; the other photos are the promo's own showcase pictures.
+    const labelled = decision?.references || [];
+    let logoIndex = photos.findIndex((_, i) => labelled[i]?.type === "logo");
+    if (logoIndex < 0 && photos.length === 1) logoIndex = 0;
+    return {
+      key,
+      mode,
+      businessName: decision?.businessName || "",
+      logo: logoIndex >= 0 ? photos[logoIndex].file : null,
+      showcase: photos.filter((_, i) => i !== logoIndex).map((p) => p.file),
+    };
+  }
+  return { key, mode, businessName: decision?.businessName || "" };
+}
+
+/**
+ * The one line above a pipeline that says what the front door decided, with the
+ * other choices a click away. Replaces the mode tabs.
+ */
+function RouteBanner({ mode, decision, onChange, onStartAgain }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const option = optionFor(mode);
+  return (
+    <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
+      <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5" style={{ borderColor: "#FDBA74", background: "#FFF7ED", color: "var(--ink-warm)" }}>
+        <Sparkles className="w-4 h-4" style={{ color: "#C2410C" }} />
+        <span className="font-bold">{option ? option.label : "Your video"}</span>
+        {decision?.seen && decision.source !== "user" && (
+          <span className="hidden sm:inline" style={{ color: "#6B5E7B" }}>· {decision.seen}</span>
+        )}
+      </span>
+      <div className="relative" ref={ref}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border/50 bg-white hover:bg-orange-50 transition-colors"
+          style={{ color: "#C2410C" }}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          Change <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+        {open && (
+          <div role="menu" className="absolute left-1/2 -translate-x-1/2 mt-2 w-[min(320px,calc(100vw-48px))] rounded-2xl border border-border/40 bg-white shadow-xl p-1.5 z-30 text-left">
+            {ROUTE_OPTIONS.map((o) => (
+              <button
+                key={o.id}
+                role="menuitem"
+                type="button"
+                onClick={() => { setOpen(false); onChange(o.id); }}
+                className="w-full text-left rounded-xl px-3 py-2 hover:bg-orange-50 transition-colors flex items-start gap-2"
+              >
+                <span className="w-4 pt-0.5 shrink-0" style={{ color: "#C2410C" }}>{mode === o.id ? <Check className="w-4 h-4" /> : null}</span>
+                <span>
+                  <span className="block text-sm font-bold" style={{ color: "var(--ink-warm)" }}>{o.label}</span>
+                  <span className="block text-xs" style={{ color: "#6B5E7B" }}>{o.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onStartAgain}
+        className="text-xs font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-full hover:bg-orange-50 transition-colors"
+        style={{ color: "#6B5E7B" }}
+      >
+        <RotateCcw className="w-3.5 h-3.5" /> Start again
+      </button>
+    </div>
+  );
+}
 
 export default function Creator() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,6 +142,16 @@ export default function Creator() {
   // Read once at mount; resume always remounts via /videos.
   const resumeMode = searchParams.get("mode");
   const resumeSession = searchParams.get("session");
+
+  // Where a visit starts. A resume (?session=) or a deep link (?mode=) lands in the
+  // pipeline it names; a bare /create opens on the front door, where the inputs are
+  // collected once and Raphio picks the pipeline (StartComposer).
+  const [entry, setEntry] = useState(() =>
+    resumeSession || ENABLED_MODES.includes(resumeMode) ? "pipeline" : "start");
+  const [photos, setPhotos] = useState([]);
+  const [decision, setDecision] = useState(null);
+  // What the front door handed the pipeline, applied by the pipeline on mount.
+  const [handoff, setHandoff] = useState(null);
 
   const [pipelineMode, setPipelineMode] = useState(() => {
     if (ENABLED_MODES.includes(resumeMode)) return resumeMode;
@@ -79,6 +187,8 @@ export default function Creator() {
   const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
+  // Burn the narration in as captions (most social video plays muted).
+  const [captions, setCaptions] = useState(savedDefaults.captions);
 
   // Whether an auto-progressing generation is currently in flight, in WHICHEVER
   // pipeline is mounted (References' merged-run overlay, Image/Prompt's
@@ -99,8 +209,8 @@ export default function Creator() {
   // from useSession.js/useSessionBase.js along with the state itself - both hooks
   // used to run this same effect independently; now there is one source of truth.
   useEffect(() => {
-    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic });
-  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic]);
+    saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic, captions });
+  }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic, captions]);
 
   // One-time restore of a pending draft's prompt after a genuine page-level
   // remount (e.g. returning from the /buy-credits round trip, which unmounts
@@ -136,6 +246,7 @@ export default function Creator() {
     voiceId, setVoiceId,
     videoModel, setVideoModel,
     backgroundMusic, setBackgroundMusic,
+    captions, setCaptions,
   };
 
   const handleModeChange = (mode) => {
@@ -153,6 +264,34 @@ export default function Creator() {
     // correction all read ?mode= directly from the URL).
     setSearchParams({ mode: next }, { replace: true });
     setPipelineMode(next);
+  };
+
+  // The front door's "Continue", and the banner's "Change": open the pipeline the
+  // decision names with the photos and words already in it.
+  const openPipeline = (mode, chosen) => {
+    if (isMergedRunActive) {
+      toast.info("Hold on - your video is still generating. Switching now would lose track of it.");
+      return;
+    }
+    const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
+    // The words can name the format ("vertical", "for reels"): set the ratio chip
+    // from them, so the brief and the render agree with what was asked for.
+    if (/\b(vertical|portrait|reels?|tiktok|stories|shorts|9:16)\b/i.test(userPrompt)) setAspectRatio("9:16");
+    else if (/\b(landscape|horizontal|widescreen|youtube|16:9)\b/i.test(userPrompt)) setAspectRatio("16:9");
+    setHandoff(buildHandoff(next, { photos, decision: chosen }));
+    if (chosen && chosen.mode !== next) setDecision({ ...chosen, mode: next, source: "user" });
+    handleModeChange(next);
+    setEntry("pipeline");
+  };
+
+  const startAgain = () => {
+    if (isMergedRunActive) {
+      toast.info("Hold on - your video is still generating.");
+      return;
+    }
+    setHandoff(null);
+    setSearchParams({}, { replace: true });
+    setEntry("start");
   };
 
   // A bare, undirected `/create` (no ?session=, no valid ?mode=) is the only
@@ -181,12 +320,42 @@ export default function Creator() {
   // measurement resolved to 0 and the content went invisible. Revisiting
   // this would need a different technique that doesn't require the
   // wrapped content to be intrinsically sized.)
+  if (entry === "start") {
+    return (
+      <PipelineShell heightClass="min-h-full">
+        <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px]">
+          <div className="max-w-4xl mx-auto">
+            <CreatorHeader />
+          </div>
+        </div>
+        <StartComposer
+          userPrompt={userPrompt}
+          setUserPrompt={setUserPrompt}
+          photos={photos}
+          setPhotos={setPhotos}
+          decision={decision}
+          setDecision={setDecision}
+          onContinue={(chosen) => openPipeline(chosen.mode, chosen)}
+          targetDuration={targetDuration}
+        />
+        <IntroVideoModal
+          open={intro.open}
+          src={intro.src}
+          title={intro.title}
+          onClose={intro.close}
+          onDismissWithoutSeen={intro.dismissWithoutSeen}
+        />
+      </PipelineShell>
+    );
+  }
+
   const nonIntroPipeline =
     pipelineMode === "references" ? (
       <ReferencesPipelineCreator
         onModeChange={handleModeChange}
         onChromeChange={handleChromeChange}
         onMergedRunActiveChange={setIsMergedRunActive}
+        handoff={handoff}
         {...sharedIntentProps}
       />
     ) : (
@@ -204,6 +373,7 @@ export default function Creator() {
         onModeChange={handleModeChange}
         onChromeChange={handleChromeChange}
         onMergedRunActiveChange={setIsMergedRunActive}
+        handoff={handoff}
         {...sharedIntentProps}
       />
     );
@@ -239,9 +409,12 @@ export default function Creator() {
         <div className="px-2 sm:px-4 pt-[44px] sm:pt-[52px] overflow-x-auto">
           <div className="max-w-4xl mx-auto">
             <CreatorHeader />
-            <div className="flex justify-center mt-4 sm:mt-6">
-              <PipelineModeTabs options={MODE_TABS} value={pipelineMode} onChange={handleModeChange} />
-            </div>
+            <RouteBanner
+              mode={pipelineMode}
+              decision={decision}
+              onChange={(mode) => openPipeline(mode, decision)}
+              onStartAgain={startAgain}
+            />
           </div>
         </div>
       )}
@@ -252,6 +425,8 @@ export default function Creator() {
             onModeChange={handleModeChange}
             onChromeChange={handleChromeChange}
             onMergedRunActiveChange={setIsMergedRunActive}
+            handoff={handoff}
+            initialPrompt={userPrompt}
           />
         ) : (
           nonIntroPipeline

@@ -62,9 +62,25 @@ export default function IntroPipelineCreator({
   onModeChange,
   onChromeChange,
   onMergedRunActiveChange,
+  // From the front door (Creator.jsx): the brand name the router read, and the
+  // words the client typed, so the brief does not start empty.
+  handoff = null,
+  initialPrompt = "",
 }) {
   const intro = useIntroSession();
   const { step, direction, loading } = intro;
+
+  const appliedHandoffRef = useRef(null);
+  useEffect(() => {
+    if (!handoff || handoff.mode !== "intro" || appliedHandoffRef.current === handoff.key) return;
+    appliedHandoffRef.current = handoff.key;
+    if (handoff.businessName && !intro.businessName) intro.setBusinessName(handoff.businessName);
+    if (initialPrompt && !intro.description) intro.setDescription(initialPrompt);
+    if (handoff.logo && !intro.logoFile) intro.setLogoFile(handoff.logo);
+    if (handoff.showcase?.length && intro.setShowcaseFiles && !(intro.showcaseFiles || []).length) intro.setShowcaseFiles(handoff.showcase);
+    // Applied once per handoff key; the brief's own state is the source of truth after.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff]);
 
   // Dev-only preview of the loading screens and the completion state, without
   // a real session or any billed backend/VEO/ElevenLabs call. Same design as

@@ -347,6 +347,7 @@ export function useSessionBase({ generatingStep, currentStep, onSessionLoaded } 
         videoModel: config.videoModel || videoModel,
         voiceId: config.voiceId || voiceId,
         backgroundMusic: config.backgroundMusic !== undefined ? config.backgroundMusic : backgroundMusic,
+        captions: !!config.captions,
       });
       console.log("[useSessionBase] startGeneration response:", updatedSession);
       // Do NOT setSession here, the 202 response is a stub, not a full session;

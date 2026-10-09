@@ -106,6 +106,7 @@ export function useSession({
   voiceId, setVoiceId,
   videoModel, setVideoModel,
   backgroundMusic, setBackgroundMusic,
+  captions = false,
 } = {}) {
   const navigate = useNavigate();
   const { credits, refreshCredits } = useAuth();
@@ -1619,6 +1620,7 @@ export function useSession({
         videoModel,
         voiceId,
         backgroundMusic,
+        captions,
       });
       console.log("[useSession] startGeneration response:", updatedSession);
       // Do NOT setSession here, the 202 response is a stub ({message,sessionId,stage}),
@@ -1665,7 +1667,7 @@ export function useSession({
       setDirection(-1);
       setStep(framesStep);
     }
-  }, [sessionId, videoModel, voiceId, backgroundMusic]);
+  }, [sessionId, videoModel, voiceId, backgroundMusic, captions]);
 
   // Update section/clip
   const updateClip = useCallback(async (clipId, updates) => {

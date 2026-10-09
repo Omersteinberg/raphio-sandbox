@@ -53,6 +53,10 @@ export default function ReferencesPipelineCreator({
   voiceId, setVoiceId,
   videoModel, setVideoModel,
   backgroundMusic, setBackgroundMusic,
+  captions, setCaptions,
+  // From the front door (Creator.jsx buildHandoff): the photos as reference cards,
+  // already named and typed by the router.
+  handoff = null,
 }) {
   const navigate = useNavigate();
 
@@ -86,6 +90,7 @@ export default function ReferencesPipelineCreator({
     voiceId, setVoiceId,
     videoModel, setVideoModel,
     backgroundMusic, setBackgroundMusic,
+    captions,
   });
 
   const {
@@ -125,6 +130,7 @@ export default function ReferencesPipelineCreator({
     framesError,
     generateFrames,
     regenerateFrameScript,
+    chooseFrame,
     approveSceneFrames,
     approveFrames,
     deleteScene,
@@ -360,7 +366,12 @@ export default function ReferencesPipelineCreator({
     (step === 2 && !loading && !!scriptData && manualGate("script")) ||
     scriptStuckManual ||
     (step === 3 && !framesLoading && (
-      ((sceneFrames?.length ?? 0) > 0 && manualGate("frames")) ||
+      // The frames step has ONE button and it does two things: approves the frames
+      // and starts the render. So it is a manual gate when either is manual. With
+      // frames on auto and the render on manual, the frames were approved for the
+      // user and then nothing pressed "Generate": the progress overlay stayed up
+      // over the button and the run sat there for good.
+      ((sceneFrames?.length ?? 0) > 0 && (manualGate("frames") || manualGate("generate"))) ||
       framesError // only a genuine failure (not first entry) hands the screen to the retry UI
     ));
   const showRefMergedRun =
@@ -413,8 +424,30 @@ export default function ReferencesPipelineCreator({
     ceiling: refMergedCeiling,
   });
 
+  // The front door's photos become this composer's cards. Applied once per handoff
+  // (the key changes when the client comes back through "Change"), and it wins over
+  // the pending-draft rehydrate below: what they just chose beats what they once saved.
+  const appliedHandoffRef = useRef(null);
+  useEffect(() => {
+    if (!handoff || handoff.mode !== "references" || appliedHandoffRef.current === handoff.key) return;
+    appliedHandoffRef.current = handoff.key;
+    const cards = (handoff.references || []).map((r) => ({
+      type: r.type || "character",
+      name: r.name || "",
+      description: "",
+      useUpload: true,
+      referenceFile: r.file,
+      referenceImage: r.preview || URL.createObjectURL(r.file),
+      // Unnamed cards (the router skipped a picture) are named by the composer's own
+      // describe pass, which only looks at cards with no name.
+      autoType: !r.name,
+    }));
+    if (cards.length) setReferences(cards);
+  }, [handoff, setReferences]);
+
   useEffect(() => {
     let cancelled = false;
+    if (handoff) return undefined;
     (async () => {
       try {
         // userPrompt/style are no longer restored here - they're lifted to
@@ -483,6 +516,8 @@ export default function ReferencesPipelineCreator({
         return (
           <PromptStep
             pipelineMode="references"
+            // Only once the handed-off cards are in state, so the brief sees the pictures.
+            autoImproveKey={handoff && !(handoff.references?.length && !references.length) ? handoff.key : null}
             onModeChange={!sessionId ? onModeChange : undefined}
             onBackToChooser={!sessionId ? onBackToChooser : undefined}
             references={references}
@@ -500,6 +535,8 @@ export default function ReferencesPipelineCreator({
             setVoiceId={setVoiceId}
             backgroundMusic={backgroundMusic}
             setBackgroundMusic={setBackgroundMusic}
+            captions={captions}
+            setCaptions={setCaptions}
             onStart={startReferencesSession}
             loading={loading}
             error={error}
@@ -546,10 +583,13 @@ export default function ReferencesPipelineCreator({
             scriptData={scriptData}
             framesLoading={framesLoading}
             onRegenerateScript={regenerateFrameScript}
+            onChooseFrame={chooseFrame}
+            references={references}
             onApprove={approveFrames}
             onDelete={deleteScene}
             onGenerateFrames={generateFrames}
             error={error}
+            aspectRatio={aspectRatio}
           />
         );
 
