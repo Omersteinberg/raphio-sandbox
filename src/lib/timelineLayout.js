@@ -13,8 +13,8 @@ export const TRACK_HEIGHT = 64; // px, one track row (TimelineTrack's own height
 export const TOTAL_TRACKS = 4; // Video, Narration, Audio/Music, Text
 export const RULER_HEIGHT = 32; // px, TimelineRuler's h-8
 
-// Width of the label column at the head of every track row (TimelineTrack's
-// and TimelineRuler's `w-32`, plus the ruler's `left-32` tick offset). It sits
+// Width of the label column at the head of every track row (desktop; mobile
+// uses the icon-only TRACK_LABEL_WIDTH_MOBILE, picked in TimelineCanvas). It sits
 // INSIDE the scrolling content, so every conversion between a pointer x and a
 // time - drops, trims, ruler seeks, playhead scrubs - and every absolutely
 // positioned overlay (playhead, snap line, past-the-end fill) has to offset by
@@ -22,6 +22,7 @@ export const RULER_HEIGHT = 32; // px, TimelineRuler's h-8
 // silently went stale when the column widened and left the playhead 48px
 // short of the 0:00.0 tick. Shared here so there is exactly one number.
 export const TRACK_LABEL_WIDTH = 128;
+export const TRACK_LABEL_WIDTH_MOBILE = 40;
 
 // Ruler + every track row stacked - the exact "fits everything, no vertical
 // scroll" content height. TimelineCanvas's playhead/snap-line/past-the-end

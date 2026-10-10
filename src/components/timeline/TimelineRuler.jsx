@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { TRACK_LABEL_WIDTH } from "@/lib/timelineLayout";
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -7,7 +8,7 @@ function formatTime(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}.${ms}`;
 }
 
-export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
+export default function TimelineRuler({ duration, pixelsPerSecond, width, labelWidth = TRACK_LABEL_WIDTH }) {
   // Calculate tick interval based on zoom level
   const tickInterval = useMemo(() => {
     if (pixelsPerSecond >= 200) return 0.5;
@@ -47,12 +48,8 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
       style={{ width }}
     >
       {/* Track label area - width mirrors TimelineTrack's label column
-          (TRACK_LABEL_WIDTH in TimelineCanvas, w-32/128px) so it lines up
-          exactly. No fill of its own (the ruler row is already bg-card) -
-          just the same hairline border-r the track labels use below it, so
-          the whole left edge reads as one continuous seam rather than a
-          stack of separately-boxed corners. */}
-      <div className="absolute left-0 top-0 w-32 h-full border-r border-border/60" />
+          (labelWidth from TimelineCanvas) so it lines up exactly. */}
+      <div className="absolute left-0 top-0 h-full border-r border-border/60" style={{ width: labelWidth }} />
 
       {/* Ticks area - major timestamps read clearly (full-contrast, bolder,
           taller); minor ticks are visible but clearly secondary. Was
@@ -61,7 +58,7 @@ export default function TimelineRuler({ duration, pixelsPerSecond, width }) {
           as not visible at all rather than "subtle." Switched to
           bg-foreground/25, a color with actual presence against this
           background even at low opacity. */}
-      <div className="absolute left-32 top-0 h-full">
+      <div className="absolute top-0 h-full" style={{ left: labelWidth }}>
         {ticks.map((tick, i) => (
           <div
             key={i}

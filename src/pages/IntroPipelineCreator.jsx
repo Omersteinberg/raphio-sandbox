@@ -83,9 +83,8 @@ export default function IntroPipelineCreator({
   }, [handoff]);
 
   // Dev-only preview of the loading screens and the completion state, without
-  // a real session or any billed backend/VEO/ElevenLabs call. Same design as
-  // the other three pipelines' mocks - see ReferencesPipelineCreator.jsx for
-  // the full rationale. Usage: /create?mode=intro&mockLoading=script|video|done
+  // a real session or any billed backend/VEO/ElevenLabs call.
+  // Usage: /create?mode=intro&mockLoading=script|video|done
   const [searchParams] = useSearchParams();
   const mockLoadingParam = import.meta.env.DEV ? searchParams.get("mockLoading") : null;
   const isMockDone = mockLoadingParam === "done";
@@ -133,7 +132,7 @@ export default function IntroPipelineCreator({
   // in below, not reported separately. It used to be its own upward report
   // (onCompletionActiveChange) driving a third header state; Creator's
   // showChrome covers that case already, so the report is gone and this is now
-  // purely local. See ReferencesPipelineCreator.jsx's identical split.
+  // purely local.
   const isCompletionScreen = step === COMPLETED_STEP || isMockDone;
   const hideCreatorChrome = isGeneratingIntro || isCompletionScreen;
   useEffect(() => {
@@ -144,8 +143,7 @@ export default function IntroPipelineCreator({
 
   // Rehydrate the brief the user was part-way through: a hard refresh, the bounce
   // to /buy-credits when they run out of credits, or switching pipeline mode and
-  // coming back. Mirrors the same mount-time restore in ImagePipelineCreator and
-  // ReferencesPipelineCreator; useIntroSession writes the draft on every change.
+  // coming back. useIntroSession writes the draft on every change.
   //
   // Skipped when resuming a real session (?session=): that session's own stage
   // drives the wizard, and a stale brief has nothing left to fill in.
@@ -318,7 +316,7 @@ export default function IntroPipelineCreator({
 
   const showProgressBar = displayStep > 0 && displayStep <= GENERATING_STEP;
 
-  // See ImagePipelineCreator: composer (brief) step, nothing running -> hero +
+  // Composer (brief) step, nothing running -> hero +
   // tabs stay up and the step flows in the page scroll.
   const composerChrome = step === 0 && !loading && !intro.providerUnavailable;
   // The finished-video screen flows too; EDITING_STEP keeps the fixed frame.
@@ -326,8 +324,7 @@ export default function IntroPipelineCreator({
   useLayoutEffect(() => { onChromeChange?.(composerChrome, flowLayout); },
     [composerChrome, flowLayout, onChromeChange]);
 
-  // Short-circuits straight to the completion screen with fake data - see
-  // ReferencesPipelineCreator.jsx's identical branch for the full rationale.
+  // Short-circuits straight to the completion screen with fake data.
   // Deliberately below the useLayoutEffect above, never above it: this is an
   // early return, so a hook placed after it would be skipped whenever
   // ?mockLoading=done is set and React would throw on the hook-count change.

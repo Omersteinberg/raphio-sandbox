@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { describeError } from "../lib/errorDetail";
 import {
@@ -14,6 +15,9 @@ import {
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 let googleIdentityScriptPromise;
+let gsiReady = false;
+let latestCred = null;
+let latestErr = null;
 
 function loadGoogleIdentityScript() {
   if (window.google?.accounts?.id) return Promise.resolve();
@@ -34,14 +38,24 @@ function loadGoogleIdentityScript() {
   return googleIdentityScriptPromise;
 }
 
+// Renders Google's button. initialize() runs once per page load; its callback reads the handlers of the currently mounted button.
 function GoogleButton({ disabled, onCredential, onError }) {
   const buttonRef = useRef(null);
+
+  useEffect(() => {
+    latestCred = onCredential;
+    latestErr = onError;
+    return () => {
+      if (latestCred === onCredential) latestCred = null;
+      if (latestErr === onError) latestErr = null;
+    };
+  }, [onCredential, onError]);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!GOOGLE_CLIENT_ID) {
-      onError("Google sign-in is not configured.");
+      latestErr?.("Google sign-in is not configured.");
       return undefined;
     }
 
@@ -49,16 +63,19 @@ function GoogleButton({ disabled, onCredential, onError }) {
       .then(() => {
         if (cancelled || !buttonRef.current) return;
 
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: (response) => {
-            if (!response?.credential) {
-              onError("Google did not return a sign-in credential.");
-              return;
-            }
-            onCredential(response.credential);
-          },
-        });
+        if (!gsiReady) {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (response) => {
+              if (!response?.credential) {
+                latestErr?.("Google did not return a sign-in credential.");
+                return;
+              }
+              latestCred?.(response.credential);
+            },
+          });
+          gsiReady = true;
+        }
 
         buttonRef.current.innerHTML = "";
         window.google.accounts.id.renderButton(buttonRef.current, {
@@ -71,13 +88,13 @@ function GoogleButton({ disabled, onCredential, onError }) {
       })
       .catch((err) => {
         if (!cancelled)
-          onError(err.message || "Google sign-in could not be loaded.");
+          latestErr?.(err.message || "Google sign-in could not be loaded.");
       });
 
     return () => {
       cancelled = true;
     };
-  }, [onCredential, onError]);
+  }, []);
 
   if (!GOOGLE_CLIENT_ID) {
     return (
@@ -121,9 +138,7 @@ function GoogleButton({ disabled, onCredential, onError }) {
   );
 }
 
-// One muted line linking the legal pages. `lead` differs by where it sits: under
-// the Register button it is about creating an account, under the Google button
-// (which serves both login and register) it is "continuing".
+// One muted line linking the legal pages, shown once under each form.
 function ConsentNotice({ lead }) {
   const link =
     "underline-offset-2 transition-colors hover:text-terra hover:underline focus-visible:text-terra focus-visible:underline";
@@ -197,8 +212,9 @@ function LoginForm() {
       <ErrorBanner message={error} />
       <UnderlineInput
         id="login-username"
-        label="Username"
-        placeholder="username"
+        label="Email or username"
+        placeholder="Email or username"
+        autoComplete="username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         required
@@ -207,7 +223,7 @@ function LoginForm() {
         id="login-password"
         type="password"
         label="Password"
-        placeholder="••••••••"
+        autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
@@ -247,10 +263,9 @@ function LoginForm() {
 }
 
 function RegisterForm() {
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { register, googleLogin } = useAuth();
@@ -259,17 +274,13 @@ function RegisterForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
     setLoading(true);
     try {
-      await register(username, email, password);
+      await register({ email, password });
       navigate("/videos");
     } catch (err) {
       setError(describeError(err, "We couldn't create your account. Please try again.").userMessage);
@@ -309,51 +320,57 @@ function RegisterForm() {
     >
       <ErrorBanner message={error} />
       <UnderlineInput
-        id="reg-username"
-        label="Username"
-        placeholder="username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        required
-      />
-      <UnderlineInput
         id="reg-email"
         type="email"
         label="Email"
-        placeholder="email address"
+        placeholder="you@example.com"
+        autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
       />
       <UnderlineInput
         id="reg-password"
-        type="password"
+        type={showPassword ? "text" : "password"}
         label="Password"
-        placeholder="••••••••"
+        autoComplete="new-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
-      />
-      <UnderlineInput
-        id="reg-confirm"
-        type="password"
-        label="Confirm password"
-        placeholder="Type it again"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        required
+        endAdornment={
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              height: 40,
+              width: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "none",
+              color: C.muted,
+              cursor: "pointer",
+            }}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        }
       />
       <PrimaryButton loading={loading}>
         {loading ? "Creating account…" : "Create account"}
       </PrimaryButton>
-      <ConsentNotice lead="By creating an account" />
       <Divider />
       <GoogleButton
         disabled={loading}
         onCredential={handleGoogleCredential}
         onError={handleGoogleError}
       />
-      <ConsentNotice lead="By continuing" />
+      <ConsentNotice lead="By creating an account or continuing with Google" />
     </motion.form>
   );
 }

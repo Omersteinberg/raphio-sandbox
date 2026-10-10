@@ -21,7 +21,7 @@ const HISTORY_LIMIT = 25;
 // exercisable in the browser without building the real overlay track/editing
 // UI yet. Strip this whole flag + its two effects (search
 // "ENABLE_MOCK_OVERLAYS") once real overlay data/UI lands.
-const ENABLE_MOCK_OVERLAYS = true;
+const ENABLE_MOCK_OVERLAYS = false;
 
 // Stable empty array so callers with no overlays yet (or before the mock
 // seed effect has run) get the same reference every render - keeps
@@ -93,6 +93,7 @@ export function useTimeline(sessionId) {
   // read the current items to snapshot without re-subscribing every render.
   const itemsRef = useRef([]);
   const historyRef = useRef([]);
+  const historyVersionRef = useRef(0);
   const [canUndo, setCanUndo] = useState(false);
 
   // Calculate pixels per second based on zoom
@@ -155,8 +156,12 @@ export function useTimeline(sessionId) {
     const stack = historyRef.current;
     stack.push(snapshot);
     if (stack.length > HISTORY_LIMIT) stack.shift();
+    historyVersionRef.current += 1;
     setCanUndo(true);
   }, []);
+
+  // Counter that changes on every history push or undo.
+  const getHistoryVersion = useCallback(() => historyVersionRef.current, []);
 
   // Update item on server
   const updateItem = useCallback(
@@ -292,7 +297,7 @@ export function useTimeline(sessionId) {
   // Remove item from timeline
   const removeItem = useCallback(
     async (itemId) => {
-      if (!sessionId) return;
+      if (!sessionId) return false;
 
       pushHistory();
       setHasUnexportedChanges(true);
@@ -304,9 +309,11 @@ export function useTimeline(sessionId) {
           setSelectedItem(null);
         }
         await loadTimeline(); // Refresh to get updated duration
+        return true;
       } catch (err) {
         console.error("Failed to remove item:", err);
         toast.error(describeError(err, "We couldn't remove that clip. Please try again.").userMessage);
+        return false;
       } finally {
         setSaving(false);
       }
@@ -495,6 +502,7 @@ export function useTimeline(sessionId) {
     if (stack.length === 0) return;
 
     const snapshot = stack.pop();
+    historyVersionRef.current += 1;
     setCanUndo(stack.length > 0);
 
     setItems(snapshot); // optimistic restore
@@ -603,6 +611,7 @@ export function useTimeline(sessionId) {
   // would wipe the snapshot each of them had just pushed.
   const resetHistory = useCallback(() => {
     historyRef.current = [];
+    historyVersionRef.current += 1;
     setCanUndo(false);
   }, []);
 
@@ -835,6 +844,7 @@ export function useTimeline(sessionId) {
     // Undo
     undo,
     canUndo,
+    getHistoryVersion,
 
     // Audio operations
     uploadAudio,

@@ -13,7 +13,7 @@ const C = {
 // Static fallback, matching what's already configured in the Crisp dashboard
 // (Settings > Operating Hours). Only shown while the SDK hasn't reported a
 // real value yet - see the effect below for the live path.
-const FALLBACK_STATUS_TEXT = "We reply between 9am–9pm AEST";
+const FALLBACK_STATUS_TEXT = "We reply between 9am and 9pm AEST";
 
 /**
  * Reads live team-availability from the Crisp SDK already loaded by

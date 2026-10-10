@@ -6,7 +6,7 @@ import FAQSection, { FAQ_DATA } from "@/components/support/FAQSection.jsx";
 import ChatStatusBar from "@/components/support/ChatStatusBar.jsx";
 
 const C = {
-  bg: "#F5F0EB",
+  bg: "var(--gradient-app)",
   ink: "var(--ink-warm)",
   terra: "#C1440E",
   muted: "#7A6A62",
@@ -15,7 +15,7 @@ const C = {
 };
 
 const TOPIC_META = {
-  "getting-started": { icon: Rocket, blurb: "Modes, photos, and framing basics" },
+  "getting-started": { icon: Rocket, blurb: "Video types and photo uploads" },
   "credits-and-billing": { icon: CreditCard, blurb: "Pricing, credits, and payment questions" },
   troubleshooting: { icon: Wrench, blurb: "Fixes for failed or stuck generations" },
 };

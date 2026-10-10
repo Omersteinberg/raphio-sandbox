@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Search, Plus } from "lucide-react";
+import { ROUTE_OPTIONS } from "@/lib/routeOptions";
+import { PACKS } from "@/lib/pricing";
+import { INTRO_CREDITS } from "@/lib/limits";
+
+const INTRO_LABEL = ROUTE_OPTIONS.find((o) => o.id === "intro")?.label || "A quick business promo";
 
 // Mirrors the token set already used across TermsPage / PrivacyPolicyPage /
 // SettingsPage / ContactForm so this page family matches wherever it lands.
@@ -14,7 +19,7 @@ const C = {
 
 const EASE = [0.16, 1, 0.3, 1];
 
-// Content verbatim from the original FAQ - presentation only has changed.
+// FAQ content. Modes come from ROUTE_OPTIONS and prices from PACKS.
 // Keys/slugs are the anchor ids the topic grid in SupportPage.jsx links to.
 export const FAQ_DATA = [
   {
@@ -22,21 +27,12 @@ export const FAQ_DATA = [
     title: "Getting Started",
     items: [
       {
-        q: "What's the difference between the four modes?",
-        a: [
-          "Idea — describe your video in text and we generate everything. No photos needed.",
-          "Photos — upload your own photos and we animate them into a video around your prompt.",
-          "References — define recurring characters, settings, logos or products so they stay consistent across every scene. Best for anything with a repeating subject.",
-          "Brand Intro — upload a logo and describe your business to get a short branded intro sequence. This one's different from the other three: it's a motion-graphics stinger, not a narrative video.",
-        ],
+        q: "What kinds of video can I make?",
+        a: ROUTE_OPTIONS.map((o) => `${o.label}. ${o.hint}`),
       },
       {
         q: "What photos can I upload?",
-        a: "JPEG and PNG only, up to 10MB each, maximum 10 photos per video. WebP isn't supported. Your photos don't need to match your video's aspect ratio — if they don't, we'll offer to extend them automatically to fill the frame.",
-      },
-      {
-        q: "Do I need to crop my photos first?",
-        a: "No. If a photo doesn't match your chosen 16:9 or 9:16 frame, you'll see a “Needs framing” badge and can turn on automatic extension. We generate the missing edges for you. Screenshots and logos are never extended, since extending text tends to produce poor results.",
+        a: "JPEG and PNG only, up to 10MB each, maximum 10 photos per video. WebP isn't supported.",
       },
     ],
   },
@@ -46,11 +42,15 @@ export const FAQ_DATA = [
     items: [
       {
         q: "How much does a video cost?",
-        a: "Credits are based on video length, not the number of clips. 15 seconds = 3 credits, 30 seconds = 6, 45 seconds = 9, 60 seconds = 12. Brand Intro is a flat 3 credits regardless of length. Regenerating a single clip in the editor costs 1 credit.",
+        a: `Credits are based on video length, not the number of clips. 15 seconds = 3 credits, 30 seconds = 6, 45 seconds = 9, 60 seconds = 12. ${INTRO_LABEL} is a flat ${INTRO_CREDITS} credits regardless of length. Regenerating a single clip in the editor costs 1 credit.`,
       },
       {
         q: "How do I get credits?",
-        a: "New accounts start with 3 free credits. You can buy more (6 credits for $29, 12 for $55, 24 for $99), earn 3 bonus credits by sharing a finished video (once per video), or redeem a promo code.",
+        a: `New accounts start with 3 free credits. You can buy more (${PACKS.map((p) => `${p.credits} credits for $${p.price}`).join(", ")}), earn 3 bonus credits by sharing a finished video (once per video), or redeem a promo code.`,
+      },
+      {
+        q: "Can I earn free credits?",
+        a: "Share any finished video and get 3 free credits. Each video earns the bonus once.",
       },
       {
         q: "Do credits expire?",
@@ -58,7 +58,7 @@ export const FAQ_DATA = [
       },
       {
         q: "What happens to my credits if a generation fails?",
-        a: "You're charged once when you start a video. If generation fails, retrying is free — you won't be charged again for that video.",
+        a: "You're charged once when you start a video. If generation fails, retrying is free. You won't be charged again for that video.",
       },
     ],
   },
@@ -72,11 +72,11 @@ export const FAQ_DATA = [
       },
       {
         q: "I saw “We're at Capacity.”",
-        a: "That means too many videos were generating at once. Wait a few minutes and try again — nothing was charged.",
+        a: "That means too many videos were generating at once. Wait a few minutes and try again. Nothing was charged.",
       },
       {
         q: "Generation is taking a long time.",
-        a: "Longer videos take longer to generate. If it's been over an hour with no progress, refresh the page — your progress is saved.",
+        a: "Longer videos take longer to generate. If it's been over an hour with no progress, refresh the page. Your progress is saved.",
       },
       {
         q: "My photo won't upload.",

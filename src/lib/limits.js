@@ -2,6 +2,9 @@
 export const CREDITS_PER_CLIP = 1; // single-clip regeneration only (~5s re-roll)
 export const MAX_IMAGES = 10;   // images per video (image pipeline pool)
 
+// The lengths the v2 pipeline offers. Each one is a credit tier below.
+export const PIPELINE_DURATIONS = [15, 30, 45, 60];
+
 // Brand intro is priced flat, whatever the selected length. Keep in sync with
 // INTRO_CREDITS in credits.service.js on the backend.
 export const INTRO_CREDITS = 3;

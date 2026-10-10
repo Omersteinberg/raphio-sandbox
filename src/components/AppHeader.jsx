@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { creditsForDuration } from '../lib/limits';
 import { Plus, Video, Zap, CreditCard, LogOut, ChevronDown, Menu, X, Settings, Ticket, LayoutDashboard, MessageCircleQuestion } from 'lucide-react';
 
 export default function AppHeader() {
-  const { user, credits, logout, isAdmin } = useAuth();
+  const { user, credits, logout, isAdmin, refreshCredits } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -15,6 +16,11 @@ export default function AppHeader() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // Re-fetch the balance on every route change so the pill never goes stale.
+  useEffect(() => {
+    if (user) refreshCredits();
+  }, [location.pathname, user, refreshCredits]);
 
   useEffect(() => {
     function handleClick(e) {
@@ -29,7 +35,7 @@ export default function AppHeader() {
   if (!user) return null;
 
   const initials = (user.username || user.email || '?').charAt(0).toUpperCase();
-  const isLow = (credits ?? 0) < 20;
+  const isLow = credits != null && credits < creditsForDuration(30);
   const isActive = (path) => location.pathname === path;
   // Dashboard tab covers the overview + users pages (users has a /:id detail route).
   const isDash = location.pathname.startsWith('/admin/overview') || location.pathname.startsWith('/admin/users');
@@ -357,17 +363,32 @@ export default function AppHeader() {
         )}
       </div>
 
-      {/* Mobile: hamburger button (replaces the right cluster below md) */}
-      <button
-        data-tour="nav-menu"
-        onClick={() => setMobileOpen(true)}
-        className="md:hidden flex items-center justify-center w-11 h-11 -mr-2 rounded-xl"
-        style={{ color: '#2C2420' }}
-        aria-label="Open menu"
-        aria-expanded={mobileOpen}
-      >
-        <Menu className="w-6 h-6" />
-      </button>
+      {/* Mobile: compact credits pill + hamburger (replace the right cluster below md) */}
+      <div className="md:hidden flex items-center gap-1 -mr-2">
+        <button
+          onClick={() => navigate('/buy-credits')}
+          className="flex items-center gap-1 px-2.5 h-8 rounded-full text-xs font-bold"
+          style={{
+            background: isLow ? 'rgba(193,68,14,0.10)' : 'rgba(240,234,229,0.8)',
+            color: isLow ? '#C1440E' : '#7A6A62',
+            border: isLow ? '1px solid rgba(193,68,14,0.25)' : '1px solid rgba(193,68,14,0.12)',
+          }}
+          aria-label={`${credits ?? 'Unknown'} credits, buy more`}
+        >
+          <Zap className="w-3 h-3" style={{ color: isLow ? '#C1440E' : '#E8603C' }} />
+          <span>{credits ?? '...'}</span>
+        </button>
+        <button
+          data-tour="nav-menu"
+          onClick={() => setMobileOpen(true)}
+          className="flex items-center justify-center w-11 h-11 rounded-xl"
+          style={{ color: '#2C2420' }}
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
     </header>
 
       {/* Mobile drawer - rendered as a SIBLING of <header>, not a child:

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, CircleCheck, AlertTriangle, Loader2 } from "lucide-react";
 import { submitContactForm } from "@/services/support.js";
 import { describeError } from "@/lib/errorDetail.js";
+import { useAuth } from "@/hooks/useAuth.jsx";
 
 // Mirrors the token sets already used on TermsPage / PrivacyPolicyPage /
 // SettingsPage so this section matches pixel-for-pixel wherever it lands.
@@ -46,6 +47,11 @@ function subjectForCategory(category) {
 
 const EMPTY_VALUES = { name: "", email: "", category: "", message: "" };
 
+// Blank form values with the signed-in user's name and email filled in.
+function initialValues(user) {
+  return { ...EMPTY_VALUES, name: user?.username || "", email: user?.email || "" };
+}
+
 function validate(values) {
   const errors = {};
 
@@ -68,7 +74,17 @@ function validate(values) {
 }
 
 export default function ContactForm() {
-  const [values, setValues] = useState(EMPTY_VALUES);
+  const { user } = useAuth();
+  const [values, setValues] = useState(() => initialValues(user));
+
+  useEffect(() => {
+    if (!user) return;
+    setValues((v) => ({
+      ...v,
+      name: v.name || user.username || "",
+      email: v.email || user.email || "",
+    }));
+  }, [user]);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +124,7 @@ export default function ContactForm() {
   };
 
   const sendAnother = () => {
-    setValues(EMPTY_VALUES);
+    setValues(initialValues(user));
     setFieldErrors({});
     setFormError("");
     setSuccessMessage(null);

@@ -35,17 +35,14 @@ const GRADIENT = "var(--gradient-brand)";
 // Anything past that is planned around blind, so keep the two in sync.
 const MAX_SHOWCASE = 8;
 
-// Same warm-tinted card shadow PromptStep.jsx uses (its own local
-// CARD_SHADOW, not exported - replicated here rather than imported). The
-// third box-shadow layer stands in for a border, so the card carries no
+// Warm-tinted card shadow. The third box-shadow layer stands in for a border, so the card carries no
 // separate `border` class alongside it.
 const CARD_SHADOW = {
   background: '#ffffff',
   boxShadow: '0 2px 16px rgba(193,68,14,0.06), 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(193,68,14,0.08)',
 };
 
-// Short pill labels for the strength meter's collapsed row (PromptStep.jsx's
-// SEGMENT_FACTOR_LABEL) - the full descriptive strings from scoreIntroBrief()
+// Short pill labels for the strength meter's collapsed row. The full descriptive strings from scoreIntroBrief()
 // still drive the expanded hint text below. "identity" is shortened from its
 // full label ("What you offer & who it's for") to fit the compact pill row;
 // "detail"/"clearMessage" already match scoreIntroBrief's own factor labels.
@@ -56,7 +53,7 @@ const INTRO_SEGMENT_FACTOR_LABEL = {
 };
 
 // Met criteria swap their "what to add" hint for a short confirmation
-// instead (PromptStep.jsx's FACTOR_CONFIRMATION) - unmet criteria keep
+// instead. Unmet criteria keep
 // showing the instructional hint unchanged.
 const INTRO_FACTOR_CONFIRMATION = {
   detail: 'Your brief has enough detail to write a good script.',
@@ -187,14 +184,12 @@ export default function IntroBriefStep({
   // "Help me start" popover: local open state + click-outside/Escape close,
   // the same mechanics ComposerChipRow uses for its chip popovers - copied
   // rather than imported because the trigger here is the bare text+icon
-  // "Tips" pattern (PromptStep.jsx, no bounding box), not a ComposerChip.
+  // "Tips" pattern (no bounding box), not a ComposerChip.
   const [helpOpen, setHelpOpen] = useState(false);
   const helpRef = useRef(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   // Fed into the shared ComposerFrame below for the mobile top-padding
-  // override, same as PromptStep.jsx does - both now render through the
-  // same component, so this can't drift out of sync with the other three
-  // modes again.
+  // override.
   const isMobile = useIsMobile();
   useEffect(() => {
     if (!helpOpen) return undefined;
@@ -214,8 +209,7 @@ export default function IntroBriefStep({
     };
   }, [helpOpen]);
 
-  // First-run tour for this screen, mirroring PromptStep.jsx's own
-  // useStepTour call: `enabled` gates on `onModeChange`, which
+  // First-run tour for this screen: `enabled` gates on `onModeChange`, which
   // IntroPipelineCreator only passes down for a genuinely fresh session
   // (`!intro.sessionId`), never a resumed draft - the underlying signal this
   // was always meant to gate on. No `intro.tourEnabled`-style video-sequencing
@@ -337,8 +331,7 @@ export default function IntroBriefStep({
     ];
   }, [photos, labels, showcasePreviews, beats]);
 
-  // Brief strength - a transparent checklist that doubles as guidance, same
-  // pattern PromptStep.jsx uses for its own prompt-strength meter (pure,
+  // Brief strength - a transparent checklist that doubles as guidance (pure,
   // synchronous, recomputed as the brief changes).
   const strength = useMemo(
     () => scoreIntroBrief({ userPrompt: description }),
@@ -346,8 +339,7 @@ export default function IntroBriefStep({
   );
   const briefIsEmpty = !description?.trim();
   const allFactorsMet = strength.factors.length > 0 && strength.factors.every((f) => f.met);
-  // Starts collapsed - just the bar + summary line - same as PromptStep's,
-  // and auto-collapses once every factor passes even if opened by hand.
+  // Starts collapsed - just the bar + summary line - and auto-collapses once every factor passes even if opened by hand.
   const [showStrengthDetail, setShowStrengthDetail] = useState(false);
   useEffect(() => {
     if (allFactorsMet) setShowStrengthDetail(false);
@@ -420,20 +412,15 @@ export default function IntroBriefStep({
 
   return (
     <div className="w-full h-full overflow-y-auto relative">
-      {/* Help FAB: same shared component + fixed bottom-right position as
-          PromptStep.jsx. Tour-only (no onPlayVideo) - there is no Brand
-          Intro tutorial video, so resolveHelpMode resolves to "tour" and
-          the button opens the tour directly on click instead of showing
-          the video/tour picker menu PromptStep's does. */}
+      {/* Help FAB: shared component, fixed bottom-right. Tour-only (no
+          onPlayVideo) - there is no Brand Intro tutorial video, so
+          resolveHelpMode resolves to "tour" and the button opens the tour
+          directly on click instead of showing the video/tour picker menu. */}
       <HelpFab onStartTour={introTour.replay} />
 
-      {/* Outer max-width/padding/centering now lives in the shared
-          ComposerFrame (PipelineShell.jsx) - both this and PromptStep.jsx's
-          composer render through it, so the two can't independently drift in
-          width or top spacing again (this used to apply its horizontal
-          padding INSIDE the max-w-4xl box, shrinking this card, while
-          PromptStep.jsx applied it OUTSIDE, on an ancestor - same numbers,
-          different box model, different rendered width). */}
+      {/* Outer max-width/padding/centering lives in the shared
+          ComposerFrame (PipelineShell.jsx), so this composer can't drift in
+          width or top spacing from the others. */}
       <ComposerFrame isMobile={isMobile}>
       <div className="space-y-5">
         {/* Hidden pickers, driven by the logo avatar and Photos chip below.
@@ -443,8 +430,7 @@ export default function IntroBriefStep({
             using the real HTML attribute. A CSS class named "hidden" doesn't
             match that selector, so these still counted as preceding
             siblings and space-y-5 added a phantom 20px margin-top above the
-            composer card below - extra spacing PromptStep.jsx's equivalent
-            card never had, since it has no such siblings before it. */}
+            composer card below. */}
         <input
           ref={logoInputRef}
           type="file"
@@ -547,15 +533,7 @@ export default function IntroBriefStep({
               Tell us about your business
             </label>
             <div className="flex items-center gap-2 shrink-0">
-              {/* Write my brief: matches the outlined-pill style
-                  Inspiration/Dictionary use in PromptStep.jsx's header row
-                  (resting state, not their active/toggled fill) - same
-                  className and inline style values, not an approximation.
-                  Kept as a bespoke button rather than ImproveButton because
-                  ImproveButton's own base className bakes in different
-                  padding/height (px-4 py-2 min-h-11 vs this row's
-                  py-1.5 min-h-12) that a caller-supplied className can't
-                  reliably override. */}
+              {/* Write my brief: outlined-pill style, resting state. */}
               <span
                 className="inline-flex"
                 title={!canImprove ? "Add your business name, logo, or a photo first" : undefined}
@@ -574,7 +552,7 @@ export default function IntroBriefStep({
                 </button>
               </span>
 
-              {/* Help me start: the "Tips" trigger pattern (PromptStep.jsx) -
+              {/* Help me start: the "Tips" trigger pattern -
                   no bounding box, muted text that only brightens to terra on
                   hover, icon-only below `sm`. A bespoke trigger rather than
                   ComposerChip because ComposerChip's `lg`/`outlined` styling
@@ -676,9 +654,8 @@ export default function IntroBriefStep({
 
           {/* Controls: logo now lives as the avatar next to Business name above -
               Photos/Length/Ratio/Brand kit are the shared chip primitive.
-              `grow` + the row's own `w-full`/`gapClassName` match
-              PromptStep.jsx's Length/Ratio/Voice/Music row byte-for-byte, so
-              this row stretches to fill the card evenly instead of packing
+              `grow` + the row's own `w-full`/`gapClassName` make
+              this row stretch to fill the card evenly instead of packing
               left at content width. `whitespace-nowrap min-w-max` stops the
               longest label ("Brand kit") wrapping to a second line once the
               equal-width stretch narrowed its column - `min-w-max` gives it
@@ -868,15 +845,10 @@ export default function IntroBriefStep({
           </ComposerChipRow>
           </div>
 
-          {/* Strength meter: copied from PromptStep.jsx's own (same classes,
-              colors, motion values - not an approximation), wired to
-              scoreIntroBrief() and its three brief-specific factors instead
-              of scorePrompt()'s four video-scene ones. `mt-6` matches this
-              composer's own section-break convention (the same gap used
-              above the Business name row) - PromptStep's copy relies on its
-              parent's `space-y-4`/`space-y-6` for this same separation, which
-              this card doesn't have, so it sat flush against the chip row
-              above it without an explicit margin of its own. */}
+          {/* Strength meter, wired to scoreIntroBrief() and its three
+              brief-specific factors. `mt-6` matches this composer's own
+              section-break convention (the same gap used above the Business
+              name row). */}
           <div className={`mt-6 ${reducedMotion ? '' : 'strength-fade-in'}`}>
             <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(193,68,14,0.10)' }}>
               <div
@@ -1012,11 +984,10 @@ export default function IntroBriefStep({
           </div>
         )}
 
-        {/* Same width cap PromptStep.jsx puts on its own CTA
-            (w-full sm:max-w-[480px] sm:mx-auto): the card just widened to
-            max-w-4xl to match the other modes, and without this the button
-            would stretch to the full ~896px card width instead of reading
-            as a single focused action, same as it would in PromptStep.
+        {/* Width cap on the CTA (w-full sm:max-w-[480px] sm:mx-auto): the
+            card is max-w-4xl, and without this the button would stretch to
+            the full ~896px card width instead of reading as a single
+            focused action.
             data-tour="intro-cta" re-added: startIntroTour (promptTour.js)
             was missing the final CTA step every other tour has (Image/
             References' own "cta" step targeting their Create-video

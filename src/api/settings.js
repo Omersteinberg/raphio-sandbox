@@ -11,6 +11,7 @@ export const EMPTY_AUTO_APPROVE = {
   bridges: false,
   frames: false,
   generate: false,
+  storyboard: false,
 };
 
 /**
@@ -53,6 +54,25 @@ export async function markIntroVideoSeen(key) {
 export async function saveUseCase(useCase) {
   const { data } = await axios.put(`${SETTINGS_BASE}/onboarding/use-case`, { useCase });
   return data?.useCase ?? useCase;
+}
+
+/**
+ * Whether the user gets tips and product emails.
+ * @returns {Promise<boolean>}
+ */
+export async function fetchEmailPrefs() {
+  const { data } = await axios.get(`${SETTINGS_BASE}/email-prefs`);
+  if (typeof data?.productEmails !== "boolean") throw new Error("Unexpected email-prefs response");
+  return data.productEmails;
+}
+
+/**
+ * Opt in or out of tips and product emails. Returns the saved value.
+ * @param {boolean} productEmails
+ */
+export async function saveEmailPrefs(productEmails) {
+  const { data } = await axios.put(`${SETTINGS_BASE}/email-prefs`, { productEmails });
+  return data?.productEmails === true;
 }
 
 /**

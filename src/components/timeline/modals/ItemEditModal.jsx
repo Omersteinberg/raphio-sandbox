@@ -202,7 +202,7 @@ export default function ItemEditModal({ item, section, audioAsset, sessionId, on
               {isVideo ? (
                 <Film className="w-5 h-5 text-terra" />
               ) : (
-                <Music className="w-5 h-5 text-blue-400" />
+                <Music className="w-5 h-5 text-ink/70" />
               )}
               <h3 className="text-lg font-semibold text-foreground">Trim clip</h3>
             </div>

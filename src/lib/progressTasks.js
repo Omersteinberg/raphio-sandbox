@@ -16,8 +16,6 @@ const clamp01 = (n) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 // clips row starts spinning. Rows that don't exist for a given run (bridges off,
 // music off) simply drop out and the rest renormalize.
 export const SCRIPT_PHASE_WEIGHT = 0.35;
-export const BRIDGE_PHASE_WEIGHT = 0.05;
-export const REF_PHASE_WEIGHTS = { refs: 0.08, script: 0.12, scenes: 0.2 };
 const VIDEO_ROW_WEIGHTS = { clips: 0.4, tts: 0.05, music: 0.03, assembly: 0.12 };
 
 /**

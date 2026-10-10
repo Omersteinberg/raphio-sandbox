@@ -32,9 +32,8 @@ export default function TimelineOverlayItem({ item, height, pixelsPerSecond, isS
   const left = item.startTime * pixelsPerSecond;
   const width = Math.max(item.duration * pixelsPerSecond, 20);
 
-  // Emerald - the one hue not already claimed by VIDEO (neutral ink),
-  // Narration (blue), or Audio/Music (purple).
-  const bgColor = isSelected ? "bg-emerald-500/90" : "bg-emerald-400/75";
+  // Text overlays sit on a translucent ink-warm fill.
+  const bgColor = isSelected ? "bg-ink-warm/75" : "bg-ink-warm/60";
   const selectionRing = isSelected
     ? "0 0 0 1px hsl(var(--primary-foreground)), 0 0 0 3px rgb(var(--terra-rgb))"
     : undefined;

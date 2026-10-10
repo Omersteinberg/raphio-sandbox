@@ -32,18 +32,21 @@ export default function ResultStep({
         <VideoResult
           sessionId={session?.id}
           finalVideoUrl={finalVideoUrl}
-          title={scriptData?.title}
+          title={session?.video?.title || scriptData?.title}
           style={scriptData?.style || session?.style}
-          sectionsCount={scriptData?.sections?.length ?? session?.video?.sections?.length}
+          sectionsCount={session?.video?.sections?.length ?? scriptData?.sections?.length}
           duration={durationLabel}
-          model={session?.videoModel}
+          aspectRatio={session?.video?.aspectRatio || session?.aspectRatio}
+          prompt={session?.userPrompt}
+          createdAt={session?.video?.createdAt || session?.createdAt}
+          fresh
           onEdit={enterEditingMode}
           onCreateNew={reset}
         />
         {showSurvey && (
           <PostVideoSurvey
             sessionId={session?.id}
-            title={scriptData?.title}
+            title={session?.video?.title || scriptData?.title}
             model={session?.videoModel}
           />
         )}

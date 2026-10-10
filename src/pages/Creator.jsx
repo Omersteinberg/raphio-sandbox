@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Sparkles, ChevronDown, Check, RotateCcw } from "lucide-react";
-import ImagePipelineCreator from "./ImagePipelineCreator";
-import ReferencesPipelineCreator from "./ReferencesPipelineCreator";
+import PipelineCreator from "./PipelineCreator";
 import IntroPipelineCreator from "./IntroPipelineCreator";
 import StartComposer from "@/components/session/StartComposer";
 import { ROUTE_OPTIONS, optionFor } from "@/lib/routeOptions";
@@ -14,14 +13,15 @@ import { useIntroVideo } from "@/hooks/useIntroVideo";
 import { INTRO_VIDEO_KEYS } from "@/lib/introVideos";
 import { RESUMABLE_MODES } from "@/lib/pipelineMode";
 import { MAINTENANCE_MODE } from "@/config";
-import { getCreationDefaults, saveCreationDefaults } from "@/lib/preferences";
+import { getCreationDefaults, saveCreationDefaults, hasSavedVoice } from "@/lib/preferences";
+import { getRegionDefault } from "@/services/voices";
 import { loadPending } from "@/lib/pendingSession";
+import { PIPELINE_DURATIONS } from "@/lib/limits";
 import { toast } from "@/lib/toast";
 
-// "prompt" is the simplified text-to-video mode; it reuses the image pipeline
-// (ImagePipelineCreator) with photos + advanced settings hidden. "intro" is the
+// "prompt" is the text-to-video mode (PipelineCreator). "intro" is the
 // Brand Intro stinger pipeline (IntroPipelineCreator).
-// Shared with the resume bounce in useSession/useSessionBase so the two can't drift.
+// Shared with the resume bounce in useSessionBase so the two can't drift.
 const ENABLED_MODES = RESUMABLE_MODES;
 
 // The mode tabs that used to sit here asked the client to know our pipelines. The
@@ -176,15 +176,20 @@ export default function Creator() {
   // Photos, and Reference-Image mode, so it survives switching between them - a
   // prompt/duration/ratio/voice/music/style choice made in one no longer resets
   // when the user picks another. Owned here (above the per-mode creators) so it
-  // outlives ImagePipelineCreator's own remount on a Prompt<->Photos switch.
+  // outlives a child creator's own remount on a mode switch.
   // Brand Intro is a different component/hook entirely and does not receive this -
   // it manages its own via useIntroSession.
   const [savedDefaults] = useState(getCreationDefaults);
   const [userPrompt, setUserPrompt] = useState("");
   const [style, setStyle] = useState(savedDefaults.style);
-  const [targetDuration, setTargetDuration] = useState(savedDefaults.targetDuration);
+  // A saved length the pipeline does not offer snaps to the nearest one it does.
+  const [targetDuration, setTargetDuration] = useState(() => {
+    const wanted = Number(savedDefaults.targetDuration) || PIPELINE_DURATIONS[0];
+    return PIPELINE_DURATIONS.reduce((a, b) => (Math.abs(b - wanted) < Math.abs(a - wanted) ? b : a));
+  });
   const [aspectRatio, setAspectRatio] = useState(savedDefaults.aspectRatio);
   const [voiceId, setVoiceId] = useState(savedDefaults.voiceId);
+  const [hadSavedVoice] = useState(hasSavedVoice);
   const [videoModel, setVideoModel] = useState("KLING");
   const [backgroundMusic, setBackgroundMusic] = useState(savedDefaults.backgroundMusic);
   // Burn the narration in as captions (most social video plays muted).
@@ -205,21 +210,31 @@ export default function Creator() {
   // still report this up because the guard genuinely needs it.
   const [isMergedRunActive, setIsMergedRunActive] = useState(false);
 
-  // Auto-save last-used choices so the next new video starts from them. Moved up
-  // from useSession.js/useSessionBase.js along with the state itself - both hooks
-  // used to run this same effect independently; now there is one source of truth.
+  // Auto-save last-used choices so the next new video starts from them. One
+  // source of truth, owned here along with the state itself.
   useEffect(() => {
     saveCreationDefaults({ style, targetDuration, aspectRatio, voiceId, backgroundMusic, captions });
   }, [style, targetDuration, aspectRatio, voiceId, backgroundMusic, captions]);
 
+  // A fresh profile takes the voice that suits the visitor's region, when one is known.
+  useEffect(() => {
+    if (hadSavedVoice) return undefined;
+    let cancelled = false;
+    getRegionDefault()
+      .then((r) => {
+        if (cancelled || !r?.countryCode || !r.voiceKey) return;
+        setVoiceId((cur) => (cur === savedDefaults.voiceId ? r.voiceKey : cur));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // One-time restore of a pending draft's prompt after a genuine page-level
   // remount (e.g. returning from the /buy-credits round trip, which unmounts
   // Creator.jsx itself, not just the child pipeline creator). Deliberately
-  // mount-only - fires exactly once, never on an in-page mode switch. The
-  // per-mode rehydrate effects in ImagePipelineCreator.jsx/
-  // ReferencesPipelineCreator.jsx used to do this instead, but they re-fire
-  // on every mode-switch remount and were clobbering this lifted state with
-  // whatever was last saved under that mode's own pending-draft key. style
+  // mount-only - fires exactly once, never on an in-page mode switch, so a
+  // mode-switch remount cannot clobber this lifted state with whatever was
+  // last saved under that mode's own pending-draft key. style
   // needs no equivalent here: it's already seeded from savedDefaults above
   // (getCreationDefaults()/localStorage), which the auto-save effect keeps
   // in sync in real time, so it already survives this same remount. Brand
@@ -238,17 +253,6 @@ export default function Creator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sharedIntentProps = {
-    userPrompt, setUserPrompt,
-    style, setStyle,
-    targetDuration, setTargetDuration,
-    aspectRatio, setAspectRatio,
-    voiceId, setVoiceId,
-    videoModel, setVideoModel,
-    backgroundMusic, setBackgroundMusic,
-    captions, setCaptions,
-  };
-
   const handleModeChange = (mode) => {
     const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
     if (next === pipelineMode) return;
@@ -260,7 +264,7 @@ export default function Creator() {
     // Reflect the picked mode in the URL so the selection survives a route
     // change (e.g. visiting /settings and pressing Back), and so it stays a
     // real, shareable/bookmarkable deep link (LandingPage's mode CTAs,
-    // WelcomeHero/MyVideosPage resume links, and resumeModeFor's resume
+    // MyVideosPage resume links, and resumeModeFor's resume
     // correction all read ?mode= directly from the URL).
     setSearchParams({ mode: next }, { replace: true });
     setPipelineMode(next);
@@ -274,11 +278,8 @@ export default function Creator() {
       return;
     }
     const next = ENABLED_MODES.includes(mode) ? mode : "prompt";
-    // The words can name the format ("vertical", "for reels"): set the ratio chip
-    // from them, so the brief and the render agree with what was asked for.
-    if (/\b(vertical|portrait|reels?|tiktok|stories|shorts|9:16)\b/i.test(userPrompt)) setAspectRatio("9:16");
-    else if (/\b(landscape|horizontal|widescreen|youtube|16:9)\b/i.test(userPrompt)) setAspectRatio("16:9");
-    setHandoff(buildHandoff(next, { photos, decision: chosen }));
+    // From the front door every choice is already made, so the pipeline starts at once.
+    setHandoff({ ...buildHandoff(next, { photos, decision: chosen }), autostart: entry === "start" });
     if (chosen && chosen.mode !== next) setDecision({ ...chosen, mode: next, source: "user" });
     handleModeChange(next);
     setEntry("pipeline");
@@ -292,6 +293,18 @@ export default function Creator() {
     setHandoff(null);
     setSearchParams({}, { replace: true });
     setEntry("start");
+  };
+
+  const sharedIntentProps = {
+    userPrompt, setUserPrompt,
+    style, setStyle,
+    targetDuration, setTargetDuration,
+    aspectRatio, setAspectRatio,
+    voiceId, setVoiceId,
+    videoModel, setVideoModel,
+    backgroundMusic, setBackgroundMusic,
+    captions, setCaptions,
+    startAgain,
   };
 
   // A bare, undirected `/create` (no ?session=, no valid ?mode=) is the only
@@ -314,8 +327,8 @@ export default function Creator() {
   // with its own internal step-transition animation, kept entirely apart
   // from Idea/Photos/References here. (A framer-motion AnimatePresence/
   // motion.div height-animation wrapper was tried around the non-Intro
-  // branch and reverted: ImagePipelineCreator/ReferencesPipelineCreator's
-  // own root divs use h-full, a percentage height, which framer-motion
+  // branch and reverted: the pipeline creators' own root divs use h-full,
+  // a percentage height, which framer-motion
   // can't reliably auto-measure for a height:0->auto animation - the
   // measurement resolved to 0 and the content went invisible. Revisiting
   // this would need a different technique that doesn't require the
@@ -336,7 +349,9 @@ export default function Creator() {
           decision={decision}
           setDecision={setDecision}
           onContinue={(chosen) => openPipeline(chosen.mode, chosen)}
-          targetDuration={targetDuration}
+          targetDuration={targetDuration} setTargetDuration={setTargetDuration}
+          aspectRatio={aspectRatio} setAspectRatio={setAspectRatio}
+          voiceId={voiceId} setVoiceId={setVoiceId}
         />
         <IntroVideoModal
           open={intro.open}
@@ -349,34 +364,16 @@ export default function Creator() {
     );
   }
 
-  const nonIntroPipeline =
-    pipelineMode === "references" ? (
-      <ReferencesPipelineCreator
-        onModeChange={handleModeChange}
-        onChromeChange={handleChromeChange}
-        onMergedRunActiveChange={setIsMergedRunActive}
-        handoff={handoff}
-        {...sharedIntentProps}
-      />
-    ) : (
-      // Both "prompt" and "image" render the image pipeline; the mode
-      // distinguishes the simplified prompt-only variant (photos + advanced
-      // hidden). `key` forces a remount when the user switches between them:
-      // without it React keeps the same instance and useSession's own
-      // mode-specific local state (photos, frames, bridges - everything NOT
-      // lifted to sharedIntentProps above) bleeds across modes. The lifted
-      // fields (prompt, style, duration, ratio, voice, music) live in this
-      // component instead and correctly survive the remount.
-      <ImagePipelineCreator
-        key={pipelineMode}
-        mode={pipelineMode}
-        onModeChange={handleModeChange}
-        onChromeChange={handleChromeChange}
-        onMergedRunActiveChange={setIsMergedRunActive}
-        handoff={handoff}
-        {...sharedIntentProps}
-      />
-    );
+  // Prompt, photos and references all run on the v2 pipeline.
+  const nonIntroPipeline = (
+    <PipelineCreator
+      mode={pipelineMode}
+      onChromeChange={handleChromeChange}
+      onMergedRunActiveChange={setIsMergedRunActive}
+      handoff={handoff}
+      {...sharedIntentProps}
+    />
+  );
 
   return (
     <PipelineShell heightClass={flowLayout ? "min-h-full" : "h-full"}>
@@ -440,7 +437,7 @@ export default function Creator() {
           introVideosSeen "modeChooser" flag. No standalone HelpFab paired
           with it here (unlike the old chooser screen): every pipeline's own
           composer step already renders its own contextual HelpFab
-          (PromptStep, IntroBriefStep), fixed to the same bottom-right
+          (e.g. IntroBriefStep), fixed to the same bottom-right
           corner - a second one here would render on top of it. */}
       <IntroVideoModal
         open={intro.open}

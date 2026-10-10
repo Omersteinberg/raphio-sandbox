@@ -41,7 +41,7 @@ export function setJsonPref(key, value) {
 const CREATION_FALLBACKS = {
   style: "realistic",
   targetDuration: 15,
-  voiceId: "adam",
+  voiceId: "steven",
   backgroundMusic: true,
   // Most social video plays muted; the reference video burned its hook line in.
   captions: true,
@@ -56,6 +56,12 @@ const KNOWN_ASPECT_RATIOS = ["16:9", "9:16"];
 function viewportAspectRatioDefault() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "16:9";
   return window.matchMedia("(max-width: 767px)").matches ? "9:16" : "16:9";
+}
+
+// Whether the user has ever stored a voice choice on this device.
+export function hasSavedVoice() {
+  const voice = getJsonPref(PREF_KEYS.lastVoiceId, null);
+  return typeof voice === "string" && voice.length > 0;
 }
 
 // One-shot validated read of the saved creation defaults. Stale or corrupt

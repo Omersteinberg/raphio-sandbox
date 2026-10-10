@@ -107,7 +107,7 @@ export default function ClipActionPill({
         active
           ? "text-primary bg-primary/10"
           : danger
-          ? "text-destructive hover:bg-destructive/10"
+          ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           : "text-foreground hover:bg-muted"
       }`}
     >
@@ -179,15 +179,28 @@ export default function ClipActionPill({
                 onClick: () => toggle("volume"),
                 active: expanded === "volume",
               })}
-            {actions.map((action) =>
-              rowButton({
-                key: action.label,
-                icon: <action.Icon className="w-4 h-4" />,
-                label: action.label,
-                onClick: action.onClick,
-                danger: action.danger,
-              })
-            )}
+            {actions
+              .filter((action) => !action.danger)
+              .map((action) =>
+                rowButton({
+                  key: action.label,
+                  icon: <action.Icon className="w-4 h-4" />,
+                  label: action.label,
+                  onClick: action.onClick,
+                })
+              )}
+            {actions.some((action) => action.danger) && <div className="w-px h-6 bg-border mx-1" />}
+            {actions
+              .filter((action) => action.danger)
+              .map((action) =>
+                rowButton({
+                  key: action.label,
+                  icon: <action.Icon className="w-4 h-4" />,
+                  label: action.label,
+                  onClick: action.onClick,
+                  danger: true,
+                })
+              )}
           </div>
 
           {/* Expanded body. Height-animated on open/close so the surface

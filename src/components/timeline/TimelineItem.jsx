@@ -2,15 +2,21 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Film, Music, Mic, Upload, Volume2, Scissors } from "lucide-react";
 import { getCachedWaveform, setCachedWaveform } from "@/lib/waveformCache";
-import { getCachedThumbnails, setCachedThumbnails } from "@/lib/thumbnailCache";
+import { FILMSTRIP_FRAMES, getCachedThumbnails, loadThumbnails, useThumbnailsVersion } from "@/lib/thumbnailCache";
 import { getAudioWaveform, getSectionWaveform, getClipThumbnails } from "@/services/session";
 
-// Filmstrip frame count is chosen from the clip's on-screen width at the
-// moment it scrolls into view, so a narrow clip doesn't request more frames
-// than it could ever show and a very long one doesn't request one per pixel.
-const THUMB_TARGET_PX = 60; // ~on-screen width budgeted per frame
-const THUMB_MIN_FRAMES = 1;
-const THUMB_MAX_FRAMES = 8;
+// One filmstrip frame that fades in once its image has loaded.
+function FilmFrame({ src }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <img
+      src={src}
+      alt=""
+      onLoad={() => setLoaded(true)}
+      className={`flex-1 min-w-0 h-full object-cover transition-opacity duration-300 ${loaded ? "opacity-90" : "opacity-0"}`}
+    />
+  );
+}
 
 export default function TimelineItem({
   item,
@@ -60,7 +66,7 @@ export default function TimelineItem({
 
   if (trackType === "VIDEO" && section) {
     label = section.narrationText?.substring(0, 30) || `Clip ${section.orderIndex + 1}`;
-    thumbnail = section.imageUrl;
+    thumbnail = section.imageUrl || null;
   } else if (trackType === "AUDIO") {
     if (audioAsset) {
       label = audioAsset.name || "Audio";
@@ -79,14 +85,7 @@ export default function TimelineItem({
       : audioAsset?.sourceType === "AI_MUSIC"
       ? "music"
       : "audio";
-  // Video is a neutral dark placeholder, not a terracotta fill - the
-  // filmstrip (below) covers it almost immediately, and orange is reserved
-  // for the selection ring instead of competing with the thumbnails as a
-  // block color. Narration stays blue; the merged Audio/Music row reads as
-  // one softened purple family for both uploads and AI music (per-clip icon
-  // still tells them apart) rather than the old green/purple split, which
-  // fought the visual point of merging them into a single track. Overlap
-  // warning colors are unchanged.
+  // Clip fill by track: video ink-warm, narration terra, audio and music ink.
   const getBackgroundColor = () => {
     if (isOverlapping) {
       return trackType === "VIDEO"
@@ -94,8 +93,8 @@ export default function TimelineItem({
         : isSelected ? "bg-orange-400" : "bg-orange-500";
     }
     if (trackType === "VIDEO") return "bg-[rgb(var(--ink-warm-rgb))]";
-    if (audioKind === "narration") return isSelected ? "bg-blue-500" : "bg-blue-400/90";
-    return isSelected ? "bg-purple-500/95" : "bg-purple-400/75"; // audio or music
+    if (audioKind === "narration") return isSelected ? "bg-terra" : "bg-terra/80";
+    return isSelected ? "bg-ink/[0.85]" : "bg-ink/70";
   };
 
   // Track-level waveform. Seeded from the shared cache (a hit means the trim
@@ -145,50 +144,40 @@ export default function TimelineItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackType, waveformKind, waveformId, sessionId]);
 
-  // Filmstrip thumbnails - identical lazy/on-scroll-into-view + cache pattern
-  // as the waveform above, just for VIDEO clips instead of AUDIO. Seeded from
-  // the shared cache; otherwise fetched once this clip's DOM node actually
-  // scrolls into view, never on mount regardless of scroll position.
-  const [clipThumbnails, setClipThumbnails] = useState(() =>
-    trackType === "VIDEO" && item.sectionId ? getCachedThumbnails(item.sectionId) : null
-  );
+  // Filmstrip thumbnails from the shared cache (prefetched by TimelineEditor).
+  // Falls back to fetching once the clip scrolls into view; an empty result
+  // means the clip isn't rendered yet and the static cover is shown instead.
+  useThumbnailsVersion();
+  const clipThumbnails = trackType === "VIDEO" && item.sectionId ? getCachedThumbnails(item.sectionId) : null;
+  const [thumbsEmpty, setThumbsEmpty] = useState(false);
 
   useEffect(() => {
     if (trackType !== "VIDEO" || clipThumbnails || !sessionId || !item.sectionId) return;
     const el = itemRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
 
+    let cancelled = false;
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
         observer.disconnect();
-        const frameCount = Math.max(
-          THUMB_MIN_FRAMES,
-          Math.min(THUMB_MAX_FRAMES, Math.round(width / THUMB_TARGET_PX))
+        loadThumbnails(item.sectionId, () => getClipThumbnails(sessionId, item.sectionId, FILMSTRIP_FRAMES)).then(
+          (urls) => {
+            if (!cancelled && urls.length === 0) setThumbsEmpty(true);
+          }
         );
-        getClipThumbnails(sessionId, item.sectionId, frameCount)
-          .then((data) => {
-            if (Array.isArray(data?.thumbnails) && data.thumbnails.length > 0) {
-              setClipThumbnails(data.thumbnails);
-              setCachedThumbnails(item.sectionId, data.thumbnails);
-            }
-            // Empty array means the clip isn't rendered yet - not an error,
-            // just nothing to cache; the static section.imageUrl cover stays
-            // the fallback (see the render below) instead of a blank clip.
-          })
-          .catch(() => {
-            /* no thumbnails to show yet - the clip still works with the static fallback */
-          });
       },
-      // Same rootMargin/threshold as the waveform observer above, for the
-      // same reason: start the fetch slightly before the clip is fully on
-      // screen, and account for clipping by every scrolling ancestor.
       { rootMargin: "200px", threshold: 0.1 }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackType, item.sectionId, sessionId]);
+
+  const thumbsPending = trackType === "VIDEO" && !!item.sectionId && !!sessionId && !clipThumbnails && !thumbsEmpty;
 
   const bgColor = getBackgroundColor();
   // Selection reads as an outline only - no fill/overlay change - so the
@@ -249,15 +238,11 @@ export default function TimelineItem({
       }}
       whileHover={{ scale: isDragging ? 1.02 : 1.01 }}
     >
-      {/* Filmstrip for video items - a row of real frames evenly filling the
-          clip's width once fetched (see the effect above); falls back to the
-          single static section cover while frames are still loading, and
-          stays on that fallback if the clip isn't rendered yet (empty
-          thumbnails array) so the clip is never blank. Every frame, filmstrip
-          and single-frame fallback alike, uses object-cover explicitly, so a
-          frame's own aspect ratio never stretches to fill the clip's
-          (usually different) box - cropping, not distortion. */}
-      {trackType === "VIDEO" && (clipThumbnails?.length > 0 || thumbnail) && (
+      {/* Filmstrip for video items: a pulsing placeholder while frames load,
+          then real frames fading in; the static section cover only when the
+          clip has no rendered frames yet. */}
+      {trackType === "VIDEO" && thumbsPending && <div className="absolute inset-0 bg-muted animate-pulse" />}
+      {trackType === "VIDEO" && (clipThumbnails?.length > 0 || (!thumbsPending && thumbnail)) && (
         // gap-px over a dark backing draws a hairline between frames, so a
         // filmstrip reads as a row of separate previews instead of one smeared
         // image. Frames sit at near-full opacity (not full) so the label
@@ -265,22 +250,8 @@ export default function TimelineItem({
         // darken the whole strip separately.
         <div className="absolute inset-0 flex gap-px bg-black/30">
           {clipThumbnails?.length > 0
-            ? clipThumbnails.map((url, i) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt=""
-                  loading="lazy"
-                  className="flex-1 min-w-0 h-full object-cover opacity-90"
-                />
-              ))
-            : (
-                <img
-                  src={thumbnail}
-                  alt=""
-                  className="w-full h-full object-cover opacity-90"
-                />
-              )}
+            ? clipThumbnails.map((url, i) => <FilmFrame key={`${i}-${url}`} src={url} />)
+            : <FilmFrame src={thumbnail} />}
         </div>
       )}
 

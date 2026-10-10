@@ -96,7 +96,7 @@ export function startOverviewTour(isMobile) {
       element: '[data-tour="export"]',
       popover: {
         title: "Save your video",
-        description: "Happy with it? Hit Export and we'll build your final video.",
+        description: "Your edits save as you go. Hit Export when you want your video file updated.",
         side: "bottom",
         align: "end",
       },
@@ -105,25 +105,16 @@ export function startOverviewTour(isMobile) {
   return runTour(steps);
 }
 
-export function startClipTour(isMobile) {
+// Clip tour; `labels` are the selected clip's actual pill buttons, in order.
+export function startClipTour(isMobile, { labels = [] } = {}) {
   const steps = [
-    // Was anchored to [data-tour="action-bar"] - the persistent Media/Audio/
-    // Text/Elements/Settings bottom bar, which has never held clip actions.
-    // Clip-contextual actions (Split, Speed, Volume, and whichever of
-    // Regenerate/Narration/New music applies to this clip's type, plus
-    // Delete) live in the floating ClipActionPill, which now carries this
-    // anchor. Copy rewritten to match: Split/Speed/Volume/Delete are always
-    // in the row (confirmed against TimelineEditor's clipActions() and the
-    // always-passed speedControl/volumeControl), but Regenerate only shows
-    // for a video clip and Narration/New music only for specific audio
-    // clips - so the copy names them as "whichever" rather than claiming
-    // every clip has all of them.
     {
       element: '[data-tour="clip-actions"]',
       popover: {
         title: "Edit this clip",
-        description:
-          "Split it, adjust its Speed or Volume, and use whichever other action applies - Regenerate, Narration, or Delete.",
+        description: labels.length
+          ? `The buttons for this clip: ${labels.join(", ")}.`
+          : "These buttons edit this clip.",
         side: "top",
         align: "center",
       },

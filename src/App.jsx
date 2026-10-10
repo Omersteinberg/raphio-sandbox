@@ -5,12 +5,10 @@ import Creator from "./pages/Creator";
 import LandingPage from "./pages/LandingPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
 import EditorPage from "./pages/EditorPage";
-import TimelineTest from "./pages/TimelineTest";
+import NotFoundPage from "./pages/NotFoundPage";
 import AuthPage from "./pages/AuthPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-// import LoginPage from "./pages/LoginPage";
-// import RegisterPage from "./pages/RegisterPage";
 import BuyCreditsPage from "./pages/BuyCreditsPage";
 import MyVideosPage from "./pages/MyVideosPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -66,9 +64,6 @@ function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          {/* <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} /> */}
-
 
           {/* One-time onboarding question: protected, but no AppHeader (outside AppLayout) */}
           <Route path="/welcome" element={<ProtectedRoute><OnboardingUseCasePage /></ProtectedRoute>} />
@@ -89,8 +84,10 @@ function App() {
             <Route path="/admin/agent-runs" element={<AdminRoute><AdminAgentRunsPage /></AdminRoute>} />
             <Route path="/video/:id" element={<VideoDetailPage />} />
             <Route path="/video/:id/edit" element={<EditorPage />} />
-            <Route path="/timeline-test" element={<TimelineTest />} />
           </Route>
+
+          {/* Unknown URLs: outside AppLayout so signed-out visitors see it too */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         <ToastContainer
           position={isMobile ? "top-left" : "bottom-right"}

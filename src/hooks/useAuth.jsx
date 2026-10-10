@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import {
   checkAuth,
   login as apiLogin,
@@ -44,11 +44,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshCredits = useCallback(async () => {
-    console.log("[useAuth] refreshCredits called");
     try {
       const data = await getBalance();
-      console.log("[useAuth] getBalance returned:", JSON.stringify(data));
-      console.log("[useAuth] setting credits to:", data?.credits);
       setCredits(data?.credits ?? null);
     } catch (err) {
       console.error('[useAuth] Failed to fetch credits:', err.message);
@@ -99,53 +96,83 @@ export function AuthProvider({ children }) {
     );
   }, []);
 
-  const value = {
-    user,
-    loading,
-    credits,
-    isAdmin: !!user?.isAdmin,
-    refreshCredits,
-    autoApprove,
-    updateAutoApprove,
-    autoApproveIntroSeen,
-    markAutoApproveIntroSeen,
-    introVideosSeen,
-    markIntroVideoSeen,
-    settingsReady,
-    login: async (username, password) => {
-      const user = await apiLogin(username, password);
-      setUser(user);
-      refreshCredits();
-      refreshSettings();
-      return user;
-    },
-    googleLogin: async (credential) => {
-      const user = await apiLoginWithGoogle(credential);
-      setUser(user);
-      refreshCredits();
-      refreshSettings();
-      return user;
-    },
-    logout: () => {
-      apiLogout();
-      setUser(null);
-      setCredits(null);
-      setAutoApproveState(EMPTY_AUTO_APPROVE);
-      setIntroSeenState(false);
-      setIntroVideosSeen([]);
-      setSettingsReady(false);
-    },
-    register: async (username, email, password) => {
-      const user = await apiRegister(username, email, password);
-      setUser(user);
-      refreshCredits();
-      refreshSettings();
-      return user;
-    },
-    updateUser: (updatedUser) => {
-      setUser(updatedUser);
-    },
-  };
+  const login = useCallback(async (username, password) => {
+    const user = await apiLogin(username, password);
+    setUser(user);
+    refreshCredits();
+    refreshSettings();
+    return user;
+  }, [refreshCredits, refreshSettings]);
+
+  const googleLogin = useCallback(async (credential) => {
+    const user = await apiLoginWithGoogle(credential);
+    setUser(user);
+    refreshCredits();
+    refreshSettings();
+    return user;
+  }, [refreshCredits, refreshSettings]);
+
+  const logout = useCallback((to) => {
+    apiLogout(to);
+    setUser(null);
+    setCredits(null);
+    setAutoApproveState(EMPTY_AUTO_APPROVE);
+    setIntroSeenState(false);
+    setIntroVideosSeen([]);
+    setSettingsReady(false);
+  }, []);
+
+  const register = useCallback(async (fields) => {
+    const user = await apiRegister(fields);
+    setUser(user);
+    refreshCredits();
+    refreshSettings();
+    return user;
+  }, [refreshCredits, refreshSettings]);
+
+  const updateUser = useCallback((updatedUser) => {
+    setUser(updatedUser);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      credits,
+      isAdmin: !!user?.isAdmin,
+      refreshCredits,
+      autoApprove,
+      updateAutoApprove,
+      autoApproveIntroSeen,
+      markAutoApproveIntroSeen,
+      introVideosSeen,
+      markIntroVideoSeen,
+      settingsReady,
+      login,
+      googleLogin,
+      logout,
+      register,
+      updateUser,
+    }),
+    [
+      user,
+      loading,
+      credits,
+      refreshCredits,
+      autoApprove,
+      updateAutoApprove,
+      autoApproveIntroSeen,
+      markAutoApproveIntroSeen,
+      introVideosSeen,
+      markIntroVideoSeen,
+      settingsReady,
+      login,
+      googleLogin,
+      logout,
+      register,
+      updateUser,
+    ],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

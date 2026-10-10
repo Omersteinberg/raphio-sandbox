@@ -8,21 +8,25 @@
 // as they type (POST /video/route-intent), shown as one line they can change, and
 // the chosen pipeline opens pre-filled behind "Continue". See Creator.jsx.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload, X, Sparkles, ChevronDown, Check, Loader2 } from "lucide-react";
+import { Upload, X, Sparkles, ChevronDown, Check, Loader2, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComposerFrame } from "@/components/session/PipelineShell";
 import { routeIntent } from "@/services/reference";
 import { filterValidImages, ACCEPTED_IMAGE_ACCEPT } from "@/lib/imageValidation";
 import { downscaleImageToDataUrl } from "@/lib/downscaleImage";
-import { MAX_IMAGES } from "@/lib/limits";
+import { MAX_IMAGES, PIPELINE_DURATIONS, creditsForDuration } from "@/lib/limits";
+import VoiceSelector from "@/components/session/VoiceSelector";
 import { toast } from "@/lib/toast";
-import { ROUTE_OPTIONS, MODE_OF_ROUTE, optionFor } from "@/lib/routeOptions";
+import { ROUTE_OPTIONS, MODE_OF_ROUTE, optionFor, PLACEHOLDER_BY_USE_CASE, DEFAULT_PLACEHOLDER } from "@/lib/routeOptions";
+import { useAuth } from "@/hooks/useAuth";
 
 // The router looks at this many pictures at most (the backend's MAX_PICTURES).
 const ROUTED_PICTURES = 8;
 // Route once the client has stopped typing for this long.
 const ROUTE_DEBOUNCE_MS = 900;
 const MIN_WORDS_TO_ROUTE = 3;
+
+const RATIOS = [{ id: "16:9", label: "Landscape" }, { id: "9:16", label: "Vertical" }];
 
 const wordCount = (s) => String(s || "").trim().split(/\s+/).filter(Boolean).length;
 
@@ -35,9 +39,17 @@ const wordCount = (s) => String(s || "").trim().split(/\s+/).filter(Boolean).len
  * @param {object|null} p.decision - { mode, headline, seen, uncertain, references, businessName, source: 'ai'|'user' }
  * @param {(d: object|null) => void} p.setDecision
  * @param {(d: object) => void} p.onContinue
+ * @param {number} p.targetDuration / setTargetDuration, aspectRatio / setAspectRatio, voiceId / setVoiceId
  */
-export default function StartComposer({ userPrompt, setUserPrompt, photos, setPhotos, decision, setDecision, onContinue, targetDuration = null }) {
+export default function StartComposer({
+  userPrompt, setUserPrompt, photos, setPhotos, decision, setDecision, onContinue,
+  targetDuration = null, setTargetDuration, aspectRatio, setAspectRatio, voiceId, setVoiceId,
+}) {
+  const { user } = useAuth();
+  const placeholder = PLACEHOLDER_BY_USE_CASE[user?.useCase] || DEFAULT_PLACEHOLDER;
   const [routing, setRouting] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const shapeSetByUser = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
@@ -141,12 +153,37 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
     });
   };
 
+  // The words can name the format ("vertical", "for reels"): follow them until the user picks a shape.
+  useEffect(() => {
+    if (shapeSetByUser.current || !setAspectRatio) return;
+    if (/\b(vertical|portrait|reels?|tiktok|stories|shorts|9:16)\b/i.test(userPrompt)) setAspectRatio("9:16");
+    else if (/\b(landscape|horizontal|widescreen|youtube|16:9)\b/i.test(userPrompt)) setAspectRatio("16:9");
+  }, [userPrompt, setAspectRatio]);
+
+  const isIntro = decision?.mode === "intro";
   const canContinue = (hasPhotos || userPrompt.trim().length > 0) && !!decision && !routing;
+  const pill = (active) => `px-3.5 py-2 rounded-full text-xs font-bold border transition-colors ${active ? "text-white border-transparent" : "border-border/50 bg-white hover:bg-orange-50"}`;
+  const pillStyle = (active) => (active ? { background: "var(--gradient-brand)" } : { color: "var(--ink-warm)" });
   const option = useMemo(() => optionFor(decision?.mode), [decision]);
 
   return (
     <ComposerFrame>
       <div className="rounded-3xl border border-border/40 bg-white/85 backdrop-blur-sm shadow-xl shadow-orange-100/40 p-5 sm:p-8 space-y-7">
+        {/* Words */}
+        <div className="space-y-3">
+          <h2 className="font-black" style={{ fontSize: "clamp(1.15rem, 2.4vw, 1.4rem)", color: "var(--ink-warm)", letterSpacing: "-0.01em" }}>
+            What's your video about?
+          </h2>
+          <textarea
+            value={userPrompt}
+            onChange={(e) => setUserPrompt(e.target.value)}
+            placeholder={placeholder}
+            rows={4}
+            className="w-full min-h-[160px] sm:min-h-[140px] rounded-2xl resize-none text-base p-4 sm:p-5 leading-relaxed border border-border/40 bg-white/70 focus:outline-none focus:ring-2 focus:ring-orange-200 placeholder:text-[#9B8FA8]"
+            style={{ color: "var(--ink-warm)" }}
+          />
+        </div>
+
         {/* Photos */}
         <div
           className="space-y-3"
@@ -216,20 +253,6 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
           )}
         </div>
 
-        {/* Words */}
-        <div className="space-y-3">
-          <h2 className="font-black" style={{ fontSize: "clamp(1.15rem, 2.4vw, 1.4rem)", color: "var(--ink-warm)", letterSpacing: "-0.01em" }}>
-            What's your video about?
-          </h2>
-          <textarea
-            value={userPrompt}
-            onChange={(e) => setUserPrompt(e.target.value)}
-            placeholder="One or two sentences is plenty. For example: Spring promo for my plumbing business, a homeowner finds a leak and my team fixes it."
-            className="w-full min-h-[140px] rounded-2xl resize-none text-base p-5 leading-relaxed border border-border/40 bg-white/70 focus:outline-none focus:ring-2 focus:ring-orange-200 placeholder:text-[#9B8FA8]"
-            style={{ color: "var(--ink-warm)" }}
-          />
-        </div>
-
         {/* The decision */}
         <div
           className="rounded-2xl border px-4 py-3 flex items-start gap-3"
@@ -245,7 +268,7 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
                 <p className="text-sm font-bold" style={{ color: "var(--ink-warm)" }}>
                   {decision.uncertain ? "I'll treat this as " : chosenByUser ? "You chose " : "I'll make "}
                   {option ? option.label.replace(/^An? /, (m) => m.toLowerCase()).replace(/\bmy\b/g, "your") : decision.headline}
-                  {decision.uncertain ? " — is that right?" : ""}
+                  {decision.uncertain ? ". Is that right?" : ""}
                 </p>
                 {decision.seen && !chosenByUser && (
                   <p className="text-xs mt-0.5" style={{ color: "#6B5E7B" }}>{decision.seen}</p>
@@ -275,7 +298,7 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
               Change <ChevronDown className="w-3.5 h-3.5" />
             </button>
             {menuOpen && (
-              <div role="menu" className="absolute right-0 mt-2 w-[min(320px,calc(100vw-48px))] rounded-2xl border border-border/40 bg-white shadow-xl p-1.5 z-30">
+              <div role="menu" className="absolute right-0 bottom-full mb-2 max-h-[60vh] overflow-y-auto w-[min(320px,calc(100vw-48px))] rounded-2xl border border-border/40 bg-white shadow-xl p-1.5 z-30">
                 {ROUTE_OPTIONS.map((o) => (
                   <button
                     key={o.id}
@@ -298,6 +321,46 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
           </div>
         </div>
 
+        {/* Length, shape and voice. Brand intros pick their own on the next screen. */}
+        {!isIntro && (
+          <div className="flex flex-wrap gap-x-6 gap-y-4">
+            <div>
+              <span className="block text-xs font-bold mb-1.5" style={{ color: "#6B5E7B" }}>Length</span>
+              <div className="flex gap-1.5">
+                {PIPELINE_DURATIONS.map((d) => (
+                  <button key={d} type="button" onClick={() => setTargetDuration(d)} className={pill(targetDuration === d)} style={pillStyle(targetDuration === d)}>
+                    {d}s
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="block text-xs font-bold mb-1.5" style={{ color: "#6B5E7B" }}>Shape</span>
+              <div className="flex gap-1.5">
+                {RATIOS.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => { shapeSetByUser.current = true; setAspectRatio(r.id); }}
+                    className={pill(aspectRatio === r.id)}
+                    style={pillStyle(aspectRatio === r.id)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="block text-xs font-bold mb-1.5" style={{ color: "#6B5E7B" }}>Voice</span>
+              <button type="button" onClick={() => setVoiceOpen(true)} className={`${pill(false)} flex items-center gap-1.5`} style={pillStyle(false)}>
+                <Mic className="w-3.5 h-3.5" />
+                {voiceId ? voiceId.charAt(0).toUpperCase() + voiceId.slice(1) : "Default"}
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="w-full sm:max-w-[480px] sm:mx-auto">
           <Button
             onClick={() => decision && onContinue(decision)}
@@ -306,14 +369,43 @@ export default function StartComposer({ userPrompt, setUserPrompt, photos, setPh
             style={{ background: "var(--gradient-brand)" }}
           >
             <span className="flex items-center justify-center gap-2 font-black">
-              Continue <span aria-hidden="true">→</span>
+              {isIntro ? "Continue" : "Write my script"} <span aria-hidden="true">→</span>
             </span>
           </Button>
           <p className="text-center text-xs font-bold mt-2" style={{ color: "#75695F" }}>
-            Next you'll see the plan, pick a length and a voice, and create the video.
+            {isIntro
+              ? "Next you'll set up your brand and pick a length."
+              : `${creditsForDuration(targetDuration)} credits for ${targetDuration}s, charged only when you approve the storyboard.`}
           </p>
         </div>
       </div>
+
+      {voiceOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setVoiceOpen(false)}>
+          <div
+            className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h3 className="text-base font-black" style={{ color: "var(--ink-warm)" }}>Choose a voice</h3>
+              <button
+                type="button"
+                onClick={() => setVoiceOpen(false)}
+                aria-label="Close"
+                className="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <VoiceSelector value={voiceId} onChange={setVoiceId} />
+            </div>
+            <Button onClick={() => setVoiceOpen(false)} className="w-full mt-4 text-white border-0 shrink-0" style={{ background: "var(--gradient-brand)" }}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
     </ComposerFrame>
   );
 }

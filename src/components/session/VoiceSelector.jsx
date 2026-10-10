@@ -261,11 +261,21 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
   };
 
   const renderVoiceRow = (voice) => (
-    <motion.button
+    <motion.div
       key={voice.key}
+      role="button"
+      tabIndex={0}
+      aria-pressed={value === voice.key}
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
       onClick={() => onChange(voice.key)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onChange(voice.key);
+        }
+      }}
       className={`w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition-all ${
         value === voice.key
           ? "border-terra bg-terra/5"
@@ -280,6 +290,8 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
         </span>
       </div>
       <button
+        type="button"
+        aria-label={`Preview ${voice.name}`}
         onClick={(e) => {
           e.stopPropagation();
           handlePlayPreview(voice.key);
@@ -292,7 +304,7 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
       >
         {previewIcon(voice.key, "w-3 h-3")}
       </button>
-    </motion.button>
+    </motion.div>
   );
 
   const selectedVoice = voices.find((v) => v.key === value);
@@ -323,6 +335,8 @@ export default function VoiceSelector({ value, onChange, recommendation = null }
               </div>
             </div>
             <button
+              type="button"
+              aria-label={`Preview ${selectedVoice.name}`}
               onClick={() => handlePlayPreview(selectedVoice.key)}
               className="p-2 rounded-full bg-terra text-white hover:bg-terra-dark transition-colors"
             >

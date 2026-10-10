@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Video, ArrowRight, LayoutGrid,
+  Plus, Video, Film, ArrowRight, LayoutGrid,
   List, ChevronRight, SlidersHorizontal, Clock
 } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { listSessions } from "@/services/session";
+import { listSessions, deleteSession } from "@/services/session";
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
-import { STYLE_OPTIONS } from "@/constants/styles";
-import VideoCard from "@/components/videos/VideoCard";
+import VideoCard, { SessionMenu } from "@/components/videos/VideoCard";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { getSessionTitle, getSessionThumbnail, getSessionBadge, getSessionTag, isLegacyDraft } from "@/lib/sessionDisplay";
 import { startMyVideosTour } from "@/lib/myVideosTour";
 import { TOUR_KEYS } from "@/lib/tourState";
 import { useStepTour } from "@/lib/useStepTour";
@@ -40,26 +42,6 @@ const SORT_OPTIONS = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────
-function getTitle(session) {
-  return (
-    session.video?.title ||
-    session.scriptData?.title ||
-    (session.userPrompt?.length > 60
-      ? session.userPrompt.slice(0, 60) + '…'
-      : session.userPrompt) ||
-    'Untitled Video'
-  );
-}
-
-function getThumbnail(session) {
-  return (
-    session.video?.posterUrl ||
-    session.video?.sections?.find((s) => s.imageUrl)?.imageUrl ||
-    session.images?.[0]?.imageUrl ||
-    null
-  );
-}
-
 function getRelativeTime(dateString) {
   const now      = new Date();
   const date     = new Date(dateString);
@@ -84,36 +66,13 @@ function getDurationStr(session) {
     : null;
 }
 
-function sortAndFilter(sessions, sort, styleFilter) {
-  let result = styleFilter
-    ? sessions.filter(s => s.style === styleFilter)
-    : [...sessions];
-  return result.sort((a, b) =>
+// Sort one page of sessions by creation date.
+function sortSessions(sessions, sort) {
+  return [...sessions].sort((a, b) =>
     sort === 'oldest'
       ? new Date(a.createdAt) - new Date(b.createdAt)
       : new Date(b.createdAt) - new Date(a.createdAt)
   );
-}
-
-function getStageBadge(session) {
-  const stage = session.stage;
-  // COMPLETED and EDITING both live on the Completed tab - neither needs a
-  // status badge (EDITING previously showed a "Ready to Edit" pill).
-  if (!stage || stage === 'COMPLETED' || stage === 'EDITING') return null;
-  if (['PROMPT_ENTERED','IMAGES_UPLOADED','IMAGES_ANALYZED','SCRIPT_GENERATED'].includes(stage))
-    return { label: 'Writing Script', bg: 'rgba(107,94,123,0.10)', color: '#6B5E7B', pulse: false };
-  if (['SCRIPT_APPROVED','FRAMES_CONFIGURED'].includes(stage))
-    return { label: 'Script Ready', bg: 'rgba(193,68,14,0.08)', color: C.terra, pulse: false };
-  if (stage === 'GENERATING') {
-    const sections  = session.video?.sections || [];
-    const completed = sections.filter(s => s.status === 'COMPLETED').length;
-    const total     = sections.length;
-    const progress  = total > 0 ? `${completed}/${total} clips` : null;
-    return { label: progress ? `Generating · ${progress}` : 'Generating', bg: 'rgba(232,99,42,0.10)', color: C.terraLt, pulse: true };
-  }
-  if (['FAILED','ERROR'].includes(stage))
-    return { label: 'Failed', bg: 'rgba(220,38,38,0.08)', color: '#DC2626', pulse: false };
-  return { label: stage.replace(/_/g, ' ').toLowerCase(), bg: C.faint, color: C.muted, pulse: false };
 }
 
 // ── Shimmer skeleton ──────────────────────────────────────────────
@@ -138,11 +97,10 @@ function SkeletonCard({ list = false }) {
 }
 
 // ── Resume banner ─────────────────────────────────────────────────
-// Always renders to hold vertical space, prevents tab baseline shift.
-// For new users: shows a faint "first video in progress" hint instead
-// of being completely invisible, filling the space meaningfully.
+// Shown on both tabs so switching tabs never leaves a gap. New users get a
+// faint "resume it here" hint instead.
 function ResumeBanner({ session, onClick, visible, isNewUser }) {
-  const title = session ? getTitle(session) : null;
+  const title = session ? getSessionTitle(session) : null;
 
   // New user variant: subtle hint that fills the reserved space
   if (isNewUser) {
@@ -169,12 +127,11 @@ function ResumeBanner({ session, onClick, visible, isNewUser }) {
     );
   }
 
-  // Returning user variant: invisible space holder when no session
+  // Returning user variant: same on both tabs, absent when there's nothing to resume
+  if (!visible || !session) return null;
   return (
     <div style={{
       marginBottom: 20,
-      visibility: visible && session ? 'visible' : 'hidden',
-      pointerEvents: visible && session ? 'auto' : 'none',
       height: 60, display: 'flex', alignItems: 'center',
     }}>
       {session && (
@@ -207,37 +164,6 @@ function ResumeBanner({ session, onClick, visible, isNewUser }) {
           <ChevronRight style={{ width:15, height:15, color:C.terra, flexShrink:0 }} />
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Style filter chips ────────────────────────────────────────────
-function StyleFilterChips({ sessions, activeStyle, onChange }) {
-  const presentStyles = STYLE_OPTIONS.filter(opt => sessions.some(s => s.style === opt.id));
-  if (presentStyles.length < 2) return null;
-  const chips = [{ id: null, name: 'All' }, ...presentStyles];
-  return (
-    <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
-      {chips.map(({ id, name }) => {
-        const isActive = activeStyle === id;
-        return (
-          <button key={id??'all'} onClick={() => onChange(id)} style={{
-            height:32, paddingLeft:14, paddingRight:14,
-            borderRadius:9999,
-            border: isActive ? `1.5px solid rgba(193,68,14,0.35)` : `1px solid ${C.border}`,
-            background: isActive ? 'rgba(193,68,14,0.08)' : '#fff',
-            fontSize:12, fontWeight: isActive?700:500,
-            color: isActive?C.terra:C.muted,
-            fontFamily:'inherit', cursor:'pointer',
-            transition:'all 0.15s ease',
-          }}
-            onMouseEnter={e=>{ if(!isActive){e.currentTarget.style.borderColor='rgba(193,68,14,0.20)';e.currentTarget.style.color=C.dark;} }}
-            onMouseLeave={e=>{ if(!isActive){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;} }}
-          >
-            {name}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -303,10 +229,11 @@ function SortDropdown({ value, onChange }) {
 }
 
 // ── List row ──────────────────────────────────────────────────────
-function VideoListRow({ session, onClick }) {
-  const thumbnail   = getThumbnail(session);
-  const title       = getTitle(session);
-  const badge       = getStageBadge(session);
+function VideoListRow({ session, onClick, onDelete }) {
+  const thumbnail   = getSessionThumbnail(session);
+  const title       = getSessionTitle(session);
+  const badge       = getSessionBadge(session);
+  const tag         = getSessionTag(session);
   const durationStr = getDurationStr(session);
   return (
     <motion.div whileHover={{ x:3 }} transition={{ duration:0.15 }} onClick={onClick}
@@ -322,16 +249,16 @@ function VideoListRow({ session, onClick }) {
       <div style={{ width:112, height:63, borderRadius:8, overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,#F5EFE9,#EDE8E2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
         {thumbnail
           ? <img src={thumbnail} alt={title} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-          : <Video style={{ width:20, height:20, color:'rgba(193,68,14,0.35)' }} />}
+          : <Film style={{ width:20, height:20, color:'rgba(193,68,14,0.35)' }} />}
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <p style={{ fontSize:14, fontWeight:700, color:C.dark, marginBottom:4, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</p>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:12, color:C.muted }}>{getRelativeTime(session.createdAt)}</span>
-          {session.style && (<>
+          {tag && (<>
             <span style={{ fontSize:12, color:'rgba(45,34,53,0.2)' }}>·</span>
             <span style={{ fontSize:12, fontWeight:600, color:C.muted, textTransform:'capitalize' }}>
-              {STYLE_OPTIONS.find(s=>s.id===session.style)?.name||session.style}
+              {tag}
             </span>
           </>)}
           {durationStr && (<>
@@ -349,6 +276,7 @@ function VideoListRow({ session, onClick }) {
           <span style={{ fontSize:11, fontWeight:700, color:badge.color, whiteSpace:'nowrap' }}>{badge.label}</span>
         </div>
       )}
+      {onDelete && <SessionMenu dark onDelete={() => onDelete(session)} />}
       <ChevronRight style={{ width:15, height:15, color:'rgba(45,34,53,0.25)', flexShrink:0 }} />
       <style>{`@keyframes dot-pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
     </motion.div>
@@ -438,9 +366,15 @@ function StreamCol({ tiles, reverse=false, speed=30, marginTop=0 }) {
   );
 }
 
+// First run of letters from a username or email, or "there" when that is too short to be a name.
+function greetingName(raw) {
+  const word = String(raw || '').split('@')[0].match(/[A-Za-z]+/)?.[0] || '';
+  return word.length >= 2 ? word[0].toUpperCase() + word.slice(1) : 'there';
+}
+
 // ── Welcome empty state ───────────────────────────────────────────
 function WelcomeEmptyState({ username, onCreateClick }) {
-  const firstName = username?.split(' ')[0] || username || 'there';
+  const firstName = greetingName(username);
   return (
     <>
       <style>{`
@@ -500,9 +434,7 @@ function WelcomeEmptyState({ username, onCreateClick }) {
 }
 
 // ── Tab empty state ───────────────────────────────────────────────
-function TabEmptyState({ tab, styleFilter, onCreateClick, onClearFilter }) {
-  const isFiltered = !!styleFilter;
-  const styleName  = isFiltered ? STYLE_OPTIONS.find(s=>s.id===styleFilter)?.name : null;
+function TabEmptyState({ tab, onCreateClick }) {
   return (
     <motion.div
       initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }}
@@ -513,39 +445,28 @@ function TabEmptyState({ tab, styleFilter, onCreateClick, onClearFilter }) {
         <Video style={{ width:24, height:24, color:C.terra, opacity:0.65 }} />
       </div>
       <h3 style={{ fontSize:16, fontWeight:700, color:C.dark, marginBottom:8, letterSpacing:'-0.01em' }}>
-        {isFiltered ? `No ${styleName} videos` : tab==='completed' ? 'No finished videos yet' : 'Nothing in progress'}
+        {tab==='completed' ? 'No finished videos yet' : 'Nothing in progress'}
       </h3>
       <p style={{ fontSize:14, color:C.muted, marginBottom:28, maxWidth:280, lineHeight:1.65 }}>
-        {isFiltered
-          ? `You haven't made any ${styleName} videos yet.`
-          : tab==='completed'
-            ? 'Completed videos will appear here once you finish creating.'
-            : 'Ready to start something new?'}
+        {tab==='completed'
+          ? 'Completed videos will appear here once you finish creating.'
+          : 'Ready to start something new?'}
       </p>
-      {isFiltered ? (
-        <button onClick={onClearFilter} style={{
-          height:42, paddingLeft:22, paddingRight:22,
-          borderRadius:9999, border:`1px solid ${C.border}`,
-          background:'#fff', fontSize:13, fontWeight:600,
-          color:C.dark, fontFamily:'inherit', cursor:'pointer',
-        }}>Clear filter</button>
-      ) : (
-        <button onClick={onCreateClick} style={{
-          display:'flex', alignItems:'center', gap:6,
-          height:42, paddingLeft:22, paddingRight:22,
-          borderRadius:9999, border:'none',
-          background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`,
-          color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit',
-          cursor:'pointer', boxShadow:'0 4px 16px rgba(193,68,14,0.28)',
-          transition:'box-shadow 0.2s ease, transform 0.15s ease',
-        }}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 6px 22px rgba(193,68,14,0.38)';e.currentTarget.style.transform='translateY(-1px)';}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 4px 16px rgba(193,68,14,0.28)';e.currentTarget.style.transform='translateY(0)';}}
-        >
-          <Plus style={{ width:15, height:15 }} />
-          {tab==='completed' ? 'Create your first video' : 'Start a new video'}
-        </button>
-      )}
+      <button onClick={onCreateClick} style={{
+        display:'flex', alignItems:'center', gap:6,
+        height:42, paddingLeft:22, paddingRight:22,
+        borderRadius:9999, border:'none',
+        background:`linear-gradient(135deg, ${C.terra}, ${C.terraLt})`,
+        color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit',
+        cursor:'pointer', boxShadow:'0 4px 16px rgba(193,68,14,0.28)',
+        transition:'box-shadow 0.2s ease, transform 0.15s ease',
+      }}
+        onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 6px 22px rgba(193,68,14,0.38)';e.currentTarget.style.transform='translateY(-1px)';}}
+        onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 4px 16px rgba(193,68,14,0.28)';e.currentTarget.style.transform='translateY(0)';}}
+      >
+        <Plus style={{ width:15, height:15 }} />
+        {tab==='completed' ? 'Create your first video' : 'Start a new video'}
+      </button>
     </motion.div>
   );
 }
@@ -571,11 +492,12 @@ export default function MyVideosPage() {
   const [resumeSession,   setResumeSession]   = useState(null);
   const [viewMode,        setViewMode]        = useState("grid");
   const [sort,            setSort]            = useState("newest");
-  const [styleFilter,     setStyleFilter]     = useState(null);
+  const [deleteTarget,    setDeleteTarget]    = useState(null);
+  const [deleting,        setDeleting]        = useState(false);
 
   const total      = activeTab==='completed' ? completedTotal : inProgressTotal;
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const processed  = sortAndFilter(sessions, sort, styleFilter);
+  const processed  = sortSessions(sessions, sort);
   const hasVideos  = !loading && processed.length > 0;
 
   useEffect(() => {
@@ -583,12 +505,12 @@ export default function MyVideosPage() {
       try {
         const [comp, inProg] = await Promise.all([
           listSessions({ status:'completed',   limit:1, offset:0 }),
-          listSessions({ status:'in-progress', limit:1, offset:0 }),
+          listSessions({ status:'in-progress', limit:1, offset:0, sort:'updated' }),
         ]);
         setCompletedTotal(comp.total);
         setInProgressTotal(inProg.total);
         setIsNewUser(comp.total===0 && inProg.total===0);
-        if (inProg.data?.[0]) setResumeSession(inProg.data[0]);
+        if (inProg.data?.[0] && !isLegacyDraft(inProg.data[0])) setResumeSession(inProg.data[0]);
       } catch { /* silent */ } finally {
         setCheckedNew(true);
       }
@@ -628,8 +550,41 @@ export default function MyVideosPage() {
     isMobile,
   });
 
-  const handleTabChange = tab => { setActiveTab(tab); setPage(1); setStyleFilter(null); };
+  const handleTabChange = tab => { setActiveTab(tab); setPage(1); };
+
+  // Delete the confirmed session, then drop it from the list and counts.
+  const handleConfirmDelete = async () => {
+    const target = deleteTarget;
+    if (!target) return;
+    setDeleting(true);
+    try {
+      await deleteSession(target.id);
+      const remaining = sessions.filter(s => s.id !== target.id);
+      setSessions(remaining);
+      if (activeTab==='completed') setCompletedTotal(t => Math.max(0, t - 1));
+      else                         setInProgressTotal(t => Math.max(0, t - 1));
+      if (resumeSession?.id === target.id) {
+        setResumeSession(null);
+        listSessions({ status:'in-progress', limit:1, offset:0, sort:'updated' })
+          .then(r => setResumeSession(r.data?.[0] && !isLegacyDraft(r.data[0]) ? r.data[0] : null))
+          .catch(() => {});
+      }
+      if (remaining.length === 0 && page > 1) setPage(p => p - 1);
+      else if (remaining.length === 0) fetchSessions();
+      toast.success("Video deleted");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Could not delete this video");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
   const handleCardClick = session => {
+    if (isLegacyDraft(session)) {
+      toast.info("This draft was made with an older version of Raphio and can't be reopened. You can delete it from the ⋮ menu.");
+      return;
+    }
     if (["COMPLETED","EDITING"].includes(session.stage)) navigate(`/video/${session.id}`);
     // Resume by the session's OWN pipeline mode, Creator otherwise picks the
     // last-selected (localStorage) mode and renders the wrong pipeline.
@@ -684,12 +639,12 @@ export default function MyVideosPage() {
           </div>
         </div>
 
-        {/* ── Resume banner, always reserves 60px of space ── */}
+        {/* ── Resume banner ── */}
         {checkedNew && (
           <ResumeBanner
             session={resumeSession}
             onClick={() => resumeSession && handleCardClick(resumeSession)}
-            visible={!isNewUser && activeTab==='completed'}
+            visible={!isNewUser}
             isNewUser={isNewUser}
           />
         )}
@@ -756,32 +711,27 @@ export default function MyVideosPage() {
           {checkedNew && !isNewUser && !loading && !hasVideos && (
             <TabEmptyState
               tab={activeTab}
-              styleFilter={styleFilter}
               onCreateClick={() => navigate('/create')}
-              onClearFilter={() => setStyleFilter(null)}
             />
           )}
 
           {/* Case 4: Has videos */}
           {checkedNew && !isNewUser && !loading && hasVideos && (
             <motion.div
-              key={`${activeTab}-${page}-${viewMode}-${sort}-${styleFilter}`}
+              key={`${activeTab}-${page}-${viewMode}-${sort}`}
               initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}
               exit={{ opacity:0 }} transition={{ duration:0.22, ease:'easeOut' }}
             >
-              {sessions.length > 0 && (
-                <StyleFilterChips sessions={sessions} activeStyle={styleFilter} onChange={setStyleFilter} />
-              )}
               {viewMode==='grid' ? (
                 <div className="mvp-grid">
                   {processed.map(session => (
-                    <VideoCard key={session.id} session={session} onClick={()=>handleCardClick(session)} />
+                    <VideoCard key={session.id} session={session} onClick={()=>handleCardClick(session)} onDelete={setDeleteTarget} />
                   ))}
                 </div>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {processed.map(session => (
-                    <VideoListRow key={session.id} session={session} onClick={()=>handleCardClick(session)} />
+                    <VideoListRow key={session.id} session={session} onClick={()=>handleCardClick(session)} onDelete={setDeleteTarget} />
                   ))}
                 </div>
               )}
@@ -794,6 +744,23 @@ export default function MyVideosPage() {
 
       {/* Help FAB: offers the video and the tour on demand (shared HelpFab component). */}
       <HelpFab onStartTour={myVideosTour.replay} onPlayVideo={intro.replay} />
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o && !deleting) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-sm font-figtree">
+          <DialogHeader>
+            <DialogTitle className="break-words">
+              {deleteTarget ? `Delete "${getSessionTitle(deleteTarget)}"?` : 'Delete this video?'}
+            </DialogTitle>
+            <DialogDescription>This can't be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <IntroVideoModal
         open={intro.open}

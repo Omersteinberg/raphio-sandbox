@@ -4,15 +4,6 @@ import { API_BASE } from "../config.js";
 const PROMO_URL = `${API_BASE}/promo`;
 
 /**
- * Redeem a promo code for free credits.
- * @returns {Promise<{creditsAdded:number, credits:number, code:string}>}
- */
-export async function redeemCode(code) {
-  const response = await axios.post(`${PROMO_URL}/redeem`, { code });
-  return response.data.data;
-}
-
-/**
  * Apply a code on the Buy Credits page. A CREDITS code is redeemed immediately;
  * a DISCOUNT code is validated and its terms returned for use at checkout.
  * @returns {Promise<{kind:'CREDITS', creditsAdded:number, credits:number, code:string}

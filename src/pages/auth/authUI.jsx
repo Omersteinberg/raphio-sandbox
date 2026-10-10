@@ -339,6 +339,8 @@ export function UnderlineInput({
   value,
   onChange,
   required,
+  autoComplete,
+  endAdornment,
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -357,32 +359,35 @@ export function UnderlineInput({
       >
         {label}
       </label>
-      <input
-        id={id}
-        type={type}
-        required={required}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          width: "100%",
-          height: 40,
-          border: "none",
-          borderBottom: `1.5px solid ${focused ? C.terra : C.faint}`,
-          borderRadius: 0,
-          background: "transparent",
-          padding: "0 0 4px 0",
-          fontSize: 15,
-          color: C.dark,
-          fontFamily: "inherit",
-          outline: "none",
-          transition: "border-color 0.25s ease",
-          WebkitBoxShadow: "0 0 0px 1000px #fff inset",
-          WebkitTextFillColor: C.dark,
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <input
+          id={id}
+          className="auth-input"
+          type={type}
+          required={required}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            width: "100%",
+            height: 40,
+            border: "none",
+            borderBottom: `1.5px solid ${focused ? C.terra : C.faint}`,
+            borderRadius: 0,
+            background: "transparent",
+            padding: endAdornment ? "0 36px 4px 0" : "0 0 4px 0",
+            fontSize: 15,
+            color: C.dark,
+            fontFamily: "inherit",
+            outline: "none",
+            transition: "border-color 0.25s ease",
+          }}
+        />
+        {endAdornment}
+      </div>
     </div>
   );
 }

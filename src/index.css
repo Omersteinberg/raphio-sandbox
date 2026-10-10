@@ -420,3 +420,6 @@
 .timeline-scroll::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+.auth-input::placeholder { color: rgb(107 94 123 / 0.5); -webkit-text-fill-color: rgb(107 94 123 / 0.5); }
+.auth-input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; -webkit-text-fill-color: #2D2235; }

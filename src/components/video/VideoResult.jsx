@@ -16,13 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/services/api";
 import { getShareUrl, notifyShareComplete } from "@/services/session";
+import { useAuth } from "@/hooks/useAuth.jsx";
 import { API_BASE } from "@/config";
 
 /**
  * The single "your video is ready" view - used identically by the wizard's
  * final step (ResultStep) and the standalone /video/:id page. It renders the
  * whole thing: ready header, player, Download, Edit / Share / Create-New
- * actions, and the Video Details grid (incl. Model). The hosts only pass data +
+ * actions, and the Video Details grid. The hosts only pass data +
  * the Edit/Create-New handlers (which legitimately differ: the wizard resets /
  * enters editing mode in place; the page navigates).
  *
@@ -31,7 +32,7 @@ import { API_BASE } from "@/config";
  *
  * Share strategy: the only link ever shown or copied is the public /watch link
  * from getShareUrl (works for logged-out viewers). There is deliberately no
- * fallback to `/video/:id` — that route requires login, so it would be a dead
+ * fallback to `/video/:id`: that route requires login, so it would be a dead
  * end for exactly the logged-out visitor a shared link is supposed to reach.
  * While that fetch is pending or has failed, the Share button shows a loading
  * state (not HTML-disabled, so a click still gets a toast and triggers a
@@ -45,7 +46,10 @@ export default function VideoResult({
   style,
   sectionsCount,
   duration,
-  model,
+  aspectRatio,
+  prompt,
+  createdAt,
+  fresh = false,
   posterUrl,
   downloadLabel = "Download",
   onEdit,
@@ -62,10 +66,15 @@ export default function VideoResult({
   const [shareStatus, setShareStatus] = useState("idle");
   const [shareOpen, setShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [shareBonusDone, setShareBonusDone] = useState(false);
+  const { refreshCredits } = useAuth();
   const shareRef = useRef(null);
   const copyTimeoutRef = useRef(null);
   const autoRetriedRef = useRef(false);
   const displayTitle = title || "Untitled";
+  const madeOn = formatMadeOn(createdAt);
+  const shapeLabel = shapeFromAspect(aspectRatio);
+  const promptText = prompt ? truncateText(prompt, PROMPT_MAX_CHARS) : "-";
 
   const closeSharePopover = useCallback(() => {
     if (copyTimeoutRef.current) {
@@ -104,7 +113,7 @@ export default function VideoResult({
   // click handler stays synchronous. iOS Safari requires navigator.share to run
   // inside the user gesture, an await before it silently breaks the native sheet.
   // This is also why a failed fetch can't be retried inline from the click handler
-  // (an await there would break that gesture chain) — instead the Share button is
+  // (an await there would break that gesture chain), so instead the Share button is
   // disabled until this resolves, and a failure gets one automatic background retry.
   const fetchShareUrl = useCallback(() => {
     if (!sessionId) return;
@@ -123,6 +132,7 @@ export default function VideoResult({
 
   useEffect(() => {
     autoRetriedRef.current = false;
+    setShareBonusDone(false);
     if (sessionId && finalVideoUrl) fetchShareUrl();
   }, [sessionId, finalVideoUrl, fetchShareUrl]);
 
@@ -184,7 +194,7 @@ export default function VideoResult({
     }
   };
 
-  // The public /watch link, once it has actually loaded — never the authed
+  // The public /watch link, once it has actually loaded, never the authed
   // /video/:id route. When there's no sessionId at all (defensive; both real
   // hosts always pass one), fall back to the raw video file, which needs no
   // login either.
@@ -192,12 +202,24 @@ export default function VideoResult({
   const shareReady = sessionId ? shareStatus === "ready" && !!publicShareUrl : !!finalVideoUrl;
   const canOfferShare = showShare && (sessionId || finalVideoUrl);
 
+  // Claims the one-time share bonus. Best-effort; the backend decides if it is awarded.
+  const claimShareBonus = () => {
+    if (!sessionId || shareBonusDone) return;
+    notifyShareComplete(sessionId)
+      .then((res) => {
+        if (!res || typeof res.awarded !== "boolean") return;
+        setShareBonusDone(true);
+        if (res.awarded) {
+          toast.success(`+${res.creditsAdded} credits for sharing!`);
+          refreshCredits();
+        }
+      })
+      .catch(() => {});
+  };
+
   const handleShare = async () => {
     if (!shareReady || !shareUrl) {
-      toast.info("Link isn't ready yet — try again in a moment.");
-      // Fire-and-forget retry, skipped while one's already in flight. The button
-      // stays clickable (not HTML-disabled) specifically so this branch can run —
-      // a disabled button would swallow the click and never offer this retry.
+      toast.info("Link isn't ready yet. Try again in a moment.");
       if (shareStatus !== "loading") fetchShareUrl();
       return;
     }
@@ -208,20 +230,7 @@ export default function VideoResult({
           text: "Check out this video I created!",
           url: shareUrl,
         });
-        // Share sheet resolved (not cancelled) — tell the backend so it can award
-        // the one-time credit bonus. Best-effort: never blocks or alters the share
-        // UX, and the backend is the sole source of truth for whether it's awarded.
-        if (sessionId) {
-          notifyShareComplete(sessionId)
-            .then((res) => {
-              if (res && res.awarded) {
-                toast.success(`+${res.creditsAdded} credits for sharing!`);
-              }
-            })
-            .catch(() => {
-              /* best-effort */
-            });
-        }
+        claimShareBonus();
         return;
       } catch {
         /* cancelled or unsupported → fall back to the desktop popover */
@@ -238,6 +247,7 @@ export default function VideoResult({
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
+      claimShareBonus();
       // Show a checkmark on the button itself (the toast alone is easy to miss),
       // then revert and close after the user's had a moment to see it.
       setLinkCopied(true);
@@ -254,6 +264,7 @@ export default function VideoResult({
 
   const openSocialShare = (url) => {
     window.open(url, "_blank", "noopener,noreferrer");
+    claimShareBonus();
     closeSharePopover();
   };
 
@@ -265,11 +276,13 @@ export default function VideoResult({
           <Check className="w-8 h-8 text-success" />
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-          Your Video is Ready!
+          {fresh ? "Your video is ready" : displayTitle}
         </h1>
-        <p className="text-muted-foreground">
-          {displayTitle} has been successfully created
-        </p>
+        {(fresh || madeOn) && (
+          <p className="text-muted-foreground">
+            {fresh ? `${displayTitle} is done.` : `Made ${madeOn}`}
+          </p>
+        )}
       </div>
 
       {/* Player */}
@@ -334,7 +347,7 @@ export default function VideoResult({
               ) : (
                 <Loader2 className="w-4 h-4 animate-spin" />
               )}
-              Share
+              {sessionId && !shareBonusDone ? "Share · +3 credits" : "Share"}
             </Button>
 
             <AnimatePresence>
@@ -422,7 +435,8 @@ export default function VideoResult({
           <Detail label="Style" value={style || "-"} capitalize />
           <Detail label="Duration" value={duration || "-"} />
           <Detail label="Sections" value={sectionsCount ?? 0} />
-          <Detail label="Model" value={model || "-"} />
+          <Detail label="Shape" value={shapeLabel} />
+          <Detail label="Prompt" value={promptText} title={prompt || undefined} />
         </div>
       </div>
 
@@ -430,7 +444,7 @@ export default function VideoResult({
         <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
           <p className="text-sm text-primary">
             <strong>Tip:</strong> Use Edit to regenerate individual sections,
-            reorder clips, adjust narration, speed and more.
+            adjust narration, speed and more.
           </p>
         </div>
       )}
@@ -438,11 +452,35 @@ export default function VideoResult({
   );
 }
 
-function Detail({ label, value, capitalize = false }) {
+const PROMPT_MAX_CHARS = 120;
+
+// Formats the video's creation date for the subline, or null when missing or invalid.
+function formatMadeOn(createdAt) {
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+// Maps an aspect ratio to a plain shape name, showing unknown ratios as-is.
+function shapeFromAspect(aspectRatio) {
+  if (!aspectRatio) return "-";
+  if (aspectRatio === "16:9") return "Landscape";
+  if (aspectRatio === "9:16") return "Vertical";
+  return aspectRatio;
+}
+
+// Cuts text to max characters with a trailing ellipsis.
+function truncateText(text, max) {
+  const s = String(text).trim();
+  return s.length > max ? `${s.slice(0, max).trimEnd()}...` : s;
+}
+
+function Detail({ label, value, title, capitalize = false }) {
   return (
     <div>
       <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`font-medium text-foreground ${capitalize ? "capitalize" : ""}`}>
+      <p title={title} className={`font-medium text-foreground ${capitalize ? "capitalize" : ""}`}>
         {value}
       </p>
     </div>

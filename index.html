@@ -23,6 +23,15 @@
     <meta name="twitter:description" content="Raphio turns a prompt, photos, or a reference image into a narrated AI video you can trim, reorder, and edit before downloading or sharing." />
     <meta name="twitter:image" content="https://raphio.ai/og-image.png" />
 
+    <!-- Hero poster preload, landing page only, so app routes don't warn "preloaded but not used" -->
+    <script>
+      if (location.pathname === "/") {
+        var l = document.createElement("link");
+        l.rel = "preload"; l.as = "image"; l.href = "/hero-poster.jpg";
+        document.head.appendChild(l);
+      }
+    </script>
+
     <!-- Fonts: DESIGN.md pairing - Bricolage Grotesque (display) + Figtree (body/UI) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

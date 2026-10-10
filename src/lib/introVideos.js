@@ -44,11 +44,15 @@ export function introVideoTitle(key) {
   return Object.hasOwn(TITLES, key) ? TITLES[key] : "";
 }
 
+// Welcome videos share one first-visit slot: seeing either one stops the other auto-opening.
+const WELCOME_KEYS = ["myVideos", "modeChooser"];
+
 // The single source of truth for both the modal and the tour gate. Pure and
 // total. `tourEnabled` is the exact complement of `open` once ready, so a tour
 // can never run behind an open modal, nor be lost after the modal closes.
 export function resolveIntro({ key, ready, seen, src, dismissed }) {
-  const open = Boolean(ready && src && !dismissed && !(seen || []).includes(key));
+  const group = WELCOME_KEYS.includes(key) ? WELCOME_KEYS : [key];
+  const open = Boolean(ready && src && !dismissed && !group.some((k) => (seen || []).includes(k)));
   return { open, tourEnabled: Boolean(ready) && !open };
 }
 

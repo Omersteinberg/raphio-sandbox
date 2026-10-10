@@ -4,7 +4,10 @@ import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/services/session";
 import { describeError } from "@/lib/errorDetail";
+import { isGenerationFailed } from "@/lib/progressTasks";
 import VideoResult from "@/components/video/VideoResult";
+
+const POLL_INTERVAL_MS = 5000;
 
 export default function VideoDetailPage() {
   const { id } = useParams();
@@ -55,6 +58,36 @@ export default function VideoDetailPage() {
       fetchSession();
     }
   }, [id]);
+
+  const failedNoResult = isGenerationFailed(session) && !finalVideoUrl;
+  const isGenerating = session?.stage === "GENERATING" && !failedNoResult;
+
+  // Polls the session every 5s while generating; stops on terminal state, 403/404 or unmount, and never overlaps requests.
+  useEffect(() => {
+    if (!id || !isGenerating) return undefined;
+    let cancelled = false;
+    let inFlight = false;
+    const interval = setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const data = await getSession(id);
+        if (!cancelled && data) setSession(data);
+      } catch (err) {
+        const code = err?.response?.status;
+        if (code === 403 || code === 404) {
+          clearInterval(interval);
+          if (!cancelled) setNotFound(true);
+        }
+      } finally {
+        inFlight = false;
+      }
+    }, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [id, isGenerating]);
 
   const handleCreateOwn = () => navigate("/create");
 
@@ -114,8 +147,25 @@ export default function VideoDetailPage() {
     );
   }
 
-  // Video still generating
-  if (session.stage === "GENERATING") {
+  if (failedNoResult) {
+    return (
+      <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Video Generation Failed</h1>
+          <p className="text-muted-foreground mb-6">
+            {video?.progressData?.error || "Something went wrong while creating this video."}
+          </p>
+          <Button onClick={handleCreateOwn} className="bg-primary hover:bg-primary/90 text-white">
+            Create a New Video
+            <ArrowRight className="ml-2 w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isGenerating) {
     return (
       <div className="min-h-full font-figtree flex items-center justify-center" style={{ background: "var(--gradient-app)" }}>
         <div className="text-center max-w-md">
@@ -123,16 +173,9 @@ export default function VideoDetailPage() {
           <h1 className="text-2xl font-bold text-foreground mb-2">
             Video Still Processing
           </h1>
-          <p className="text-muted-foreground mb-6">
-            This video is still being created. Check back in a few minutes.
+          <p className="text-muted-foreground">
+            This video is still being created. This page updates on its own when it is ready.
           </p>
-          <Button
-            onClick={() => window.location.reload()}
-            variant="outline"
-            className="border-primary text-primary hover:bg-primary/10"
-          >
-            Refresh Status
-          </Button>
         </div>
       </div>
     );
@@ -150,7 +193,9 @@ export default function VideoDetailPage() {
             style={session?.style}
             sectionsCount={video?.sections?.length}
             duration={durationLabel}
-            model={video?.videoModel || session?.videoModel}
+            aspectRatio={session?.video?.aspectRatio || session?.aspectRatio}
+            prompt={session?.userPrompt}
+            createdAt={video?.createdAt || session?.createdAt}
             posterUrl={video?.posterUrl || video?.sections?.find((s) => s.imageUrl)?.imageUrl}
             onEdit={handleEditVideo}
             onCreateNew={handleCreateOwn}

@@ -7,6 +7,7 @@ import {
   Upload,
   Mic,
 } from "lucide-react";
+import { getCachedThumbnails, useThumbnailsVersion } from "@/lib/thumbnailCache";
 
 // One panel, two scopes, so the rail's Media and Audio categories don't list
 // the same assets twice. "media" is visual-only (video clips - a single group,
@@ -40,6 +41,7 @@ export default function AssetPanel({
   onOpenAudioUpload,
   onOpenVoice,
 }) {
+  useThumbnailsVersion();
   const TABS = SCOPES[scope];
   const [activeTab, setActiveTab] = useState(TABS[0].key);
   const [playingAudio, setPlayingAudio] = useState(null);
@@ -217,12 +219,14 @@ export default function AssetPanel({
                   onDragStart={(e) => handleVideoDragStart(e, section)}
                 >
                   <div className="flex items-center gap-2.5">
-                    {section.imageUrl && (
+                    {getCachedThumbnails(section.id)?.[0] ? (
                       <img
-                        src={section.imageUrl}
+                        src={getCachedThumbnails(section.id)[0]}
                         alt=""
                         className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
                       />
+                    ) : (
+                      <div className="w-11 h-11 rounded-lg bg-muted flex-shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-foreground truncate">
@@ -256,13 +260,13 @@ export default function AssetPanel({
             {narrationSections.map((section) => (
               <div
                 key={`narration-${section.id}`}
-                className="bg-blue-500/5 rounded-xl p-2.5 cursor-grab hover:bg-blue-500/10 hover:border-blue-500/40 transition-colors group border border-blue-500/25"
+                className="bg-terra/5 rounded-xl p-2.5 cursor-grab hover:bg-terra/10 hover:border-terra/40 transition-colors group border border-terra/25"
                 draggable
                 onDragStart={(e) => handleNarrationDragStart(e, section)}
               >
                 <div className="flex items-center gap-2.5">
                   <button
-                    className="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg bg-blue-500 hover:bg-blue-400 transition-transform active:scale-95"
+                    className="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg bg-terra/80 hover:bg-terra transition-transform active:scale-95"
                     aria-label={`Play narration ${section.orderIndex + 1}`}
                     onClick={() => handlePlayAudio(section.narrationUrl)}
                   >
@@ -274,7 +278,7 @@ export default function AssetPanel({
                   </div>
                   {onNarrationEdit && (
                     <button
-                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 text-muted-foreground hover:text-blue-500 transition-opacity shrink-0"
+                      className="opacity-60 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 text-muted-foreground hover:text-terra transition-opacity shrink-0"
                       title="Edit narration"
                       aria-label={`Edit narration ${section.orderIndex + 1}`}
                       onClick={(e) => { e.stopPropagation(); onNarrationEdit(section); }}
@@ -285,7 +289,7 @@ export default function AssetPanel({
                 </div>
               </div>
             ))}
-            {ttsAssets.map((asset) => assetRow(asset, "bg-blue-500 hover:bg-blue-400"))}
+            {ttsAssets.map((asset) => assetRow(asset, "bg-terra/80 hover:bg-terra"))}
             {tabCounts.narration === 0 && emptyNote("No narration yet.")}
           </>
         )}
@@ -293,7 +297,7 @@ export default function AssetPanel({
         {/* Audio (uploaded files) */}
         {activeTab === "audio" && (
           <>
-            {uploadAssets.map((asset) => assetRow(asset, "bg-green-500 hover:bg-green-400"))}
+            {uploadAssets.map((asset) => assetRow(asset, "bg-ink/70 hover:bg-ink/[0.85]"))}
             {tabCounts.audio === 0 && emptyNote("No uploaded audio yet.")}
           </>
         )}
@@ -311,7 +315,7 @@ export default function AssetPanel({
                 {musicAssets.length ? "Regenerate music" : "Generate music"}
               </button>
             )}
-            {musicAssets.map((asset) => assetRow(asset, "bg-purple-500 hover:bg-purple-400"))}
+            {musicAssets.map((asset) => assetRow(asset, "bg-ink/70 hover:bg-ink/[0.85]"))}
             {tabCounts.music === 0 && emptyNote("No background music yet.")}
           </>
         )}

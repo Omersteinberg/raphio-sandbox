@@ -16,8 +16,8 @@ export const authHeader = () => ({
 });
 
 // Register user
-export async function register(username, email, password) {
-  const { data } = await api.post(`${API_URL}/auth/register`, { username, email, password, attribution: getAttribution() });
+export async function register({ email, password, username }) {
+  const { data } = await api.post(`${API_URL}/auth/register`, { email, password, username, attribution: getAttribution() });
   setToken(data.token);
   return data.user;
 }
@@ -83,10 +83,18 @@ export async function resetPassword(token, password) {
   return data;
 }
 
-// Logout
-export function logout() {
+// Permanently delete the signed-in account (protected). password is optional for Google-only users.
+export async function deleteAccount(password) {
+  const { data } = await api.delete(`${API_URL}/auth/account`, {
+    data: { password: password || undefined, confirm: 'DELETE' },
+  });
+  return data;
+}
+
+// Logout, then leave for the given path (login page by default)
+export function logout(to) {
   removeToken();
-  window.location.href = '/login';
+  window.location.href = typeof to === 'string' ? to : '/login';
 }
 
 // Auth check on app load

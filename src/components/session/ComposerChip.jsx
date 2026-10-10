@@ -27,10 +27,9 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 /**
  * `scroll` (opt-in, default false): below `sm` (640px), renders as a single
  * horizontal-scrolling nowrap row instead of a wrapping one. NOT currently
- * used by any caller - PromptStep's Length/Ratio/Voice/Music row used to
- * scroll on mobile, but once each chip dropped its text label there (icon +
- * value only, see ComposerChip's render) all four fit one line without it,
- * so that row switched to a plain wrapping row via `gapClassName` instead
+ * used by any caller: once each chip dropped its text label (icon + value
+ * only, see ComposerChip's render) a settings row fits one line without it,
+ * so rows use a plain wrapping row via `gapClassName` instead
  * (below). Left implemented and reachable, not deleted, in case some future
  * row genuinely needs to scroll instead of wrap - see the IMPORTANT note
  * below before reaching for it again.
@@ -53,7 +52,7 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
  * Growing to fill and scrolling-without-squeezing are mutually exclusive in
  * a scroll container; you cannot have both from flex-grow/shrink alone. Any
  * future `scroll` row needs the same `shrink-0` + explicit per-chip
- * `min-w-[Npx]` treatment PromptStep's row used to lean on, not bare
+ * `min-w-[Npx]` treatment, not bare
  * `flex-1`.
  */
 export function ComposerChipRow({ children, className = "", scroll = false, gapClassName = "gap-3" }) {
@@ -107,8 +106,8 @@ export function ComposerChipRow({ children, className = "", scroll = false, gapC
       >
         {Children.map(children, (child, i) => {
           if (!child) return child;
-          // A chip's own `grow` prop (default false on ComposerChip, and
-          // ImproveButton has no such prop at all) decides whether ITS
+          // A chip's own `grow` prop (default false on ComposerChip; other
+          // children have no such prop at all) decides whether ITS
           // wrapper becomes a flex item that expands - this is step 1 of the
           // width chain; see ComposerChip's own comment for steps 2 and 3.
           // Deliberately NOT `min-w-0`: an earlier version added it to let
@@ -120,8 +119,8 @@ export function ComposerChipRow({ children, className = "", scroll = false, gapC
           // instead squeezed until the label/value text overlapped the
           // icons. Without it, the row wraps cleanly instead.
           //
-          // `grow` has exactly one real consumer today (PromptStep's
-          // Length/Ratio/Voice/Music, all four `grow`-tagged, all in a
+          // `grow` has exactly one real consumer today (IntroBriefStep's
+          // settings row, all four `grow`-tagged, all in a
           // wrapping - not scroll - row), so its wrapper is unconditional
           // `flex-1` at every width: with a 0% flex-basis, equal grow
           // factors split the row's width equally regardless of each
@@ -220,10 +219,10 @@ const TONE_OUTLINED = {
 };
 
 // `size` is opt-in and defaults to the original scale, so callers that never
-// pass it (Brand Intro) render byte-identical to before. `lg` exists for a
+// pass it render byte-identical to before. `lg` exists for a
 // composer that wants its chips to read as confident controls, not
-// badge-scale text. `lg` is used exclusively by PromptStep's Length/Ratio/
-// Voice/Music row (confirmed - no other caller passes size="lg"), so its
+// badge-scale text. `lg` is used exclusively by IntroBriefStep's settings
+// row, so its
 // padding/gap/text-size are responsive right in this constant rather than
 // forcing every call site to repeat the same override: below `sm` it's the
 // compact icon+value-only shape (see the outlined+value render below - the
@@ -430,7 +429,7 @@ export function ComposerChip({
             pattern the Inspiration/Dictionary/Tips pills already use below
             that breakpoint - that's what let these four chips fit one row
             without scrolling (see SIZE.lg and ComposerChipRow's gapClassName
-            usage in PromptStep). `sm:mt-0.5` (was unconditional) only
+            usage in IntroBriefStep). `sm:mt-0.5` (was unconditional) only
             separates the value from the label once the label is actually
             there to separate it from.
             `flex-row sm:flex-col` (was unconditional `flex-col`): below `sm`

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, Fragment } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, Fragment } from 'react';
 import { motion, useScroll, useTransform, useInView, useAnimationFrame, useMotionValue, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Play, ChevronLeft, ChevronRight, Sparkles, Plus, Mail, X, MapPin, Film, Palette, Mic2, Crop, Workflow, Tag } from "lucide-react";
@@ -6,6 +6,7 @@ import { Infinity as InfinityIcon, ShieldCheck, Clock, CheckCircle, XCircle, Zap
 import { useAuth } from "@/hooks/useAuth.jsx";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { trackAcquisition } from "@/services/acquisition.js";
+import { PACKS } from "@/lib/pricing.js";
 import scene5Img from "@/assets/scene-5.png";
 import scene1Img from "@/assets/scene-1.png";
 import scene2Img from "@/assets/scene-2.png";
@@ -143,6 +144,22 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
+// Hero video src: set only after window load, and never under reduced motion or data saver.
+function useHeroVideoSrc(reducedMotion) {
+  const [src, setSrc] = useState(null);
+  useEffect(() => {
+    if (reducedMotion || navigator.connection?.saveData) return;
+    if (document.readyState === 'complete') {
+      setSrc(HERO_VIDEO_URL);
+      return;
+    }
+    const onLoad = () => setSrc(HERO_VIDEO_URL);
+    window.addEventListener('load', onLoad, { once: true });
+    return () => window.removeEventListener('load', onLoad);
+  }, [reducedMotion]);
+  return reducedMotion || navigator.connection?.saveData ? null : src;
+}
+
 // ── How it works: convergence into one node ─────────────────────────────
 // Three entrances, one machine. Step 1 is the only interactive part of this
 // section: clicking a card sends that card's own content on a curved path
@@ -234,12 +251,18 @@ function getBuildTimelineState(elapsedS) {
 function useBuildTimeline(containerRef, reducedMotion) {
   const inView = useInView(containerRef, { amount: 0.4 });
   const elapsed = useMotionValue(0);
-  const [discrete, setDiscrete] = useState({ stageIndex: BUILD_REDUCED_STAGE_INDEX, phase: 'running' });
+  const [discrete, setDiscrete] = useState({ stageIndex: 0, phase: 'running' });
   const prevRef = useRef(discrete);
+  const enterRef = useRef(null);
 
   useAnimationFrame((time) => {
-    if (reducedMotion || !inView) return;
-    const seconds = time / 1000;
+    if (reducedMotion) return;
+    if (!inView) {
+      enterRef.current = null;
+      return;
+    }
+    if (enterRef.current === null) enterRef.current = time;
+    const seconds = (time - enterRef.current) / 1000;
     elapsed.set(seconds);
     const s = getBuildTimelineState(seconds);
     if (s.stageIndex !== prevRef.current.stageIndex || s.phase !== prevRef.current.phase) {
@@ -252,7 +275,7 @@ function useBuildTimeline(containerRef, reducedMotion) {
     BUILD_STAGES.slice(0, BUILD_REDUCED_STAGE_INDEX).reduce((sum, s) => sum + s.duration, 0) + BUILD_STAGES[BUILD_REDUCED_STAGE_INDEX].duration * 0.5
   );
   const overallProgress = useTransform(elapsed, (v) => (reducedMotion ? reducedState.overallProgress : getBuildTimelineState(v).overallProgress));
-  const rowOpacity = useTransform(elapsed, (v) => (reducedMotion ? 1 : getBuildTimelineState(v).rowOpacity));
+  const rowOpacity = useTransform(elapsed, (v) => (reducedMotion ? 1 : Math.max(0.35, getBuildTimelineState(v).rowOpacity)));
 
   return {
     stageIndex: reducedMotion ? BUILD_REDUCED_STAGE_INDEX : discrete.stageIndex,
@@ -287,7 +310,7 @@ function BuildStatusText({ stageIndex, phase, reducedMotion }) {
   const label = closing ? BUILD_CLOSING_LABEL : stage.label;
   return (
     <div className="flex items-center justify-center" style={{ minHeight: 24, marginBottom: 20 }}>
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={closing ? 'closing' : stage.id}
           initial={reducedMotion ? false : { opacity: 0, y: 6 }}
@@ -1101,6 +1124,9 @@ function BuildAssemblyCard() {
   );
 }
 
+// Formats seconds as m:ss for the fake player labels.
+const fmtPlayerTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s) % 60).padStart(2, '0')}`;
+
 // Step 3: the visual high point. Landscape, not phone-framed - the only
 // asset available is a wide cinematic shot and it earns the space. Its own
 // once-only reveal, independent of everything above it.
@@ -1109,6 +1135,7 @@ function VideoShowcase() {
   const containerRef = useRef(null);
   const { overallProgress } = useBuildTimeline(containerRef, reducedMotion);
   const barWidth = useTransform(overallProgress, (v) => `${v * 100}%`);
+  const elapsedLabel = useTransform(overallProgress, (v) => fmtPlayerTime(v * 60));
 
   return (
     <div ref={containerRef} className="flex flex-col items-center">
@@ -1147,7 +1174,7 @@ function VideoShowcase() {
               Step 2's status text/dots (point 7), so both visibly move together */}
           <div className="absolute left-0 right-0 bottom-0 px-5 sm:px-6 pb-4 pt-10 pointer-events-none" aria-hidden="true">
             <div className="flex items-center gap-2.5">
-              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>0:00</span>
+              <motion.span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>{elapsedLabel}</motion.span>
               <div className="relative flex-1 rounded-full" style={{ height: 3, background: 'rgba(255,255,255,0.28)' }}>
                 <motion.div
                   className="absolute left-0 top-0 h-full rounded-full"
@@ -1162,7 +1189,7 @@ function VideoShowcase() {
                   }}
                 />
               </div>
-              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>1:45</span>
+              <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,250,247,0.92)' }}>1:00</span>
             </div>
           </div>
         </div>
@@ -1646,10 +1673,10 @@ function HowItWorks() {
 // Captions describe what the customer was trying to achieve, not the ad's
 // genre - "Sell a product," not "Product showcase."
 const SEE_IT_ITEMS = [
-  { label: 'Promote an event', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4' },
-  { label: 'Sell a product', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4' },
-  { label: 'Launch a new brand', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4' },
-  { label: 'Advertise a restaurant', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4' },
+  { label: 'Promote an event', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Travel_brand_ad_montage_202606181523.mp4', poster: '/showcase/promote-an-event.jpg' },
+  { label: 'Sell a product', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Luxury_watch_ad_Raphio_202606181523.mp4', poster: '/showcase/sell-a-product.jpg' },
+  { label: 'Launch a new brand', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Perfume_bottle_rotates_Raphio_br%E2%80%A6_202606181522.mp4', poster: '/showcase/launch-a-new-brand.jpg' },
+  { label: 'Advertise a restaurant', src: 'https://pub-130d5201a986450fa0c5297fa3bc461f.r2.dev/Burger_built_Raphio_brandmark_202606181522.mp4', poster: '/showcase/advertise-a-restaurant.jpg' },
 ];
 
 // Carousel geometry/timing - one place to tune the fan-out and pace.
@@ -1670,6 +1697,7 @@ const CAROUSEL_DEPTH = [
   { scale: 0.82, opacity: 0.65, blur: 1.5 },
   { scale: 0.68, opacity: 0.32, blur: 2.5 },
 ];
+const CAROUSEL_HIDDEN = { scale: 0.68, opacity: 0, blur: 0 };
 
 // One card's own job: play when it's the centered one, pause and rewind to
 // its first frame (a de facto poster) once it stops being centered - never
@@ -1678,9 +1706,16 @@ const CAROUSEL_DEPTH = [
 // firing the instant it loses center: snapping a still-large, still-sharp
 // video back to frame 0 mid-transition is exactly the "hard cut" this was
 // built to avoid - by the time it resets, it's already small and blurred.
-function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, instant = false, paused = false, onOpen }) {
+function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, paused = false, onOpen }) {
   const videoRef = useRef(null);
+  const prevOffsetRef = useRef(offset);
   const [hovered, setHovered] = useState(false);
+  const instant = positioned && Math.abs(offset - prevOffsetRef.current) > 1;
+  const far = positioned && Math.abs(offset) > 1;
+
+  useEffect(() => {
+    prevOffsetRef.current = offset;
+  }, [offset]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -1696,7 +1731,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
       video.play().catch(() => {});
       return;
     }
-    if (!positioned || instant) {
+    if (!positioned || instant || far) {
       video.pause();
       video.currentTime = 0;
       return;
@@ -1706,10 +1741,9 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
       video.currentTime = 0;
     }, CAROUSEL_TRANSITION_MS);
     return () => clearTimeout(t);
-  }, [isCenter, positioned, instant, paused]);
+  }, [isCenter, positioned, instant, far, paused]);
 
-  const depth = positioned ? CAROUSEL_DEPTH[Math.min(Math.abs(offset), CAROUSEL_DEPTH.length)] : { scale: 1, opacity: 1, blur: 0 };
-  if (positioned && !depth) return null;
+  const depth = positioned ? (CAROUSEL_DEPTH[Math.abs(offset)] || CAROUSEL_HIDDEN) : { scale: 1, opacity: 1, blur: 0 };
   const scale = depth.scale * (isCenter && hovered ? 1.03 : 1);
   const gap = cardWidth < 260 ? 16 : 28;
 
@@ -1723,7 +1757,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
         filter: depth.blur ? `blur(${depth.blur}px)` : 'none',
         opacity: depth.opacity,
         zIndex: 10 - Math.abs(offset),
-        pointerEvents: Math.abs(offset) <= CAROUSEL_DEPTH.length ? 'auto' : 'none',
+        pointerEvents: Math.abs(offset) < CAROUSEL_DEPTH.length ? 'auto' : 'none',
         transition: instant ? 'none' : `transform ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}, filter ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}, opacity ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASE}`,
       } : undefined}
     >
@@ -1733,7 +1767,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
         onMouseLeave={() => setHovered(false)}
         className="relative w-full aspect-video rounded-2xl overflow-hidden block"
         style={{
-          background: C.white,
+          background: C.bgAlt,
           border: `1px solid ${C.faint}`,
           boxShadow: isCenter ? '0 24px 60px rgba(28,25,23,0.28)' : '0 4px 18px rgba(28,25,23,0.1)',
           transition: 'box-shadow 0.3s ease',
@@ -1742,6 +1776,7 @@ function CarouselCard({ item, isCenter, offset, cardWidth, positioned = true, in
         <video
           ref={videoRef}
           src={item.src}
+          poster={item.poster}
           muted
           loop
           playsInline
@@ -1868,14 +1903,11 @@ function ActionVideoModal({ item, onClose }) {
   );
 }
 
-// Three copies of the reel back to back so the carousel can drift past the
-// last item straight into a duplicate first item, then get silently
-// snapped back a set (identical content, no visible seam) instead of
-// sliding backwards - the standard infinite-marquee trick, sized down to
-// four items.
-const CAROUSEL_ITEMS_TRIPLED = [0, 1, 2].flatMap((setIndex) =>
-  SEE_IT_ITEMS.map((item, i) => ({ ...item, key: `${setIndex}-${i}` }))
-);
+// Starting offsets for n cards with card 0 centered, in the range -L..L.
+function initialCarouselOffsets(n) {
+  const L = Math.floor(n / 2);
+  return Array.from({ length: n }, (_, i) => (i > L ? i - n : i));
+}
 
 // Flat Functional register (DESIGN.md), outline-only variant: Clay Mist
 // border, no fill at rest, Kiln Terracotta chevron - bounded enough to
@@ -1909,17 +1941,47 @@ function SeeItInAction() {
   const reducedMotion = usePrefersReducedMotion();
   const isMobile = useIsMobile();
   const n = SEE_IT_ITEMS.length;
-  const [activeVirtual, setActiveVirtual] = useState(n);
+  const [active, setActive] = useState(0);
+  const [offsets, setOffsets] = useState(() => initialCarouselOffsets(n));
+  const targetRef = useRef(offsets);
+  const rafRef = useRef(0);
   const [isFocusWithin, setIsFocusWithin] = useState(false);
   // One-way ratchet, not a toggle: once the visitor drives the carousel
   // manually, auto-advance stops for good (WCAG 2.2.2 - the user has taken
   // control, so nothing should start moving on its own again).
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [skipTransition, setSkipTransition] = useState(false);
   const cardWidth = isMobile ? 220 : 320;
-  const currentIndex = ((activeVirtual % n) + n) % n;
-  const goPrev = () => { setHasInteracted(true); setActiveVirtual((v) => v - 1); };
-  const goNext = () => { setHasInteracted(true); setActiveVirtual((v) => v + 1); };
+  const currentIndex = active;
+
+  // Shifts every card by d (-1 next, +1 prev); a wrapped card is parked one slot behind its target, then slid in next frame.
+  const step = useCallback((d) => {
+    const limit = Math.floor(n / 2);
+    const wrapped = [];
+    const next = targetRef.current.map((o) => {
+      let x = o + d;
+      let w = false;
+      if (x < -limit) { x += n; w = true; }
+      else if (x > limit) { x -= n; w = true; }
+      wrapped.push(w);
+      return x;
+    });
+    targetRef.current = next;
+    setActive((a) => (((a - d) % n) + n) % n);
+    cancelAnimationFrame(rafRef.current);
+    if (!wrapped.some(Boolean)) {
+      setOffsets(next);
+      return;
+    }
+    setOffsets(next.map((x, i) => (wrapped[i] ? x - d : x)));
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = requestAnimationFrame(() => setOffsets(targetRef.current));
+    });
+  }, [n]);
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  const goPrev = () => { setHasInteracted(true); step(1); };
+  const goNext = () => { setHasInteracted(true); step(-1); };
 
   // Auto-drift: paused while keyboard focus is inside the carousel (WCAG
   // 2.2.2 - stays regardless of manual interaction, since focus can land on
@@ -1933,39 +1995,9 @@ function SeeItInAction() {
   // carousel stopped moving.
   useEffect(() => {
     if (reducedMotion || isFocusWithin || hasInteracted || activeItem) return;
-    const id = setInterval(() => setActiveVirtual((v) => v + 1), CAROUSEL_DWELL_MS);
+    const id = setInterval(() => step(-1), CAROUSEL_DWELL_MS);
     return () => clearInterval(id);
-  }, [reducedMotion, isFocusWithin, hasInteracted, activeItem]);
-
-  // Once drifted into the third (duplicate) set, wait for that slide-in to
-  // finish, then jump back a set with the transition off for one frame -
-  // invisible, since the two sets are literally identical content.
-  useEffect(() => {
-    if (reducedMotion || activeVirtual < n * 2) return;
-    const t = setTimeout(() => {
-      setSkipTransition(true);
-      setActiveVirtual((v) => v - n);
-    }, CAROUSEL_TRANSITION_MS);
-    return () => clearTimeout(t);
-  }, [activeVirtual, n, reducedMotion]);
-
-  // Mirror of the wrap above, for the "prev" arrow: manual navigation can
-  // now walk backward past the first (duplicate) set, so it needs the same
-  // invisible snap-forward once that slide-in finishes.
-  useEffect(() => {
-    if (reducedMotion || activeVirtual >= n) return;
-    const t = setTimeout(() => {
-      setSkipTransition(true);
-      setActiveVirtual((v) => v + n);
-    }, CAROUSEL_TRANSITION_MS);
-    return () => clearTimeout(t);
-  }, [activeVirtual, n, reducedMotion]);
-
-  useEffect(() => {
-    if (!skipTransition) return;
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setSkipTransition(false)));
-    return () => cancelAnimationFrame(raf);
-  }, [skipTransition]);
+  }, [reducedMotion, isFocusWithin, hasInteracted, activeItem, step]);
 
   return (
     <section className="py-24 px-6" style={{ background: C.bg }}>
@@ -2006,22 +2038,17 @@ function SeeItInAction() {
             onFocus={() => setIsFocusWithin(true)}
             onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsFocusWithin(false); }}
           >
-            {CAROUSEL_ITEMS_TRIPLED.map((item, idx) => {
-              const offset = idx - activeVirtual;
-              if (Math.abs(offset) > CAROUSEL_DEPTH.length) return null;
-              return (
-                <CarouselCard
-                  key={item.key}
-                  item={item}
-                  isCenter={offset === 0}
-                  offset={offset}
-                  cardWidth={cardWidth}
-                  instant={skipTransition}
-                  paused={!!activeItem}
-                  onOpen={setActiveItem}
-                />
-              );
-            })}
+            {SEE_IT_ITEMS.map((item, i) => (
+              <CarouselCard
+                key={item.label}
+                item={item}
+                isCenter={offsets[i] === 0}
+                offset={offsets[i]}
+                cardWidth={cardWidth}
+                paused={!!activeItem}
+                onOpen={setActiveItem}
+              />
+            ))}
           </div>
         )}
 
@@ -2233,11 +2260,28 @@ function ContactSection() {
 const MENU_EASE_OUT = [0.16, 1, 0.3, 1];
 const MENU_EASE_IN = [0.4, 0, 1, 1];
 
+const PACK_ICONS = { starter: Zap, creator: Layers, studio: Crown };
+
+// Free card stays inline; paid cards come from the shared PACKS list.
+const PRICING_TIERS = [
+  {
+    id: 'free', label: 'Free', price: 0, credits: 3,
+    icon: Sparkles, cta: 'Try it free', popular: false,
+    features: [{ text: 'e.g. one 15s video', ok: true }],
+  },
+  ...PACKS.map((p) => ({
+    id: p.id, label: p.label, price: p.price, credits: p.credits,
+    icon: PACK_ICONS[p.id], cta: `Get ${p.label} Pack`, popular: !!p.popular,
+    features: [{ text: `e.g. ${p.example}`, ok: true }],
+  })),
+];
+
 // ── Primary View Component ───────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const reducedMotion = usePrefersReducedMotion();
+  const heroSrc = useHeroVideoSrc(reducedMotion);
   const goToAppOrLogin = () => navigate(user ? '/videos' : '/login');
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2589,7 +2633,7 @@ export default function LandingPage() {
           playsInline
           preload="metadata"
           poster="/hero-poster.jpg"
-          src={HERO_VIDEO_URL}
+          src={heroSrc || undefined}
           className="absolute inset-0 w-full h-full object-cover"
         />
 
@@ -2710,36 +2754,7 @@ export default function LandingPage() {
 
           {/* Pricing cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch">
-            {[
-              {
-                id: 'free', label: 'Free', price: 0, credits: 3,
-                icon: Sparkles, cta: 'Try it free', popular: false,
-                features: [
-                  { text: 'e.g. one 15s video', ok: true  },
-                ],
-              },
-              {
-                id: 'starter', label: 'Starter', price: 29, credits: 6,
-                icon: Zap, cta: 'Get Starter pack', popular: false,
-                features: [
-                  { text: 'e.g. two 15s videos, or one 30s video', ok: true  },
-                ],
-              },
-              {
-                id: 'creator', label: 'Creator', price: 55, credits: 12,
-                icon: Layers, cta: 'Get Creator Pack', popular: true,
-                features: [
-                  { text: 'e.g. two 30s videos, or one 60s video',  ok: true  },
-                ],
-              },
-              {
-                id: 'studio', label: 'Studio', price: 99, credits: 24,
-                icon: Crown, cta: 'Get Studio Pack', popular: false,
-                features: [
-                  { text: 'e.g. two 60s videos, or one 2-minute video', ok: true },
-                ],
-              },
-            ].map((tier, i) => {
+            {PRICING_TIERS.map((tier, i) => {
               const Icon = tier.icon;
               return (
                 <motion.div key={tier.id}
@@ -2831,7 +2846,7 @@ export default function LandingPage() {
           <div className="rounded-2xl p-5 mb-6 mx-auto max-w-md text-center"
             style={{ background: '#FFFAF7', border: '1.5px solid rgba(193,68,14,0.12)' }}>
             <p className="text-sm font-bold" style={{ color: C.terra }}>
-              1 credit = 5 seconds of video · assembled video up to 2 min
+              1 credit = 5 seconds of video · videos up to 60 seconds
             </p>
             <p className="text-xs mt-2" style={{ color: C.muted }}>
               Credits never expire. Spend them whenever you're ready.

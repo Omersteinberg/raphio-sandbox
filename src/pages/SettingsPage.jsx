@@ -1,9 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { updateProfile, changePassword } from "@/api/auth";
+import { updateProfile, changePassword, deleteAccount } from "@/api/auth";
+import { fetchEmailPrefs, saveEmailPrefs } from "@/api/settings";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { describeError } from "@/lib/errorDetail";
 import { toast } from "@/lib/toast";
 
@@ -11,7 +20,7 @@ import { toast } from "@/lib/toast";
 // Used by the page chrome and the Preferences/auto-approve card, which stays
 // pixel-for-pixel as it was before this redesign.
 const C = {
-  bg: "#F5F0EB",
+  bg: "var(--gradient-app)",
   dark: "#2D2235",
   terra: "#C1440E",
   terraLt: "#E8632A",
@@ -33,49 +42,36 @@ const A = {
   tabBg: "#EAE3DA",
 };
 
-// The skippable checkpoints. Order = the order they appear across the wizards.
+// The skippable review steps, in the order they appear while making a video.
 const AUTO_APPROVE_ROWS = [
   {
-    key: "references",
-    title: "References lock",
-    desc: "Approve generated character and setting references automatically (references mode).",
-  },
-  {
     key: "script",
-    title: "Script review",
-    desc: "Approve the generated script without stopping to review it.",
+    title: "Skip script review",
+    desc: "Go straight to the storyboard after the script is written.",
   },
   {
-    key: "bridges",
-    title: "Bridge frames",
-    desc: "Approve AI bridge frames automatically (only when Bridge Frames are on, and never if a frame failed).",
-  },
-  {
-    key: "frames",
-    title: "Scene frames",
-    desc: "Approve generated scene frames automatically (references mode).",
+    key: "storyboard",
+    title: "Skip storyboard review",
+    desc: "Start filming as soon as the storyboard is drawn. You are charged at this point.",
   },
 ];
 
-const GENERATE_ROW = {
-  key: "generate",
-  title: "Generate video",
-  desc: "Start the final video generation automatically.",
-};
-
-function Toggle({ on, onChange, danger }) {
+function Toggle({ on, onChange, danger, disabled }) {
   const activeBg = danger ? "#C1440E" : "linear-gradient(135deg, #C1440E, #E8632A)";
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      onClick={() => onChange(!on)}
+      disabled={disabled}
+      onClick={() => { if (!disabled) onChange(!on); }}
       className="relative shrink-0 rounded-full transition-colors"
       style={{
         width: 46,
         height: 26,
         background: on ? activeBg : "#E2DAD3",
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
       <span
@@ -93,7 +89,7 @@ function Toggle({ on, onChange, danger }) {
   );
 }
 
-function ToggleRow({ title, desc, on, onChange, danger }) {
+function ToggleRow({ title, desc, on, onChange, danger, disabled, note }) {
   return (
     <div
       className="flex items-start justify-between gap-4 py-4"
@@ -106,8 +102,13 @@ function ToggleRow({ title, desc, on, onChange, danger }) {
         <p className="mt-0.5" style={{ color: C.muted, fontSize: 12.5, lineHeight: 1.5 }}>
           {desc}
         </p>
+        {note && (
+          <p className="mt-1" style={{ color: C.muted, fontSize: 12, fontStyle: "italic" }}>
+            {note}
+          </p>
+        )}
       </div>
-      <Toggle on={on} onChange={onChange} danger={danger} />
+      <Toggle on={on} onChange={onChange} danger={danger} disabled={disabled} />
     </div>
   );
 }
@@ -331,7 +332,7 @@ function UsernameRow() {
 
   return (
     <div className="py-4">
-      <RowHeader label="Username" value={user?.username || "—"} editing={editing} onEdit={startEdit} />
+      <RowHeader label="Username" value={user?.username || "Not set"} editing={editing} onEdit={startEdit} />
       <EditPanel open={editing}>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -397,7 +398,7 @@ function EmailRow() {
 
   return (
     <div className="py-4" style={{ borderTop: `1px solid ${A.cardBorder}` }}>
-      <RowHeader label="Email" value={user?.email || "—"} editing={editing} onEdit={startEdit} />
+      <RowHeader label="Email" value={user?.email || "Not set"} editing={editing} onEdit={startEdit} />
       <EditPanel open={editing}>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -530,6 +531,192 @@ function PasswordRow() {
   );
 }
 
+// Danger zone: permanently deletes the account after a typed DELETE confirmation.
+function DeleteAccountRow() {
+  const { credits, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const openDialog = () => {
+    setPassword("");
+    setConfirmText("");
+    setError("");
+    setOpen(true);
+  };
+
+  const handleOpenChange = (next) => {
+    if (loading) return;
+    setOpen(next);
+  };
+
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    if (confirmText !== "DELETE" || loading) return;
+    setError("");
+    setLoading(true);
+    try {
+      await deleteAccount(password);
+      logout("/");
+    } catch (err) {
+      const status = err?.response?.status;
+      const fallback = status === 401
+        ? "That password is incorrect."
+        : "We couldn't delete your account. Please try again.";
+      setError(describeError(err, fallback).userMessage);
+      setLoading(false);
+    }
+  };
+
+  const creditCount = Number(credits) || 0;
+
+  return (
+    <div className="pt-5 mt-1" style={{ borderTop: `1px solid ${A.cardBorder}` }}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: A.terra }}>
+            Delete account
+          </p>
+          <p className="mt-1" style={{ fontSize: 13, color: A.label, lineHeight: 1.5 }}>
+            Removes your account, videos and credits for good.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openDialog}
+          className="shrink-0 font-semibold"
+          style={{
+            height: 36,
+            padding: "0 16px",
+            borderRadius: 9999,
+            background: "#fff",
+            color: A.terra,
+            border: `1px solid rgba(193,68,14,0.35)`,
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          Delete account
+        </button>
+      </div>
+
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="font-figtree rounded-2xl">
+          <form onSubmit={handleDelete} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2" style={{ color: A.terra }}>
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                Delete your account?
+              </DialogTitle>
+              <DialogDescription>
+                This can't be undone. Your videos will be deleted
+                {creditCount > 0 ? ` and your ${creditCount} credit${creditCount === 1 ? "" : "s"} will be lost.` : "."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div>
+              <FieldLabel>Password</FieldLabel>
+              <FieldInput
+                id="settings-delete-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <p className="mt-1" style={{ fontSize: 12, color: A.label }}>
+                Leave blank if you sign in with Google
+              </p>
+            </div>
+
+            <div>
+              <FieldLabel>Type DELETE to confirm</FieldLabel>
+              <FieldInput
+                id="settings-delete-confirm"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="DELETE"
+              />
+            </div>
+
+            <RowError message={error} />
+
+            <DialogFooter className="gap-2">
+              <CancelButton onClick={() => handleOpenChange(false)} disabled={loading} />
+              <button
+                type="submit"
+                disabled={confirmText !== "DELETE" || loading}
+                className="font-semibold"
+                style={{
+                  height: 36,
+                  padding: "0 20px",
+                  borderRadius: 9999,
+                  background: A.terra,
+                  color: "#fff",
+                  fontSize: 13.5,
+                  border: "none",
+                  cursor: confirmText !== "DELETE" || loading ? "not-allowed" : "pointer",
+                  opacity: confirmText !== "DELETE" || loading ? 0.5 : 1,
+                }}
+              >
+                {loading ? "Deleting…" : "Delete account"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Tips and product emails opt-in, stored on the server.
+function EmailPrefsRow() {
+  const [on, setOn] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetchEmailPrefs()
+      .then((v) => { if (alive) setOn(v); })
+      .catch(() => { if (alive) setLoadFailed(true); });
+    return () => { alive = false; };
+  }, []);
+
+  const handleChange = async (next) => {
+    if (on === null || saving) return;
+    const prev = on;
+    setOn(next);
+    setSaving(true);
+    try {
+      setOn(await saveEmailPrefs(next));
+    } catch (err) {
+      setOn(prev);
+      toast.error(describeError(err, "We couldn't save that. Please try again.").userMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const note = loadFailed
+    ? "Couldn't load your email setting. Refresh to try again."
+    : on === null
+      ? "Loading…"
+      : null;
+
+  return (
+    <ToggleRow
+      title="Tips and product emails"
+      desc="Ideas for better videos and news about new features."
+      on={!!on}
+      onChange={handleChange}
+      disabled={on === null || saving}
+      note={note}
+    />
+  );
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("account");
@@ -573,6 +760,7 @@ export default function SettingsPage() {
             <UsernameRow />
             <EmailRow />
             <PasswordRow />
+            <DeleteAccountRow />
           </div>
         ) : (
           <div
@@ -580,11 +768,10 @@ export default function SettingsPage() {
             style={{ background: "#fff", border: `1px solid ${C.border}`, boxShadow: "0 2px 16px rgba(45,34,53,0.06)" }}
           >
             <h2 className="font-bold" style={{ color: C.dark, fontSize: 17 }}>
-              Auto-approve steps
+              Review steps
             </h2>
             <p className="mt-1" style={{ color: C.muted, fontSize: 13, lineHeight: 1.6 }}>
-              Turn a checkpoint on and the wizard passes it for you automatically, instead of stopping to ask.
-              The step still runs. It just advances on its own and stays on the progress timeline as an automatic task.
+              Turn a step on to skip it. Your video keeps moving without stopping to ask you.
             </p>
 
             <div className="mt-3">
@@ -599,23 +786,11 @@ export default function SettingsPage() {
               ))}
             </div>
 
-            {/* Generate (credit warning) */}
-            <div
-              className="mt-4 rounded-2xl p-4"
-              style={{ background: "rgba(193,68,14,0.05)", border: "1px solid rgba(193,68,14,0.20)" }}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-semibold flex items-center gap-1.5" style={{ color: C.terra, fontSize: 14.5 }}>
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    {GENERATE_ROW.title}
-                  </p>
-                  <p className="mt-0.5" style={{ color: C.muted, fontSize: 12.5, lineHeight: 1.5 }}>
-                    {GENERATE_ROW.desc}
-                  </p>
-                </div>
-                <Toggle on={!!flags[GENERATE_ROW.key]} onChange={(v) => setFlag(GENERATE_ROW.key, v)} danger />
-              </div>
+            <h2 className="font-bold mt-6" style={{ color: C.dark, fontSize: 17 }}>
+              Email
+            </h2>
+            <div className="mt-3">
+              <EmailPrefsRow />
             </div>
           </div>
         )}

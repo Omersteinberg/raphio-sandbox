@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { TRACK_LABEL_WIDTH } from "@/lib/timelineLayout";
 
-export default function TimelinePlayhead({ position, pixelsPerSecond, height, onSeek }) {
-  const x = position * pixelsPerSecond + TRACK_LABEL_WIDTH;
+export default function TimelinePlayhead({ position, pixelsPerSecond, height, onSeek, labelWidth = TRACK_LABEL_WIDTH }) {
+  const x = position * pixelsPerSecond + labelWidth;
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDown = useCallback((e) => {
@@ -22,11 +22,11 @@ export default function TimelinePlayhead({ position, pixelsPerSecond, height, on
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const scrollLeft = container.scrollLeft;
-      const x = clientX - rect.left + scrollLeft - TRACK_LABEL_WIDTH;
+      const x = clientX - rect.left + scrollLeft - labelWidth;
       const time = Math.max(0, x / pixelsPerSecond);
       onSeek(time);
     },
-    [isDragging, onSeek, pixelsPerSecond]
+    [isDragging, onSeek, pixelsPerSecond, labelWidth]
   );
 
   const handleUp = useCallback(() => {

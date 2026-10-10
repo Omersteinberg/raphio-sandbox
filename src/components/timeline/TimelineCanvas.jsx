@@ -4,7 +4,7 @@ import TimelineRuler from "./TimelineRuler";
 import TimelinePlayhead from "./TimelinePlayhead";
 import TimelineTrack from "./TimelineTrack";
 import { toast } from "@/lib/toast";
-import { TRACK_HEIGHT, TOTAL_TRACKS, TRACK_LABEL_WIDTH } from "@/lib/timelineLayout";
+import { TRACK_HEIGHT, TOTAL_TRACKS, TRACK_LABEL_WIDTH, TRACK_LABEL_WIDTH_MOBILE } from "@/lib/timelineLayout";
 
 const SNAP_THRESHOLD_PX = 10; // Snap within 10 pixels
 const MIN_DURATION = 0.5; // Shortest a clip can be trimmed to (seconds)
@@ -47,7 +47,9 @@ export default function TimelineCanvas({
   onAssetDrop,
   sessionId,
   onBoundaryClick,
+  isMobile = false,
 }) {
+  const labelWidth = isMobile ? TRACK_LABEL_WIDTH_MOBILE : TRACK_LABEL_WIDTH;
   const containerRef = useRef(null);
   // Visible width of the scroll container itself, so timelineWidth (below)
   // can use it as the floor instead of a hardcoded guess. Without this, a
@@ -87,7 +89,7 @@ export default function TimelineCanvas({
   // zoom, and a 1103.5px content box inside a 1103px client box rounds
   // scrollWidth up to 1104 - a phantom 1px horizontal scrollbar.
   const timelineWidth = Math.max(
-    TRACK_LABEL_WIDTH + duration * pixelsPerSecond + 40,
+    labelWidth + duration * pixelsPerSecond + 40,
     Math.floor(containerWidth)
   );
   // Both imported from lib/timelineLayout.js rather than declared locally -
@@ -509,7 +511,7 @@ export default function TimelineCanvas({
     const rect = containerRef.current.getBoundingClientRect();
     const clientX = eventClientX(e);
     if (clientX == null) return;
-    const x = clientX - rect.left + scrollLeft - TRACK_LABEL_WIDTH;
+    const x = clientX - rect.left + scrollLeft - labelWidth;
     const time = x / pixelsPerSecond;
     onSeek(Math.max(0, Math.min(duration, time)));
   };
@@ -640,7 +642,7 @@ export default function TimelineCanvas({
         const proposedStart = updates.startTime ?? dragItem.startTime;
         const proposedDuration = updates.duration ?? dragItem.duration;
         if (wouldBreakTransition(dragItem, proposedStart, proposedDuration)) {
-          toast.error("This clip has a transition — remove it before moving these clips apart.");
+          toast.error("This clip has a transition. Remove it before moving these clips apart.");
           return;
         }
         await onUpdateItem(dragItem.id, updates);
@@ -681,7 +683,7 @@ export default function TimelineCanvas({
       const rect = containerRef.current.getBoundingClientRect();
       // Minus the label column: the pointer is measured against the scroll
       // container, the time axis starts after the labels.
-      const x = e.clientX - rect.left + scrollLeft - TRACK_LABEL_WIDTH;
+      const x = e.clientX - rect.left + scrollLeft - labelWidth;
       let startTime = Math.max(0, x / pixelsPerSecond);
 
       // The panel sends the asset's real length, so the gap this is fitted into
@@ -763,6 +765,7 @@ export default function TimelineCanvas({
             duration={duration}
             pixelsPerSecond={pixelsPerSecond}
             width={timelineWidth}
+            labelWidth={labelWidth}
           />
         </div>
 
@@ -795,6 +798,7 @@ export default function TimelineCanvas({
             overlappingItems={videoOverlaps}
             dragPreview={dragPreview}
             sessionId={sessionId}
+            labelWidth={labelWidth}
             boundaries={videoBoundaries}
             onBoundaryClick={onBoundaryClick}
           />
@@ -820,6 +824,7 @@ export default function TimelineCanvas({
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
             sessionId={sessionId}
+            labelWidth={labelWidth}
           />
 
           {/* Audio/Music Track - uploads and AI background music merged into
@@ -848,6 +853,7 @@ export default function TimelineCanvas({
             overlappingItems={noOverlaps}
             dragPreview={dragPreview}
             sessionId={sessionId}
+            labelWidth={labelWidth}
           />
 
           {/* Text Track (Phase 1) - each block is a text overlay sourced from
@@ -869,6 +875,7 @@ export default function TimelineCanvas({
             getAudioAsset={getAudioAsset}
             overlappingItems={noOverlaps}
             sessionId={sessionId}
+            labelWidth={labelWidth}
             onUpdateOverlay={onUpdateOverlay}
           />
 
@@ -886,12 +893,12 @@ export default function TimelineCanvas({
               line/playhead/boundary markers. Pointer-events-none: nothing
               should ever exist past `duration` anyway, but this must never
               be what blocks a drop there if it did. */}
-          {duration * pixelsPerSecond + TRACK_LABEL_WIDTH < timelineWidth && (
+          {duration * pixelsPerSecond + labelWidth < timelineWidth && (
             <div
               className="absolute top-0 bg-background pointer-events-none"
               style={{
-                left: duration * pixelsPerSecond + TRACK_LABEL_WIDTH,
-                width: timelineWidth - (duration * pixelsPerSecond + TRACK_LABEL_WIDTH),
+                left: duration * pixelsPerSecond + labelWidth,
+                width: timelineWidth - (duration * pixelsPerSecond + labelWidth),
                 height: trackHeight * totalTracks,
               }}
             />
@@ -902,7 +909,7 @@ export default function TimelineCanvas({
             <div
               className="absolute top-0 w-px bg-accent pointer-events-none z-30"
               style={{
-                left: snapIndicator.time * pixelsPerSecond + TRACK_LABEL_WIDTH,
+                left: snapIndicator.time * pixelsPerSecond + labelWidth,
                 height: trackHeight * totalTracks,
                 boxShadow: "0 0 4px hsl(var(--accent) / 0.6)",
               }}
@@ -920,6 +927,7 @@ export default function TimelineCanvas({
             pixelsPerSecond={pixelsPerSecond}
             height={trackHeight * totalTracks}
             onSeek={onSeek}
+            labelWidth={labelWidth}
           />
         </div>
       </div>

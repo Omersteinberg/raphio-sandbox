@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion,  AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { createCheckoutSession } from '../services/credits';
+import { createCheckoutSession, getTransactions } from '../services/credits';
 import { applyCode } from '../services/promo';
 import { takeReturnTo } from '../lib/returnTo';
 import { describeError } from '../lib/errorDetail';
+import { PACKS, savePct } from '../lib/pricing';
+import { DURATION_CREDIT_TIERS } from '../lib/limits';
 import { Button } from '../components/ui/button';
 import {
-  CheckCircle, XCircle, ArrowLeft, Sparkles,
-  Zap, Layers, Crown, Infinity, ShieldCheck, Clock, Ticket,
+  CheckCircle, ArrowLeft,
+  Zap, Layers, Crown, Infinity, Clock, Ticket, Receipt,
 } from 'lucide-react';
 
 const C = {
@@ -27,47 +29,45 @@ const C = {
   redBg:      'rgba(185,28,28,0.07)',
 };
 
-const TIERS = [
-  {
-    id: 'free', stripeId: null, label: 'Free', price: 0, credits: 3,
-    save: null, icon: Sparkles,
-    features: [
-      { text: '1 short video (≤15s)',    ok: true },
-    ],
-    cta: 'Start Free', popular: false,
-  },
-  {
-    id: 'starter', stripeId: 6, label: 'Starter', price: 29, credits: 6,
-    save: null, icon: Zap,
-    features: [
-      { text: '2 short videos (≤15s)',        ok: true },
-    ],
-    cta: 'Buy Starter', popular: false,
-  },
-  {
-    id: 'creator', stripeId: 12, label: 'Creator', price: 55, credits: 12,
-    save: 'Save 8%', icon: Layers,
-    features: [
-      { text: '2 medium videos (≤30s)',  ok: true },
-    ],
-    cta: 'Buy Creator Pack', popular: true,
-  },
-  {
-    id: 'studio', stripeId: 24, label: 'Studio', price: 99, credits: 24,
-    save: 'Save 17%', icon: Crown,
-    features: [
-      { text: '2 long videos (≤60s)',        ok: true },
-    ],
-    cta: 'Buy Studio Pack', popular: false,
-  },
-];
+const PACK_UI = {
+  starter: { icon: Zap, cta: 'Buy Starter' },
+  creator: { icon: Layers, cta: 'Buy Creator Pack' },
+  studio: { icon: Crown, cta: 'Buy Studio Pack' },
+};
 
-const COST_TABLE = [
-  { label: '15s', credits: 3 },
-  { label: '30s', credits: 6 },
-  { label: '45s', credits: 9 },
-  { label: '60s', credits: 12 },
-];
+const TIERS = PACKS.map((p) => {
+  const pct = savePct(p);
+  return {
+    ...p,
+    popular: !!p.popular,
+    save: pct > 0 ? `Save ${pct}%` : null,
+    icon: PACK_UI[p.id]?.icon || Zap,
+    cta: PACK_UI[p.id]?.cta || `Buy ${p.label}`,
+  };
+});
+
+const COST_TABLE = DURATION_CREDIT_TIERS.map((t) => ({ label: `${t.maxSeconds}s`, credits: t.credits }));
+
+const TX_LABELS = {
+  PURCHASE: 'Purchase',
+  VIDEO_GENERATION: 'Video',
+  REFUND: 'Refund',
+  CLIP_REGENERATION: 'Clip redo',
+  CLIP_REFUND: 'Clip refund',
+  SHARE_BONUS: 'Share bonus',
+  PROMO_REDEMPTION: 'Promo code',
+  SIGNUP_BONUS: 'Welcome credits',
+  ADMIN_ADJUSTMENT: 'Adjustment',
+};
+
+const HISTORY_PAGE = 20;
+
+// Short date for a history row.
+function fmtTxDate(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 const TRUST = [
   { icon: Infinity,    text: 'Credits never expire' },
@@ -107,9 +107,46 @@ export default function BuyCreditsPage() {
   const [redeeming, setRedeeming] = useState(false);
   const [promoMsg, setPromoMsg] = useState(null); // { type: 'success' | 'error', text }
   const [appliedDiscount, setAppliedDiscount] = useState(null); // { code, discountType, discountValue }
+  const [history, setHistory] = useState(null);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyError, setHistoryError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const success  = searchParams.get('success');
   const canceled = searchParams.get('canceled');
+
+  // Loads the latest credit transactions for the history table.
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await getTransactions({ limit: HISTORY_PAGE });
+      setHistory(res?.data?.transactions || []);
+      setHistoryTotal(Number(res?.data?.total) || 0);
+      setHistoryError(false);
+    } catch {
+      setHistoryError(true);
+    }
+  }, []);
+
+  // Appends the next page of transactions. On failure the rows stay and the button allows a retry.
+  const loadMoreHistory = async () => {
+    if (!history || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await getTransactions({ limit: HISTORY_PAGE, offset: history.length });
+      const seen = new Set(history.map((tx) => tx.id));
+      setHistory([...history, ...(res?.data?.transactions || []).filter((tx) => !seen.has(tx.id))]);
+      setHistoryTotal(Number(res?.data?.total) || 0);
+    } catch {
+      return;
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    if (success === 'true') return;
+    loadHistory();
+  }, [success, loadHistory]);
 
   useEffect(() => {
     if (success !== 'true') return;
@@ -123,7 +160,6 @@ export default function BuyCreditsPage() {
   }, [success, refreshCredits]);
 
   const handleBuy = async (tier) => {
-    if (!tier.stripeId) { navigate('/create'); return; }
     setLoadingTier(tier.id);
     setError('');
     try {
@@ -149,7 +185,8 @@ export default function BuyCreditsPage() {
         setPromoMsg({ type: 'success', text: `${formatDiscount(result)} applied at checkout.` });
       } else {
         await refreshCredits();
-        setPromoMsg({ type: 'success', text: `You got ${result.creditsAdded} credit${result.creditsAdded === 1 ? '' : 's'}!` });
+        loadHistory();
+        setPromoMsg({ type: 'success', text: `You got ${result.creditsAdded} credit${result.creditsAdded === 1 ? '' : 's'}!${Number.isFinite(result.credits) ? ` You now have ${result.credits} credits.` : ''}` });
       }
       setPromoCode('');
     } catch (err) {
@@ -214,9 +251,15 @@ export default function BuyCreditsPage() {
           <h1 className="text-4xl font-extrabold mb-3 leading-tight" style={{ color: C.charcoal }}>
             {canceled === 'true' ? 'Pick up where you left off' : 'Top up your credits'}
           </h1>
-          <p className="text-sm mb-5" style={{ color: C.muted }}>
+          <p className="text-sm mb-3" style={{ color: C.muted }}>
             Buy once. Create whenever you want.
           </p>
+          {credits != null && (
+            <p className="inline-block text-sm font-bold px-4 py-1.5 rounded-full mb-2"
+              style={{ background: C.faint, color: C.charcoal, border: `1px solid ${C.cardBorder}` }}>
+              You have <span style={{ color: C.terra }}>{credits}</span> credit{credits === 1 ? '' : 's'}
+            </p>
+          )}
         </motion.div>
 
         {/* Trust strip */}
@@ -246,13 +289,13 @@ export default function BuyCreditsPage() {
         </AnimatePresence>
 
         {/* Pricing cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-stretch max-w-4xl mx-auto">
           {TIERS.map((tier, i) => {
             const Icon = tier.icon;
             const isLoading = loadingTier === tier.id;
             const isHovered = hoveredTier === tier.id;
             const dPrice = discountedPrice(tier.price, appliedDiscount);
-            const isDiscounted = !!appliedDiscount && tier.price > 0 && dPrice !== tier.price;
+            const isDiscounted = !!appliedDiscount && dPrice !== tier.price;
 
             return (
               <motion.div key={tier.id}
@@ -296,17 +339,8 @@ export default function BuyCreditsPage() {
                 )}
 
                 {/* The internal container structure is now 100% identical across ALL cards */}
-                <div className="flex flex-col flex-1 p-6 pt-4 justify-between">
+                <div className="flex flex-col flex-1 p-6 pt-7 justify-between">
                   <div>
-                    {/* Badge row */}
-                    {tier.badge && (
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full inline-block mb-3"
-                        style={{ background: C.faint, color: C.muted }}>
-                        {tier.badge}
-                      </span>
-                    )}
-                    {!tier.badge && <div className="mb-3" style={{ height: '28px' }} />}
-
                     {/* Icon + Name */}
                     <div className="flex items-center gap-2 mb-6">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -319,36 +353,29 @@ export default function BuyCreditsPage() {
                     </div>
 
                     {/* Price row */}
-                    <div className="flex items-end gap-1.5 mb-4">
-                      {tier.price === 0
-                        ? <span className="text-4xl font-extrabold leading-none" style={{ color: C.charcoal }}>
-                            Free
-                          </span>
-                        : <>
-                            <span className="text-base font-bold self-start mt-1" style={{ color: C.muted }}>$</span>
-                            <span className="text-4xl font-extrabold leading-none" style={{ color: C.charcoal }}>
-                              {fmtMoney(isDiscounted ? dPrice : tier.price)}
-                            </span>
-                            {isDiscounted && (
-                              <span className="text-base font-semibold self-start mt-1 line-through" style={{ color: C.muted }}>
-                                ${tier.price}
-                              </span>
-                            )}
-                            <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>
-                              one-time
-                            </span>
-                            {tier.save && !isDiscounted && (
-                              <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
-                                style={{
-                                  background: 'rgba(21,128,61,0.10)',
-                                  color: C.green,
-                                  border: '1px solid rgba(21,128,61,0.18)',
-                                }}>
-                                {tier.save}
-                              </span>
-                            )}
-                          </>
-                      }
+                    <div className="flex flex-wrap items-end gap-1.5 mb-4">
+                      <span className="text-base font-bold self-start mt-1" style={{ color: C.muted }}>$</span>
+                      <span className="text-4xl font-extrabold leading-none" style={{ color: C.charcoal }}>
+                        {fmtMoney(isDiscounted ? dPrice : tier.price)}
+                      </span>
+                      {isDiscounted && (
+                        <span className="text-base font-semibold self-start mt-1 line-through" style={{ color: C.muted }}>
+                          ${tier.price}
+                        </span>
+                      )}
+                      <span className="text-xs font-semibold self-end mb-0.5" style={{ color: C.muted }}>
+                        one-time
+                      </span>
+                      {tier.save && !isDiscounted && (
+                        <span className="self-end mb-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{
+                            background: 'rgba(21,128,61,0.10)',
+                            color: C.green,
+                            border: '1px solid rgba(21,128,61,0.18)',
+                          }}>
+                          {tier.save}
+                        </span>
+                      )}
                     </div>
 
                     {/* Credits */}
@@ -356,22 +383,13 @@ export default function BuyCreditsPage() {
                       {tier.credits} credits
                     </p>
 
-                    {/* Feature list */}
-                    <ul className="flex flex-col gap-3 mb-7">
-                      {tier.features.map((f) => (
-                        <li key={f.text} className="flex items-start gap-2">
-                          {f.ok
-                            ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                                style={{ color: C.green }} />
-                            : <XCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-                                style={{ color: 'rgba(193,68,14,0.35)' }} />
-                          }
-                          <span className="text-xs leading-snug" style={{ color: C.charcoal }}>
-                            {f.text}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    {/* Example */}
+                    <div className="flex items-start gap-2 mb-7">
+                      <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: C.green }} />
+                      <span className="text-xs leading-snug" style={{ color: C.charcoal }}>
+                        Enough for {tier.example}
+                      </span>
+                    </div>
                   </div>
 
                   {/* CTA Wrapper */}
@@ -393,13 +411,6 @@ export default function BuyCreditsPage() {
                               color: '#fff',
                               border: 'none',
                               boxShadow: `0 4px 16px ${C.terraGlow}`,
-                            }
-                          : tier.price === 0
-                          ? {
-                              // Free, resting: faint beige. Hover: slightly lighter warm grey
-                              background: isHovered ? '#EDE8E2' : C.faint,
-                              color: C.charcoal,
-                              border: `1.5px solid ${C.cardBorder}`,
                             }
                           : {
                               // Starter + Studio, resting: white with terra border. Hover: very light terra tint
@@ -504,17 +515,69 @@ export default function BuyCreditsPage() {
           </p>
         </motion.div>
 
-        {/* Bottom CTA */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
-          className="text-center py-4 rounded-2xl"
-          style={{ background: C.faint, border: `1px solid ${C.cardBorder}` }}>
-          <p className="text-sm font-semibold mb-1" style={{ color: C.charcoal }}>Not sure yet?</p>
-          <p className="text-xs mb-3" style={{ color: C.muted }}>Start with free credits to explore the platform. No card needed.</p>
-          <button onClick={() => navigate('/create')}
-            className="text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-60"
-            style={{ color: C.terra }}>
-            Try it free →
-          </button>
+        {/* Credit history */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="rounded-2xl p-5 mx-auto max-w-2xl"
+          style={{ background: C.card, border: `1.5px solid ${C.cardBorder}` }}>
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <Receipt className="w-3.5 h-3.5" style={{ color: C.terra }} />
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted }}>
+              Credit history
+            </p>
+          </div>
+          {historyError ? (
+            <p className="text-xs text-center py-3" style={{ color: C.muted }}>
+              We couldn't load your history. Please refresh to try again.
+            </p>
+          ) : history === null ? (
+            <p className="text-xs text-center py-3" style={{ color: C.muted }}>Loading…</p>
+          ) : history.length === 0 ? (
+            <p className="text-sm text-center py-3" style={{ color: C.muted }}>No credit activity yet</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ color: C.muted }}>
+                    <th className="text-left font-semibold py-2 pr-3">Date</th>
+                    <th className="text-left font-semibold py-2 pr-3">Description</th>
+                    <th className="text-right font-semibold py-2 pr-3">Credits</th>
+                    <th className="text-right font-semibold py-2">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((tx) => {
+                    const amount = Number(tx.amount) || 0;
+                    return (
+                      <tr key={tx.id} style={{ borderTop: `1px solid ${C.faint}`, color: C.charcoal }}>
+                        <td className="py-2 pr-3 whitespace-nowrap">{fmtTxDate(tx.created_at)}</td>
+                        <td className="py-2 pr-3">
+                          {TX_LABELS[tx.type] || 'Credit change'}
+                          {tx.video_title && (
+                            <span className="block truncate max-w-[220px]" style={{ color: C.muted }} title={tx.video_title}>
+                              {tx.video_title}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 text-right font-bold whitespace-nowrap"
+                          style={{ color: amount >= 0 ? C.green : C.charcoal }}>
+                          {amount > 0 ? `+${amount}` : amount}
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">{tx.balance_after}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {history.length < historyTotal && (
+                <div className="text-center mt-3">
+                  <button type="button" onClick={loadMoreHistory} disabled={loadingMore}
+                    className="text-xs font-semibold disabled:opacity-60" style={{ color: C.terra }}>
+                    {loadingMore ? 'Loading…' : 'Show more'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
 
       </div>

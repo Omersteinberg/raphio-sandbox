@@ -114,10 +114,9 @@ export async function getShareUrl(sessionId) {
 }
 
 /**
- * Tell the backend a native share (navigator.share()) actually completed, so it
- * can award the one-time share credit bonus. Only call this after
- * navigator.share() resolves successfully — never on click, never on cancel.
- * The backend re-checks ownership and once-per-video state; this call never
+ * Tell the backend the user shared, so it can award the one-time share credit
+ * bonus. Called after a native share resolves, a copy-link, or a Facebook/X
+ * share click. Never on a cancelled native share. The backend re-checks ownership and once-per-video state; this call never
  * grants credit itself. Returns { awarded, creditsAdded?, credits? }.
  */
 export async function notifyShareComplete(sessionId) {
@@ -129,10 +128,11 @@ export async function notifyShareComplete(sessionId) {
  * List sessions
  * @returns {{ data: Array, total: number }}
  */
-export async function listSessions({ stage, status, limit, offset } = {}) {
+export async function listSessions({ stage, status, limit, offset, sort } = {}) {
   const params = new URLSearchParams();
   if (stage) params.append("stage", stage);
   if (status) params.append("status", status);
+  if (sort) params.append("sort", sort);
   if (limit) params.append("limit", limit.toString());
   if (offset != null) params.append("offset", offset.toString());
 

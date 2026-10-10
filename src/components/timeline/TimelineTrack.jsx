@@ -1,6 +1,19 @@
 import { Film, Music, Mic, Blend, Type } from "lucide-react";
 import TimelineItem from "./TimelineItem";
 import TimelineOverlayItem from "./TimelineOverlayItem";
+import { TRACK_LABEL_WIDTH } from "@/lib/timelineLayout";
+
+const TRANSITION_NAMES = {
+  crossfade: "Crossfade",
+  fadeToBlack: "Fade to black",
+  wipe: "Wipe",
+  slide: "Slide",
+};
+
+// Human name for a transition type, defaulting to "Transition".
+function transitionName(type) {
+  return TRANSITION_NAMES[type] || "Transition";
+}
 
 export default function TimelineTrack({
   label,
@@ -25,6 +38,7 @@ export default function TimelineTrack({
   boundaries = null, // VIDEO row only - see TimelineCanvas's videoBoundaries
   onBoundaryClick,
   onUpdateOverlay, // TEXT row only - (itemId, overlayId, updates) => void, mirrors useTimeline's updateOverlay
+  labelWidth = TRACK_LABEL_WIDTH,
 }) {
   // Which ROW this is, not what any item stores: the canvas renders Narration
   // at trackIndex 0 and the merged Audio/Music row at trackIndex 1. Icon and
@@ -58,20 +72,15 @@ export default function TimelineTrack({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
-      {/* Track Label. Its width is TRACK_LABEL_WIDTH in TimelineCanvas, which
-          converts pointer positions to times against it - keep the two in
-          step (w-32 / 128px; TimelineRuler's corner box + left-32 tick offset
-          mirror this). No fill of its own (was a separate bg-card panel with
-          an inset shadow) - it now sits directly on the row's own wash with
-          only a hairline border-r as a separator, so the label reads as part
-          of the row rather than a boxed-off header competing with it. */}
-      <div className="relative z-10 w-32 flex-shrink-0 flex items-center gap-2.5 pl-4 pr-2 border-r border-border/60">
-        {/* Reverted to neutral (a terracotta pass here didn't hold up), but
-            bolder/more prominent than the original muted treatment: full
-            foreground (not muted-foreground/90), a slightly larger icon,
-            and font-bold instead of font-semibold. */}
-        <Icon className="w-4 h-4 text-foreground shrink-0" />
-        <span className="text-xs font-bold text-foreground tracking-tight leading-tight">{label}</span>
+      {/* Track Label. Width is the canvas's labelWidth (icon only on mobile),
+          which TimelineCanvas also uses to convert pointer positions to times. */}
+      <div
+        className="relative z-10 flex-shrink-0 flex items-center justify-center md:justify-start gap-2.5 md:pl-4 md:pr-2 border-r border-border/60"
+        style={{ width: labelWidth }}
+        title={label}
+      >
+        <Icon className="w-4 h-4 text-foreground shrink-0" aria-hidden="true" />
+        <span className="sr-only md:not-sr-only text-xs font-bold text-foreground tracking-tight leading-tight">{label}</span>
       </div>
 
       {/* Track Content */}
@@ -124,8 +133,8 @@ export default function TimelineTrack({
 
         {/* Empty state */}
         {items.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm pointer-events-none">
-            {trackType === "TEXT" ? "No text overlays on this clip yet" : `Drag ${trackType.toLowerCase()} assets here`}
+          <div className="absolute inset-0 flex items-center justify-start pl-3 whitespace-nowrap text-muted-foreground text-sm pointer-events-none">
+            {trackType === "TEXT" ? "Text overlays are coming soon" : `Drag ${trackType.toLowerCase()} assets here`}
           </div>
         )}
 
@@ -137,8 +146,8 @@ export default function TimelineTrack({
             no-transition marker nearly invisible at rest - explicitly rolled
             back per feedback, not carried forward).
 
-            No transition yet: a small diamond at rest (scale-[0.55] of the
-            24px hit box, ~13px), opaque (bg-card + border + shadow-sm) so it
+            No transition yet: a small diamond at rest (scale-[0.75] of the
+            24px hit box, ~18px), opaque (bg-card + border + shadow-sm) so it
             reads clearly against every track colour at a glance, showing the
             same Blend icon as an active transition (counter-rotated so it
             stays upright inside the rotated diamond) rather than sitting
@@ -159,12 +168,12 @@ export default function TimelineTrack({
           <button
             key={b.id}
             onClick={(e) => { e.stopPropagation(); onBoundaryClick?.(b); }}
-            title={b.transition ? `Crossfade, ${b.transition.duration.toFixed(1)}s` : "Add transition"}
-            aria-label={b.transition ? `Edit transition, currently crossfade ${b.transition.duration.toFixed(1)} seconds` : "Add transition between these clips"}
+            title={b.transition ? `${transitionName(b.transition.type)}, ${b.transition.duration.toFixed(1)}s` : "Add transition"}
+            aria-label={b.transition ? `Edit transition, currently ${transitionName(b.transition.type).toLowerCase()} ${b.transition.duration.toFixed(1)} seconds` : "Add transition between these clips"}
             className={`group/boundary absolute z-40 w-6 h-6 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-90 ${
               b.transition
                 ? "scale-[0.85] bg-primary text-primary-foreground shadow-sm hover:scale-100"
-                : "scale-[0.55] rotate-45 border border-border bg-card text-muted-foreground shadow-sm hover:scale-100 hover:rotate-0 hover:border-primary/50 hover:text-primary"
+                : "scale-[0.75] rotate-45 border border-border bg-card text-muted-foreground shadow-sm hover:scale-100 hover:rotate-0 hover:border-primary/50 hover:text-primary"
             }`}
             style={{ left: b.time * pixelsPerSecond, top: "50%" }}
           >

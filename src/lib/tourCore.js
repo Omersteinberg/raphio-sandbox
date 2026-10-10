@@ -98,6 +98,7 @@ export function alignElementToTop(element) {
 export const DRIVER_OPTS = {
   showProgress: true,
   allowClose: true,
+  overlayClickBehavior: "close",
   // Lock <body> for pages where it genuinely is the scroll container. Kept
   // alongside the per-step nested-container lock below rather than replaced
   // by it, since some simpler screens may have no nested wrapper at all.
