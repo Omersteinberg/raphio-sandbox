@@ -17,10 +17,21 @@ export default function StoryboardReview({
   // Which clip has its "what should change?" box open, and what is typed in it.
   const [asking, setAsking] = useState(null);
   const [note, setNote] = useState("");
+  // The frames of that clip ticked for redrawing, by shotIndex. All of them to start with.
+  const [picked, setPicked] = useState([]);
 
-  const openAsk = (index) => { setAsking(index); setNote(""); };
+  const openAsk = (index) => {
+    setAsking(index);
+    setNote("");
+    setPicked(stillsFor(index).map((s) => s.shotIndex));
+  };
+  const togglePick = (shotIndex) => setPicked((prev) => (
+    prev.includes(shotIndex) ? prev.filter((n) => n !== shotIndex) : [...prev, shotIndex]
+  ));
   const submitRedraw = (index) => {
-    onRedraw(index, note.trim());
+    const all = stillsFor(index).length;
+    // Every frame ticked is the same as no selection, so the API redraws the whole clip.
+    onRedraw(index, note.trim(), picked.length === all ? [] : picked);
     setAsking(null);
     setNote("");
   };
@@ -54,6 +65,32 @@ export default function StoryboardReview({
               </div>
               {onRedraw && asking === clip.index && !locked && (
                 <div className="space-y-2">
+                  {stills.length > 1 && (
+                    <div>
+                      <p className="text-xs text-ink-muted mb-1.5">Pick the frames to redraw</p>
+                      <div className={`grid gap-2 ${tall ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
+                        {stills.map((s) => {
+                          const on = picked.includes(s.shotIndex);
+                          return (
+                            <button
+                              key={s.shotIndex}
+                              type="button"
+                              role="checkbox"
+                              aria-checked={on}
+                              aria-label={`Frame ${s.shotIndex + 1}`}
+                              onClick={() => togglePick(s.shotIndex)}
+                              className={`relative block w-full rounded-lg overflow-hidden border-2 ${box} ${on ? "border-terra" : "border-border/30 opacity-50"}`}
+                            >
+                              <img src={s.thumbUrl || s.url} alt="" className="w-full h-full object-cover" />
+                              <span className={`absolute top-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${on ? "bg-terra text-white" : "bg-white/80 text-ink-muted"}`}>
+                                {on ? "Redraw" : "Keep"} {s.shotIndex + 1}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <Textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
@@ -66,7 +103,7 @@ export default function StoryboardReview({
                   />
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => setAsking(null)}>Cancel</Button>
-                    <Button size="sm" onClick={() => submitRedraw(clip.index)}>
+                    <Button size="sm" onClick={() => submitRedraw(clip.index)} disabled={stills.length > 0 && picked.length === 0}>
                       <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> {note.trim() ? "Redraw with this change" : "Redraw"}
                     </Button>
                   </div>

@@ -48,9 +48,10 @@ export async function backToScript(sessionId) {
   return data;
 }
 
-// Redraw one clip's storyboard frames. Free. `instruction` is what the user wants changed.
-export async function redrawStills(sessionId, clipIndex, instruction = "") {
-  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/stills/${clipIndex}/regenerate`, { instruction });
+// Redraw one clip's storyboard frames. Free. `instruction` is what the user wants changed,
+// `shots` the zero-based frames to redraw (every frame when empty).
+export async function redrawStills(sessionId, clipIndex, instruction = "", shots = []) {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/stills/${clipIndex}/regenerate`, { instruction, shots });
   return data;
 }
 
