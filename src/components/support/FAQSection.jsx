@@ -46,11 +46,11 @@ export const FAQ_DATA = [
       },
       {
         q: "How do I get credits?",
-        a: `New accounts start with 3 free credits. You can buy more (${PACKS.map((p) => `${p.credits} credits for $${p.price}`).join(", ")}), earn 3 bonus credits by sharing a finished video (once per video), or redeem a promo code.`,
+        a: `New accounts start with 3 free credits. You can buy more (${PACKS.map((p) => `${p.credits} credits for $${p.price}`).join(", ")}), or redeem a promo code.`,
       },
       {
-        q: "Can I earn free credits?",
-        a: "Share any finished video and get 3 free credits. Each video earns the bonus once.",
+        q: "Do I get anything for sharing?",
+        a: "Share a finished video and we'll email you a 10% off code for your next credit purchase.",
       },
       {
         q: "Do credits expire?",
