@@ -48,9 +48,9 @@ export async function backToScript(sessionId) {
   return data;
 }
 
-// Redraw one clip's storyboard frames. Free.
-export async function redrawStills(sessionId, clipIndex) {
-  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/stills/${clipIndex}/regenerate`);
+// Redraw one clip's storyboard frames. Free. `instruction` is what the user wants changed.
+export async function redrawStills(sessionId, clipIndex, instruction = "") {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/stills/${clipIndex}/regenerate`, { instruction });
   return data;
 }
 
@@ -66,8 +66,8 @@ export async function approveFrames(sessionId) {
   return data;
 }
 
-// Redraw one clip of a finished run and recut.
-export async function regenerateClip(sessionId, clipIndex) {
-  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/clips/${clipIndex}/regenerate`);
+// Redraw one clip of a finished run and recut. `instruction` is what the user wants changed.
+export async function regenerateClip(sessionId, clipIndex, instruction = "") {
+  const { data } = await axios.post(`${API_BASE}/${sessionId}/pipeline/clips/${clipIndex}/regenerate`, { instruction });
   return data;
 }

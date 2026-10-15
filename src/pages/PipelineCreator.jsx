@@ -161,9 +161,9 @@ export default function PipelineCreator({
   };
 
   // Redraw one clip's frames while the rest stay on screen.
-  const redrawClip = async (clipIndex) => {
+  const redrawClip = async (clipIndex, instruction = "") => {
     setRedrawing(clipIndex);
-    if (!(await redraw(clipIndex))) setRedrawing(null);
+    if (!(await redraw(clipIndex, instruction))) setRedrawing(null);
   };
 
   // Leave the storyboard for the script; the call answers with the reopened run.

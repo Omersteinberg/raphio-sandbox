@@ -232,8 +232,10 @@ export default function VideoResult({
         });
         claimShareBonus();
         return;
-      } catch {
-        /* cancelled or unsupported → fall back to the desktop popover */
+      } catch (err) {
+        // Closing the native sheet is a decision, not a failure: don't open the popover on top of it.
+        if (err?.name === "AbortError") return;
+        /* unsupported or blocked → fall back to the desktop popover */
       }
     }
     if (shareOpen) {

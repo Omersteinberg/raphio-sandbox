@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { ArrowLeft, Loader2, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import CreditAffordabilityCard from "@/components/session/CreditAffordabilityCard";
 
 // The stills per clip next to its line. Approving charges credits and renders the video.
@@ -12,6 +14,16 @@ export default function StoryboardReview({
   const tall = aspectRatio === "9:16";
   const box = tall ? "aspect-[9/16]" : "aspect-video";
   const locked = busy || framing;
+  // Which clip has its "what should change?" box open, and what is typed in it.
+  const [asking, setAsking] = useState(null);
+  const [note, setNote] = useState("");
+
+  const openAsk = (index) => { setAsking(index); setNote(""); };
+  const submitRedraw = (index) => {
+    onRedraw(index, note.trim());
+    setAsking(null);
+    setNote("");
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -31,7 +43,7 @@ export default function StoryboardReview({
                 <div className="flex items-center gap-3">
                   {clip.duration ? <span className="text-xs text-ink-muted">{Number(clip.duration).toFixed(1)}s</span> : null}
                   {onRedraw && (
-                    <Button variant="outline" size="sm" onClick={() => onRedraw(clip.index)} disabled={locked}>
+                    <Button variant="outline" size="sm" onClick={() => (asking === clip.index ? setAsking(null) : openAsk(clip.index))} disabled={locked}>
                       {drawing
                         ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                         : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
@@ -40,13 +52,33 @@ export default function StoryboardReview({
                   )}
                 </div>
               </div>
+              {onRedraw && asking === clip.index && !locked && (
+                <div className="space-y-2">
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    maxLength={1000}
+                    autoFocus
+                    aria-label={`What should change in clip ${i + 1}`}
+                    placeholder="What should change? e.g. make the kitchen brighter. Leave empty for a fresh take."
+                    className="text-sm"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setAsking(null)}>Cancel</Button>
+                    <Button size="sm" onClick={() => submitRedraw(clip.index)}>
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> {note.trim() ? "Redraw with this change" : "Redraw"}
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className={`grid gap-2 ${tall ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
                 {stills.length === 0 && (framing ? (
                   <div className={`w-full rounded-lg bg-muted animate-pulse ${box}`} />
                 ) : (
                   <button
                     type="button"
-                    onClick={onRedraw ? () => onRedraw(clip.index) : undefined}
+                    onClick={onRedraw ? () => openAsk(clip.index) : undefined}
                     disabled={!onRedraw || locked}
                     className={`w-full rounded-lg bg-muted border border-dashed border-border/60 flex flex-col items-center justify-center gap-1 text-xs text-ink-muted ${box}`}
                   >
