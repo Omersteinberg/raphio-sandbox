@@ -114,8 +114,8 @@ export async function getShareUrl(sessionId) {
 }
 
 /**
- * Tell the backend the user shared. Called after a native share resolves, a
- * copy-link, or a Facebook/X share click. Never on a cancelled native share.
+ * Tell the backend a native share completed. Never on a cancelled share, and not for a
+ * copy-link or social-button click, which prove nothing.
  */
 export async function notifyShareComplete(sessionId) {
   const response = await axios.post(`${API_BASE}/${sessionId}/share/complete`);

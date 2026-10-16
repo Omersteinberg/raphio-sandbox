@@ -1,4 +1,4 @@
-import { AlertTriangle, Clapperboard, Film, Image, Layers, Mic, PenLine, RefreshCw, RotateCcw, Upload, Users } from "lucide-react";
+import { AlertTriangle, Clapperboard, Film, Image, Layers, Mic, Pen, RefreshCw, RotateCcw, Upload, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProgressChecklist from "@/components/session/ProgressChecklist";
 import useSmoothProgress from "@/hooks/useSmoothProgress";
@@ -17,7 +17,7 @@ const LABELS = {
 
 const ICONS = {
   uploads: Upload,
-  script: PenLine,
+  script: Pen,
   narration: Mic,
   shots: Clapperboard,
   anchors: Users,
@@ -105,7 +105,7 @@ export default function GeneratingStep({ status, stage, progress, detail, hasPho
         caption={status === "GENERATING" ? "This takes a few minutes. You can leave this page, we will email you when it is ready." : null}
         progress={smooth}
         tasks={buildTasks(status, stage, detail, hasPhotos)}
-        headerIcon={status === "SCRIPTING" ? PenLine : status === "FRAMING" ? Image : Film}
+        headerIcon={status === "SCRIPTING" ? Pen : status === "FRAMING" ? Image : Film}
         sessionId={sessionId}
         logPhase={status === "GENERATING" ? "video" : status === "FRAMING" ? "frames" : "script"}
       />

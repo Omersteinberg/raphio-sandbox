@@ -198,7 +198,9 @@ export default function VideoResult({
   const shareReady = sessionId ? shareStatus === "ready" && !!publicShareUrl : !!finalVideoUrl;
   const canOfferShare = showShare && (sessionId || finalVideoUrl);
 
-  // Reports a completed share to the backend. Best-effort.
+  // Reports a COMPLETED native share to the backend. Best-effort. Copying the link or
+  // clicking a social button is not reported: nothing proves the link went anywhere, and
+  // the backend confirms those when someone opens the link.
   const trackShare = () => {
     if (!sessionId) return;
     notifyShareComplete(sessionId).catch(() => {});
@@ -236,7 +238,6 @@ export default function VideoResult({
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
-      trackShare();
       // Show a checkmark on the button itself (the toast alone is easy to miss),
       // then revert and close after the user's had a moment to see it.
       setLinkCopied(true);
@@ -253,7 +254,6 @@ export default function VideoResult({
 
   const openSocialShare = (url) => {
     window.open(url, "_blank", "noopener,noreferrer");
-    trackShare();
     closeSharePopover();
   };
 
