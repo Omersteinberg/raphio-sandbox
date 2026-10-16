@@ -115,6 +115,9 @@ export function useTimeline(sessionId) {
       setDuration(data.duration || 0);
       setPlayheadPosition(data.playheadPos || 0);
       setZoomLevel(data.zoomLevel || 1);
+      // A failed or abandoned export leaves the video short of COMPLETED. The dirty flag
+      // is browser-only, so without this a reload showed "Up to date" for an export that never landed.
+      if (data.videoStatus && data.videoStatus !== "COMPLETED") setHasUnexportedChanges(true);
     } catch (err) {
       console.error("Failed to load timeline:", err);
       toast.error(describeError(err, "We couldn't load your timeline. Please try again.").userMessage);
@@ -623,6 +626,11 @@ export function useTimeline(sessionId) {
     setLoading(true);
     try {
       const video = await sessionService.exportTimeline(sessionId, onProgress);
+      // null means another job took the slot before ours finished, so nothing was exported.
+      if (!video) {
+        toast.error("Your export was interrupted by another operation. Please export again.");
+        return null;
+      }
       toast.success("Export complete!");
       setHasUnexportedChanges(false);
       return video;
