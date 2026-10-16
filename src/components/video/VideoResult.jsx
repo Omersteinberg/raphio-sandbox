@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/services/api";
 import { getShareUrl, notifyShareComplete } from "@/services/session";
-import { useAuth } from "@/hooks/useAuth.jsx";
 import { API_BASE } from "@/config";
 
 /**
@@ -66,8 +65,6 @@ export default function VideoResult({
   const [shareStatus, setShareStatus] = useState("idle");
   const [shareOpen, setShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [shareBonusDone, setShareBonusDone] = useState(false);
-  const { refreshCredits } = useAuth();
   const shareRef = useRef(null);
   const copyTimeoutRef = useRef(null);
   const autoRetriedRef = useRef(false);
@@ -132,7 +129,6 @@ export default function VideoResult({
 
   useEffect(() => {
     autoRetriedRef.current = false;
-    setShareBonusDone(false);
     if (sessionId && finalVideoUrl) fetchShareUrl();
   }, [sessionId, finalVideoUrl, fetchShareUrl]);
 
@@ -202,19 +198,10 @@ export default function VideoResult({
   const shareReady = sessionId ? shareStatus === "ready" && !!publicShareUrl : !!finalVideoUrl;
   const canOfferShare = showShare && (sessionId || finalVideoUrl);
 
-  // Claims the one-time share bonus. Best-effort; the backend decides if it is awarded.
-  const claimShareBonus = () => {
-    if (!sessionId || shareBonusDone) return;
-    notifyShareComplete(sessionId)
-      .then((res) => {
-        if (!res || typeof res.awarded !== "boolean") return;
-        setShareBonusDone(true);
-        if (res.awarded) {
-          toast.success(`+${res.creditsAdded} credits for sharing!`);
-          refreshCredits();
-        }
-      })
-      .catch(() => {});
+  // Reports a completed share to the backend. Best-effort.
+  const trackShare = () => {
+    if (!sessionId) return;
+    notifyShareComplete(sessionId).catch(() => {});
   };
 
   const handleShare = async () => {
@@ -230,7 +217,7 @@ export default function VideoResult({
           text: "Check out this video I created!",
           url: shareUrl,
         });
-        claimShareBonus();
+        trackShare();
         return;
       } catch (err) {
         // Closing the native sheet is a decision, not a failure: don't open the popover on top of it.
@@ -249,7 +236,7 @@ export default function VideoResult({
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
-      claimShareBonus();
+      trackShare();
       // Show a checkmark on the button itself (the toast alone is easy to miss),
       // then revert and close after the user's had a moment to see it.
       setLinkCopied(true);
@@ -266,7 +253,7 @@ export default function VideoResult({
 
   const openSocialShare = (url) => {
     window.open(url, "_blank", "noopener,noreferrer");
-    claimShareBonus();
+    trackShare();
     closeSharePopover();
   };
 
@@ -349,7 +336,7 @@ export default function VideoResult({
               ) : (
                 <Loader2 className="w-4 h-4 animate-spin" />
               )}
-              {sessionId && !shareBonusDone ? "Share · +3 credits" : "Share"}
+              Share
             </Button>
 
             <AnimatePresence>
